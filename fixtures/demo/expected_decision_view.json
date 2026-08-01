@@ -1,0 +1,137 @@
+{
+  "request": {
+    "id": "req_demo",
+    "intent": "Find meeting intelligence for ten consultants",
+    "status": "DECISION_READY"
+  },
+  "company_context": {
+    "facts_used": [
+      { "fact_id": "bf_no_customer_training", "display_name": "Customer-training policy", "display_value": "Customer content cannot train general models", "provenance_label": "Approved privacy policy", "sensitivity": "restricted" },
+      { "fact_id": "bf_residency_us", "display_name": "Approved residency", "display_value": "US", "provenance_label": "Approved privacy policy", "sensitivity": "confidential" },
+      { "fact_id": "bf_low_admin_capacity", "display_name": "Administration capacity", "display_value": "Low", "provenance_label": "Operations owner confirmation", "sensitivity": "confidential" },
+      { "fact_id": "bf_stack_integrations", "display_name": "Required stack fit", "display_value": "Google Workspace, Slack, and Zoom", "provenance_label": "Reconciled Stackfile snapshot 1", "sensitivity": "confidential" }
+    ],
+    "hidden_fact_count": 1,
+    "passport_version": 1,
+    "stack_snapshot": 1
+  },
+  "coverage": {
+    "evaluated_count": 4,
+    "statement": "Best supported action among four executable Packs"
+  },
+  "candidates": [
+    {
+      "id": "fixture_low_price_policy_fail",
+      "name": "Fixture A",
+      "status": "SIRA_INELIGIBLE",
+      "reason_code": "BUYER_POLICY_DATA_USE",
+      "reason": "Fails the buyer's confirmed no-customer-training and approved-residency rules",
+      "preference_score": null,
+      "stack_risk": "MEDIUM",
+      "total_cost": { "amount": "49.00", "currency": "USD" },
+      "evidence": ["ev_fixture_a_product"],
+      "seller_positioning": null
+    },
+    {
+      "id": "fixture_honest_anti_fit",
+      "name": "Fixture B",
+      "status": "SEIL_PASS",
+      "reason_code": "SHARED_CLIENT_WORKSPACE_UNSUPPORTED",
+      "reason": "The seller's published anti-fit rule excludes restricted conversations in shared external-client workspaces",
+      "preference_score": null,
+      "stack_risk": "LOW",
+      "total_cost": { "amount": "79.00", "currency": "USD" },
+      "evidence": ["ev_fixture_b_product"],
+      "seller_positioning": null
+    },
+    {
+      "id": "fixture_eligible_runner_up",
+      "name": "Fixture C",
+      "status": "ELIGIBLE",
+      "reason_code": null,
+      "reason": "Meets hard gates but requires more administration and migration work",
+      "preference_score": 61,
+      "stack_risk": "MEDIUM",
+      "total_cost": { "amount": "99.00", "currency": "USD" },
+      "evidence": ["ev_fixture_c_product"],
+      "seller_positioning": "Seller positioning: Structured controls for teams willing to invest in administration."
+    },
+    {
+      "id": "fixture_selected_fit",
+      "name": "Fixture D",
+      "status": "ELIGIBLE",
+      "reason_code": null,
+      "reason": "Meets required privacy, identity, and integration rules",
+      "preference_score": 86,
+      "stack_risk": "LOW",
+      "total_cost": { "amount": "89.00", "currency": "USD" },
+      "evidence": ["ev_fixture_d_product"],
+      "seller_positioning": "Seller positioning: Native workflow integrations reduce deployment and administration work."
+    }
+  ],
+  "selected_solution_plan": {
+    "solution_plan_id": "sol_buy_fixture_d",
+    "action": "BUY",
+    "component_candidate_ids": ["fixture_selected_fit"],
+    "status": "ELIGIBLE",
+    "preference_score": 86,
+    "stack_risk": "LOW",
+    "total_cost": { "amount": "89.00", "currency": "USD" },
+    "required_evidence_coverage_percent": 100,
+    "maximum_evidence_age_days": 1,
+    "stable_action_ids": ["buy_fixture_selected_fit"],
+    "rank": 1,
+    "stack_patch_id": "patch_consultco_fixture_d"
+  },
+  "counterfactual": {
+    "generic_selected_candidate_id": "fixture_low_price_policy_fail",
+    "company_aware_selected_candidate_id": "fixture_selected_fit",
+    "private_fact_ids_that_changed_result": ["bf_no_customer_training", "bf_residency_us", "bf_low_admin_capacity", "bf_stack_integrations"],
+    "explanation": "A generic price-only shopper selects Fixture A at USD 49.00. ConsultCo policy excludes it because customer training is prohibited and US residency is required; low administration capacity and current-stack compatibility then make Fixture D the best supported eligible plan.",
+    "rejected_candidate_id": "fixture_low_price_policy_fail",
+    "seller_pass_candidate_id": "fixture_honest_anti_fit",
+    "remaining_uncertainties": ["A real Prava sandbox authorization and controlled-merchant entitlement remain external validation gates."]
+  },
+  "stack_patch": {
+    "schema_version": "1.0.0",
+    "patch_id": "patch_consultco_fixture_d",
+    "organization_id": "org_consultco",
+    "base_snapshot": 1,
+    "decision_id": "dec_consultco_v1",
+    "solution_plan_id": "sol_buy_fixture_d",
+    "status": "PROPOSED",
+    "operations": [
+      {
+        "op": "ADD_PRODUCT_INSTANCE",
+        "instance": {
+          "instance_id": "inst_fixture_d_consultco",
+          "product_id": "product_fixture_d",
+          "product_version": "product_fixture_d_v1",
+          "offer_id": "offer_fixture_d_monthly",
+          "lifecycle": "staged",
+          "serves": ["capture_meeting_decisions"],
+          "owners": ["operations_owner"],
+          "users": ["consultants"],
+          "cost": { "amount": "89.00", "currency": "USD", "interval": "monthly" },
+          "dependencies": ["google_workspace", "slack", "zoom"],
+          "entitlement_id": "ent_fixture_d_workspace"
+        }
+      },
+      { "op": "ADD_EDGE", "edge": { "from": "product_fixture_d", "type": "integrates_with", "to": "google_workspace", "criticality": "high" } },
+      { "op": "ADD_EDGE", "edge": { "from": "product_fixture_d", "type": "integrates_with", "to": "slack", "criticality": "medium" } },
+      { "op": "ADD_EDGE", "edge": { "from": "product_fixture_d", "type": "integrates_with", "to": "zoom", "criticality": "high" } },
+      { "op": "ADD_EDGE", "edge": { "from": "capture_meeting_decisions", "type": "fulfilled_by", "to": "product_fixture_d", "criticality": "high" } }
+    ],
+    "prerequisites": ["Exact Purchase Intent approval is current.", "Payment reaches PRAVA_COMPLETED.", "Workspace and ten-seat entitlements are verified."],
+    "rollback_plan": ["Do not activate the staged instance if entitlement verification fails.", "Revoke the staged instance and integration edges after a confirmed full refund."],
+    "cost_impact": { "monthly_delta": "89.00", "currency": "USD" },
+    "risk": "LOW",
+    "expected_outcome": "Consultants can retrieve an agreed client decision, owner, and source moment within 120 seconds.",
+    "created_at": "2026-08-02T01:05:00Z",
+    "content_hash": "sha256:f1e26acc8059e82685f0f9081883a345f837d1e752810d0d418631b4efefddb0"
+  },
+  "approval": { "status": "NOT_REQUESTED", "approval_request_id": null, "intent_hash": null },
+  "payment": { "status": "NOT_STARTED", "provider_session_reference": null },
+  "fulfillment": { "status": "NOT_STARTED", "verified_entitlement_ids": [] },
+  "receipt": null
+}

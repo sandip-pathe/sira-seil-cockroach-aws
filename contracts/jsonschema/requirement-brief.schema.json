@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/requirement-brief.schema.json",
+  "title": "Sanitized seller-visible Requirement Brief",
+  "description": "Closed schema intentionally has no buyer identity, organization, budget, contact, private-failure, competing-offer, or unrestricted Stackfile fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "requirement_brief_id", "purchase_brief_id", "purchase_brief_version", "version", "visibility", "category_id", "intent", "desired_outcome", "team", "data_profile", "hard_requirements", "preferences", "allowed_stack_context", "seller_questions", "expires_at", "content_hash"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+    "requirement_brief_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "purchase_brief_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "purchase_brief_version": { "type": "integer", "minimum": 1 },
+    "version": { "type": "integer", "minimum": 1 },
+    "visibility": { "$ref": "enums.schema.json#/$defs/RequestVisibility" },
+    "category_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "intent": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "desired_outcome": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "team": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seat_count", "team_type", "billing_region", "comparison_horizon_days"],
+      "properties": {
+        "seat_count": { "type": "integer", "minimum": 1 },
+        "team_type": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "billing_region": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "comparison_horizon_days": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "data_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["client_conversations_restricted", "shared_client_workspace_required", "recording_notice_required"],
+      "properties": {
+        "client_conversations_restricted": { "type": "boolean" },
+        "shared_client_workspace_required": { "type": "boolean" },
+        "recording_notice_required": { "type": "boolean" }
+      }
+    },
+    "hard_requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requirement_id", "field", "operator", "value", "display_text"],
+        "properties": {
+          "requirement_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+          "field": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{2,127}$" },
+          "operator": { "type": "string", "enum": ["eq", "neq", "in", "not_in", "contains", "contains_all", "gte", "lte", "gt", "lt", "exists"] },
+          "value": { "type": ["string", "boolean", "integer", "array"] },
+          "display_text": { "type": "string", "minLength": 1, "maxLength": 300 }
+        }
+      }
+    },
+    "preferences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion_id", "display_text"],
+        "properties": {
+          "criterion_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+          "display_text": { "type": "string", "minLength": 1, "maxLength": 300 }
+        }
+      }
+    },
+    "allowed_stack_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_integrations", "meeting_platforms", "identity_protocol"],
+      "properties": {
+        "required_integrations": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "meeting_platforms": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "identity_protocol": { "type": "string", "enum": ["google_workspace", "saml_sso", "oidc", "none"] }
+      }
+    },
+    "seller_questions": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+    "expires_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "content_hash": { "$ref": "common.schema.json#/$defs/Sha256" }
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/common.schema.json",
+  "title": "SIRA shared value objects",
+  "$defs": {
+    "Identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_:-]{2,127}$"
+    },
+    "SemanticVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "Date": {
+      "type": "string",
+      "format": "date"
+    },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "Currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "DecimalAmount": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$"
+    },
+    "Money": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amount", "currency"],
+      "properties": {
+        "amount": { "$ref": "#/$defs/DecimalAmount" },
+        "currency": { "$ref": "#/$defs/Currency" }
+      }
+    },
+    "EvidenceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "provider", "content_id", "version_id", "fragment_hash", "retrieved_at"],
+      "properties": {
+        "evidence_id": { "$ref": "#/$defs/Identifier" },
+        "provider": { "type": "string", "enum": ["senso", "fixture", "merchant", "platform"] },
+        "content_id": { "$ref": "#/$defs/Identifier" },
+        "version_id": { "$ref": "#/$defs/Identifier" },
+        "chunk_index": { "type": ["integer", "null"], "minimum": 0 },
+        "fragment_hash": { "$ref": "#/$defs/Sha256" },
+        "retrieved_at": { "$ref": "#/$defs/Timestamp" }
+      }
+    },
+    "RuleCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "op", "value"],
+      "properties": {
+        "field": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{2,127}$" },
+        "op": {
+          "type": "string",
+          "enum": ["eq", "neq", "in", "not_in", "contains", "contains_all", "gte", "lte", "gt", "lt", "exists", "date_before", "date_after"]
+        },
+        "value": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "boolean" },
+            { "type": "integer" },
+            { "type": "null" },
+            { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": ["string", "boolean", "integer"] } }
+          ]
+        }
+      }
+    },
+    "Rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "kind", "all", "reason_code", "display_reason", "evidence_claim_ids", "severity"],
+      "properties": {
+        "rule_id": { "$ref": "#/$defs/Identifier" },
+        "kind": { "type": "string", "enum": ["fit", "anti_fit", "dependency"] },
+        "all": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/RuleCondition" } },
+        "reason_code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+        "display_reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "evidence_claim_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/Identifier" } },
+        "severity": { "type": "string", "enum": ["hard", "soft"] }
+      }
+    },
+    "Merchant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["merchant_id", "name", "url", "country"],
+      "properties": {
+        "merchant_id": { "$ref": "#/$defs/Identifier" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "country": { "type": "string", "pattern": "^[A-Z]{2}$" }
+      }
+    },
+    "LineItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line_item_id", "description", "quantity", "unit_amount", "total_amount"],
+      "properties": {
+        "line_item_id": { "$ref": "#/$defs/Identifier" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "quantity": { "type": "integer", "minimum": 1 },
+        "unit_amount": { "$ref": "#/$defs/DecimalAmount" },
+        "total_amount": { "$ref": "#/$defs/DecimalAmount" }
+      }
+    },
+    "ExpectedFulfillment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fulfillment_item_id", "line_item_id", "type", "subject_type", "required", "minimum_quantity", "expected_quantity", "partial_delivery_useful", "verification_method"],
+      "properties": {
+        "fulfillment_item_id": { "$ref": "#/$defs/Identifier" },
+        "line_item_id": { "$ref": "#/$defs/Identifier" },
+        "type": { "type": "string", "enum": ["workspace_entitlement", "seat_entitlement", "license_entitlement", "service_entitlement"] },
+        "subject_type": { "type": "string", "enum": ["organization", "team", "user_or_team"] },
+        "required": { "type": "boolean" },
+        "minimum_quantity": { "type": "integer", "minimum": 1 },
+        "expected_quantity": { "type": "integer", "minimum": 1 },
+        "partial_delivery_useful": { "type": "boolean" },
+        "verification_method": { "type": "string", "enum": ["merchant_api", "merchant_api_plus_access_probe", "access_probe", "manual_review"] }
+      }
+    }
+  }
+}

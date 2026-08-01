@@ -1,0 +1,107 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sira-seil"
+version = "0.1.0"
+description = "Company-aware procurement decision, approval, payment, and fulfillment control plane"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "alembic>=1.16,<2",
+  "asyncpg>=0.30,<1",
+  "fastapi>=0.116,<1",
+  "greenlet>=3.2,<4",
+  "httpx>=0.28,<1",
+  "psycopg[binary]>=3.2,<4",
+  "pydantic-settings>=2.10,<3",
+  "pydantic>=2.11,<3",
+  "pyyaml>=6.0,<7",
+  "rfc8785>=0.1.4,<1",
+  "sqlalchemy[asyncio]>=2.0,<2.1",
+  "uvicorn[standard]>=0.35,<1"
+]
+
+[project.optional-dependencies]
+agents = [
+  "openai-agents>=0.2,<1"
+]
+worker = [
+  "temporalio>=1.15,<2"
+]
+dev = [
+  "aiosqlite>=0.21,<1",
+  "detect-secrets>=1.5,<2",
+  "hypothesis>=6.138,<7",
+  "jsonschema>=4.25,<5",
+  "mypy>=1.17,<2",
+  "pytest-asyncio>=1.1,<2",
+  "pytest-cov>=6.2,<7",
+  "pytest>=8.4,<9",
+  "respx>=0.22,<1",
+  "ruff>=0.12,<1",
+  "testcontainers[postgres]>=4.12,<5",
+  "types-PyYAML>=6.0,<7"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "python/domain",
+  "python/decision_engine",
+  "python/stackfile",
+  "python/agents/sira_agents",
+  "python/integrations",
+  "python/persistence",
+  "services/api/sira_api",
+  "services/worker/sira_worker"
+]
+
+[tool.uv]
+package = true
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+asyncio_mode = "auto"
+pythonpath = ["python", "python/agents", "services/api", "services/worker"]
+testpaths = ["tests"]
+markers = [
+  "postgres: requires a live PostgreSQL instance or Testcontainers",
+  "provider: exercises a real external-provider contract and may require credentials"
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["python", "services", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "S", "T20", "RUF"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S105", "S106", "S311"]
+"tests/integration/test_persistence.py" = ["S603", "ASYNC221"]
+"fixtures/**/*.py" = ["S105", "S106"]
+"services/api/alembic/versions/*.py" = ["E501"]
+"services/api/sira_api/schemas.py" = ["S105"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+exclude = ["services/api/alembic/versions"]
+mypy_path = ["python", "python/agents", "services/api", "services/worker"]
+plugins = ["pydantic.mypy"]
+
+[tool.coverage.run]
+branch = true
+source = ["python", "services/api", "services/worker"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 80
+
+[tool.detect-secrets]
+exclude-files = "(^|/)(docs/|PRD\\.md$|fixtures/demo/|pnpm-lock\\.yaml$|uv\\.lock$)"

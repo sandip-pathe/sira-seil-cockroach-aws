@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0.0",
+  "purchase_brief_id": "pb_consultco_v1",
+  "request_id": "req_demo",
+  "organization_id": "org_consultco",
+  "version": 1,
+  "supersedes_version": null,
+  "status": "APPROVED",
+  "visibility": "SELECTIVE",
+  "intent": "Find meeting intelligence for ten consultants",
+  "category_id": "meeting_intelligence_client_services_v1",
+  "desired_outcome": {
+    "jtbd_id": "capture_meeting_decisions",
+    "statement": "Consultants can find an agreed client decision, owner, and source moment within 120 seconds",
+    "metric": "decision_retrieval_time_seconds",
+    "target": 120,
+    "unit": "seconds"
+  },
+  "stakeholder_roles": ["operations_owner", "security_privacy_owner", "legal_owner", "budget_owner", "cardholder"],
+  "hard_gates": [
+    { "gate_id": "gate_no_customer_training", "field": "product.trains_on_customer_data", "operator": "eq", "value": false, "source_fact_ids": ["bf_no_customer_training"], "owner_role": "security_privacy_owner", "overridable": false, "seller_disclosure": "REQUIREMENT_ONLY" },
+    { "gate_id": "gate_residency", "field": "product.data_residency", "operator": "in", "value": ["US"], "source_fact_ids": ["bf_residency_us"], "owner_role": "security_privacy_owner", "overridable": false, "seller_disclosure": "REQUIREMENT_ONLY" },
+    { "gate_id": "gate_source_links", "field": "product.source_linked_answers", "operator": "eq", "value": true, "source_fact_ids": ["bf_source_linked_answers"], "owner_role": "operations_owner", "overridable": false, "seller_disclosure": "REQUIREMENT_ONLY" },
+    { "gate_id": "gate_guest_notice", "field": "product.guest_recording_notice", "operator": "eq", "value": true, "source_fact_ids": ["bf_guest_notice"], "owner_role": "legal_owner", "overridable": false, "seller_disclosure": "REQUIREMENT_ONLY" },
+    { "gate_id": "gate_budget", "field": "offer.landed_total", "operator": "lte", "value": "100.00", "source_fact_ids": ["bf_budget_ceiling"], "owner_role": "budget_owner", "overridable": true, "seller_disclosure": "HIDDEN" }
+  ],
+  "preferences": [
+    { "criterion_id": "pref_admin_hours", "field": "product.admin_hours_per_month", "weight": 5, "normalization": { "kind": "lower_is_better", "best_at_or_below": 2, "acceptable_at_or_below": 6 }, "owner_role": "operations_owner" },
+    { "criterion_id": "pref_deployment_days", "field": "product.deployment_days", "weight": 4, "normalization": { "kind": "lower_is_better", "best_at_or_below": 0, "acceptable_at_or_below": 3 }, "owner_role": "operations_owner" },
+    { "criterion_id": "pref_native_integrations", "field": "product.native_integrations", "weight": 4, "normalization": { "kind": "boolean", "best_at_or_below": null, "acceptable_at_or_below": null }, "owner_role": "stack_owner" },
+    { "criterion_id": "pref_native_crm_sync", "field": "product.native_crm_sync", "weight": 1, "normalization": { "kind": "boolean", "best_at_or_below": null, "acceptable_at_or_below": null }, "owner_role": "operations_owner" }
+  ],
+  "known_alternatives": ["current_manual_recap", "fixture_low_price_policy_fail", "fixture_selected_fit"],
+  "stackfile_impact_policy": {
+    "required_integrations": ["google_workspace", "slack", "zoom"],
+    "maximum_risk": "MEDIUM",
+    "patch_mode": "PROPOSED_ONLY",
+    "active_mutation_requires_approval": true
+  },
+  "disclosure_choices": {
+    "share_identity": false,
+    "share_budget": false,
+    "share_contacts": false,
+    "share_private_failures": false,
+    "share_competing_offers": false,
+    "allowed_stack_fields": ["required_integrations", "identity_protocol", "meeting_platforms"]
+  },
+  "approval_requirements": [
+    { "stage": 1, "role": "operations_owner", "required": true },
+    { "stage": 2, "role": "security_privacy_owner", "required": true },
+    { "stage": 3, "role": "legal_owner", "required": true },
+    { "stage": 4, "role": "budget_owner", "required": true }
+  ],
+  "calibration_examples": [
+    { "candidate_id": "fixture_low_price_policy_fail", "expected_result": "FAIL" },
+    { "candidate_id": "current_manual_recap", "expected_result": "CURRENT_APPROACH" },
+    { "candidate_id": "fixture_selected_fit", "expected_result": "QUALIFY" }
+  ],
+  "created_at": "2026-08-02T00:20:00Z",
+  "content_hash": "sha256:9ecb31c4240c1f97a9be9130ef0e4f933f8f0a064f5af9c7beff047658a19511"
+}

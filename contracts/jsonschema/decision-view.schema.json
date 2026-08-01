@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/decision-view.schema.json",
+  "title": "UI-oriented decision view",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request", "company_context", "coverage", "candidates", "selected_solution_plan", "counterfactual", "stack_patch", "approval", "payment", "fulfillment", "receipt"],
+  "properties": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "intent", "status"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "intent": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "status": { "type": "string", "enum": ["DRAFT", "DISCOVERING", "DECISION_READY", "APPROVAL_PENDING", "PURCHASING", "FULFILLED"] }
+      }
+    },
+    "company_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["facts_used", "hidden_fact_count", "passport_version", "stack_snapshot"],
+      "properties": {
+        "facts_used": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["fact_id", "display_name", "display_value", "provenance_label", "sensitivity"],
+            "properties": {
+              "fact_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+              "display_name": { "type": "string", "minLength": 1, "maxLength": 100 },
+              "display_value": { "type": "string", "minLength": 1, "maxLength": 200 },
+              "provenance_label": { "type": "string", "minLength": 1, "maxLength": 200 },
+              "sensitivity": { "type": "string", "enum": ["internal", "confidential", "restricted"] }
+            }
+          }
+        },
+        "hidden_fact_count": { "type": "integer", "minimum": 0 },
+        "passport_version": { "type": "integer", "minimum": 1 },
+        "stack_snapshot": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evaluated_count", "statement"],
+      "properties": {
+        "evaluated_count": { "type": "integer", "minimum": 0 },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "candidates": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/CandidateView" } },
+    "selected_solution_plan": { "$ref": "decision-ledger.schema.json#/$defs/SolutionPlan" },
+    "counterfactual": { "$ref": "decision-ledger.schema.json#/$defs/Counterfactual" },
+    "stack_patch": { "$ref": "stack-patch.schema.json" },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "approval_request_id", "intent_hash"],
+      "properties": {
+        "status": { "$ref": "enums.schema.json#/$defs/ApprovalStatus" },
+        "approval_request_id": { "oneOf": [{ "$ref": "common.schema.json#/$defs/Identifier" }, { "type": "null" }] },
+        "intent_hash": { "oneOf": [{ "$ref": "common.schema.json#/$defs/Sha256" }, { "type": "null" }] }
+      }
+    },
+    "payment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "provider_session_reference"],
+      "properties": {
+        "status": { "$ref": "enums.schema.json#/$defs/PaymentStatus" },
+        "provider_session_reference": { "oneOf": [{ "$ref": "common.schema.json#/$defs/Identifier" }, { "type": "null" }] }
+      }
+    },
+    "fulfillment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "verified_entitlement_ids"],
+      "properties": {
+        "status": { "$ref": "enums.schema.json#/$defs/FulfillmentStatus" },
+        "verified_entitlement_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+      }
+    },
+    "receipt": { "oneOf": [{ "$ref": "receipt.schema.json" }, { "type": "null" }] }
+  },
+  "$defs": {
+    "CandidateView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "status", "reason_code", "reason", "preference_score", "stack_risk", "total_cost", "evidence", "seller_positioning"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "status": { "$ref": "enums.schema.json#/$defs/CandidateStatus" },
+        "reason_code": { "type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "preference_score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "stack_risk": { "$ref": "enums.schema.json#/$defs/StackRisk" },
+        "total_cost": { "$ref": "common.schema.json#/$defs/Money" },
+        "evidence": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "seller_positioning": { "type": ["string", "null"], "maxLength": 500 }
+      }
+    }
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/decision-ledger.schema.json",
+  "title": "Immutable Decision Ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "decision_id", "request_id", "purchase_brief_id", "purchase_brief_version", "requirement_brief_id", "requirement_brief_version", "buyer_passport_version", "stack_snapshot", "policy_version", "evaluated_universe", "candidate_results", "solution_plans", "selected_solution_plan_id", "counterfactual", "decision_hash", "created_at"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+    "decision_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "request_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "purchase_brief_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "purchase_brief_version": { "type": "integer", "minimum": 1 },
+    "requirement_brief_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "requirement_brief_version": { "type": "integer", "minimum": 1 },
+    "buyer_passport_version": { "type": "integer", "minimum": 1 },
+    "stack_snapshot": { "type": "integer", "minimum": 1 },
+    "policy_version": { "type": "integer", "minimum": 1 },
+    "evaluated_universe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category_schema_version", "registry_candidates_considered", "known_external_candidates_not_normalized", "evaluated_candidate_ids", "coverage_statement"],
+      "properties": {
+        "category_schema_version": { "type": "integer", "minimum": 1 },
+        "registry_candidates_considered": { "type": "integer", "minimum": 0 },
+        "known_external_candidates_not_normalized": { "type": "integer", "minimum": 0 },
+        "evaluated_candidate_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "coverage_statement": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "candidate_results": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/CandidateResult" } },
+    "solution_plans": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/SolutionPlan" } },
+    "selected_solution_plan_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "counterfactual": { "$ref": "#/$defs/Counterfactual" },
+    "decision_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+    "created_at": { "$ref": "common.schema.json#/$defs/Timestamp" }
+  },
+  "$defs": {
+    "HardConstraintResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "result", "reason_code", "evidence_ids"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "source": { "type": "string", "enum": ["buyer", "seller", "dependency", "availability"] },
+        "result": { "type": "string", "enum": ["pass", "fail", "not_evaluated"] },
+        "reason_code": { "type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+        "evidence_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+      }
+    },
+    "PreferenceScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "weight", "satisfaction", "contribution", "evidence_ids"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "weight": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "satisfaction": { "type": "string", "enum": ["0", "0.25", "0.5", "0.75", "1"] },
+        "contribution": { "type": "string", "pattern": "^(0|[1-9][0-9]*)(\\.(00|25|50|75))?$" },
+        "evidence_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+      }
+    },
+    "CandidateResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "name", "pack_id", "pack_version", "status", "reason_code", "reason", "hard_constraints", "preference_scores", "preference_score", "dependency_impact", "total_cost", "evidence_ids", "seller_positioning"],
+      "properties": {
+        "candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "pack_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "pack_version": { "type": "integer", "minimum": 1 },
+        "status": { "$ref": "enums.schema.json#/$defs/CandidateStatus" },
+        "reason_code": { "type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "hard_constraints": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/HardConstraintResult" } },
+        "preference_scores": { "type": "array", "items": { "$ref": "#/$defs/PreferenceScore" } },
+        "preference_score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "dependency_impact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["risk", "affected_nodes"],
+          "properties": {
+            "risk": { "$ref": "enums.schema.json#/$defs/StackRisk" },
+            "affected_nodes": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+          }
+        },
+        "total_cost": { "$ref": "common.schema.json#/$defs/Money" },
+        "evidence_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "seller_positioning": { "type": ["string", "null"], "maxLength": 500 }
+      }
+    },
+    "SolutionPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["solution_plan_id", "action", "component_candidate_ids", "status", "preference_score", "stack_risk", "total_cost", "required_evidence_coverage_percent", "maximum_evidence_age_days", "stable_action_ids", "rank", "stack_patch_id"],
+      "properties": {
+        "solution_plan_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "action": { "type": "string", "enum": ["REUSE_EXISTING", "CONFIGURE_EXISTING", "NO_ACTION", "BUY", "REPLACE", "CONSOLIDATE"] },
+        "component_candidate_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "status": { "$ref": "enums.schema.json#/$defs/CandidateStatus" },
+        "preference_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "stack_risk": { "$ref": "enums.schema.json#/$defs/StackRisk" },
+        "total_cost": { "$ref": "common.schema.json#/$defs/Money" },
+        "required_evidence_coverage_percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "maximum_evidence_age_days": { "type": "integer", "minimum": 0 },
+        "stable_action_ids": { "type": "array", "minItems": 1, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "rank": { "type": "integer", "minimum": 1 },
+        "stack_patch_id": { "$ref": "common.schema.json#/$defs/Identifier" }
+      }
+    },
+    "Counterfactual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generic_selected_candidate_id", "company_aware_selected_candidate_id", "private_fact_ids_that_changed_result", "explanation", "rejected_candidate_id", "seller_pass_candidate_id", "remaining_uncertainties"],
+      "properties": {
+        "generic_selected_candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "company_aware_selected_candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "private_fact_ids_that_changed_result": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "explanation": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "rejected_candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "seller_pass_candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "remaining_uncertainties": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 300 } }
+      }
+    }
+  }
+}

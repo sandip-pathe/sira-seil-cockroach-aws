@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/stack-patch.schema.json",
+  "title": "Proposed or staged Stackfile patch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "patch_id", "organization_id", "base_snapshot", "decision_id", "solution_plan_id", "status", "operations", "prerequisites", "rollback_plan", "cost_impact", "risk", "expected_outcome", "created_at", "content_hash"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+    "patch_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "organization_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "base_snapshot": { "type": "integer", "minimum": 1 },
+    "decision_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "solution_plan_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "status": { "type": "string", "enum": ["PROPOSED", "STAGED", "APPLIED", "REJECTED"] },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/AddProductInstance" },
+          { "$ref": "#/$defs/AddEdge" }
+        ]
+      }
+    },
+    "prerequisites": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+    "rollback_plan": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+    "cost_impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["monthly_delta", "currency"],
+      "properties": {
+        "monthly_delta": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
+        "currency": { "$ref": "common.schema.json#/$defs/Currency" }
+      }
+    },
+    "risk": { "$ref": "enums.schema.json#/$defs/StackRisk" },
+    "expected_outcome": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "created_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "content_hash": { "$ref": "common.schema.json#/$defs/Sha256" }
+  },
+  "$defs": {
+    "Edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "type", "to", "criticality"],
+      "properties": {
+        "from": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "type": { "type": "string", "enum": ["fulfills", "fulfilled_by", "provides", "requires_capability", "deployed_for", "requires", "integrates_with", "sends_data_to", "replaces", "overlaps_with", "blocks", "constrained_by", "owned_by", "used_by", "paid_by", "provisioned_by"] },
+        "to": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "criticality": { "type": "string", "enum": ["low", "medium", "high", "critical"] }
+      }
+    },
+    "AddProductInstance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "instance"],
+      "properties": {
+        "op": { "const": "ADD_PRODUCT_INSTANCE" },
+        "instance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["instance_id", "product_id", "product_version", "offer_id", "lifecycle", "serves", "owners", "users", "cost", "dependencies", "entitlement_id"],
+          "properties": {
+            "instance_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+            "product_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+            "product_version": { "$ref": "common.schema.json#/$defs/Identifier" },
+            "offer_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+            "lifecycle": { "const": "staged" },
+            "serves": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+            "owners": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+            "users": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+            "cost": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["amount", "currency", "interval"],
+              "properties": {
+                "amount": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
+                "currency": { "$ref": "common.schema.json#/$defs/Currency" },
+                "interval": { "const": "monthly" }
+              }
+            },
+            "dependencies": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+            "entitlement_id": { "$ref": "common.schema.json#/$defs/Identifier" }
+          }
+        }
+      }
+    },
+    "AddEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "edge"],
+      "properties": {
+        "op": { "const": "ADD_EDGE" },
+        "edge": { "$ref": "#/$defs/Edge" }
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0.0",
+  "offers": [
+    { "offer_id": "offer_fixture_a_monthly", "version": 1, "candidate_id": "fixture_low_price_policy_fail", "offer_type": "indicative", "amount": "49.00", "currency": "USD", "billing_unit": "workspace_month", "quantity": 1, "horizon_days": 30, "availability_checked_at": "2026-08-02T00:00:00Z" },
+    { "offer_id": "offer_fixture_b_monthly", "version": 1, "candidate_id": "fixture_honest_anti_fit", "offer_type": "indicative", "amount": "79.00", "currency": "USD", "billing_unit": "workspace_month", "quantity": 1, "horizon_days": 30, "availability_checked_at": "2026-08-02T00:00:00Z" },
+    { "offer_id": "offer_fixture_c_monthly", "version": 1, "candidate_id": "fixture_eligible_runner_up", "offer_type": "indicative", "amount": "99.00", "currency": "USD", "billing_unit": "workspace_month", "quantity": 1, "horizon_days": 30, "availability_checked_at": "2026-08-02T00:00:00Z" },
+    { "offer_id": "offer_fixture_d_monthly", "version": 1, "candidate_id": "fixture_selected_fit", "offer_type": "indicative", "amount": "89.00", "currency": "USD", "billing_unit": "workspace_month", "quantity": 1, "horizon_days": 30, "availability_checked_at": "2026-08-02T00:00:00Z" }
+  ]
+}

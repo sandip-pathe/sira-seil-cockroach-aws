@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/seil-pack.schema.json",
+  "title": "Published immutable SEIL Pack",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pack_id", "version", "status", "seller_id", "product_id", "identity", "offer_ids", "category_ids", "jtbd_ids", "facts", "fit_rules", "anti_fit_rules", "dependency_rules", "positioning_angles", "claims", "commercial", "fulfillment_spec", "merchant_chain", "operations", "published_at", "supersedes_version", "content_hash"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+    "pack_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "version": { "type": "integer", "minimum": 1 },
+    "status": { "const": "published" },
+    "seller_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "product_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seller_name", "product_name", "edition", "geographies"],
+      "properties": {
+        "seller_name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "product_name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "edition": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "geographies": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Z]{2}$" } }
+      }
+    },
+    "offer_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+    "category_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+    "jtbd_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+    "facts": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/PackFact" } },
+    "fit_rules": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Rule" } },
+    "anti_fit_rules": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Rule" } },
+    "dependency_rules": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Rule" } },
+    "positioning_angles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["angle_id", "text", "claim_ids"],
+        "properties": {
+          "angle_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+          "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "claim_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+        }
+      }
+    },
+    "claims": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/Claim" } },
+    "commercial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["billing_unit", "minimum_units", "catalog_offer_ids"],
+      "properties": {
+        "billing_unit": { "type": "string", "enum": ["workspace_month", "seat_month", "usage_month"] },
+        "minimum_units": { "type": "integer", "minimum": 1 },
+        "catalog_offer_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+      }
+    },
+    "fulfillment_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkout_adapter", "provisioning_steps", "expected_entitlements", "verification_method"],
+      "properties": {
+        "checkout_adapter": { "type": "string", "enum": ["controlled_merchant_sandbox", "merchant_rest"] },
+        "provisioning_steps": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
+        "expected_entitlements": { "type": "array", "minItems": 1, "items": { "$ref": "common.schema.json#/$defs/ExpectedFulfillment" } },
+        "verification_method": { "type": "string", "enum": ["merchant_api", "merchant_api_plus_access_probe"] }
+      }
+    },
+    "merchant_chain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chain_id", "seller_contracting_entity_id", "merchant", "region", "valid_from", "valid_until", "authority_evidence_ids"],
+      "properties": {
+        "chain_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "seller_contracting_entity_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "merchant": { "$ref": "common.schema.json#/$defs/Merchant" },
+        "region": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "valid_from": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "valid_until": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "authority_evidence_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+      }
+    },
+    "operations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner_role", "reviewer_roles", "change_summary"],
+      "properties": {
+        "owner_role": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "reviewer_roles": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "change_summary": { "type": "string", "minLength": 1, "maxLength": 300 }
+      }
+    },
+    "published_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "supersedes_version": { "type": ["integer", "null"], "minimum": 1 },
+    "content_hash": { "$ref": "common.schema.json#/$defs/Sha256" }
+  },
+  "$defs": {
+    "PackFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "value", "evidence_claim_ids"],
+      "properties": {
+        "field": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{2,127}$" },
+        "value": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "boolean" },
+            { "type": "integer" },
+            { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } }
+          ]
+        },
+        "evidence_claim_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+      }
+    },
+    "Claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "field", "value", "display_text", "assertion_source", "evidence_visibility", "verification_method", "verification_scope", "verification_state", "evidence_ids", "owner_role", "reviewed_by_role", "verified_at", "expires_at"],
+      "properties": {
+        "claim_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "field": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{2,127}$" },
+        "value": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "boolean" },
+            { "type": "integer" },
+            { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } }
+          ]
+        },
+        "display_text": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "assertion_source": { "type": "string", "enum": ["seller", "manufacturer", "reseller", "independent_auditor", "platform_observation"] },
+        "evidence_visibility": { "type": "string", "enum": ["public", "buyer_after_access_check", "restricted_review_only"] },
+        "verification_method": { "type": "string", "enum": ["source_document_review", "api_probe", "merchant_order_probe", "entitlement_probe", "independent_audit_review"] },
+        "verification_scope": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "verification_state": { "type": "string", "enum": ["unverified", "verified", "disputed", "expired", "revoked"] },
+        "evidence_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "owner_role": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "reviewed_by_role": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "verified_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "expires_at": { "$ref": "common.schema.json#/$defs/Timestamp" }
+      }
+    }
+  }
+}

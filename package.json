@@ -1,0 +1,24 @@
+{
+  "name": "sira-seil-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @sira/web dev",
+    "build:web": "pnpm --filter @sira/web build",
+    "lint:web": "pnpm --filter @sira/web lint",
+    "typecheck:web": "pnpm --filter @sira/web typecheck",
+    "typecheck:client": "pnpm --filter @sira/api-client typecheck",
+    "generate:client": "node scripts/generate-client.mjs",
+    "check:client": "node scripts/generate-client.mjs --check",
+    "format:check": "prettier --check package.json apps/web/package.json apps/web/eslint.config.mjs .prettierrc.json",
+    "check:web": "pnpm lint:web && pnpm typecheck:web && pnpm typecheck:client && pnpm check:client"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2",
+    "typescript": "5.9.2"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "entitlement_id": "ent_fixture_d_seats",
+  "purchase_id": "purchase_consultco_fixture_d",
+  "merchant_order_id": "merchant_order_fixture_d",
+  "fulfillment_item_id": "fi_fixture_d_seats",
+  "line_item_id": "li_fixture_d_team",
+  "product_id": "product_fixture_d",
+  "product_version": "product_fixture_d_v1",
+  "type": "seat_entitlement",
+  "subject_type": "team",
+  "subject_id": "team_consultants",
+  "quantity": 10,
+  "status": "VERIFIED",
+  "verification_method": "merchant_api",
+  "verification_reference": "verify_fixture_d_seats",
+  "verified_at": "2026-08-02T01:30:00Z",
+  "environment": "fixture",
+  "adapter_label": "DEVELOPMENT_FIXTURE_NOT_PRODUCTION",
+  "production_success": false
+}

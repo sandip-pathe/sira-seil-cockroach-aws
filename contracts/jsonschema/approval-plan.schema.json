@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/approval-plan.schema.json",
+  "title": "Approval requirement plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "approval_requirement_set_id", "policy_version", "stages", "cardholder_authentication_separate", "content_hash"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+    "approval_requirement_set_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "policy_version": { "type": "integer", "minimum": 1 },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stage", "role", "required", "parallel"],
+        "properties": {
+          "stage": { "type": "integer", "minimum": 1 },
+          "role": { "$ref": "common.schema.json#/$defs/Identifier" },
+          "required": { "const": true },
+          "parallel": { "type": "boolean" }
+        }
+      }
+    },
+    "cardholder_authentication_separate": { "const": true },
+    "content_hash": { "$ref": "common.schema.json#/$defs/Sha256" }
+  }
+}

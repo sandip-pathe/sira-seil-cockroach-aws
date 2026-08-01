@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "approval_requirement_set_id": "aprs_consultco_v1",
+  "policy_version": 1,
+  "stages": [
+    { "stage": 1, "role": "operations_owner", "required": true, "parallel": false },
+    { "stage": 2, "role": "security_privacy_owner", "required": true, "parallel": false },
+    { "stage": 3, "role": "legal_owner", "required": true, "parallel": false },
+    { "stage": 4, "role": "budget_owner", "required": true, "parallel": false }
+  ],
+  "cardholder_authentication_separate": true,
+  "content_hash": "sha256:674fd172cfafb42bbf8c31b0272d8e9c34b53cb191ac739784362034dde89cfe"
+}

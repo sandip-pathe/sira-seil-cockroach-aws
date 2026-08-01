@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0.0",
+  "product_passport_id": "pp_fixture_selected_fit",
+  "seller_id": "seller_fixture_d",
+  "product_id": "product_fixture_d",
+  "version": 1,
+  "public_identity": { "seller_name": "Fictional Seller D", "product_name": "Fixture D", "edition": "Team", "geographies": ["US"] },
+  "source_material": [
+    { "source_id": "src_fixture_d_internal", "classification": "seller_confidential", "title": "Fixture D internal product dossier", "internal_location": "seller-private://fixture-d/dossier-v1", "owner_role": "product_owner" }
+  ],
+  "roadmap_notes": ["A private roadmap note intentionally excluded from published claims."],
+  "availability_capacity": { "new_workspaces_available": true, "remaining_onboarding_slots": 12, "checked_at": "2026-08-02T00:00:00Z" },
+  "private_negotiation_bounds": { "floor_amount": "84.00", "currency": "USD", "maximum_discount_percent": 10 },
+  "fulfillment_operations": { "internal_runbook": "seller-private://fixture-d/runbook", "service_account_ref": "svc_fixture_d_private", "escalation_role": "fulfillment_manager" },
+  "approved_positioning_library": [
+    { "angle_id": "angle_fixture_d_stack_fit", "text": "Native workflow integrations reduce deployment and administration work.", "claim_ids": ["claim_fixture_d_integrations", "claim_fixture_d_deploy"] }
+  ],
+  "unpublished_constraints": ["Internal onboarding staffing and negotiation limits remain private."],
+  "pack_source": {
+    "category_ids": ["meeting_intelligence_client_services_v1"],
+    "jtbd_ids": ["capture_meeting_decisions"],
+    "facts": [
+      { "field": "product.trains_on_customer_data", "value": false, "evidence_claim_ids": ["claim_fixture_d_training"] },
+      { "field": "product.data_residency", "value": "US", "evidence_claim_ids": ["claim_fixture_d_residency"] },
+      { "field": "product.source_linked_answers", "value": true, "evidence_claim_ids": ["claim_fixture_d_sources"] },
+      { "field": "product.guest_recording_notice", "value": true, "evidence_claim_ids": ["claim_fixture_d_notice"] },
+      { "field": "product.admin_hours_per_month", "value": 1, "evidence_claim_ids": ["claim_fixture_d_admin"] },
+      { "field": "product.deployment_days", "value": 1, "evidence_claim_ids": ["claim_fixture_d_deploy"] },
+      { "field": "product.native_integrations", "value": ["google_workspace", "slack", "zoom"], "evidence_claim_ids": ["claim_fixture_d_integrations"] }
+    ],
+    "fit_rules": [{ "rule_id": "fit_fixture_d_seats", "kind": "fit", "all": [{ "field": "buyer.seat_count", "op": "lte", "value": 50 }], "reason_code": "SEAT_RANGE_SUPPORTED", "display_reason": "The Team edition supports up to 50 seats.", "evidence_claim_ids": ["claim_fixture_d_seats"], "severity": "hard" }],
+    "anti_fit_rules": [],
+    "dependency_rules": [{ "rule_id": "dep_fixture_d_stack", "kind": "dependency", "all": [{ "field": "buyer.required_integrations", "op": "contains_all", "value": ["google_workspace", "slack", "zoom"] }], "reason_code": "NATIVE_STACK_SUPPORTED", "display_reason": "The selected configuration supports the disclosed required integrations.", "evidence_claim_ids": ["claim_fixture_d_integrations"], "severity": "hard" }],
+    "claim_ids": ["claim_fixture_d_training", "claim_fixture_d_residency", "claim_fixture_d_sources", "claim_fixture_d_notice", "claim_fixture_d_admin", "claim_fixture_d_deploy", "claim_fixture_d_integrations", "claim_fixture_d_seats"],
+    "offer_ids": ["offer_fixture_d_monthly"],
+    "fulfillment_public_summary": "One workspace and ten seat entitlements are provisioned after verified payment."
+  },
+  "publication_allowlist": ["public_identity", "pack_source", "approved_positioning_library"],
+  "compilation_history": [{ "compilation_id": "compile_fixture_d_v1", "target_pack_version": 1, "reviewer_role": "seller_reviewer", "result": "approved", "at": "2026-08-02T00:00:00Z" }],
+  "created_at": "2026-08-01T00:00:00Z"
+}

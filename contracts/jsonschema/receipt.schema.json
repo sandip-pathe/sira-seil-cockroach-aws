@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/receipt.schema.json",
+  "title": "Decision-linked purchase receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "receipt_id", "purchase_id", "purchase_intent_id", "request_id", "decision_id", "decision_hash", "pack_id", "pack_version", "offer_id", "offer_version", "quote_id", "quote_version", "approval_request_id", "approval_intent_hash", "prava_session_reference", "prava_order_reference", "merchant_order_id", "merchant", "amount", "currency", "payment_status", "fulfillment_status", "entitlement_ids", "stack_patch_id", "stack_patch_status", "issued_at", "environment", "adapter_label", "production_success"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+    "receipt_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "purchase_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "purchase_intent_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "request_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "decision_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "decision_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+    "pack_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "pack_version": { "type": "integer", "minimum": 1 },
+    "offer_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "offer_version": { "type": "integer", "minimum": 1 },
+    "quote_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "quote_version": { "type": "integer", "minimum": 1 },
+    "approval_request_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "approval_intent_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+    "prava_session_reference": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "prava_order_reference": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "merchant_order_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "merchant": { "$ref": "common.schema.json#/$defs/Merchant" },
+    "amount": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
+    "currency": { "$ref": "common.schema.json#/$defs/Currency" },
+    "payment_status": { "const": "PRAVA_COMPLETED" },
+    "fulfillment_status": { "const": "VERIFIED" },
+    "entitlement_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+    "stack_patch_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "stack_patch_status": { "const": "STAGED" },
+    "issued_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "environment": { "type": "string", "enum": ["fixture", "sandbox", "production"] },
+    "adapter_label": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "production_success": { "type": "boolean" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "environment": { "const": "fixture" } }, "required": ["environment"] },
+      "then": { "properties": { "production_success": { "const": false }, "adapter_label": { "const": "DEVELOPMENT_FIXTURE_NOT_PRODUCTION" } } }
+    }
+  ]
+}

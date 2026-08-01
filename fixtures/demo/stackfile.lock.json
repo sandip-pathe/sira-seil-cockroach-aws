@@ -1,0 +1,19 @@
+{
+  "schema_version": "sira.ai/v1",
+  "organization_id": "org_consultco",
+  "snapshot": 1,
+  "generated_at": "2026-08-02T00:00:00Z",
+  "manifest_hash": "sha256:7daab22996b218fff01dca950a498f86282fc24a0fd58cb5ff4bbcb8f5bfdfcd",
+  "instances": [
+    { "instance_id": "inst_google_workspace", "product_id": "google_workspace", "lifecycle": "active", "version": "google_workspace_current", "serves": ["identity", "calendar", "documents"], "integrations": ["slack", "zoom", "crm_current"] },
+    { "instance_id": "inst_slack", "product_id": "slack", "lifecycle": "active", "version": "slack_current", "serves": ["team_communication"], "integrations": ["google_workspace", "crm_current"] },
+    { "instance_id": "inst_zoom", "product_id": "zoom", "lifecycle": "active", "version": "zoom_current", "serves": ["client_meetings"], "integrations": ["google_workspace"] },
+    { "instance_id": "inst_crm_current", "product_id": "crm_current", "lifecycle": "active", "version": "crm_current_v1", "serves": ["client_records"], "integrations": ["google_workspace", "slack"] }
+  ],
+  "edges": [
+    { "from": "zoom", "type": "integrates_with", "to": "google_workspace", "criticality": "medium" },
+    { "from": "slack", "type": "integrates_with", "to": "crm_current", "criticality": "medium" },
+    { "from": "client_meetings", "type": "fulfilled_by", "to": "zoom", "criticality": "high" }
+  ],
+  "content_hash": "sha256:f1af3e55aa83504db32ed951095740ab03794057bd67ecc9684560220842e99b"
+}

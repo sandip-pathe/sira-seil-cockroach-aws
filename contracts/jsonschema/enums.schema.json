@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/enums.schema.json",
+  "title": "SIRA shared enums",
+  "$defs": {
+    "CandidateStatus": {
+      "type": "string",
+      "enum": ["ELIGIBLE", "ELIGIBLE_WITH_EXCEPTION", "CONDITIONAL", "SIRA_INELIGIBLE", "SEIL_PASS", "UNAVAILABLE", "STALE_EVIDENCE", "INSUFFICIENT_EVIDENCE", "CONFLICTING_EVIDENCE", "AUTHORITY_REQUIRED"]
+    },
+    "ApprovalStatus": {
+      "type": "string",
+      "enum": ["NOT_REQUESTED", "PENDING", "APPROVED", "REJECTED", "EXPIRED", "SUPERSEDED"]
+    },
+    "PaymentStatus": {
+      "type": "string",
+      "enum": ["NOT_STARTED", "SESSION_CREATED", "CARDHOLDER_PENDING", "CHECKOUT_PENDING", "MERCHANT_APPROVED", "REPORTING", "PRAVA_COMPLETED", "DECLINED", "EXPIRED", "UNCERTAIN", "FAILED"]
+    },
+    "FulfillmentStatus": {
+      "type": "string",
+      "enum": ["NOT_STARTED", "PENDING", "PARTIAL", "VERIFIED", "FAILED_RETRYABLE", "FAILED_FINAL", "REVOKED"]
+    },
+    "RequestVisibility": {
+      "type": "string",
+      "enum": ["PRIVATE", "SELECTIVE", "OPEN_RFP"]
+    },
+    "CandidateAction": {
+      "type": "string",
+      "enum": ["SHORTLIST", "PASS", "REQUEST_OFFER", "SAVE_FOR_LATER", "NOT_ENOUGH_EVIDENCE"]
+    },
+    "EngagementStatus": {
+      "type": "string",
+      "enum": ["NOT_STARTED", "SELLER_REVIEWING", "SELLER_PASSED", "OFFER_AVAILABLE", "BUYER_CONSENT_PENDING", "SELLER_CONSENT_PENDING", "INTRODUCTION_READY", "DECLINED", "EXPIRED"]
+    },
+    "StackRisk": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    }
+  }
+}

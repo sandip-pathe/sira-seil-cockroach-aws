@@ -1,0 +1,17 @@
+# Product source documents must remain byte-for-byte unchanged.
+PRD.md
+docs/**
+
+# Frozen contracts, deterministic fixtures, generated clients, and lockfiles are
+# produced or verified by their dedicated generators rather than reformatted.
+contracts/**
+fixtures/**
+packages/api-client/src/**
+pnpm-lock.yaml
+uv.lock
+
+# Local dependency and build output.
+node_modules/**
+.next/**
+out/**
+.venv/**

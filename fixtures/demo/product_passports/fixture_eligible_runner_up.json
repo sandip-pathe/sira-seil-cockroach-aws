@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0.0",
+  "product_passport_id": "pp_fixture_eligible_runner_up",
+  "seller_id": "seller_fixture_c",
+  "product_id": "product_fixture_c",
+  "version": 1,
+  "public_identity": { "seller_name": "Fictional Seller C", "product_name": "Fixture C", "edition": "Business", "geographies": ["US"] },
+  "source_material": [
+    { "source_id": "src_fixture_c_internal", "classification": "seller_private", "title": "Fixture C deployment operations", "internal_location": "seller-private://fixture-c/deployment-v1", "owner_role": "product_owner" }
+  ],
+  "roadmap_notes": ["A private automation roadmap note is excluded from the Pack."],
+  "availability_capacity": { "new_workspaces_available": true, "remaining_onboarding_slots": 8, "checked_at": "2026-08-02T00:00:00Z" },
+  "private_negotiation_bounds": { "floor_amount": "94.00", "currency": "USD", "maximum_discount_percent": 10 },
+  "fulfillment_operations": { "internal_runbook": "seller-private://fixture-c/runbook", "service_account_ref": "svc_fixture_c_private", "escalation_role": "fulfillment_manager" },
+  "approved_positioning_library": [
+    { "angle_id": "angle_fixture_c_controls", "text": "Structured controls for teams willing to invest in administration.", "claim_ids": ["claim_fixture_c_notice"] }
+  ],
+  "unpublished_constraints": ["Internal service capacity is not a published product guarantee."],
+  "pack_source": {
+    "category_ids": ["meeting_intelligence_client_services_v1"],
+    "jtbd_ids": ["capture_meeting_decisions"],
+    "facts": [
+      { "field": "product.trains_on_customer_data", "value": false, "evidence_claim_ids": ["claim_fixture_c_training"] },
+      { "field": "product.data_residency", "value": "US", "evidence_claim_ids": ["claim_fixture_c_residency"] },
+      { "field": "product.source_linked_answers", "value": true, "evidence_claim_ids": ["claim_fixture_c_sources"] },
+      { "field": "product.guest_recording_notice", "value": true, "evidence_claim_ids": ["claim_fixture_c_notice"] },
+      { "field": "product.admin_hours_per_month", "value": 6, "evidence_claim_ids": ["claim_fixture_c_admin"] },
+      { "field": "product.deployment_days", "value": 3, "evidence_claim_ids": ["claim_fixture_c_deploy"] },
+      { "field": "product.native_integrations", "value": ["google_workspace", "slack", "zoom"], "evidence_claim_ids": ["claim_fixture_c_integrations"] }
+    ],
+    "fit_rules": [{ "rule_id": "fit_fixture_c_seats", "kind": "fit", "all": [{ "field": "buyer.seat_count", "op": "lte", "value": 100 }], "reason_code": "SEAT_RANGE_SUPPORTED", "display_reason": "The Business edition supports up to 100 seats.", "evidence_claim_ids": ["claim_fixture_c_seats"], "severity": "hard" }],
+    "anti_fit_rules": [],
+    "dependency_rules": [{ "rule_id": "dep_fixture_c_admin", "kind": "dependency", "all": [{ "field": "buyer.admin_capacity", "op": "exists", "value": true }], "reason_code": "ADMIN_OWNER_REQUIRED", "display_reason": "A named administrator is required for deployment.", "evidence_claim_ids": ["claim_fixture_c_admin"], "severity": "soft" }],
+    "claim_ids": ["claim_fixture_c_training", "claim_fixture_c_residency", "claim_fixture_c_sources", "claim_fixture_c_notice", "claim_fixture_c_admin", "claim_fixture_c_deploy", "claim_fixture_c_integrations", "claim_fixture_c_seats"],
+    "offer_ids": ["offer_fixture_c_monthly"],
+    "fulfillment_public_summary": "One workspace and ten seat entitlements are provisioned after verified payment."
+  },
+  "publication_allowlist": ["public_identity", "pack_source", "approved_positioning_library"],
+  "compilation_history": [{ "compilation_id": "compile_fixture_c_v1", "target_pack_version": 1, "reviewer_role": "seller_reviewer", "result": "approved", "at": "2026-08-02T00:00:00Z" }],
+  "created_at": "2026-08-01T00:00:00Z"
+}

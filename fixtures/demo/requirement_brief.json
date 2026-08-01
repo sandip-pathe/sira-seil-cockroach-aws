@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "requirement_brief_id": "rb_consultco_v1",
+  "purchase_brief_id": "pb_consultco_v1",
+  "purchase_brief_version": 1,
+  "version": 1,
+  "visibility": "SELECTIVE",
+  "category_id": "meeting_intelligence_client_services_v1",
+  "intent": "Find meeting intelligence for a ten-person client-services team",
+  "desired_outcome": "Users can find an agreed client decision, owner, and source moment within 120 seconds",
+  "team": {
+    "seat_count": 10,
+    "team_type": "client_services",
+    "billing_region": "US",
+    "comparison_horizon_days": 30
+  },
+  "data_profile": {
+    "client_conversations_restricted": true,
+    "shared_client_workspace_required": true,
+    "recording_notice_required": true
+  },
+  "hard_requirements": [
+    { "requirement_id": "req_no_customer_training", "field": "product.trains_on_customer_data", "operator": "eq", "value": false, "display_text": "Customer content must not be used for general model training." },
+    { "requirement_id": "req_residency", "field": "product.data_residency", "operator": "in", "value": ["US"], "display_text": "The selected service must support the approved US data-residency policy." },
+    { "requirement_id": "req_source_links", "field": "product.source_linked_answers", "operator": "eq", "value": true, "display_text": "Retrieved decisions must link to their source moment." },
+    { "requirement_id": "req_guest_notice", "field": "product.guest_recording_notice", "operator": "eq", "value": true, "display_text": "The workflow must provide explicit guest recording notice." }
+  ],
+  "preferences": [
+    { "criterion_id": "pref_admin_hours", "display_text": "Prefer low ongoing administration." },
+    { "criterion_id": "pref_deployment_days", "display_text": "Prefer deployment in two days or less." },
+    { "criterion_id": "pref_native_integrations", "display_text": "Prefer native identity and workflow integrations." },
+    { "criterion_id": "pref_native_crm_sync", "display_text": "Native CRM synchronization is useful but not required." }
+  ],
+  "allowed_stack_context": {
+    "required_integrations": ["google_workspace", "slack", "zoom"],
+    "meeting_platforms": ["google_meet", "zoom"],
+    "identity_protocol": "google_workspace"
+  },
+  "seller_questions": ["Confirm current availability for a ten-seat workspace.", "Confirm the supported entitlement verification method."],
+  "expires_at": "2026-08-03T00:20:00Z",
+  "content_hash": "sha256:f1dd736e28bc40991a75225ae62c0a9b6caec6d5c8a2d51a8f910b66adff8840"
+}

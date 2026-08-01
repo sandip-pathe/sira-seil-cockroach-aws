@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0.0",
+  "pack_id": "fixture_selected_fit",
+  "version": 1,
+  "status": "published",
+  "seller_id": "seller_fixture_d",
+  "product_id": "product_fixture_d",
+  "identity": { "seller_name": "Fictional Seller D", "product_name": "Fixture D", "edition": "Team", "geographies": ["US"] },
+  "offer_ids": ["offer_fixture_d_monthly"],
+  "category_ids": ["meeting_intelligence_client_services_v1"],
+  "jtbd_ids": ["capture_meeting_decisions"],
+  "facts": [
+    { "field": "product.trains_on_customer_data", "value": false, "evidence_claim_ids": ["claim_fixture_d_training"] },
+    { "field": "product.data_residency", "value": "US", "evidence_claim_ids": ["claim_fixture_d_residency"] },
+    { "field": "product.source_linked_answers", "value": true, "evidence_claim_ids": ["claim_fixture_d_sources"] },
+    { "field": "product.guest_recording_notice", "value": true, "evidence_claim_ids": ["claim_fixture_d_notice"] },
+    { "field": "product.admin_hours_per_month", "value": 1, "evidence_claim_ids": ["claim_fixture_d_admin"] },
+    { "field": "product.deployment_days", "value": 1, "evidence_claim_ids": ["claim_fixture_d_deploy"] },
+    { "field": "product.native_integrations", "value": ["google_workspace", "slack", "zoom"], "evidence_claim_ids": ["claim_fixture_d_integrations"] }
+  ],
+  "fit_rules": [{ "rule_id": "fit_fixture_d_seats", "kind": "fit", "all": [{ "field": "buyer.seat_count", "op": "lte", "value": 50 }], "reason_code": "SEAT_RANGE_SUPPORTED", "display_reason": "The Team edition supports up to 50 seats.", "evidence_claim_ids": ["claim_fixture_d_seats"], "severity": "hard" }],
+  "anti_fit_rules": [],
+  "dependency_rules": [{ "rule_id": "dep_fixture_d_stack", "kind": "dependency", "all": [{ "field": "buyer.required_integrations", "op": "contains_all", "value": ["google_workspace", "slack", "zoom"] }], "reason_code": "NATIVE_STACK_SUPPORTED", "display_reason": "The selected configuration supports the disclosed required integrations.", "evidence_claim_ids": ["claim_fixture_d_integrations"], "severity": "hard" }],
+  "positioning_angles": [{ "angle_id": "angle_fixture_d_stack_fit", "text": "Native workflow integrations reduce deployment and administration work.", "claim_ids": ["claim_fixture_d_integrations", "claim_fixture_d_deploy"] }],
+  "claims": [
+    { "claim_id": "claim_fixture_d_training", "field": "product.trains_on_customer_data", "value": false, "display_text": "Customer content is not used for general model training.", "assertion_source": "seller", "evidence_visibility": "buyer_after_access_check", "verification_method": "source_document_review", "verification_scope": "Fixture D Team v1 data-use policy", "verification_state": "verified", "evidence_ids": ["ev_fixture_d_product"], "owner_role": "privacy_owner", "reviewed_by_role": "seller_reviewer", "verified_at": "2026-08-01T00:00:00Z", "expires_at": "2026-11-01T00:00:00Z" },
+    { "claim_id": "claim_fixture_d_residency", "field": "product.data_residency", "value": "US", "display_text": "US data residency is supported.", "assertion_source": "seller", "evidence_visibility": "buyer_after_access_check", "verification_method": "source_document_review", "verification_scope": "Fixture D Team v1 hosting", "verification_state": "verified", "evidence_ids": ["ev_fixture_d_product"], "owner_role": "privacy_owner", "reviewed_by_role": "seller_reviewer", "verified_at": "2026-08-01T00:00:00Z", "expires_at": "2026-11-01T00:00:00Z" },
+    { "claim_id": "claim_fixture_d_sources", "field": "product.source_linked_answers", "value": true, "display_text": "Answers link to transcript source moments.", "assertion_source": "seller", "evidence_visibility": "public", "verification_method": "api_probe", "verification_scope": "Fixture D Team v1 retrieval", "verification_state": "verified", "evidence_ids": ["ev_fixture_d_product"], "owner_role": "product_owner", "reviewed_by_role": "seller_reviewer", "verified_at": "2026-08-01T00:00:00Z", "expires_at": "2026-11-01T00:00:00Z" },
+    { "claim_id": "claim_fixture_d_notice", "field": "product.guest_recording_notice", "value": true, "display_text": "The capture flow displays a guest recording notice.", "assertion_source": "seller", "evidence_visibility": "public", "verification_method": "source_document_review", "verification_scope": "Fixture D Team v1 capture", "verification_state": "verified", "evidence_ids": ["ev_fixture_d_product"], "owner_role": "legal_owner", "reviewed_by_role": "seller_reviewer", "verified_at": "2026-08-01T00:00:00Z", "expires_at": "2026-11-01T00:00:00Z" },
+    { "claim_id": "claim_fixture_d_admin", "field": "product.admin_hours_per_month", "value": 1, "display_text": "Typical administration is one hour per month.", "assertion_source": "seller", "evidence_visibility": "public", "verification_method": "source_document_review", "verification_scope": "Fixture D Team v1 operations", "verification_state": "verified", "evidence_ids": ["ev_fixture_d_product"], "owner_role": "product_owner", "reviewed_by_role": "seller_reviewer", "verified_at": "2026-08-01T00:00:00Z", "expires_at": "2026-11-01T00:00:00Z" },
+    { "claim_id": "claim_fixture_d_deploy", "field": "product.deployment_days", "value": 1, "display_text": "A ten-seat workspace can be deployed in one day.", "assertion_source": "seller", "evidence_visibility": "public", "verification_method": "source_document_review", "verification_scope": "Fixture D Team v1 deployment", "verification_state": "verified", "evidence_ids": ["ev_fixture_d_product"], "owner_role": "fulfillment_owner", "reviewed_by_role": "seller_reviewer", "verified_at": "2026-08-01T00:00:00Z", "expires_at": "2026-11-01T00:00:00Z" },
+    { "claim_id": "claim_fixture_d_integrations", "field": "product.native_integrations", "value": ["google_workspace", "slack", "zoom"], "display_text": "Native Google Workspace, Slack, and Zoom integrations are included.", "assertion_source": "seller", "evidence_visibility": "public", "verification_method": "api_probe", "verification_scope": "Fixture D Team v1 integrations", "verification_state": "verified", "evidence_ids": ["ev_fixture_d_product"], "owner_role": "integration_owner", "reviewed_by_role": "seller_reviewer", "verified_at": "2026-08-01T00:00:00Z", "expires_at": "2026-11-01T00:00:00Z" },
+    { "claim_id": "claim_fixture_d_seats", "field": "offer.maximum_seats", "value": 50, "display_text": "The Team edition supports up to 50 seats.", "assertion_source": "seller", "evidence_visibility": "public", "verification_method": "source_document_review", "verification_scope": "offer_fixture_d_monthly v1", "verification_state": "verified", "evidence_ids": ["ev_fixture_d_product"], "owner_role": "commercial_owner", "reviewed_by_role": "seller_reviewer", "verified_at": "2026-08-01T00:00:00Z", "expires_at": "2026-11-01T00:00:00Z" }
+  ],
+  "commercial": { "billing_unit": "workspace_month", "minimum_units": 1, "catalog_offer_ids": ["offer_fixture_d_monthly"] },
+  "fulfillment_spec": {
+    "checkout_adapter": "controlled_merchant_sandbox",
+    "provisioning_steps": ["Create workspace", "Grant ten seats", "Connect approved integrations", "Verify workspace access"],
+    "expected_entitlements": [
+      { "fulfillment_item_id": "fi_fixture_d_workspace", "line_item_id": "li_fixture_d_team", "type": "workspace_entitlement", "subject_type": "organization", "required": true, "minimum_quantity": 1, "expected_quantity": 1, "partial_delivery_useful": false, "verification_method": "merchant_api_plus_access_probe" },
+      { "fulfillment_item_id": "fi_fixture_d_seats", "line_item_id": "li_fixture_d_team", "type": "seat_entitlement", "subject_type": "user_or_team", "required": true, "minimum_quantity": 10, "expected_quantity": 10, "partial_delivery_useful": true, "verification_method": "merchant_api" }
+    ],
+    "verification_method": "merchant_api_plus_access_probe"
+  },
+  "merchant_chain": { "chain_id": "smc_fixture_d", "seller_contracting_entity_id": "entity_fixture_d_seller", "merchant": { "merchant_id": "merchant_fixture_d", "name": "Fixture Merchant D", "url": "https://merchant-d.example.test", "country": "US" }, "region": "US", "valid_from": "2026-08-01T00:00:00Z", "valid_until": "2026-12-31T23:59:59Z", "authority_evidence_ids": ["ev_fixture_d_merchant"] },
+  "operations": { "owner_role": "product_owner", "reviewer_roles": ["privacy_owner", "seller_reviewer"], "change_summary": "Initial fictional selected-fit Pack." },
+  "published_at": "2026-08-02T00:00:00Z",
+  "supersedes_version": null,
+  "content_hash": "sha256:6154603ddfc673980cb4b5fd0479e118e10900329a9725fe3c30fb96b4cfdee3"
+}

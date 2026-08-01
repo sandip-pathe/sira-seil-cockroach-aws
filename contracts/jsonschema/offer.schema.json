@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/offer.schema.json",
+  "title": "Catalog offers and live quote",
+  "oneOf": [
+    { "$ref": "#/$defs/OfferCatalog" },
+    { "$ref": "#/$defs/LiveQuote" }
+  ],
+  "$defs": {
+    "OfferCatalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "offers"],
+      "properties": {
+        "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+        "offers": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/CatalogOffer" } }
+      }
+    },
+    "CatalogOffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["offer_id", "version", "candidate_id", "offer_type", "amount", "currency", "billing_unit", "quantity", "horizon_days", "availability_checked_at"],
+      "properties": {
+        "offer_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "version": { "type": "integer", "minimum": 1 },
+        "candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "offer_type": { "const": "indicative" },
+        "amount": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
+        "currency": { "$ref": "common.schema.json#/$defs/Currency" },
+        "billing_unit": { "type": "string", "enum": ["workspace_month", "seat_month"] },
+        "quantity": { "type": "integer", "minimum": 1 },
+        "horizon_days": { "type": "integer", "minimum": 1 },
+        "availability_checked_at": { "$ref": "common.schema.json#/$defs/Timestamp" }
+      }
+    },
+    "LiveQuote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "quote_id", "version", "candidate_id", "offer_id", "offer_version", "merchant_chain_id", "merchant", "line_items", "amount", "tax_amount", "fee_amount", "landed_total", "currency", "is_live", "issued_at", "expires_at", "content_hash"],
+      "properties": {
+        "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+        "quote_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "version": { "type": "integer", "minimum": 1 },
+        "candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "offer_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "offer_version": { "type": "integer", "minimum": 1 },
+        "merchant_chain_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "merchant": { "$ref": "common.schema.json#/$defs/Merchant" },
+        "line_items": { "type": "array", "minItems": 1, "items": { "$ref": "common.schema.json#/$defs/LineItem" } },
+        "amount": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
+        "tax_amount": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
+        "fee_amount": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
+        "landed_total": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
+        "currency": { "$ref": "common.schema.json#/$defs/Currency" },
+        "is_live": { "const": true },
+        "issued_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "expires_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "content_hash": { "$ref": "common.schema.json#/$defs/Sha256" }
+      }
+    }
+  }
+}

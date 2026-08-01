@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/procurement-plan.schema.json",
+  "title": "Procurement Plan gate result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "procurement_plan_id", "request_id", "decision_id", "version", "gates", "evaluated_at", "gate_result_hash"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+    "procurement_plan_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "request_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "decision_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "version": { "type": "integer", "minimum": 1 },
+    "gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate_id", "kind", "status", "owner_role", "evidence_ids"],
+        "properties": {
+          "gate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+          "kind": { "type": "string", "enum": ["current_privacy_evidence", "dpa_terms", "merchant_chain", "billing_cost_center", "budget_approval", "deployment_owner"] },
+          "status": { "const": "PASSED" },
+          "owner_role": { "$ref": "common.schema.json#/$defs/Identifier" },
+          "evidence_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+        }
+      }
+    },
+    "evaluated_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "gate_result_hash": { "$ref": "common.schema.json#/$defs/Sha256" }
+  }
+}

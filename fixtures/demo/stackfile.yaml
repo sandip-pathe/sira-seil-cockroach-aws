@@ -1,0 +1,38 @@
+schemaVersion: sira.ai/v1
+organization: consultco
+snapshot: 1
+jobs:
+  - id: capture_meeting_decisions
+    outcome: "Consultants can find client decisions within 120 seconds"
+    owners: [operations]
+    users: [consultants]
+    metrics:
+      - name: decision_retrieval_time_seconds
+        target: 120
+    constraints: [policy_no_customer_training, policy_us_residency, policy_guest_notice]
+products:
+  - id: google_workspace
+    lifecycle: active
+    serves: [identity, calendar, documents]
+  - id: slack
+    lifecycle: active
+    serves: [team_communication]
+  - id: zoom
+    lifecycle: active
+    serves: [client_meetings]
+  - id: crm_current
+    lifecycle: active
+    serves: [client_records]
+policies:
+  - id: policy_no_customer_training
+    field: product.trains_on_customer_data
+    operator: eq
+    value: false
+  - id: policy_us_residency
+    field: product.data_residency
+    operator: in
+    value: [US]
+  - id: policy_guest_notice
+    field: product.guest_recording_notice
+    operator: eq
+    value: true

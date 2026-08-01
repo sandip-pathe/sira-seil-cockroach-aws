@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/purchase-brief.schema.json",
+  "title": "Purchase Brief",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "purchase_brief_id", "request_id", "organization_id", "version", "supersedes_version", "status", "visibility", "intent", "category_id", "desired_outcome", "stakeholder_roles", "hard_gates", "preferences", "known_alternatives", "stackfile_impact_policy", "disclosure_choices", "approval_requirements", "calibration_examples", "created_at", "content_hash"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+    "purchase_brief_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "request_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "organization_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "version": { "type": "integer", "minimum": 1 },
+    "supersedes_version": { "type": ["integer", "null"], "minimum": 1 },
+    "status": { "type": "string", "enum": ["DRAFT", "APPROVED", "SUPERSEDED"] },
+    "visibility": { "$ref": "enums.schema.json#/$defs/RequestVisibility" },
+    "intent": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "category_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "desired_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jtbd_id", "statement", "metric", "target", "unit"],
+      "properties": {
+        "jtbd_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "metric": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "target": { "type": "integer", "minimum": 0 },
+        "unit": { "type": "string", "enum": ["seconds", "minutes", "hours", "days", "percent"] }
+      }
+    },
+    "stakeholder_roles": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+    "hard_gates": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/HardGate" } },
+    "preferences": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/Preference" } },
+    "known_alternatives": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+    "stackfile_impact_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_integrations", "maximum_risk", "patch_mode", "active_mutation_requires_approval"],
+      "properties": {
+        "required_integrations": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "maximum_risk": { "$ref": "enums.schema.json#/$defs/StackRisk" },
+        "patch_mode": { "const": "PROPOSED_ONLY" },
+        "active_mutation_requires_approval": { "const": true }
+      }
+    },
+    "disclosure_choices": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["share_identity", "share_budget", "share_contacts", "share_private_failures", "share_competing_offers", "allowed_stack_fields"],
+      "properties": {
+        "share_identity": { "const": false },
+        "share_budget": { "const": false },
+        "share_contacts": { "const": false },
+        "share_private_failures": { "const": false },
+        "share_competing_offers": { "const": false },
+        "allowed_stack_fields": { "type": "array", "uniqueItems": true, "items": { "type": "string", "enum": ["required_integrations", "identity_protocol", "meeting_platforms"] } }
+      }
+    },
+    "approval_requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stage", "role", "required"],
+        "properties": {
+          "stage": { "type": "integer", "minimum": 1 },
+          "role": { "$ref": "common.schema.json#/$defs/Identifier" },
+          "required": { "const": true }
+        }
+      }
+    },
+    "calibration_examples": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_id", "expected_result"],
+        "properties": {
+          "candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+          "expected_result": { "type": "string", "enum": ["FAIL", "CURRENT_APPROACH", "QUALIFY"] }
+        }
+      }
+    },
+    "created_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "content_hash": { "$ref": "common.schema.json#/$defs/Sha256" }
+  },
+  "$defs": {
+    "HardGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gate_id", "field", "operator", "value", "source_fact_ids", "owner_role", "overridable", "seller_disclosure"],
+      "properties": {
+        "gate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "field": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{2,127}$" },
+        "operator": { "type": "string", "enum": ["eq", "neq", "in", "not_in", "contains", "contains_all", "gte", "lte", "gt", "lt", "exists"] },
+        "value": { "type": ["string", "boolean", "integer", "array"] },
+        "source_fact_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "owner_role": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "overridable": { "type": "boolean" },
+        "seller_disclosure": { "type": "string", "enum": ["REQUIREMENT_ONLY", "HIDDEN", "FULL_RULE"] }
+      }
+    },
+    "Preference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterion_id", "field", "weight", "normalization", "owner_role"],
+      "properties": {
+        "criterion_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "field": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{2,127}$" },
+        "weight": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "normalization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "best_at_or_below", "acceptable_at_or_below"],
+          "properties": {
+            "kind": { "type": "string", "enum": ["lower_is_better", "higher_is_better", "boolean"] },
+            "best_at_or_below": { "type": ["integer", "null"], "minimum": 0 },
+            "acceptable_at_or_below": { "type": ["integer", "null"], "minimum": 0 }
+          }
+        },
+        "owner_role": { "$ref": "common.schema.json#/$defs/Identifier" }
+      }
+    }
+  }
+}

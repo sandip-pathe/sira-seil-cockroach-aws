@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/product-passport.schema.json",
+  "title": "Private Product Passport publication input",
+  "description": "Private seller asset. Only fields named by publication_allowlist may be compiled into a SEIL Pack.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "product_passport_id", "seller_id", "product_id", "version", "public_identity", "source_material", "roadmap_notes", "availability_capacity", "private_negotiation_bounds", "fulfillment_operations", "approved_positioning_library", "unpublished_constraints", "pack_source", "publication_allowlist", "compilation_history", "created_at"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+    "product_passport_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "seller_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "product_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "version": { "type": "integer", "minimum": 1 },
+    "public_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seller_name", "product_name", "edition", "geographies"],
+      "properties": {
+        "seller_name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "product_name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "edition": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "geographies": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Z]{2}$" } }
+      }
+    },
+    "source_material": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "classification", "title", "internal_location", "owner_role"],
+        "properties": {
+          "source_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+          "classification": { "type": "string", "enum": ["seller_private", "seller_confidential"] },
+          "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "internal_location": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "owner_role": { "$ref": "common.schema.json#/$defs/Identifier" }
+        }
+      }
+    },
+    "roadmap_notes": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 500 } },
+    "availability_capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["new_workspaces_available", "remaining_onboarding_slots", "checked_at"],
+      "properties": {
+        "new_workspaces_available": { "type": "boolean" },
+        "remaining_onboarding_slots": { "type": "integer", "minimum": 0 },
+        "checked_at": { "$ref": "common.schema.json#/$defs/Timestamp" }
+      }
+    },
+    "private_negotiation_bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["floor_amount", "currency", "maximum_discount_percent"],
+      "properties": {
+        "floor_amount": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
+        "currency": { "$ref": "common.schema.json#/$defs/Currency" },
+        "maximum_discount_percent": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "fulfillment_operations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["internal_runbook", "service_account_ref", "escalation_role"],
+      "properties": {
+        "internal_runbook": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "service_account_ref": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "escalation_role": { "$ref": "common.schema.json#/$defs/Identifier" }
+      }
+    },
+    "approved_positioning_library": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["angle_id", "text", "claim_ids"],
+        "properties": {
+          "angle_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+          "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "claim_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+        }
+      }
+    },
+    "unpublished_constraints": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 500 } },
+    "pack_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category_ids", "jtbd_ids", "facts", "fit_rules", "anti_fit_rules", "dependency_rules", "claim_ids", "offer_ids", "fulfillment_public_summary"],
+      "properties": {
+        "category_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "jtbd_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "facts": { "type": "array", "minItems": 1, "items": { "$ref": "seil-pack.schema.json#/$defs/PackFact" } },
+        "fit_rules": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Rule" } },
+        "anti_fit_rules": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Rule" } },
+        "dependency_rules": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Rule" } },
+        "claim_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "offer_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "fulfillment_public_summary": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "publication_allowlist": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "enum": ["public_identity", "pack_source", "approved_positioning_library"] }
+    },
+    "compilation_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["compilation_id", "target_pack_version", "reviewer_role", "result", "at"],
+        "properties": {
+          "compilation_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+          "target_pack_version": { "type": "integer", "minimum": 1 },
+          "reviewer_role": { "$ref": "common.schema.json#/$defs/Identifier" },
+          "result": { "type": "string", "enum": ["approved", "rejected"] },
+          "at": { "$ref": "common.schema.json#/$defs/Timestamp" }
+        }
+      }
+    },
+    "created_at": { "$ref": "common.schema.json#/$defs/Timestamp" }
+  }
+}

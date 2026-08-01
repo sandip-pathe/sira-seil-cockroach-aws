@@ -1,0 +1,159 @@
+{
+  "schema_version": "1.0.0",
+  "decision_id": "dec_consultco_v1",
+  "request_id": "req_demo",
+  "purchase_brief_id": "pb_consultco_v1",
+  "purchase_brief_version": 1,
+  "requirement_brief_id": "rb_consultco_v1",
+  "requirement_brief_version": 1,
+  "buyer_passport_version": 1,
+  "stack_snapshot": 1,
+  "policy_version": 1,
+  "evaluated_universe": {
+    "category_schema_version": 1,
+    "registry_candidates_considered": 4,
+    "known_external_candidates_not_normalized": 0,
+    "evaluated_candidate_ids": [
+      "fixture_low_price_policy_fail",
+      "fixture_honest_anti_fit",
+      "fixture_eligible_runner_up",
+      "fixture_selected_fit"
+    ],
+    "coverage_statement": "Best supported action among four executable Packs"
+  },
+  "candidate_results": [
+    {
+      "candidate_id": "fixture_low_price_policy_fail",
+      "name": "Fixture A",
+      "pack_id": "fixture_low_price_policy_fail",
+      "pack_version": 1,
+      "status": "SIRA_INELIGIBLE",
+      "reason_code": "BUYER_POLICY_DATA_USE",
+      "reason": "Fails the buyer's confirmed no-customer-training and approved-residency rules",
+      "hard_constraints": [
+        { "id": "gate_no_customer_training", "source": "buyer", "result": "fail", "reason_code": "CUSTOMER_TRAINING_PROHIBITED", "evidence_ids": ["ev_fixture_a_product"] },
+        { "id": "gate_residency", "source": "buyer", "result": "fail", "reason_code": "RESIDENCY_NOT_APPROVED", "evidence_ids": ["ev_fixture_a_product"] }
+      ],
+      "preference_scores": [],
+      "preference_score": null,
+      "dependency_impact": { "risk": "MEDIUM", "affected_nodes": ["google_workspace", "slack", "zoom"] },
+      "total_cost": { "amount": "49.00", "currency": "USD" },
+      "evidence_ids": ["ev_fixture_a_product"],
+      "seller_positioning": null
+    },
+    {
+      "candidate_id": "fixture_honest_anti_fit",
+      "name": "Fixture B",
+      "pack_id": "fixture_honest_anti_fit",
+      "pack_version": 1,
+      "status": "SEIL_PASS",
+      "reason_code": "SHARED_CLIENT_WORKSPACE_UNSUPPORTED",
+      "reason": "The seller's published anti-fit rule excludes restricted conversations in shared external-client workspaces",
+      "hard_constraints": [
+        { "id": "gate_no_customer_training", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_b_product"] },
+        { "id": "af_fixture_b_shared_client_data", "source": "seller", "result": "fail", "reason_code": "SHARED_CLIENT_WORKSPACE_UNSUPPORTED", "evidence_ids": ["ev_fixture_b_product"] }
+      ],
+      "preference_scores": [],
+      "preference_score": null,
+      "dependency_impact": { "risk": "LOW", "affected_nodes": ["google_workspace", "slack", "zoom"] },
+      "total_cost": { "amount": "79.00", "currency": "USD" },
+      "evidence_ids": ["ev_fixture_b_product"],
+      "seller_positioning": null
+    },
+    {
+      "candidate_id": "fixture_eligible_runner_up",
+      "name": "Fixture C",
+      "pack_id": "fixture_eligible_runner_up",
+      "pack_version": 1,
+      "status": "ELIGIBLE",
+      "reason_code": null,
+      "reason": "Meets hard gates but requires more administration and migration work",
+      "hard_constraints": [
+        { "id": "gate_no_customer_training", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_c_product"] },
+        { "id": "gate_residency", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_c_product"] },
+        { "id": "gate_source_links", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_c_product"] },
+        { "id": "gate_guest_notice", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_c_product"] }
+      ],
+      "preference_scores": [
+        { "id": "pref_admin_hours", "weight": 5, "satisfaction": "0.5", "contribution": "2.50", "evidence_ids": ["ev_fixture_c_product"] },
+        { "id": "pref_deployment_days", "weight": 4, "satisfaction": "0.5", "contribution": "2.00", "evidence_ids": ["ev_fixture_c_product"] },
+        { "id": "pref_native_integrations", "weight": 4, "satisfaction": "1", "contribution": "4.00", "evidence_ids": ["ev_fixture_c_product"] },
+        { "id": "pref_native_crm_sync", "weight": 1, "satisfaction": "0", "contribution": "0", "evidence_ids": [] }
+      ],
+      "preference_score": 61,
+      "dependency_impact": { "risk": "MEDIUM", "affected_nodes": ["google_workspace", "slack", "zoom", "team_operations"] },
+      "total_cost": { "amount": "99.00", "currency": "USD" },
+      "evidence_ids": ["ev_fixture_c_product"],
+      "seller_positioning": "Seller positioning: Structured controls for teams willing to invest in administration."
+    },
+    {
+      "candidate_id": "fixture_selected_fit",
+      "name": "Fixture D",
+      "pack_id": "fixture_selected_fit",
+      "pack_version": 1,
+      "status": "ELIGIBLE",
+      "reason_code": null,
+      "reason": "Meets required privacy, identity, and integration rules",
+      "hard_constraints": [
+        { "id": "gate_no_customer_training", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_d_product"] },
+        { "id": "gate_residency", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_d_product"] },
+        { "id": "gate_source_links", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_d_product"] },
+        { "id": "gate_guest_notice", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_d_product"] },
+        { "id": "dep_fixture_d_stack", "source": "dependency", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_d_product"] }
+      ],
+      "preference_scores": [
+        { "id": "pref_admin_hours", "weight": 5, "satisfaction": "1", "contribution": "5.00", "evidence_ids": ["ev_fixture_d_product"] },
+        { "id": "pref_deployment_days", "weight": 4, "satisfaction": "0.75", "contribution": "3.00", "evidence_ids": ["ev_fixture_d_product"] },
+        { "id": "pref_native_integrations", "weight": 4, "satisfaction": "1", "contribution": "4.00", "evidence_ids": ["ev_fixture_d_product"] },
+        { "id": "pref_native_crm_sync", "weight": 1, "satisfaction": "0", "contribution": "0", "evidence_ids": [] }
+      ],
+      "preference_score": 86,
+      "dependency_impact": { "risk": "LOW", "affected_nodes": ["google_workspace", "slack", "zoom"] },
+      "total_cost": { "amount": "89.00", "currency": "USD" },
+      "evidence_ids": ["ev_fixture_d_product"],
+      "seller_positioning": "Seller positioning: Native workflow integrations reduce deployment and administration work."
+    }
+  ],
+  "solution_plans": [
+    {
+      "solution_plan_id": "sol_buy_fixture_d",
+      "action": "BUY",
+      "component_candidate_ids": ["fixture_selected_fit"],
+      "status": "ELIGIBLE",
+      "preference_score": 86,
+      "stack_risk": "LOW",
+      "total_cost": { "amount": "89.00", "currency": "USD" },
+      "required_evidence_coverage_percent": 100,
+      "maximum_evidence_age_days": 1,
+      "stable_action_ids": ["buy_fixture_selected_fit"],
+      "rank": 1,
+      "stack_patch_id": "patch_consultco_fixture_d"
+    },
+    {
+      "solution_plan_id": "sol_buy_fixture_c",
+      "action": "BUY",
+      "component_candidate_ids": ["fixture_eligible_runner_up"],
+      "status": "ELIGIBLE",
+      "preference_score": 61,
+      "stack_risk": "MEDIUM",
+      "total_cost": { "amount": "99.00", "currency": "USD" },
+      "required_evidence_coverage_percent": 100,
+      "maximum_evidence_age_days": 1,
+      "stable_action_ids": ["buy_fixture_eligible_runner_up"],
+      "rank": 2,
+      "stack_patch_id": "patch_consultco_fixture_c"
+    }
+  ],
+  "selected_solution_plan_id": "sol_buy_fixture_d",
+  "counterfactual": {
+    "generic_selected_candidate_id": "fixture_low_price_policy_fail",
+    "company_aware_selected_candidate_id": "fixture_selected_fit",
+    "private_fact_ids_that_changed_result": ["bf_no_customer_training", "bf_residency_us", "bf_low_admin_capacity", "bf_stack_integrations"],
+    "explanation": "A generic price-only shopper selects Fixture A at USD 49.00. ConsultCo policy excludes it because customer training is prohibited and US residency is required; low administration capacity and current-stack compatibility then make Fixture D the best supported eligible plan.",
+    "rejected_candidate_id": "fixture_low_price_policy_fail",
+    "seller_pass_candidate_id": "fixture_honest_anti_fit",
+    "remaining_uncertainties": ["A real Prava sandbox authorization and controlled-merchant entitlement remain external validation gates."]
+  },
+  "decision_hash": "sha256:3291feb78df86b34f87b7a8220b71e9d24ef5fcb831474ff926314bd12918a34",
+  "created_at": "2026-08-02T01:05:00Z"
+}

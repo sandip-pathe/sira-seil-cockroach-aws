@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/engagement.schema.json",
+  "title": "Selective engagement before mutual consent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "engagement_id", "request_id", "candidate_id", "visibility", "action", "status", "requirement_brief_id", "buyer_identity_disclosed", "seller_identity_disclosed", "buyer_contact", "seller_contact", "buyer_consent", "seller_consent", "created_at"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+    "engagement_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "request_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "visibility": { "const": "SELECTIVE" },
+    "action": { "const": "REQUEST_OFFER" },
+    "status": { "$ref": "enums.schema.json#/$defs/EngagementStatus" },
+    "requirement_brief_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "buyer_identity_disclosed": { "const": false },
+    "seller_identity_disclosed": { "const": false },
+    "buyer_contact": { "type": "null" },
+    "seller_contact": { "type": "null" },
+    "buyer_consent": { "type": "string", "enum": ["PENDING", "DECLINED"] },
+    "seller_consent": { "type": "string", "enum": ["PENDING", "DECLINED"] },
+    "created_at": { "$ref": "common.schema.json#/$defs/Timestamp" }
+  }
+}
