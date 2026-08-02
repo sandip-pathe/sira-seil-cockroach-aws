@@ -1,25 +1,27 @@
-# SIRA + SEIL Product Requirements Document
+# SIRA Product Requirements Document
 
 **Status:** Draft for founder review  
 **Version:** 1.0  
 **Prepared:** 2026-08-02  
 **Product horizon:** Full product. Delivery phases are sequencing devices, not scope cuts.  
 **Primary category for the first validated workflow:** Meeting intelligence for client-service teams (within B2B software procurement)  
+**Product surfaces:** SIRA is the buyer workspace; SEIL is the seller-controlled product-truth protocol and seller workspace
 **Canonical stack:** Next.js/React + FastAPI/Python + PostgreSQL + OpenAI Agents SDK + Senso + Prava
 
 ---
 
 ## 1. Executive Summary
 
-SIRA + SEIL is a company-aware commerce network for buying, selling, operating, and improving business software.
+SIRA is a company-aware decision and execution product for buying, renewing, operating, and improving business software. SEIL is the seller-controlled product-truth protocol and service that supplies SIRA with reusable, evidence-backed Product Evidence.
 
 - **SIRA** represents the buyer. It understands the requested job, the people who will use the product, the decision-maker, the payer, company policies, culture, current tools, contracts, prior outcomes, and authority limits. It discovers options, makes an auditable decision, obtains the required approval, completes the transaction, verifies fulfillment, and learns from the result.
-- **SEIL** represents a product and its seller. It turns scattered product material into a reusable, versioned **SEIL Pack** containing product facts, evidence, pricing, limitations, explicit anti-fit rules, compatible jobs, positioning, commercial terms, and fulfillment instructions. It positions the product honestly for an eligible buyer and passes when the product is not a fit.
+- **SEIL** represents a product and its seller at the trust boundary. It turns scattered product material into a reusable, versioned **SEIL Pack** containing typed claims, evidence, pricing, limitations, explicit anti-fit rules, compatible jobs, positioning, commercial terms, and fulfillment instructions. In the initial product it is primarily a protocol, publication service, and lightweight vendor claim/correction workflow—not a second conversational character buyers must understand.
 - **Stackfile** is the company's living dependency graph. Like `package.json` for a software project, it records which business jobs the company must accomplish, which products serve those jobs, what each product depends on, what depends on it, who owns and uses it, what it costs, when it renews, and what breaks if it changes.
 - **Prava** is the payment-authorization and credential boundary. The SIRA application cannot turn a recommendation into a purchase until the exact merchant, quote, amount, currency, approval plan, and expected fulfillment are locked and approved. Prava then provides the documented cardholder authorization surface and constrained merchant/amount payment credential; the application separately verifies merchant order and fulfillment.
 - **Senso** is the evidence and context layer. It stores and retrieves versioned source material with folder-scoped access. Senso content is never ranked directly and is not automatically treated as true; it is compiled into typed facts carrying provenance and verification status.
+- **SIRA Decision Graph** is the proprietary decision system. It joins the company/Stack graph, Product Evidence graph, and verified Decision/Outcome graph to recall options, enforce hard gates, build complete action plans, rank them deterministically, test robustness, and record a replayable ledger.
 
-In simple terms: a company says what outcome it needs. SIRA understands the whole company, not only the latest prompt. It searches reusable SEIL Packs, explains which products fit or fail, checks how the choice affects the current stack, gets the right human approval, pays through Prava, verifies the order and usable access, and updates the company's Stackfile. It then measures adoption and the desired business outcome at explicit checkpoints. Sellers maintain one trustworthy product package rather than rebuilding a pitch for every buyer.
+In simple terms: a company says what outcome it needs. SIRA understands the whole company, not only the latest prompt. It evaluates supported actions—including reuse, configuration, renewal, cancellation, consolidation, replacement, and purchase—against Product Evidence and the current Stackfile. It explains what is eligible, blocked, or uncertain, gets the right human approval, carries out the chosen action when authorized, verifies the result, and learns from measured outcomes. Buyers experience one SIRA workspace; they do not watch SIRA and SEIL chat.
 
 ### 1.1 Product thesis
 
@@ -30,28 +32,28 @@ Business buying fails when four truths are separated:
 3. What the payer is authorized to fund.
 4. What the company can securely deploy and successfully adopt.
 
-SIRA unifies those truths privately. SEIL makes seller truth reusable. Stackfile makes downstream impact visible. Prava turns an approved decision into constrained action.
+SIRA unifies those truths privately. The SIRA Decision Graph turns them into a governed action plan. SEIL makes seller truth reusable. Stackfile makes downstream impact visible. Prava turns an approved decision into constrained action.
 
 ### 1.2 The visible product promise
 
-> Tell SIRA the outcome you need. It will recommend the best supported action among the options it can evaluate, show its coverage and why the action fits your company, get approval when action is needed, complete the purchase if you choose to buy, and keep your stack healthy afterward.
+> Tell SIRA the outcome you need. It will recommend the best supported action among the options it can evaluate, show its coverage and why it fits your company, obtain the right approval, and help you renew, resize, configure, consolidate, replace, cancel, buy, or do nothing—then verify what actually happened.
 
 ### 1.3 The judge-facing proof
 
 The demonstration must show a counterfactual, not merely a polished recommendation:
 
-1. With only a generic request, the cheapest product appears best.
-2. With private company context and Stackfile impact, that product is eliminated.
+1. An incumbent meeting-intelligence contract is approaching its cancellation deadline; with only a generic replacement request, the cheapest product appears best.
+2. With private company context, observed incumbent outcome, contract timing, and Stackfile impact, that product is eliminated.
 3. A different SEIL Pack independently returns an explicit seller-authored anti-fit.
-4. SIRA compares the remaining eligible actions and chooses a deployable plan using a visible Decision Ledger and coverage statement.
+4. SIRA compares renew, resize, configure, keep, cancel, and replacement actions and chooses a deployable replacement plan using a visible Decision Ledger and coverage statement.
 5. The authorized person approves the exact purchase.
 6. Prava enables the merchant transaction.
 7. A real order and usable entitlement are verified.
-8. The purchase and its dependencies appear in Stackfile.
+8. The replacement entitlement and staged incumbent-retirement dependency plan appear in Stackfile.
 
 ### 1.4 Product value hierarchy and compounding loop
 
-The primary product is **company-aware buyer execution**. SEIL is the reusable supply and trust mechanism that makes accurate comparison possible. Stack Optimizer is the retention and expansion loop that reuses the same governed context after the first decision. They are not three unrelated products.
+The primary product is **company-aware buyer execution through SIRA**. The SIRA Decision Graph is its decision core. SEIL is the reusable supply and trust mechanism, not an equal buyer-facing application in the first release. Stack Optimizer is the retention and expansion loop that reuses the same governed context after the first decision. These are layers of one product, not separate products.
 
 The compounding loop is:
 
@@ -140,17 +142,18 @@ Stackfile turns purchasing from an isolated choice into continuous stack managem
 ## 4. Product Principles
 
 1. **Outcome before product.** Begin with the job to be done (JTBD), desired outcome, and constraints rather than a requested brand.
-2. **Company-aware, not prompt-aware.** A request is only one input to a persistent Buyer Passport and Stackfile.
-3. **Truth before persuasion.** Facts, evidence, uncertainty, and anti-fit are evaluated before positioning is generated.
-4. **Private by default.** Buyer context stays inside the buyer boundary. Sellers see only an explicit, sanitized requirement brief.
-5. **Deterministic authority.** Models may interpret and explain; they do not set budgets, invent permissions, approve spend, or silently change ranking rules.
-6. **Every material claim has provenance.** A decision can be reconstructed from source versions, product-pack versions, rules, quotes, approvals, and transaction states.
-7. **A purchase is an operational change.** Every buy, switch, renewal, or cancellation updates Stackfile and creates follow-up outcomes.
-8. **Honest passing creates trust.** A product saying "not for you" is valuable behavior, not a failed sale.
-9. **Learning is bounded.** Outcomes improve future decisions without leaking private company data or creating undisclosed pay-to-win ranking.
-10. **Completion means usable outcome.** Payment success alone is insufficient; the order, entitlement, booking, license, or service activation must be verified.
-11. **Human control scales with risk.** More money, uncertainty, sensitivity, irreversibility, or dependency impact requires stronger approval.
-12. **No silent failure.** Missing, stale, contradictory, or unsupported evidence is surfaced as uncertainty and may block action.
+2. **Action plan before product card.** Rank complete company actions—including reuse and no-buy—not isolated catalog listings.
+3. **Company-aware, not prompt-aware.** A request is only one input to a persistent Buyer Passport and Stackfile.
+4. **Truth before persuasion.** Facts, evidence, uncertainty, and anti-fit are evaluated before positioning is generated.
+5. **Private by default.** Buyer context stays inside the buyer boundary. Sellers see only an explicit, sanitized requirement brief.
+6. **Deterministic authority.** Models may interpret and explain; they do not set budgets, invent permissions, approve spend, or silently change ranking rules.
+7. **Every material claim has provenance.** A decision can be reconstructed from source versions, product-pack versions, rules, quotes, approvals, and transaction states.
+8. **A purchase is an operational change.** Every buy, switch, renewal, or cancellation updates Stackfile and creates follow-up outcomes.
+9. **Honest passing creates trust.** A product saying "not for you" is valuable behavior, not a failed sale.
+10. **Learning is bounded.** Outcomes improve future decisions without leaking private company data or creating undisclosed pay-to-win ranking.
+11. **Completion means usable outcome.** Payment success alone is insufficient; the order, entitlement, booking, license, or service activation must be verified.
+12. **Human control scales with risk.** More money, uncertainty, sensitivity, irreversibility, or dependency impact requires stronger approval.
+13. **No silent failure.** Missing, stale, contradictory, or unsupported evidence is surfaced as uncertainty and may block action.
 
 ---
 
@@ -158,10 +161,12 @@ Stackfile turns purchasing from an isolated choice into continuous stack managem
 
 | Term | Definition |
 |---|---|
-| **SIRA** | The buyer-side agent and purchasing/optimization interface acting within company policy and human authority |
-| **SEIL** | The seller-side product intelligence and positioning agent |
-| **Buyer Passport** | Versioned private context describing company, stakeholders, policies, preferences, authority, and history |
-| **SEIL Pack** | Versioned reusable product truth, evidence, fit rules, positioning, offer references, dependencies, and fulfillment specification |
+| **SIRA** | The buyer-facing decision and execution product, including its agent, structured workspace, and governed tools |
+| **SEIL** | Seller-controlled product-truth protocol and service used to compile, publish, qualify, and update Product Evidence |
+| **Buyer Passport** | Internal canonical term for versioned private company context; labelled **Company Profile** in buyer UI |
+| **Product Evidence Package** | Generic typed product claim/evidence envelope that may be seller-sealed, platform-compiled, or external-unsealed; publisher authority and claim verification are separate |
+| **SEIL Pack** | A seller-authorized, immutable, published Product Evidence Package; labelled **Product Evidence** in buyer UI with publisher and verification state always visible |
+| **SIRA Decision Graph** | Versioned pipeline and graph of company state, product evidence, decisions, and outcomes used to build and rank executable Solution Plans |
 | **Stackfile** | Versioned company JTBD and product dependency graph, analogous to a package manifest plus lockfile |
 | **JTBD node** | A business job or outcome the company needs, with owners, users, success metrics, and constraints |
 | **Requirement Brief** | Minimum seller-visible context derived from the request and Buyer Passport using an allowlist |
@@ -169,13 +174,35 @@ Stackfile turns purchasing from an isolated choice into continuous stack managem
 | **SIRA_INELIGIBLE** | Buyer/company hard constraint eliminates a candidate; only explicitly exceptionable rules may be overridden by their authorized risk owner |
 | **Decision Ledger** | Human-readable list of requirements, evidence, eliminations, preference scores, trade-offs, and uncertainty |
 | **Decision Record** | Immutable machine record of all versioned inputs and the resulting decision |
-| **Solution Plan** | One buyer action (`REUSE_EXISTING`, `CONFIGURE_EXISTING`, `NO_ACTION`, `BUY`, `REPLACE`, or `CONSOLIDATE`) containing zero or more Pack/offer components and their dependency closure |
+| **Solution Plan** | One buyer action (`REUSE_EXISTING`, `CONFIGURE_EXISTING`, `NO_ACTION`, `BUY`, `RENEW`, `RESIZE`, `REPLACE`, `CONSOLIDATE`, or `CANCEL`) containing zero or more Pack/offer/current-instance components and their dependency closure |
 | **NO_ELIGIBLE_SUPPORTED_ACTION** | Decision-level result used when no evaluated action is both eligible and sufficiently evidenced; it creates no Purchase Intent |
 | **Purchase Intent** | One merchant-specific locked offer/quote, amount, currency, required approval plan, expected fulfillment, and decision version |
 | **Purchase Intent Group** | A Solution Plan containing multiple merchant-specific Purchase Intents with declared sequence and partial-failure policy |
 | **Outcome Record** | Observed adoption, value, incidents, cost, satisfaction, and fulfillment after a transaction |
 | **Dependency impact** | The predicted and observed effect of adding, removing, replacing, or changing a product in Stackfile |
 | **Verified fact** | A fact whose verification method succeeded; not merely text retrieved from a source |
+
+Buyer-facing language and the current public API MUST remain procurement-native even when canonical database names or explicit legacy aliases retain earlier terms:
+
+| Canonical/internal term | Buyer-facing label |
+|---|---|
+| Buyer Passport | Company Profile |
+| SEIL Pack | Product Evidence |
+| Candidate | Option or Solution option |
+| Legacy `SHORTLIST` | Keep for comparison / `KEEP_FOR_COMPARISON` |
+| Legacy `PASS` | Eliminate / `ELIMINATE` |
+| Legacy `REQUEST_OFFER` | Ask vendor / `ASK_VENDOR` |
+| Legacy dye test | Test the decision rules |
+| `SEIL_PASS` | Vendor says not supported / `VENDOR_NOT_SUPPORTED` |
+| `SIRA_INELIGIBLE` | Blocked by company requirement / `BLOCKED_BY_COMPANY_REQUIREMENT` |
+| Purchase Brief | Decision rules |
+| Solution Plan | Action plan |
+| Stackfile | Company stack |
+| Stackfile patch | What changes in your stack |
+| Counterfactual | What changed the recommendation |
+| Evidence frontier | What information could change this decision |
+| Rank stability | Stable / Could change if… / Not yet determined |
+| Purchase Intent | Approval details |
 
 ---
 
@@ -219,9 +246,9 @@ Stackfile turns purchasing from an isolated choice into continuous stack managem
 
 ## 7. Product Scope
 
-The full product contains six connected systems. They may be delivered in phases, but none is excluded from the product definition.
+The full product contains six connected systems. They may be delivered in phases, but none is excluded from the product definition. Delivery and interface priority are intentionally asymmetric: SIRA proves buyer value first; SEIL begins as a seller-data protocol and claim/correction service, then grows into a seller workspace only after buyer demand exists.
 
-### 7.1 SIRA Buyer Agent
+### 7.1 SIRA Buyer Product and Agent
 
 SIRA MUST:
 
@@ -229,8 +256,8 @@ SIRA MUST:
 - identify requester, users, decision-maker, payer, implementer, and approver;
 - retrieve only the buyer facts needed for the decision;
 - distinguish hard constraints, weighted preferences, assumptions, and unknowns;
-- discover candidates from the SEIL Registry and approved external discovery adapters;
-- compare candidates using transparent deterministic rules;
+- discover Pack candidates from the SEIL Registry and approved external discovery adapters;
+- construct and compare complete Solution Plans using transparent deterministic rules;
 - analyze Stackfile dependency impact before approval;
 - request clarification only when the missing answer can change eligibility, authority, or irreversible action;
 - generate evidence-grounded explanations without adding unsupported reasons;
@@ -245,11 +272,13 @@ SIRA MUST NOT:
 - reveal Buyer Passport content outside its tenant unless a field is allowlisted and required;
 - rank based on seller payments, generated persuasion, or unlabelled sponsorship;
 - approve its own purchase;
-- modify product facts or seller evidence;
+- modify seller-controlled Product Evidence or its evidence records;
 - claim completion before transaction and fulfillment reconciliation;
 - convert weak inference into a hard company policy.
 
-### 7.2 SEIL Seller Agent
+### 7.2 SEIL Product-Truth Service
+
+SEIL MUST work as a publication and qualification service without requiring a live seller agent or a full seller application. The first seller-facing surface is a secure claim, correct, evidence, approve, and publish flow for Product Evidence, with Pack-health, validation-gap, stale-evidence, and reusable-answer/export views. Qualified-request, offer, and buyer-demand analytics workspaces follow later.
 
 SEIL MUST:
 
@@ -458,13 +487,13 @@ Senso only knows sources supplied through an authorized ingestion path. It may i
 
 ## 10. SEIL Pack Specification
 
-A SEIL Pack is the seller's reusable product asset. It is not a prompt, brochure, vector collection, free-form sales profile, legal offer, or customer contract. It is an immutable published product representation composed from reviewed facts and evidence. Binding commercial/legal terms exist only in the separately identified offer, quote, and executed contract.
+A Product Evidence Package may use the shared schema before seller involvement, but it becomes a **SEIL Pack** only after authorized seller review and immutable publication. A SEIL Pack is the seller's reusable product asset. It is not a prompt, brochure, vector collection, free-form sales profile, legal offer, or customer contract. Platform-compiled/external packages stay provisional and advisory. Binding commercial/legal terms exist only in the separately identified offer, quote, and executed contract.
 
 ### 10.1 Required Pack sections
 
 | Section | Required content |
 |---|---|
-| Identity | seller, product, edition, category, version, status, geography |
+| Identity | seller, product, edition, category, version, status, publisher authority, geography |
 | Jobs and segments | supported JTBDs, buyer types, team sizes, use cases, exclusions |
 | Capabilities | structured feature facts, quality limits, availability |
 | Requirements | prerequisites, minimum configuration, dependencies, migration needs |
@@ -482,14 +511,18 @@ A SEIL Pack is the seller's reusable product asset. It is not a prompt, brochure
 | Operations | owner, reviewers, change log, deprecation, incident contact |
 | Learning policy | which aggregated outcome signals the seller may receive and how they may update the Pack |
 
-### 10.2 Pack envelope
+### 10.2 Product Evidence envelope and Pack payload
+
+The service-level Product Evidence envelope carries `artifact_type` and `publisher_authority`. The canonical SEIL Pack payload remains the strict object defined by `contracts/jsonschema/seil-pack.schema.json`; envelope metadata must not be injected into that payload until a versioned schema migration explicitly permits it.
 
 ```json
 {
   "schema_version": "1.0.0",
+  "artifact_type": "SEIL_PACK",
   "pack_id": "seil_accord_team",
   "version": 12,
   "status": "published",
+  "publisher_authority": "SELLER_SEALED",
   "seller_id": "seller_accord",
   "product_id": "product_accord",
   "offer_ids": ["offer_accord_team_monthly"],
@@ -507,6 +540,8 @@ A SEIL Pack is the seller's reusable product asset. It is not a prompt, brochure
   "content_hash": "sha256:..."
 }
 ```
+
+The JSON above is a conceptual service envelope, not a second canonical Pack schema. `SELLER_SEALED` means an authorized seller reviewer approved the referenced Pack version. `PLATFORM_COMPILED` and `EXTERNAL_UNSEALED` use `artifact_type=PRODUCT_EVIDENCE_PACKAGE` and `status=provisional`; they are not SEIL Packs or seller publications. They cannot produce `SEIL_PASS`, represent seller consent/terms, or authorize autonomous purchase. Product Evidence UI shows package authority separately from each claim's verification state.
 
 ### 10.3 Claim contract
 
@@ -569,12 +604,18 @@ Supported operations at v1: `eq`, `neq`, `in`, `not_in`, `contains`, `contains_a
 ### 10.5 Pack lifecycle
 
 ```text
-Draft -> ValidationFailed | InReview -> Approved -> Published -> Superseded -> Archived
-                                      \-> Rejected
+ExternalUnsealed -> PlatformCompiled
+ExternalUnsealed | PlatformCompiled -> ClaimPending -> ClaimDenied | SellerDraft
+SellerDraft -> ValidationFailed | InReview
+ValidationFailed | ChangesRequested -> SellerDraft
+InReview -> Approved | Rejected | ChangesRequested
+Approved -> Published -> Superseded -> Archived
 Published -> Suspended | Disputed
 Suspended -> InReview | Archived
 Disputed -> InReview | Suspended | Published
 ```
+
+`ExternalUnsealed`, `PlatformCompiled`, `ClaimPending`, `ClaimDenied`, `SellerDraft`, `ValidationFailed`, `InReview`, `Rejected`, `ChangesRequested`, and `Approved` describe a Product Evidence Package or its review work. Only the `Approved -> Published` transition performed by an authorized seller reviewer creates an immutable `SELLER_SEALED` SEIL Pack. Claim denial does not delete the provisional package; it preserves the decision, reason, evidence, and a safe path for a different authorized claimant.
 
 Publication requirements:
 
@@ -799,21 +840,31 @@ The solver uses hierarchical objectives, not one opaque blended score:
 
 1. satisfy all hard constraints;
 2. maximize integer policy-approved weighted JTBD/outcome coverage;
-3. minimize the highest Stack/dependency/security/migration risk tier, then its integer risk penalty;
+3. minimize the highest Stack/dependency/security/migration risk tier;
 4. minimize base-case landed TCO over the declared horizon;
-5. maximize required-evidence coverage and freshness according to the same category rules as Section 12.6;
+5. maximize decision-material evidence coverage, then freshness, according to the same category rules as Section 12.6;
 6. minimize unnecessary organizational change and number of new products only when represented as an approved preference criterion;
 7. choose the lexicographically smallest ordered stable action-ID vector as the final tie-breaker.
 
-Every coefficient, bound, objective priority, solver version, seed, worker count, time limit, input hash, and result hash is recorded. Production deterministic mode uses one solver worker and fixed parameters. `OPTIMAL` may be recommended; `FEASIBLE_TIMEOUT` is shown as provisional and needs human review; `INFEASIBLE` returns the violated/diagnostic constraint IDs and proposed relaxations to their owners; `UNKNOWN` produces no executable plan. Solver output is revalidated by the ordinary policy/graph engine before presentation or action.
+Every coefficient, bound, objective priority, solver version, seed, worker count, time limit, input hash, and result hash is recorded. The solver comparator is exactly Section 12.6: no risk penalty or other hidden secondary key is permitted. Within the configured first-build bound, feasible-plan generation is exhaustive. Above that bound, deterministic candidate-generation coverage is disclosed and a timed-out/incomplete search is provisional and cannot auto-execute. Production deterministic mode uses one solver worker and fixed parameters. `OPTIMAL` may be recommended; `FEASIBLE_TIMEOUT` is shown as provisional and needs human review; `INFEASIBLE` returns the violated/diagnostic constraint IDs and proposed relaxations to their owners; `UNKNOWN` produces no executable plan. Solver output is revalidated by the ordinary policy/graph engine before presentation or action.
 
 Reference fixtures cover: current-stack/no-buy optimum, required two-product bundle, redundant-tool consolidation, budget infeasibility, mutually exclusive offers, dependency order, policy conflict, neutral-prior tie, deterministic stable-ID tie, timeout, and replay from the recorded snapshot.
 
 ---
 
-## 12. Decision Engine
+## 12. SIRA Decision Graph (Decision Engine)
 
-The decision engine is a deterministic policy and multi-criteria decision system. The model may help interpret inputs into the schema; it never performs the authoritative calculation.
+The SIRA Decision Graph is a deterministic policy and multi-criteria decision system, not an LLM similarity score. It joins three versioned graphs:
+
+- the **Company Stack Graph**: Company Profile facts, stakeholders, policies, authority, current tools, contracts, dependencies, and desired outcomes;
+- the **Product Evidence Graph**: Pack claims, source evidence, verification scope, publisher authority, offers, seller anti-fit, dependencies, and fulfillment;
+- the **Decision and Outcome Graph**: evaluated options, gates, score components, approvals, actions, fulfillment, and observed outcomes.
+
+Its authoritative pipeline is:
+
+`brief compilation -> option recall and deduplication -> evidence assessment -> hard gates -> Solution Plan construction -> preference/stack/TCO dimensions -> deterministic ordering -> robustness and counterfactual analysis -> Decision Ledger`
+
+Models may help interpret inputs into typed schemas and explain results; they never perform the authoritative calculation. Retrieval relevance may broaden recall but has zero direct effect on eligibility or rank.
 
 ### 12.1 Decision stages
 
@@ -821,12 +872,12 @@ The decision engine is a deterministic policy and multi-criteria decision system
 2. Resolve JTBD, users, payer, decision-maker, approver, desired outcome, and deadline.
 3. Retrieve relevant Buyer Passport and Stackfile facts.
 4. Produce a sanitized Requirement Brief.
-5. Discover candidate Pack versions and indicative catalog offers; record category coverage breadth and freshness.
+5. Recall and deduplicate candidate Pack versions and indicative catalog offers; record the exact discovery configuration, category coverage breadth, exclusions, and freshness.
 6. Apply local SIRA availability, evidence, and buyer hard-constraint filters.
 7. Evaluate immutable published seller anti-fit rules against the sanitized brief. A live SEIL may add a validated plan, implementation, support, condition, or offer response but cannot suppress a published rule.
 8. Validate structured seller responses and resolve required dependencies.
 9. Calculate Stackfile dependency, migration, reuse, and consolidation impact.
-10. Construct first-class `REUSE_EXISTING`, `CONFIGURE_EXISTING`, `NO_ACTION`, `BUY`, `REPLACE`, and `CONSOLIDATE` Solution Plans, including multi-component dependency closure.
+10. Construct first-class `REUSE_EXISTING`, `CONFIGURE_EXISTING`, `NO_ACTION`, `BUY`, `RENEW`, `RESIZE`, `REPLACE`, `CONSOLIDATE`, and `CANCEL` Solution Plans, including current-instance references and multi-component dependency closure.
 11. Resolve decision-relevant missing evidence, structured conditions, and permitted exceptions for the feasible shortlist; every resolution creates new versioned inputs.
 12. Calculate preliminary plan-level preference, Stackfile risk, total cost, evidence, and uncertainty using indicative offers.
 13. Produce the preliminary shortlist, counterfactual, coverage statement, and Decision Ledger.
@@ -848,10 +899,19 @@ The decision engine is a deterministic policy and multi-criteria decision system
 - `INSUFFICIENT_EVIDENCE`
 - `CONFLICTING_EVIDENCE`
 - `AUTHORITY_REQUIRED`
+- `ADVISORY_ONLY`
 
 Detailed reason codes remain separate from these canonical states.
 
+Every gate family is evaluated so the ledger retains all applicable reasons. When more than one blocking state applies, the primary status is selected by this fixed precedence:
+
+`UNAVAILABLE -> CONFLICTING_EVIDENCE -> STALE_EVIDENCE -> INSUFFICIENT_EVIDENCE -> SIRA_INELIGIBLE -> SEIL_PASS -> AUTHORITY_REQUIRED -> ADVISORY_ONLY -> CONDITIONAL -> ELIGIBLE_WITH_EXCEPTION -> ELIGIBLE`.
+
+This precedence affects the headline label only; it never suppresses secondary reasons. Availability is checked before evidence in both the PRD and build contract. A policy predicate with missing required evidence resolves to evidence-insufficient, not to a fabricated pass or failure.
+
 `CONDITIONAL` means the published Pack/live structured response has an unresolved fit condition. Each condition records condition ID, owner side/role, required fact or action, evidence, deadline/expiry, and resolution type: `BUYER_INPUT`, `NEW_SELLER_OFFER`, `NEW_PACK_VERSION`, `PROCUREMENT_GATE`, or `DEPENDENCY_PLAN`. It is not executable and receives no final rank until resolution creates new versioned inputs and reevaluation produces `ELIGIBLE`, `ELIGIBLE_WITH_EXCEPTION`, `SEIL_PASS`, or another blocking state.
+
+`ADVISORY_ONLY` means a platform-compiled or external-unsealed Product Evidence Package is useful for research but lacks seller publication authority. It may appear in a separately labelled research comparison with uncertainty and an evidence/authority resolution path, but it cannot enter the executable ordering, produce `SEIL_PASS`, create a Purchase Intent, or authorize autonomous action. It may enter the resolution frontier when seller sealing, merchant/offer normalization, or evidence work could make it executable.
 
 ### 12.3 Scoring rules
 
@@ -860,11 +920,11 @@ Detailed reason codes remain separate from these canonical states.
 3. Preference weights come from an approved policy profile or explicit decision settings, never from seller text.
 4. Scores remain decomposable into criterion-level values and evidence.
 5. Price is normalized using comparable total cost over the defined evaluation horizon.
-6. Missing optional evidence contributes zero for that preference and reduces evidence confidence, while remaining explicitly `UNKNOWN` rather than being represented as a verified failure.
+6. Missing optional evidence contributes zero for that preference and reduces evidence confidence, while remaining explicitly `UNKNOWN` rather than being represented as a verified failure. The only exception is the explicit category outcome-history prior in rule 10; a prior is an assumption, never evidence.
 7. Changed weights create a new Decision Record.
 8. Sponsorship and seller commission are excluded from the score and disclosed separately.
 9. Positioning is generated after ranking and stored separately.
-10. Products with no outcome history receive a published neutral prior. Historical transaction volume is never a hidden fit proxy, and evidence confidence is scored separately from popularity.
+10. Every enabled outcome-history criterion declares a published exact rational `neutral_prior`; the locked v1 meeting-intelligence fixture uses `1/2`. A plan with no product-specific outcome history receives that value for criterion satisfaction in both preference bounds, contributes zero evidence coverage for that criterion, is labelled **category prior—not observed outcome**, and cannot satisfy a hard gate with the prior. The same category prior applies to every no-history option. Its value, applicability, policy version, and hash appear in the ledger. Historical transaction volume is never a hidden fit proxy, and evidence confidence is scored separately from popularity.
 11. Section 12.6 is the sole authoritative ordering contract. No other confidence, reputation, Pack-version, sales-volume, or model-derived tie-breaker is allowed.
 
 ### 12.4 Decision Ledger shape
@@ -872,8 +932,9 @@ Detailed reason codes remain separate from these canonical states.
 ```json
 {
   "decision_id": "dec_...",
+  "evaluation_run_id": "eval_...",
   "request_id": "req_...",
-  "buyer_passport_version": 9,
+  "company_profile_version": 9,
   "stack_snapshot": 42,
   "policy_version": 5,
   "evaluated_universe": {
@@ -882,8 +943,8 @@ Detailed reason codes remain separate from these canonical states.
     "known_external_candidates_not_normalized": 2,
     "coverage_statement": "Best supported action among four executable Packs; broader market coverage is incomplete"
   },
-  "candidate_results": [{
-    "pack_id": "seil_accord_team",
+  "component_evaluations": [{
+    "product_evidence_id": "seil_accord_team",
     "pack_version": 12,
     "status": "ELIGIBLE",
     "hard_constraints": [{"id": "H1", "result": "pass", "evidence": ["claim_..."]}],
@@ -892,7 +953,40 @@ Detailed reason codes remain separate from these canonical states.
     "total_cost": {"amount": "89.00", "currency": "USD", "horizon_days": 30},
     "uncertainties": []
   }],
+  "solution_plan_results": [{
+    "solution_plan_id": "sol_...",
+    "action_type": "REPLACE",
+    "status": "ELIGIBLE",
+    "component_ids": ["seil_accord_team"],
+    "preference_score_exact": {"numerator": 86, "denominator": 1},
+    "preference_score_bounds": {
+      "conservative": {"numerator": 86, "denominator": 1},
+      "optimistic": {"numerator": 92, "denominator": 1}
+    },
+    "stack_risk": {"base": "low", "lower": "low", "upper": "medium"},
+    "total_cost": {
+      "low": {"amount": "89.00", "currency": "USD"},
+      "base": {"amount": "89.00", "currency": "USD"},
+      "high": {"amount": "109.00", "currency": "USD"}
+    },
+    "decision_material_coverage": {
+      "conservative": {"numerator": 7, "denominator": 8},
+      "optimistic": {"numerator": 8, "denominator": 8}
+    },
+    "maximum_evidence_age_ratio": {
+      "lower": {"numerator": 12, "denominator": 90},
+      "upper": {"numerator": 20, "denominator": 90}
+    },
+    "ordering_id_vector": ["REPLACE", "seil_accord_team", "sol_..."],
+    "ordering_frontier_member": true,
+    "resolution_frontier_member": false,
+    "quote_required": true,
+    "quote_policy_reason": "SELECTED_PLAN",
+    "permitted_resolution": null
+  }],
+  "rank_stability": {"status": "STABLE", "evidence_frontier": []},
   "selected_solution_plan_id": "sol_...",
+  "evaluation_payload_hash": "sha256:...",
   "decision_hash": "sha256:...",
   "created_at": "2026-08-02T00:00:00Z"
 }
@@ -904,10 +998,22 @@ Every user-facing decision MUST answer:
 
 - What would win using only the request?
 - What private company fact changed the result?
-- Which candidate was `SIRA_INELIGIBLE` or `SEIL_PASS`, and why?
-- What seller-approved condition/new offer or buyer-owned exception could make a rejected candidate eligible, if any?
+- Which option was blocked by a company rule or seller anti-fit, and why?
+- What seller-approved condition/new offer or buyer-owned exception could make a rejected option eligible, if any?
 - What dependencies and migration work does the selected Solution Plan introduce?
 - What remains uncertain?
+
+Counterfactuals are computed by deterministic reruns, not supplied by a model or caller. Every rerun freezes the discovered universe, Pack/offer/quote versions, taxonomy, normalization, Company Profile version, Stackfile snapshot, policy, pipeline, and engine version; only the named context removal or recovery patch changes.
+
+1. Re-evaluate with request-only context to produce the generic result.
+2. Remove each decision-material private fact in turn and rerun.
+3. If no individual fact changes the selected plan, enumerate combinations in ascending cardinality, with fact IDs sorted lexicographically, up to the configured v1 limit of three.
+4. Return the smallest winner-changing set. If multiple sets have equal cardinality, choose the lexicographically smallest ordered fact-ID vector and retain the other verified sets as alternatives.
+5. If no combination within the limit changes the winner, return `NO_SMALL_COUNTERFACTUAL_FOUND` with the tested limit; never imply that no larger counterfactual exists.
+6. For recovery guidance, enumerate permitted buyer-owned exceptions, seller conditions/offers, and evidence changes by fewest operations, then lower added risk/cost, then stable operation ID. Rerun every proposed patch.
+7. Persist the before/after input hashes, pre-counterfactual `evaluation_payload_hash` values, changed gates, changed selected plan, enumeration limit, and tie-break result.
+
+The model may explain a verified counterfactual in plain language. It may not invent decisive facts or claim that a hypothetical changes the result without a successful rerun. A counterfactual record never contains the enclosing Decision Record hash: the final `decision_hash` covers the base evaluation hash plus ordered counterfactual-record hashes, preventing a self-reference cycle.
 
 ### 12.6 Exact preference and ranking calculation
 
@@ -921,30 +1027,63 @@ For each eligible Solution Plan and each applicable preference `i`:
 
 - `weight_i` is an integer from 1-5 approved by the decision owner or category policy;
 - `satisfaction_i` is `0`, `0.25`, `0.5`, `0.75`, or `1` using the versioned category normalization rule;
-- missing or expired evidence sets `satisfaction_i = 0` for ranking and emits `UNKNOWN`, so missing data never helps a seller;
+- missing or expired evidence sets conservative `satisfaction_i = 0` and emits `UNKNOWN`, so missing data never helps a seller;
 - `contribution_i = weight_i * satisfaction_i`;
 - `preference_score = 100 * sum(contribution_i) / sum(weight_i)`.
 
 Boolean preferences normalize to `0` or `1`. Numeric preferences use a category-schema piecewise function stored with the criterion; for example, a deployment target of one day can map `<=1 -> 1`, `2 -> 0.5`, and `>2 -> 0`. A changed function creates a new engine/category version and Decision Record.
 
+The comparator uses exact rational arithmetic. APIs persist each authoritative score as `numerator` and positive `denominator`; UI strings use decimal-half-even rounding to two places. Rounded display values never enter ordering or decision hashes.
+
+The engine calculates uncertainty without disguising it as confidence:
+
+- `conservative_preference_score`: every unknown satisfaction is zero;
+- `optimistic_preference_score`: every unknown satisfaction takes the maximum value still supportable by its typed value bounds and category rule;
+- `uncertainty_width = optimistic_preference_score - conservative_preference_score`;
+- `rank_stability = STABLE` only when no competing plan's optimistic authoritative ordering can beat the selected plan's conservative authoritative ordering; otherwise it is `UNSTABLE` or `UNDETERMINED`.
+
+The conservative score is the only preference score used for final rank. The optimistic score is used only to decide whether missing evidence can change the winner and what evidence to request next. Bounds belong to complete Solution Plans after component aggregation, not to individual Pack candidates.
+
+Rank-stability analysis evaluates every declared uncertainty interval in the authoritative ordering, not preference alone. A plan's conservative envelope uses its lower preference bound, worst still-supportable Stack risk, upper TCO bound, lower decision-material evidence coverage, and oldest still-valid evidence; its optimistic envelope uses the corresponding best still-supportable values.
+
+`CONDITIONAL`, `STALE_EVIDENCE`, and `INSUFFICIENT_EVIDENCE` plans never receive a final rank. They enter the robustness frontier only when a typed, currently permitted resolution can make them eligible; the API sets `resolution_frontier_member=true` and names that resolution. A failed non-overridable gate never enters the frontier. If a bound or resolution cannot be computed from the category contract, robustness is `UNDETERMINED` and autonomous execution is blocked. These envelopes test robustness and do not replace the final Section 12.6 ordering on resolved base values.
+
+Non-preference intervals use exact rules:
+
+- **Stack risk:** each component and risk dimension stores a lower/base/upper tier encoded as `low=0`, `medium=1`, `high=2`, `critical=3`. Plan lower/base/upper is `MAX` of the corresponding required component/dimension ordinals. Each tier must be derived through the versioned category `risk_rule_set`: every rule has a stable rule ID, `dimension_id`, action/component scope, normalized input paths, a total predicate over closed domains, emitted tier, and explicit missing-input bound. Base evaluates observed/base values; lower and upper evaluate declared input intervals and permitted resolutions. Within one component and `dimension_id`, each bound is the `MAX` emitted ordinal across every simultaneously triggered rule; rule order and priority never affect the result. No triggered rule yields `low` only when the rule set declares complete input coverage; otherwise emit `BOUND_UNAVAILABLE`. The ledger persists triggered rule IDs and input hashes. Model output cannot assign a risk tier.
+- **TCO:** Section 12.8 produces Decimal low/base/high in one comparison currency. Robustness uses high for the conservative envelope and low for the optimistic envelope; final rank uses base.
+- **Decision-material evidence coverage:** let `D` be the applicable non-hard, decision-material criteria after plan aggregation. Each criterion has integer `coverage_weight` 1–5 in the category schema. `covered_j=1` only when the plan-level value has acceptable current evidence for every component/value required by its aggregation rule; otherwise it is zero. Duplicate claims or one source reused across criteria never add denominator items. `coverage = sum(coverage_weight_j * covered_j) / sum(coverage_weight_j)`, or exactly `1/1` when `D` is empty. Conservative coverage uses evidence acceptable now; optimistic coverage additionally includes only criteria with a typed permitted evidence resolution.
+- **Evidence freshness:** freeze `evaluated_at`. Each material evidence assessment stores an observed-time lower/upper bound and SLA seconds. Age ratio bounds are exact rational seconds: lower `(evaluated_at - observed_at_upper)/SLA` and upper `(evaluated_at - observed_at_lower)/SLA`. Plan maximum-age bounds are `MAX` across material evidence.
+
+A missing risk bound, TCO bound, coverage rule/weight, evidence-time bound, or interval aggregator emits `BOUND_UNAVAILABLE` and makes rank stability `UNDETERMINED`.
+
 Solution Plans are ordered lexicographically:
 
 1. `ELIGIBLE` before `ELIGIBLE_WITH_EXCEPTION`;
-2. higher preference score;
+2. higher conservative preference score;
 3. lower Stackfile risk tier (`low`, `medium`, `high`, `critical`);
 4. lower base-case total cost for the declared horizon;
-5. higher required-evidence coverage;
+5. higher decision-material evidence coverage;
 6. lower maximum evidence age relative to its category SLA;
 7. lexicographically smallest ordered stable action/component-ID vector, then stable Solution Plan ID, as the final deterministic tie-breaker.
 
-The UI shows every ordering and aggregation field. Sellers cannot set weights, aggregation, or normalization. Section 11.8 uses the same objective priority—preference/outcome coverage, Stack risk, cost, evidence/freshness, then stable action vector—when generating portfolio plans; Section 12.6 remains the final authoritative ranking of every generated plan.
+The detailed ledger shows every ordering and aggregation field, the conservative/optimistic bounds, and whether rank is stable. Primary option rows translate stability into plain language and keep raw calculations in the evidence drawer. The interface never collapses these dimensions into one opaque fit percentage. Sellers cannot set weights, aggregation, or normalization. Section 11.8 uses the same objective priority—preference/outcome coverage, Stack risk, cost, evidence/freshness, then stable action vector—when generating portfolio plans; Section 12.6 remains the final authoritative ranking of every generated plan.
 
-A plan “can still win” and therefore requires a live quote when at least one allowed value inside a declared indicative/unknown commercial interval could move it ahead on the authoritative ordering, when it is in the preliminary top three, or when the decision owner pins it as an alternative. Every such plan is quoted or explicitly marked unavailable/unquoted before final ranking. A plan requiring payment cannot become autonomously executable from indicative pricing alone.
+Three concepts remain separate:
+
+- `ordering_frontier_member`: an eligible plan can mathematically finish first within declared intervals;
+- `resolution_frontier_member`: a currently conditional/evidence-blocked plan has an exact permitted resolution after which it can mathematically finish first;
+- `quote_required`: policy requires a live quote because the plan is in either frontier, is preliminary top-three, is selected, or is owner-pinned; `quote_policy_reason` records which rule applied.
+
+Every quote-required plan is quoted or explicitly marked unavailable/unquoted before final ranking. A plan requiring payment cannot become autonomously executable from indicative pricing alone.
 
 ### 12.7 Evidence, confidence, and exception semantics
 
 - Required hard facts need 100% evidence coverage and the category-defined minimum verification class.
 - Evidence confidence is not averaged. The ledger shows the weakest material fact and all `UNKNOWN` or `DISPUTED` inputs.
+- Every decision-material claim receives a typed evidence assessment covering source class, verification method, scope match, reconstructability, freshness, dispute/revocation state, and the exact criterion it supports.
+- The UI and API expose separate decision dimensions: hard-evidence completeness, optional decision-evidence coverage, weakest verification class, oldest material evidence relative to SLA, unresolved/conflicting fact count, Stack risk, TCO range, universe coverage, and rank stability.
+- Required-hard coverage is an eligibility gate and is therefore always 100% for an eligible plan; it never enters the ordering key. Decision-material coverage is the explicitly named late deterministic tie-breaker after preference, Stack risk, and TCO. Neither is displayed as a second hidden fit score.
 - A seller assertion may satisfy a hard rule only when the buyer/category policy explicitly permits its `assertion_source`, `verification_method`, `verification_scope`, visibility, and freshness class.
 - A disputed or expired material hard claim blocks autonomous selection.
 - A disputed optional claim contributes zero until resolved.
@@ -961,13 +1100,14 @@ TCO = committed license/subscription price
     + expected usage charges
     + implementation and migration fees
     + required integration/add-on fees
+    + buyer-borne platform, transaction, and service fees
     + internal labor hours * buyer-approved role rates
     + training and administration cost
     + contract exit/migration cost
     - explicit contractual credits
 ```
 
-Tax, foreign exchange, and usage uncertainty are shown separately unless included in the live merchant quote. Unknown cost components remain `unknown`; they are never treated as zero. Cross-currency comparison uses a timestamped approved FX source and displays the original amount.
+Tax, foreign exchange, and usage uncertainty are shown separately unless included in the live merchant quote. Every buyer-borne SIRA fee uses a versioned published schedule, appears as its own line item, and is included in low/base/high TCO, the locked Purchase Intent, approval amount, and receipt. Unknown cost components remain `unknown`; they are never treated as zero. Cross-currency comparison uses a timestamped approved FX source and displays the original amount.
 
 ### 12.9 Stakeholder authority and conflicts
 
@@ -992,21 +1132,30 @@ Each category schema version defines:
   "field_id": "product.trains_on_customer_data",
   "value_type": "boolean",
   "cardinality": "one",
+  "value_domain": {"allowed_values": [true, false]},
   "allowed_operators": ["eq", "neq"],
   "unit": null,
   "sensitivity": "public_product_fact",
   "minimum_verification_method": "source_document_review",
   "freshness_sla_days": 90,
   "materiality": "decision_critical",
-  "normalization_rule": null
+  "coverage_weight": 3,
+  "normalization_rule": {"id": "bool_match_v1"},
+  "unknown_bound_rule": "ENUMERATE_ALLOWED_DOMAIN"
 }
 ```
+
+Every preference-capable field defines a finite allowed-value set or numeric lower/upper domain, a total normalization rule over that domain, and an `unknown_bound_rule`. Boolean/enum bounds enumerate allowed values; numeric bounds evaluate every piecewise breakpoint plus domain endpoints. Plan-level bounds propagate through versioned `ALL`, `ANY`, `MIN`, `MAX`, `SUM`, `UNION`, `PRIMARY_COMPONENT`, and `QUANTITY_WEIGHTED` interval rules. A custom or non-monotone aggregation must supply an exact bound evaluator or return `BOUND_UNAVAILABLE`, which makes robustness `UNDETERMINED` and blocks autonomous execution.
 
 Unknown fields cannot enter rules. Taxonomy aliases may improve discovery but must resolve to one canonical field before evaluation. Schema migration creates new Pack drafts and Buyer Passport proposals; it never mutates historical decisions.
 
 ### 12.11 Candidate universe and coverage disclosure
 
-For the chosen category/region/date, discovery records the Registry snapshot, category schema, structured filter, semantic recall configuration, external discovery adapters, number found, number normalized/executable, exclusions, and freshness. It evaluates every structurally matching executable published Pack when the set is within the configured bound. Above that bound, a deterministic seller-neutral coarse filter reduces the set; its rule and excluded count are disclosed and audited for concentration. Sponsorship and sales volume never affect coarse filtering.
+For the chosen category/region/date, discovery records the Registry snapshot, category schema, taxonomy aliases, lexical and semantic recall configuration, external discovery adapters, exclusions, and freshness. Counts remain separate: raw records found, Pack candidates, canonical products/editions, duplicate/alias merges, generated Solution Plans, finally evaluated Solution Plans, and excluded records by reason. Recall may use model-assisted query expansion, but every recalled item must resolve to a canonical product, edition, region, merchant authority, and Pack version before evaluation. Duplicate listings, reseller references, aliases, and offers are merged or explicitly linked so duplication cannot increase rank, apparent coverage, or display frequency.
+
+The engine evaluates every structurally matching executable published Pack when the set is within the configured bound. Above that bound, a deterministic seller-neutral coarse filter reduces the set; its rule and excluded count are disclosed and audited for concentration. Sponsorship, seller payments, sales volume, popularity, retrieval similarity, and duplicate presence never affect coarse filtering or final ordering. Each category maintains a versioned known-answer recall set and reports recall failures separately from ranking failures.
+
+Discovery always adds feasible current-stack actions—`REUSE_EXISTING`, `CONFIGURE_EXISTING`, and `NO_ACTION`—even when no seller Pack proposes them. A contract/renewal event also adds `RENEW`, `RESIZE`, and `CANCEL`; plan builders add `REPLACE` and `CONSOLIDATE` using dependency closure.
 
 The default category launch target is at least three executable products from distinct seller/merchant groups, but fewer may be shown with a prominent low-coverage warning. The Decision Ledger says **best supported action among the evaluated universe**, never “best on the market.” If every action is ineligible or evidence-insufficient, `NO_ELIGIBLE_SUPPORTED_ACTION` is a valid decision outcome and no Purchase Intent is created.
 
@@ -1032,8 +1181,9 @@ Reference buyer fixture `consultco_v1` is a ten-user client-service team with:
 - restricted client conversations; no use of customer content for general model training;
 - buyer-approved residency and retention policy, explicit recording/guest-notification behavior, and source-linked answers;
 - Google Workspace, Slack, Zoom, and a CRM already in Stackfile;
+- an incumbent meeting-intelligence instance linked to `fixture_eligible_runner_up`, with ten assigned seats, current price/term, cancellation deadline, renewal date, recent usage, and observed outcome/adoption records;
 - low administrative capacity and a preference for native identity/integration support;
-- ten initial seats, USD billing, one-month comparison horizon, and a timestamped budget envelope;
+- ten seats, USD billing, a twelve-month comparable-cost horizon, and a timestamped renewal/replacement budget envelope;
 - requester allowed to submit, operations owner controlling outcome weights, security/privacy owner controlling data gates, budget owner controlling spend, legal owner controlling DPA/terms, and a separate Prava cardholder authenticating payment;
 - Procurement Plan gates for current privacy/security evidence, DPA/terms, merchant chain, billing entity/cost center, budget approval, and deployment owner;
 - outcome checkpoints at activation, day 14, and day 30 measuring seat activation, meeting coverage, retrieval time, manual recap time, incidents, and admin/support burden.
@@ -1042,8 +1192,8 @@ Four executable **fictional reference fixtures** provide deterministic developme
 
 1. `fixture_low_price_policy_fail`: cheapest indicative offer, but a confirmed training/residency policy produces `SIRA_INELIGIBLE`.
 2. `fixture_honest_anti_fit`: otherwise attractive, but its published seller rule rejects the client-data/workspace condition and produces `SEIL_PASS`.
-3. `fixture_eligible_runner_up`: satisfies hard gates but has higher administration/migration cost.
-4. `fixture_selected_fit`: satisfies hard gates, integrates with the current stack, has lower deployment risk, and wins the Section 12.6 ordering for the frozen fixture.
+3. `fixture_eligible_runner_up`: the incumbent Pack; a renew/resize plan satisfies hard gates but loses after current outcome, renewal cost, administration burden, and supported alternatives are considered.
+4. `fixture_selected_fit`: satisfies hard gates, integrates with the current stack, has lower deployment risk, and wins as a `REPLACE` plan for the frozen fixture.
 
 The reference approval fixture requires operations selection, security/privacy approval, legal gate completion, budget-owner approval, and separate cardholder authentication of the exact intent. These fixtures make implementation deterministic; seller-authorized real Packs, a real buyer policy, and the Prava-supported merchant/processor remain external validation gates and replace—not silently modify—the fixtures through new versions.
 
@@ -1108,8 +1258,8 @@ Detailed requirements:
 1. SIRA identifies the desired outcome and stakeholder set.
 2. Missing hard facts are requested from the correct owner, not guessed.
 3. The seller-visible brief excludes company identity and hidden budget unless disclosure is necessary and explicitly authorized.
-4. SIRA evaluates a minimum viable candidate set or explains category coverage limits.
-5. A candidate that fails a buyer rule is labelled `SIRA_INELIGIBLE`; a seller anti-fit is labelled `SEIL_PASS`. The UI never conflates them.
+4. SIRA evaluates a minimum viable option set or explains category coverage limits.
+5. An option that fails a buyer rule is internally `SIRA_INELIGIBLE`; a seller anti-fit is internally `SEIL_PASS`. Buyer UI uses the plain-language labels and never conflates them.
 6. SIRA shows the current Stackfile and proposed graph patch.
 7. The decision-maker selects a `SolutionPlan` or records an authorized override reason. A current-stack solution, no action, or no eligible product may end with zero Purchase Intents.
 8. A live quote is requested only after eligibility.
@@ -1177,7 +1327,7 @@ Rules:
 
 A `SolutionPlan` may contain zero, one, or many components. Each component references the exact Pack, product plan, offer/quote, required service/add-on, dependency, expected entitlement, and staged Stackfile patch.
 
-- Zero components represents `REUSE_EXISTING`, `CONFIGURE_EXISTING`, or `NO_ACTION` and requires no Prava session.
+- Zero new-product components represents `REUSE_EXISTING`, `CONFIGURE_EXISTING`, `NO_ACTION`, or `CANCEL` and requires no purchase Prava session. `RENEW` and `RESIZE` reference the existing product instance plus a current contract/quote; recurring payment authority follows Section 14.
 - One merchant-specific Purchase Intent is created for each merchant/contracting checkout boundary.
 - A `PurchaseIntentGroup` records component order, prerequisites, whether later components may proceed after an earlier failure, and the compensation/rollback policy.
 - Each merchant uses an independent Prava session because the documented REST purchase context is merchant-specific. The product MUST NOT claim cross-merchant payment atomicity.
@@ -1589,14 +1739,14 @@ If Senso is unavailable:
 
 SIRA's contractual and technical duty is to the buyer. Seller monetization, commission, and sponsorship MUST NOT alter eligibility or recommendation scoring. Sponsored inventory is labelled and rendered separately.
 
-### 16.2 Candidate classes
+### 16.2 Supply evidence classes
 
-- **Published SEIL:** complete Pack with seller identity and current required evidence.
-- **Provisional SEIL:** Pack still under review; visible for research but not autonomous purchase.
-- **External unsealed product:** discovered outside the Registry; clearly unverified and normalized before decision.
-- **Suspended/disputed product:** excluded from new autonomous transactions.
+- **Seller-sealed Pack:** authorized seller publication with current required evidence; buyer UI says **Published by vendor**.
+- **Platform-compiled Product Evidence:** Seilnsara-normalized research package without seller publication authority; buyer UI says **Compiled by Seilnsara**.
+- **External unsealed Product Evidence:** discovered source material that neither the seller nor Seilnsara has sealed as a Pack; buyer UI says **External, not claimed**.
+- **Suspended/disputed artifact:** excluded from new autonomous transactions and labelled with its current review state.
 
-An external product may be compared with explicit uncertainty but cannot be autonomously purchased until merchant, offer, evidence, terms, and fulfillment are normalized and approved.
+Publisher authority and claim verification are independent dimensions. Every authority label carries the fixed supporting copy: **"Publisher authority identifies who stands behind this package; it does not mean every claim was independently verified."** Platform-compiled and external-unsealed packages may be compared only as `ADVISORY_ONLY`; they cannot enter executable ordering or autonomous action until seller publication authority, merchant/offer terms, evidence, and fulfillment are normalized as required.
 
 ### 16.3 Seller response envelope
 
@@ -1719,18 +1869,18 @@ If thresholds are not met, the signal remains internal and unreleased. Aggregati
 
 ### 18.1 Agent roles
 
-The product contains two named agents but does not depend on theatrical free-form conversation between them.
+The product exposes one named buyer experience: SIRA. SEIL remains a named seller-side protocol/service and may power seller tools, but it is not presented to buyers as an equal conversational character.
 
-- **SIRA Agent:** interprets buyer intent, requests missing information, calls buyer-authorized tools, and explains deterministic results.
-- **SEIL Agent:** compiles seller sources, validates Pack gaps, evaluates a sanitized brief, and writes evidence-bounded positioning.
+- **SIRA Agent:** interprets buyer intent, requests only decision-changing missing information, calls buyer-authorized tools, and explains deterministic SIRA Decision Graph results inside the Decision Room.
+- **SEIL Service/Agent:** compiles seller sources, validates Product Evidence gaps, evaluates a sanitized brief, and writes evidence-bounded positioning. Published Pack qualification and anti-fit continue to work when no live seller agent is present.
 
-The Marketplace mediates all SIRA-to-SEIL exchange through typed envelopes. Neither agent receives the other's private runtime, prompts, hidden policies, or unrestricted tools.
+The Marketplace mediates all SIRA-to-SEIL exchange through typed envelopes. The UI never simulates a free-form SIRA/SEIL dialogue. Neither side receives the other's private runtime, prompts, hidden policies, or unrestricted tools.
 
 ### 18.2 Model responsibilities
 
 Models MAY:
 
-- extract a draft Purchase Request from natural language;
+- extract a draft Decision request from natural language;
 - classify JTBD/category with confidence and alternatives;
 - map source passages into proposed typed facts;
 - identify missing or conflicting information;
@@ -1859,16 +2009,23 @@ Use OpenAI Agents SDK tracing for workflow shape only with `RunConfig.trace_incl
 | DEC-01 | Requests capture JTBD, stakeholder roles, hard requirements, preferences, outcome metric, and deadline. |
 | DEC-02 | Requirement Briefs are produced from an explicit disclosure allowlist. |
 | DEC-03 | SIRA distinguishes `SIRA_INELIGIBLE`, `SEIL_PASS`, conditional fit, missing evidence, and unavailability. |
-| DEC-04 | Every candidate result exposes criterion-level evidence and uncertainty. |
+| DEC-04 | Every Pack-candidate result and resulting Solution Plan exposes criterion-level evidence and uncertainty. |
 | DEC-05 | Stack impact and total cost are included before recommendation. |
 | DEC-06 | A generic-request counterfactual identifies which company facts changed the result. |
 | DEC-07 | Human overrides require actor, authority, reason, and new Decision Record. |
 | DEC-08 | Ranking is independent of seller payments and generated positioning. |
 | DEC-09 | Live offer/quote data is separated from Pack truth and has explicit expiry. |
 | DEC-10 | External unsealed products are labelled and cannot be autonomously purchased before normalization. |
-| DEC-11 | `REUSE_EXISTING`, `CONFIGURE_EXISTING`, and `NO_ACTION` are ranked alongside purchase actions and may be the selected Solution Plan. |
+| DEC-11 | `REUSE_EXISTING`, `CONFIGURE_EXISTING`, `NO_ACTION`, `RENEW`, `RESIZE`, and `CANCEL` are ranked alongside purchase/replacement actions when applicable and may be the selected Solution Plan. |
 | DEC-12 | Every decision discloses the evaluated universe, category/Registry coverage, freshness, and whether no eligible supported action exists. |
 | DEC-13 | A Solution Plan may contain multiple independently versioned merchant components with dependency order and compensation policy. |
+| DEC-14 | Every discovery run stores its recall configuration, canonical identity resolution, included/excluded options, and deduplication decisions; duplicate supply cannot improve rank or apparent coverage. |
+| DEC-15 | Every decision-material fact has a typed evidence assessment and criterion link; retrieval similarity never becomes evidence confidence. |
+| DEC-16 | The engine computes conservative and optimistic preference bounds, uncertainty width, and rank stability while ranking only on the conservative score. |
+| DEC-17 | Counterfactual and recovery explanations are generated from deterministic reruns with persisted before/after hashes, not from model-supplied causal claims. |
+| DEC-18 | The plan builder always considers feasible reuse, configure, and no-action alternatives before recommending a purchase. |
+| DEC-19 | The UI exposes fit, Stack risk, TCO, evidence, universe coverage, and rank stability as separate dimensions and never shows one opaque fit percentage. |
+| DEC-20 | Frozen inputs, normalization rules, evidence assessments, pipeline versions, and engine versions replay to the same canonical decision payload and decision hash; generated record IDs and timestamps are excluded from the canonical hash. |
 
 ### 19.5 Approval, payment, and fulfillment
 
@@ -1914,60 +2071,86 @@ Use OpenAI Agents SDK tracing for workflow shape only with `RunConfig.trace_incl
 
 ## 20. User Experience and Information Architecture
 
-The interface is a procurement product, not an agent chat demo. Conversation is one input method; every important state has a structured screen.
+The interface is a chat-first procurement workspace, not an agent chat demo. Conversation is the primary entry and coordination surface; every important fact, decision, authority, and result is also represented by a structured, linkable artifact.
 
-### 20.1 Buyer application
+The default visual direction is **operational cartography**: a cool mineral canvas, ink/navy text, one deep-teal SIRA accent, compact evidence-dense typography, monospaced provenance metadata, and subtle graph/diff lines that make causes and stack changes visible. The product should feel like a trusted decision instrument, not a warm lifestyle marketplace. Avoid beige editorial imitation, decorative gradients, glass effects, anthropomorphic agent avatars, ornamental icons, confetti-led success, and dashboard mosaics of interchangeable cards.
+
+### 20.1 SIRA buyer application
+
+The primary buyer surface is a continuous **SIRA conversation workspace**. Once a request becomes structured, an embedded **Decision Canvas** carries five persistent stages from intent to outcome. Chat gathers context, explains changes, and invokes server-authorized actions; the canvas owns canonical state, comparison, approval, and evidence. On desktop they can appear together. On mobile the user switches between Chat and Decision without losing state.
 
 ```text
-Home
-|-- Inbox / assigned tasks
-|-- Requests
-|   |-- New request
-|   |-- Requirements
-|   |-- Candidates, ineligibility, and SEIL PASS
-|   |-- Decision Ledger / coverage
-|   |-- Solution and Procurement Plans
-|   |-- Stack impact
-|   |-- Approvals and Prava
-|   `-- Receipt / entitlement / deployment
-|-- Stack
-|   |-- Observed inventory / reconciliation
-|   |-- Current lock / desired manifest / proposals
-|   |-- Jobs, capabilities, and coverage
-|   |-- Costs, contracts, risks, and dependencies
-|   `-- Optimizer proposals
-|-- Renewals / cancellations
-|-- Deployments / entitlements / seats
+SIRA
+|-- Decisions
+|   |-- New decision
+|   |-- Active
+|   |-- History
+|   `-- Conversation + Decision Canvas
+|       |-- 1 Need
+|       |-- 2 Company fit
+|       |-- 3 Options
+|       |-- 4 Action
+|       `-- 5 Result
+|-- Inbox
+|-- Stack and renewals
 |-- Outcomes
-|-- Context
-|   |-- Buyer Passport
-|   |-- Sources and sync
-|   |-- Conflicts / stale facts
-|   `-- Sharing controls
-|-- Approvals and mandates
-`-- Audit / settings
+|-- Company Profile
+`-- Audit and settings
 ```
 
-### 20.2 Seller application
+The first-build SIRA chat is the creation surface; the **Decisions** index is the re-entry and history surface. It has an **Active** list ordered by nearest decision/cancellation deadline and read-only **History** grouped by current versus superseded Decision version. Each row shows desired outcome, incumbent/category, owner, deadline, current stage, blocker/next action, last checkpoint, and version. Starting in chat creates the request and opens Need in the Decision Canvas; resuming opens the server-owned current stage with its attached conversation.
+
+Buyer UI routes are stable and linkable: `/decisions`, `/decisions/new`, and `/decisions/{request_id}/versions/{decision_version}/{need|company-fit|options|action|result}`. Stage navigation pushes browser history. Browser Back first closes an open drawer/sheet, then returns to the previously visited stage or Decisions index; it never mutates or silently discards persisted data. A dirty unsubmitted form receives a native leave warning. A superseded-version URL stays read-only and links to the current version; it never silently redirects away from audit history.
+
+The first, second, and third things visible in each stage are fixed:
+
+| Stage | First | Second | Third |
+|---|---|---|---|
+| Need | Desired outcome and deadline | Who uses/owns/pays | Minimal clarifications that can change the decision |
+| Company fit | Decisive company rules and current tools | Sources, freshness, and private/shared boundary | Calibration check and unresolved facts |
+| Options | Recommended action plus plain-language stability state | Aligned rows showing support status, comparable cost, Stack change, and next action | Evidence, score math, frontier, provenance, and full Decision Ledger in a side drawer |
+| Action | Exact selected Action Plan and current substep | Action-specific review -> required authority -> execute or assign -> verify | Stack diff, TCO/term/merchant when applicable, owner, and one server-authorized primary action |
+| Result | Current verified state and completion evidence | Action-specific artifact, Company stack result, and receipt only when money moved | Outcome checkpoint and next safe action |
+
+Secondary navigation never competes with the active conversation and Decision Canvas. Inbox holds assigned blockers; Stack and renewals hold portfolio context; Company Profile holds reusable private facts and sharing controls. The first integrated release shows SIRA chat, Decisions/current Decision Canvas, and role-appropriate account controls; unimplemented destinations remain hidden, with required facts and tasks surfaced contextually.
+
+### 20.2 SEIL seller surface
+
+The initial seller surface is deliberately narrow:
 
 ```text
-Seller Home
-|-- Inbox / assigned reviews
-|-- Products, offers, and merchant chains
-|-- SEIL Packs
-|   |-- Sources and evidence
-|   |-- Claims
-|   |-- Fit / anti-fit
-|   |-- Dependencies / implementation / support
-|   |-- Positioning
-|   |-- Fulfillment
-|   |-- Validation and review
-|   `-- Versions / material-change publication
-|-- Qualified requests
-|-- Quotes and transactions
-|-- Outcomes and gaps (aggregated only)
-`-- Team / permissions / audit
+Product Evidence
+|-- Claim or view claim status
+|-- Pack health and stale evidence
+|-- Correct typed claims
+|-- Add or replace evidence
+|-- Confirm fit and anti-fit
+|-- Review changes
+|-- Reusable answer and export
+`-- Publish a new version
 ```
+
+An authorized seller enters through a signed product invitation or the claim-product search, then uses the stable `/seller/product-evidence/{product_id}` route. The route is driven by a seller projection rather than client inference:
+
+| Seller state | Surface and recovery |
+|---|---|
+| `UNCLAIMED` | public-safe package summary and **Claim this product**; no edit controls |
+| `CLAIM_PENDING` | submitted authority proof, review status, and server-authorized update/withdraw action |
+| `CLAIM_DENIED` | safe denial reason and **Submit different proof**; provisional package remains intact |
+| `SELLER_DRAFT` | autosaved typed editor, Pack-health summary, validation gaps, and stale-evidence queue |
+| `VALIDATION_CONFLICT` | field-level conflicts plus an error summary and **Resolve issues** |
+| `IN_REVIEW` | frozen read-only revision, reviewer/owner, submitted time, and withdraw only when permitted |
+| `CHANGES_REQUESTED` | grouped reviewer comments linked to fields and **Create revised draft** |
+| `PUBLISH_READY` | immutable publication preview and **Publish version** only for an authorized seller reviewer |
+| `PUBLISHED` | current immutable Pack, authority/verification labels, health, export, and **Create new version** |
+| `SUPERSEDED` | read-only historical version with a link to the current Pack |
+| `PUBLICATION_FAILED` | last safe checkpoint, failure class, and only the server-authorized retry/escalation action |
+
+Unauthorized seller roles receive a safe access/request screen; product-private draft fields and controls are absent from the response, not rendered disabled.
+
+The initial seller value loop includes hash-bound JSON, HTML, and reusable-answer exports generated only from an immutable published Pack. Every export carries Pack/version, publisher authority, verification summary, generated time, and content hash; generated copy cannot add claims. Seller activity shows the measurement window, published-answer renders, seller-handoff requests, and **observed self-service** count. Count at most one render per tenant/session/question fingerprint within 24 hours, and count it as self-service only when no seller handoff follows in that session. This is an observational workflow metric, not causal labor savings or proven question deflection.
+
+The later seller workspace may add qualified requests, structured offers, fulfillment, aggregated outcomes, team permissions, and audit. It is not required to prove initial buyer value and must not force buyers to understand a second product.
 
 ### 20.3 Platform operations
 
@@ -1991,19 +2174,85 @@ Seller Home
 8. Errors state what is known, what is uncertain, what was charged, and the next safe action.
 9. All functionality meets WCAG 2.2 AA, keyboard operation, readable focus states, screen-reader labels, and non-color-only status communication.
 10. Decision explanations use plain language with expandable evidence and technical details.
+11. The Options stage uses aligned comparison rows or a table, not independent marketing cards; every option exposes the same comparable fields.
+12. The selected recommendation is prominent but never hides runner-up, eliminated, or evidence-insufficient actions.
+13. A persistent stage indicator shows progress without implying that the user cannot revisit earlier inputs; material edits create a clearly explained new version.
+14. Evidence, provenance, raw calculations, and audit detail open progressively in a right-side drawer on desktop and a full-screen sheet on small screens.
+15. Chat is never the sole place where a requirement, decision, approval, price, error, or receipt appears.
+16. Every Product Evidence view displays publisher authority separately from claim verification/freshness: `SELLER_SEALED` = **Published by vendor**, `PLATFORM_COMPILED` = **Compiled by Seilnsara**, and `EXTERNAL_UNSEALED` = **External, not claimed**. The fixed supporting copy is: **“Publisher authority identifies who stands behind this package; it does not mean every claim was independently verified.”**
+17. A material edit or new Pack/quote version shows a persistent **Decision updated** banner, decisive before/after diff, invalidated approval/payment authority, and one action to review the new version.
+18. “What changes in your stack” uses a compact before/after diff of added, removed, retained, staged, and dependency-changed items. A free-form node graph is not required for the first UI.
+19. Long-running work persists server-side. Users may leave and return to the latest checkpoint; unresolved or unknown side effects disable duplicate actions and show timestamp, owner, and safe retry/escalation.
+20. Default option rows never lead with numeric scoring. Stability reads **Stable**, **Could change if…**, or **Not yet determined**; exact bounds and math remain available in the ledger drawer.
+21. The Decision Ledger drawer has four ordered sections: **Why this action** (default open), **Evidence**, **What could change**, and **Audit & math**. Option-row links deep-link to the relevant section; closing the drawer restores focus to the invoking control.
+22. Score bounds, criterion math, evidence-age ratios, and frontier membership are drawer-only. The default Option Matrix shows action, support status, comparable cost, Stack change, and next action.
+23. Role-filtered responses omit unauthorized facts, tasks, stages, and controls. The UI never reveals restricted context through disabled buttons, tooltips, counts, placeholders, or client-side hiding.
 
 ### 20.5 Primary demonstration screens
 
-1. Ordinary purchase request.
-2. Private context facts used, with source/version but not raw private content.
-3. Generic winner versus company-aware result.
-4. Candidate ledger showing `SIRA_INELIGIBLE`, a genuine `SEIL_PASS`, eligible alternatives, coverage, and selected action.
-5. Selected Pack evidence plus clearly labelled seller positioning.
-6. Proposed Stackfile graph patch.
-7. Locked Solution Plan, Procurement Plan, Purchase Intent, and all required approvers.
-8. Prava hosted approval.
-9. Payment, merchant order, entitlement, and final receipt.
-10. Updated Stackfile and scheduled outcome checkpoint.
+1. **Need:** an upcoming meeting-intelligence renewal with incumbent, contract/deadline, desired outcome, users, owner, and payer.
+2. **Company fit:** private facts used, disclosure boundary, sources, calibration check, and the decisive fact that changes the result.
+3. **Options:** a matrix of complete Action Plans—not product candidates—covering renew, resize, configure, no action, replace, and cancel. It shows one buyer-policy-blocked plan, one vendor-not-supported plan, supported alternatives, coverage, plain-language rank stability, and expandable component/Pack qualification. Score bounds remain drawer-only.
+4. **Action:** selected Action Plan, Product Evidence, seller-positioning label, Company-stack change, exact TCO/term/merchant when applicable, required owners, and the action-specific execution timeline. Prava appears only for a charge-bearing purchase step.
+5. **Result:** verified action-specific completion artifact, staged/active Company-stack state, receipt only when money moved, and scheduled outcome checkpoint.
+
+These are five stages of one workspace, not five disconnected pages. Error, waiting, consent, expiry, decline, and paid-unfulfilled states appear in the stage where recovery occurs.
+
+#### 20.5.1 Action-neutral completion contract
+
+| Action type | Action-stage sequence | Result proof |
+|---|---|---|
+| `REUSE_EXISTING` | Review retained capability -> owner confirms -> record decision | immutable decision record, unchanged Company stack, predicted saving, next outcome/review date |
+| `CONFIGURE_EXISTING` | Review configuration patch -> obtain required owner approval -> execute or assign -> verify | configuration change record, verification evidence, staged/active Stack update, outcome checkpoint |
+| `NO_ACTION` | Record reason and accountable owner -> set next review date | immutable no-action record, unchanged Company stack, next review trigger |
+| `RENEW` / `RESIZE` | Review contract/quantity/quote -> obtain approvals -> authorize payment only when an immediate charge is required -> verify contract and entitlement | renewal/amendment confirmation, quantity/term state, receipt when charged, updated contract/Stack record |
+| `CANCEL` | Review dependency-safe exit/data plan -> obtain approval -> submit cancellation -> verify effective date/export/revocation | cancellation confirmation, effective date, export/retention artifacts, staged removal, follow-up checkpoint |
+| `BUY` / `REPLACE` | Review acquisition/migration plan -> obtain approvals -> authorize payment when charged -> verify fulfillment -> complete deployment/retirement checkpoints | order/receipt when charged, verified entitlement, migration/deployment state, staged then active Stack patch |
+| `CONSOLIDATE` | Review dependency-ordered component plan -> approve -> execute each required change -> reconcile partial results | per-component completion/compensation record, final Stack diff, receipts only for charged components |
+
+Zero-charge actions skip Purchase Intent, Prava, and payment states entirely. Completion never means merely “workflow finished”: the Result stage names the action, verified artifact, actor, timestamp, Company-stack consequence, remaining work, and outcome checkpoint.
+
+Selecting an Action Plan is a distinct role-authorized operation, not comparison feedback. The request binds `solution_plan_id`, source Decision version/hash, and an idempotency key. The server rechecks current version, plan executability, stability/exception authority, and the frozen plan hash, then creates an immutable selected Decision version. An exact retry returns the same version; reselection creates another version and supersedes downstream Purchase Intent, approval, or action state. A zero-charge selection moves directly to the action run without inventing payment. The Execution Timeline is server-owned `execution_steps`: every step has a closed type/status, owner role, timestamps, checkpoint/artifact, safe blocker, and at most one authorized action. The client never derives steps or authority from action type.
+
+### 20.6 Interaction, responsive, and accessibility states
+
+- **Loading:** preserve the last known safe state, show which operation is running, and use local skeletons instead of blanking the whole Decision Room.
+- **Empty:** explain why the stage is empty, provide one primary next action, and show a safe example where useful; never render only “No items found.”
+- **Partial/uncertain:** keep verified information visible, identify the evidence frontier that could change the decision, and prevent unsafe action.
+- **Error:** state what is known, what remains uncertain, whether money or authority was used, and the single safest recovery action.
+- **Success:** show the verified state transition, artifact or entitlement received, Stackfile impact, owner, and next checkpoint.
+- **Desktop (`>=1024px`):** use a compact persistent left rail, one dominant work canvas, and an optional 420-pixel evidence drawer.
+- **Tablet (`640–1023px`):** collapse the rail; the evidence drawer becomes an overlay while comparison remains aligned.
+- **Mobile (`<=639px`):** use a compact stage switcher and one-option summary. A comparison tray holds up to three options per Decision version; add/remove controls preserve selection across stage navigation, and the comparison view presents attributes vertically with a sticky labelled option switcher. Evidence opens as a full-screen sheet. At 320 CSS pixels there is no page-level horizontal scroll and no desktop table is squeezed below readability.
+- **Zoom and contrast modes:** all stages reflow at 200% and 400% browser zoom; text, status, focus, selected state, and errors remain perceivable in Windows forced-colors/high-contrast mode without relying on background color.
+- **Accessibility:** use a native table for read-only desktop comparison and ordinary buttons/links for row actions rather than an ARIA grid. Preserve logical heading/focus order; trap and restore focus for drawer/sheet; announce operation, validation, and supersession changes through scoped live regions; provide an error summary; maintain 44-by-44-pixel touch targets; respect reduced motion; and never encode status by color alone. Run automated axe checks for every fixture state and manually test keyboard plus NVDA for the Decision Path, Option Matrix, ledger drawer/full-screen sheet, mobile comparison tray, form error summary, approval rejection, uncertain payment, and partial-fulfillment recovery.
+
+Required decision and execution recoveries:
+
+| State | Placement and blocked action | Owner, copy, and recovery |
+|---|---|---|
+| `ADVISORY_ONLY` / `RESEARCH_ONLY` | Options; no select/execute control | “Research only—this evidence is not published by the vendor.” Invite the vendor to claim/publish, normalize the required authority/evidence, or choose a supported action. |
+| `UNSTABLE` | Options; Action remains unreachable unless the server exposes a policy-authorized exception | “The recommendation could change if…” followed by the named evidence frontier. The assigned evidence owner resolves it or the authorized decision/risk owner records an allowed exception. |
+| `UNDETERMINED` | Options; all execution controls absent | “Stability cannot be calculated because a required bound is unavailable.” The named data/category owner repairs the missing bound and reruns evaluation. |
+| `AUTHORITY_REQUIRED` | Company fit or Action; approval/execution control absent for the current actor | Name the required role without exposing restricted facts; assign/request the authorized owner, then resume from the server checkpoint. |
+| Approval rejected | Action; payment/execution omitted and prior approval remains read-only | Show safe rejection reason, actor role, and time. Close the decision or revise the plan; revision creates a new Decision/Purchase Intent version. |
+| Partial fulfillment | Result; never show complete or apply the full Stack patch | Separate paid/ordered facts from each missing component; expose only per-item retry, support, compensation, refund, or escalation actions authorized by the server. |
+
+### 20.7 Role-aware presentation contract
+
+| Role | Visible first-build scope | Permitted controls |
+|---|---|---|
+| Requester/end user | request fields they supplied, safe progress, assigned clarification, final safe result | create/edit request before lock, answer assigned questions, provide outcome feedback |
+| Decision-maker | Decision rules, allowed Company facts, Action Plans, stability, counterfactual, Stack impact | keep/eliminate/ask vendor, select plan, accept permitted decision exception |
+| Policy reviewer | only assigned policy domain, supporting evidence, impacted gate, expiry | approve, reject, request evidence, or grant a policy-defined exception |
+| Budget owner/procurement | comparable TCO including SIRA fee, quote/terms, cost center, approval history | approve/reject exact amount and terms, request revised quote |
+| Cardholder | approved merchant, amount/currency/fee, expiry, line items, Prava and payment state | authorize the exact payment or exit; no decision editing |
+| Implementer/IT operations | assigned configuration, dependency, migration, deployment, fulfillment, and Stack verification detail | execute or acknowledge assigned steps, attach verification, report blocker, verify fulfillment/Stack state; no commercial approval |
+| Auditor | authorized immutable versions, evidence lineage, actions, approval/payment/fulfillment history | read/export only |
+| Seller editor | own claimed Product Evidence drafts, Pack health, gaps, stale evidence, review comments | edit/evidence/submit; cannot approve own high-risk publication |
+| Seller reviewer | own frozen revision, validation report, diff, publication authority | request changes, approve, publish, suspend when authorized |
+
+Every projection is filtered server-side by tenant, role, purpose, and object. Anything outside the row's scope is absent from payload, DOM, accessible tree, analytics, and notification text—not merely disabled.
 
 ---
 
@@ -2145,10 +2394,11 @@ All tenant-owned tables include `organization_id`, timestamps, actor/audit metad
 | Evidence | `context_sources`, `context_source_versions`, `evidence_documents`, `evidence_fragments`, `evidence_refs`, `fact_assertions` | every material fact has a reconstructable source version/fragment and verification scope |
 | Context | `buyer_passport_versions`, `buyer_facts`, `fact_conflicts` | facts reference immutable Passport/source versions; one active confirmed fact per exclusive policy field unless conflict state |
 | Stack | `stack_snapshots`, `stack_nodes`, `stack_edges`, `stack_patches`, `product_instance_transitions`, `optimizer_findings`, `optimization_runs` | nodes/edges immutable within snapshot; unique alias per snapshot; patch base version must match; optimization stores solver/objective/input/result versions and hashes |
-| Seller | `sellers`, `products`, `product_variants`, `seil_pack_versions`, `claims`, `claim_evidence`, `fit_rules`, `positioning_angles`, `seller_merchant_chains` | published Packs immutable; claim verification dimensions explicit; merchant chain scoped by product/offer/region/validity |
+| Seller | `sellers`, `products`, `product_variants`, `seil_pack_versions`, `claims`, `claim_evidence`, `fit_rules`, `positioning_angles`, `seller_merchant_chains` | published Packs immutable; publisher authority is explicit; platform/external packages cannot emit seller anti-fit or authorize purchase; claim verification dimensions explicit; merchant chain scoped by product/offer/region/validity |
 | Commercial | `offers`, `offer_versions`, `quotes`, `negotiation_events`, `fulfillment_specs` | quotes point to exact offer version and expire; amount/currency immutable after issue |
 | Buying | `purchase_requests`, `purchase_request_versions`, `requirements`, `requirement_briefs`, `requirement_brief_versions`, `candidate_sets`, `candidate_evaluations`, `solution_plans`, `decision_records`, `criterion_results` | Decision Record references exact request, Passport, Stackfile, category schema, rule engine, solver, Pack, offer, quote, and FX snapshot versions |
-| Procurement | `procurement_plans`, `procurement_gates`, `gate_results`, `purchase_intent_groups` | every executable intent references a completed, non-expired gate result hash; group order/compensation immutable after approval |
+| Decision Graph | `evaluation_runs`, `evaluation_pipeline_versions`, `discovery_runs`, `candidate_set_members`, `identity_merges`, `decision_gate_results`, `evidence_assessments`, `solution_plan_components`, `score_components`, `score_bounds`, `robustness_frontiers`, `counterfactual_records` | every evaluation freezes all input/config versions; each merge/gate/assessment/component is attributable; authoritative scores retain exact numerator/denominator; decision hash excludes generated IDs/timestamps; replay reproduces the canonical payload |
+| Procurement | `procurement_plans`, `procurement_gates`, `procurement_gate_results`, `purchase_intent_groups` | every executable intent references a completed, non-expired procurement-gate result hash; group order/compensation immutable after approval |
 | Authority | `approval_policies`, `approval_requests`, `approval_events`, `authorization_records`, `delegations`, `mandate_refs`, `mandate_charge_attempts` | no self-approval where policy separates requester and approver; approval payload hash immutable |
 | Transaction | `purchase_intents`, `payment_sessions`, `payment_attempts`, `merchant_orders`, `entitlements`, `refunds`, `transaction_transitions` | unique active attempt per intent; unique provider order and merchant idempotency key; append-only transitions |
 | Lifecycle | `contracts`, `deployments`, `implementation_tasks`, `seat_assignments`, `renewal_events`, `cancellations`, `outcome_records`, `outcome_metrics`, `vendor_incidents`, `sla_events` | renewal scheduled before cancellation deadline when known; only validated active deployment fulfils a JTBD |
@@ -2284,16 +2534,23 @@ Sensitive provider payloads and secrets never appear in errors.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/v1/purchase-requests` | Create request from typed or natural-language intent |
-| `GET` | `/v1/purchase-requests/{id}` | Read current request and workflow state |
-| `PATCH` | `/v1/purchase-requests/{id}/requirements` | Confirm/correct requirements |
-| `POST` | `/v1/purchase-requests/{id}/discover` | Start candidate discovery/evaluation workflow |
-| `GET` | `/v1/purchase-requests/{id}/candidates` | Read candidate states and evidence |
-| `POST` | `/v1/purchase-requests/{id}/decisions` | Create immutable Decision Record |
-| `GET` | `/v1/decisions/{id}` | Read ledger, counterfactual, evidence, impact |
+| `POST` | `/v1/decision-requests` | Create an action-neutral request from typed or natural-language intent |
+| `GET` | `/v1/decision-requests/{id}` | Read current request and workflow state |
+| `PATCH` | `/v1/decision-requests/{id}/requirements` | Confirm/correct requirements |
+| `POST` | `/v1/decision-requests/{id}/discover` | Start solution-option discovery/evaluation workflow |
+| `GET` | `/v1/decision-requests/{id}/solution-options` | Read ranked action plans, component states, and evidence |
+| `POST` | `/v1/decision-requests/{id}/solution-options/{solution_plan_id}/actions` | Keep, eliminate, ask vendor, save, or request evidence |
+| `POST` | `/v1/decision-requests/{id}/decisions` | Create immutable Decision Record |
+| `GET` | `/v1/decisions/{id}` | Read ledger, evidence, impact, versions, and robustness |
+| `GET` | `/v1/decisions/{id}/counterfactuals` | Read verified generic/private-fact and recovery reruns |
+| `POST` | `/v1/decisions/{id}/simulations` | Create a non-authoritative sensitivity rerun |
+| `POST` | `/v1/evaluation-runs/{id}/replay` | Replay frozen inputs and compare canonical hashes |
+| `POST` | `/v1/decision-rules/{id}/proposals/{proposal_id}/accept` | Accept proposal into a new Decision-rules version |
+| `POST` | `/v1/decision-rules/{id}/proposals/{proposal_id}/reject` | Reject proposal with zero ranking effect |
 | `POST` | `/v1/decisions/{id}/override` | Record authorized human override and new decision |
 | `POST` | `/v1/decisions/{id}/quotes` | Request live structured quote |
-| `POST` | `/v1/decisions/{id}/solution-plans` | Lock selected zero-, one-, or multi-component action |
+| `POST` | `/v1/decisions/{id}/plan-selections` | Idempotently bind a selectable plan to source version/hash and create the immutable selected Decision version |
+| `POST` | `/v1/decisions/{id}/action-runs` | Start the server-authorized action-neutral execution timeline |
 | `POST` | `/v1/solution-plans/{id}/procurement-plans` | Resolve ordered non-payment gates |
 
 ### 23.2.1 Context and agent-run endpoints
@@ -2305,8 +2562,8 @@ Sensitive provider payloads and secrets never appear in errors.
 | `GET` | `/v1/facts` | Read purpose-authorized typed facts and provenance |
 | `POST` | `/v1/facts/{id}/confirm` | Confirm a proposed fact with owner authority |
 | `POST` | `/v1/fact-conflicts/{id}/resolve` | Create resolved fact version without rewriting inputs |
-| `POST` | `/v1/buyer-passports/{id}/compile` | Compile a proposed Passport version |
-| `GET` | `/v1/buyer-passports/{id}/versions/{version}` | Read exact Passport version |
+| `POST` | `/v1/company-profiles/{id}/compile` | Compile a proposed Company Profile version |
+| `GET` | `/v1/company-profiles/{id}/versions/{version}` | Read exact Company Profile version |
 | `GET` | `/v1/agent-runs/{id}` | Read redacted run state/config/version references |
 | `GET` | `/v1/agent-runs/{id}/events` | Stream authorized run progress |
 
@@ -2314,8 +2571,15 @@ Create request example:
 
 ```json
 {
-  "intent": "Buy a meeting-notes tool for ten consultants",
+  "intent": "Review our meeting-intelligence renewal for ten consultants before the cancellation deadline",
   "jtbd_id": "capture_meeting_decisions",
+  "event": {
+    "type": "RENEWAL",
+    "incumbent_product_instance_id": "inst_meeting_incumbent",
+    "contract_id": "contract_meeting_2025",
+    "renewal_at": "2026-09-02",
+    "cancellation_deadline": "2026-08-19"
+  },
   "stakeholders": {
     "user_group_ids": ["team_consultants"],
     "decision_maker_id": "usr_ops",
@@ -2326,7 +2590,7 @@ Create request example:
     "target": 120,
     "checkpoint_days": 30
   },
-  "deadline": "2026-08-10"
+  "deadline": "2026-08-19"
 }
 ```
 
@@ -2346,13 +2610,20 @@ Create request example:
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/v1/sellers/{id}/products` | Create product identity |
+| `GET` | `/v1/seller/products/search` | Search provisional products using public-safe fields only |
+| `POST` | `/v1/seller/products/{product_id}/claim` | Claim an existing provisional product identity |
 | `POST` | `/v1/products/{id}/pack-drafts` | Compile Pack draft from selected sources |
-| `GET` | `/v1/pack-drafts/{id}/validation` | Validation, conflict, evidence, freshness report |
-| `POST` | `/v1/pack-drafts/{id}/submit` | Request seller review |
-| `POST` | `/v1/pack-reviews/{id}/approve` | Approve a reviewed Pack |
-| `POST` | `/v1/pack-reviews/{id}/publish` | Publish immutable Pack version |
-| `GET` | `/v1/seil-packs/{id}/versions/{version}` | Read authorized Pack view |
-| `POST` | `/v1/seil-packs/{id}/evaluate-brief` | Typed eligible/conditional/`SEIL_PASS` response |
+| `GET` | `/v1/seller/pack-drafts/{id}` | Read Product Evidence draft plus validation/conflict/freshness report |
+| `PATCH` | `/v1/seller/pack-drafts/{id}` | Correct typed claims, fit/anti-fit, and publication fields |
+| `POST` | `/v1/seller/pack-drafts/{id}/evidence` | Attach evidence metadata/source reference |
+| `POST` | `/v1/seller/pack-drafts/{id}/submit-review` | Freeze revision and request seller/reviewer approval |
+| `POST` | `/v1/seller/pack-drafts/{id}/review-decisions` | Append immutable request-changes/approve/reject event bound to revision hash |
+| `POST` | `/v1/seller/pack-drafts/{id}/publish` | Publish authorized immutable Pack version after approval |
+| `POST` | `/v1/seller/pack-versions/{id}/suspend` | Authorized non-destructive safety suspension with reason/effective time |
+| `GET` | `/v1/seller/pack-versions/{id}/exports` | Hash-bound JSON/HTML/reusable-answer exports of published fields only |
+| `GET` | `/v1/seller/products/{product_id}/activity-metrics` | Windowed answer-render, seller-handoff, and observed self-service counts |
+| `GET` | `/v1/product-evidence/{id}/versions/{version}` | Read authorized Product Evidence view |
+| `POST` | `/v1/product-evidence/{id}/evaluate-brief` | Role-safe evaluation whose public statuses include `VENDOR_NOT_SUPPORTED` and `RESEARCH_ONLY`; internal `SEIL_PASS` remains ledger-only |
 | `POST` | `/v1/offers/{id}/quotes` | Create live quote from structured request |
 | `POST` | `/v1/seller-sources` | Register an authorized seller evidence source |
 | `POST` | `/v1/seller-merchant-chains` | Submit seller/entity/merchant relationship for review |
@@ -2625,7 +2896,7 @@ Minimum golden set:
 
 ### 27.3 Agent quality gates
 
-- Purchase Request extraction exact-field F1 by requirement class.
+- Decision-request extraction exact-field F1 by requirement class.
 - Unsupported claim rate must be zero in the release golden set.
 - Sensitive-disclosure violations must be zero.
 - Tool-selection and argument validity are 100% for financial/approval/exception/cancellation side-effect cases and at least 95% for read-only golden cases; deterministic server authorization remains mandatory regardless of model score.
@@ -2666,6 +2937,12 @@ Release tests additionally prove:
 
 The denominator and action type are reported separately. A no-buy, reuse, configuration, short-term purchase, successful consolidation, or cancellation may all be value-positive; an active subscription is not inherently success. This avoids optimizing solely for gross merchandise value, subscription survival, or seller conversion.
 
+Before enough checkpoints mature for the long-term north star, the MVP operating north star is:
+
+> Buyer-accepted, sufficiently covered decisions that produce a completed next action within seven days.
+
+“Sufficiently covered” means all required hard evidence is complete, no blocking conflict remains, the evaluated-universe limitation is disclosed, and rank stability is shown. A completed next action may be keep current, configure, ask vendor, approve, buy, renew, resize, switch, or cancel; it is not restricted to transactions.
+
 ### 28.2 Buyer metrics
 
 - time from request to clarified requirements, decision, approval, payment, and usable entitlement;
@@ -2696,6 +2973,8 @@ The denominator and action type are reported separately. A no-buy, reuse, config
 ### 28.4 Platform and system metrics
 
 - category/seller/JTBD coverage and eligible supply;
+- request liquidity: requests with at least three executable distinct options, plus time to first qualified offer;
+- matching quality: hard-gate false-pass rate, false-rejection rate, buyer-labelled precision at three, evidence frontier size, and rank stability;
 - ranking concentration and sponsored-content exposure;
 - verified transaction value and revenue;
 - fulfillment, reconciliation, dispute, and fraud rates;
@@ -2718,6 +2997,9 @@ These are product targets, not claims of current performance:
 | Time to first useful decision | median elapsed time from org creation to a Decision Ledger that an outcome owner marks useful, for guided-onboarding users | <= 30 minutes in moderated minimum-context tests |
 | Coverage disclosure | Decision Records containing Registry snapshot, evaluated/excluded counts, freshness, adapters, and coverage statement / all Decision Records | 100% |
 | Competitive breadth | executable distinct seller/merchant groups evaluated / decision; report low-coverage cases separately | >=3 where supply exists; 100% warning when fewer |
+| Seven-day completed next action | sufficiently covered buyer-accepted decisions reaching their declared next action within seven days / sufficiently covered buyer-accepted decisions | Report by action type; establish baseline in the first 20 real decisions |
+| Rank stability | final decisions where no option's optimistic ordering can beat the selected option's conservative ordering / final decisions | 100% displayed; unstable decisions cannot auto-execute |
+| Duplicate-resistant universe | discovery runs where aliases, editions, resellers, and offers resolve to canonical identities without inflating option count / audited discovery runs | 100% in fixtures and launch category |
 | No-buy value | accepted reuse/configure/no-action/consolidate savings with owner-confirmed baseline / applicable accepted proposals | Amount and avoided recurring spend reported; never count an unaccepted estimate as realized |
 | Explanation comprehension | first-time target users who correctly state the problem, selected action, decisive company fact, and payment/next action within 30 seconds / moderated participants | >=8 of 10 per release study |
 | Pack deterministic reuse | qualified briefs evaluated from one unchanged Pack without rule divergence or seller intervention / qualifying briefs | 100% rule consistency across at least 20 fixture/consented real briefs |
@@ -2744,32 +3026,46 @@ Possible buyer pricing dimensions:
 - connector and governance tier;
 - managed procurement or optimization service.
 
+Launch packaging is outcome-aligned:
+
+1. **Decision Sprint:** a fixed buyer fee for one governed renewal or purchase decision, including evidence review and an executable next-action plan.
+2. **SIRA Workspace:** a recurring organization subscription for Company Profile, Stackfile, renewals, decisions, approvals, and outcome tracking.
+3. **Enterprise controls:** additional connectors, identity/governance, custom policy, audit, and service commitments.
+
+A decision is covered by either an active SIRA Workspace entitlement or a Decision Sprint, never both. Enterprise controls are an add-on to Workspace, not a second decision fee. An optional capped share of verified savings may be tested only under a separate pilot when the buyer approves the baseline and measurement window before the decision; it never stacks with a Decision Sprint or transaction fee for the same decision. Production dollar price points remain a validation decision; tier choice must never alter recommendation rank, evidence treatment, or access to no-buy actions.
+
 ### 29.2 Seller model
 
-Sellers may pay for:
+Claiming, correcting, and maintaining basic public Product Evidence is free. Sellers may pay for:
 
 - Pack authoring and collaboration;
-- evidence verification workflows;
-- marketplace distribution;
+- private evidence-collection workflow, expiry alerts, and reviewer collaboration;
+- Product Evidence hosting/syndication to seller-owned sites, APIs, and partner channels outside SIRA's neutral option ordering;
 - quote, checkout, and fulfillment integrations;
 - aggregated analytics;
 - API usage and premium support.
 
+Seller payment buys workflow convenience, never a verification outcome, verification class, priority review queue, inclusion in the evaluated universe, or additional exposure inside an objective SIRA decision. Paid tools may help a seller prepare complete evidence sooner, but submitted evidence receives the same evaluation policy, review service level, and publication criteria as free submissions. Independent third-party audit costs are attributed to that verifier and do not create a SIRA-paid rank signal.
+
 ### 29.3 Transaction revenue
 
-A uniformly applied and disclosed transaction fee is allowed. It must not change ranking or suppress cancellation/consolidation recommendations. Savings-share pricing is allowed only when the baseline, measurement window, counterfactual, and realized saving are agreed and auditable.
+A uniformly applied and disclosed **buyer-paid** transaction fee is allowed in production only after its schedule and legal/tax treatment are approved. There is no seller-paid referral or success commission. The fee basis, rate/cap, currency, minimum/maximum, tax treatment, and schedule version are fixed before ranking; the exact fee is itemized in the live quote, included in comparable TCO and the Purchase Intent's `fee_amount`/`landed_total`, approved with the exact intent hash, and repeated on the receipt. It creates no seller-specific, inclusion, exposure, or policy/rank boost; like every buyer-paid cost, its only effect on ordering is through disclosed comparable TCO and it may therefore legitimately distinguish a charge-bearing plan from a zero-charge plan. It must not suppress cancellation, reuse, or consolidation recommendations outside that ordinary cost comparison. Zero-charge/non-transaction actions carry no transaction fee and create no payment step.
+
+For the first integrated sandbox only, `buyer_txn_demo_v1` is a flat **USD 2.00 once per charge-bearing Purchase Intent**. It has no percentage basis, no additional minimum/cap calculation, no tax calculation, and no fee on retries. It may stack with the demo's buyer access entitlement because it represents the tested transaction path, but it is explicitly demo policy—not validated production pricing. A savings-share pilot never stacks with this fee for the same decision.
 
 ### 29.4 Prohibited monetization
 
 - paid recommendation rank;
 - hidden seller commission;
+- seller-paid referral, placement, or transaction-success commission;
 - sale of Buyer Passport or employee data;
 - seller access to hidden budgets or named competitor quotes;
+- seller-paid inclusion, recall, verification treatment, recommendation exposure, or priority review/rank eligibility;
 - optimizing agent success solely around gross merchandise value or seller conversion.
 
 ### 29.5 Portable ecosystem
 
-The Stackfile and SEIL Pack schemas should be portable. A future open specification can increase supply and trust while the platform monetizes hosting, verification, policy, analytics, workflows, and transactions.
+The Stackfile and SEIL Pack schemas should be portable. A future open specification can increase supply and trust while the platform monetizes hosting, buyer-funded verification administration, policy, analytics, workflows, and transactions.
 
 ---
 
@@ -2779,26 +3075,35 @@ These are hypotheses to validate, not established market facts.
 
 ### 30.1 Initial ideal customer profile
 
-20-500-person knowledge-work companies with fragmented SaaS purchasing, meaningful privacy/security needs, and no large procurement organization. The likely champion is Operations, Finance, or IT; requesters and department leads are daily users.
+20-200-person client-service companies—consultancies, agencies, research, accounting, legal, and similar teams—with meaningful client/privacy requirements, fragmented SaaS ownership, and no large procurement organization. The initial champion is the Head of Operations or equivalent owner of software renewals; Finance owns budget and IT/security join only where policy requires them.
 
 ### 30.2 Initial wedge
 
-B2B software procurement and lifecycle management because:
+The production wedge is a **governed renewal decision for meeting-intelligence software**. The first buyer starts with an incumbent contract and renewal deadline. SIRA recommends renew, resize, configure, consolidate, replace, cancel, or take no action.
+
+This wedge is selected because:
 
 - private company context materially changes fit;
-- dependencies, adoption, renewals, and duplicate spend are visible costs;
+- an incumbent contract, usage, and deadline create urgency and seed Stackfile immediately;
+- no-buy, resize, reuse, and cancellation visibly prove buyer loyalty;
+- dependencies, adoption, renewal exposure, and duplicate spend are measurable;
 - sellers already maintain substantial product/security evidence;
 - software can often be quoted, paid, and provisioned digitally;
 - Stackfile creates post-purchase retention and compounding data value.
 
+The hackathon remains a new-purchase proof through Prava because it demonstrates the complete action path. It is not the commercial wedge definition.
+
 ### 30.3 Supply strategy
 
-Start with curated, high-quality categories and sellers. Platform researchers may compile provisional Packs from public evidence, but sellers must claim/review them before full publication. External products remain visibly unsealed until normalized.
+Start with six to ten internally compiled provisional Product Evidence packages in one category. Buyers can use them for clearly labelled advisory comparisons before sellers join, but an unsealed package cannot authorize autonomous purchase or represent seller anti-fit. Vendors are then invited to claim, correct, evidence, and publish their package. Structured offer requests follow demonstrated buyer demand; an open marketplace follows only after category quality and liquidity are proven. Every package displays one authority state: `SELLER_SEALED`, `PLATFORM_COMPILED`, or `EXTERNAL_UNSEALED`.
+
+The launch-stage seller benefit is immediate operational deflection, not future reputation: one maintained Pack answers repeat qualification/security questions, exposes validation gaps, warns about stale evidence, and can be reused on seller-owned channels. Qualified-request routing follows in the later engagement workspace after demonstrated buyer demand. Sellers receive Pack-health, stale-evidence, and deflected-question metrics from their own artifact activity; buyer-reason analytics remain suppressed until privacy thresholds are met.
 
 ### 30.4 Distribution paths
 
-- buyer-led software requests and renewal alerts;
-- Stackfile import and savings/risk audit;
+- contract or invoice upload that produces an immediate renewal-risk, overlap, and no-buy audit;
+- buyer-led renewal alerts and governed software decisions;
+- lightweight Stackfile import and savings/risk audit;
 - seller-published SEIL Packs;
 - procurement/finance/IT integrations;
 - API and authenticated MCP surfaces for other agents;
@@ -2809,6 +3114,7 @@ Start with curated, high-quality categories and sellers. Platform researchers ma
 - Which stakeholder owns the pain and budget?
 - What purchase value/risk justifies setup?
 - Which context sources are available without a long integration project?
+- Can one contract/invoice plus a minimal tool list produce useful value before any connector is installed?
 - Will sellers maintain anti-fit rules when conversion pressure rises?
 - Which outcomes can be measured reliably within 30/90 days?
 - Does a portable Stackfile create a repeat workflow beyond individual purchasing?
@@ -2818,6 +3124,8 @@ Start with curated, high-quality categories and sellers. Platform researchers ma
 ## 31. Delivery Roadmap by Dependency
 
 The roadmap does not remove product scope. It establishes prerequisite order so later capabilities are safe and truthful.
+
+Commercial launch order is intentionally narrower than architectural scope: curate provisional Product Evidence, deliver buyer renewal/audit utility, invite vendors to claim and seal it, introduce structured offers, and add open marketplace behavior only after demand and category quality exist.
 
 ### Foundation A: Trust contracts
 
@@ -2865,12 +3173,26 @@ The roadmap does not remove product scope. It establishes prerequisite order so 
 
 **Exit condition:** three independent sellers can publish immutable Packs; expired/disputed evidence blocks the correct flows; material updates produce accurate impact lists.
 
+### First commercial slice: Renewal Decision Room
+
+This vertical slice is delivered before broad marketplace or transaction automation. It uses the minimum required portions of Foundations A-D:
+
+- contract/invoice upload and an incumbent Stackfile instance;
+- current price, term, renewal/cancellation deadlines, usage, and observed outcome;
+- three to five seller-sealed or clearly platform-compiled Product Evidence packages;
+- `RENEW`, `RESIZE`, `CONFIGURE_EXISTING`, `NO_ACTION`, `REPLACE`, and `CANCEL` decision plans;
+- Decision Graph evaluation, evidence frontier, counterfactual, Decision Ledger, and an owner-approved next action.
+
+It depends on Trust contracts plus lightweight Buyer context/Stack intelligence and the Pack/evidence subset of Foundation D. It does **not** require Product F payment/fulfillment. An unsealed option may inform advisory comparison but cannot authorize autonomous purchase or represent seller anti-fit.
+
+**Exit condition:** a buyer can upload one contract/invoice and minimal tool/usage context, make a governed renewal decision before the cancellation deadline, and complete a non-transaction next action or hand an approved replacement into Product F.
+
 ### Product E: Curated marketplace and decisions
 
 - sealed Requirement Briefs;
 - structured/semantic discovery;
-- candidate evaluation and Stackfile simulation;
-- Decision Ledger, counterfactual, override;
+- SIRA Decision Graph recall, deduplication, evidence assessment, Solution Plan evaluation, and Stackfile simulation;
+- score bounds, rank stability, deterministic counterfactual, Decision Ledger, and override;
 - structured quote/negotiation;
 - neutrality, sponsorship disclosure, disputes.
 
@@ -2890,9 +3212,9 @@ The roadmap does not remove product scope. It establishes prerequisite order so 
 
 **Exit condition:** authentic sandbox purchases cover approve, decline, expiry, duplicate, report failure, paid-unfulfilled, reconciliation, refund, and entitlement verification without duplicate effects.
 
-### Product G: Lifecycle
+### Product G: Lifecycle automation
 
-- contracts and renewal calendar;
+- scaled contracts and renewal calendar beyond the first commercial slice;
 - usage/outcome checkpoints;
 - renew/resize/downgrade/switch/cancel;
 - Prava mandates where supported;
@@ -2930,13 +3252,13 @@ The roadmap does not remove product scope. It establishes prerequisite order so 
 
 The hackathon submission is one vertical proof through the full architecture, not the scope of the PRD:
 
-- one prepared buyer organization;
+- one prepared buyer organization with an incumbent meeting-intelligence contract, cancellation deadline, usage, and outcome snapshot;
 - one software JTBD/category;
-- four published Pack fixtures backed by separated Senso evidence: generic-cheapest buyer-ineligible option, genuine seller anti-fit option, eligible runner-up, and winner;
-- one Buyer Passport and Stackfile snapshot;
+- four published Pack fixtures backed by separated Senso evidence: generic-cheapest buyer-ineligible replacement, genuine seller anti-fit, incumbent renewal runner-up, and replacement winner;
+- one Company Profile, Stackfile, contract, renewal event, and outcome snapshot;
 - visible generic versus company-aware decision;
 - one `SIRA_INELIGIBLE`, one actual deterministic `SEIL_PASS`, and at least two eligible options;
-- one Stackfile graph patch;
+- one replacement Stackfile patch with staged incumbent retirement;
 - exact approval and Prava transaction;
 - genuine sandbox merchant/processor authorization through a Prava-supported path, subject to provider/organizer confirmation;
 - usable entitlement, validated deployment state, receipt, and updated Stackfile;
@@ -3009,11 +3331,14 @@ The demo must not lead with MCP, vector search, graph databases, model routing, 
 | Senso tenancy | Folder scopes may be insufficient for strict multi-tenancy | Prefer separate orgs; obtain vendor confirmation; run cross-tenant tests |
 | Senso unscoped-key default | Misconfiguration exposes full KB | Apply/read back grants and negative-test before activation |
 | Source truth | Evidence may be current but false or biased | Verification states, human review, disputes, platform checks |
-| Seller incentive to avoid `SEIL_PASS` | Honest passing may reduce short-term conversion | Reputation and qualified-match metrics reward accurate `SEIL_PASS`; audit gaming |
+| Seller incentive to avoid `SEIL_PASS` | Honest passing may reduce short-term conversion before reputation data exists | Give immediate questionnaire/qualification deflection and Pack-health value; route only qualified consented requests; add reputation only after sufficient governed outcomes; audit gaming |
 | Sparse outcomes | Adoption data can be delayed/confounded | Explicit checkpoints, multiple sources, causal confirmation, no automatic hard rules |
 | Company-culture misuse | Could become employee profiling | Limit to confirmed operational preferences; prohibit protected-trait inference |
 | Tax/contracts/invoices | Final landed cost and legal process vary | Merchant/procurement adapters and human review; never invent tax or terms |
 | Marketplace cold start | Few Packs reduce utility | Curated categories, provisional Packs, explicit coverage disclosure |
+| Derivative two-agent framing | Buyers may perceive a Jack-and-Jill clone and miss the operational product | Expose SIRA as the product; keep SEIL as Product Evidence protocol/service; lead with Stackfile, no-buy actions, Decision Graph, and execution |
+| Company setup tax | Full Passport/Stackfile onboarding can exceed the pain of one renewal | Start from one contract/invoice plus a minimal tool list; request only facts that can change the decision |
+| Evidence-completeness bias | Established sellers may appear safer only because their Packs are fuller | Rank on conservative support, show optimistic bounds and evidence frontier separately, audit false rejection, and offer a neutral claim/correction path |
 | Ranking capture | Monetization can corrupt buyer trust | Buyer-paid primary model, no paid rank, audits and sponsorship labels |
 | Product changes | Decisions become stale | Pack change events, freshness gates, impact re-evaluation |
 | Model variability | Extraction/explanation may regress | Structured output, deterministic core, golden/adversarial evals, config rollback |
@@ -3048,6 +3373,9 @@ These boundaries remain even in the full product unless a later PRD explicitly c
 - Training shared models on private tenant data by default.
 - Replacing accountable legal, security, finance, or procurement owners.
 - Free-form agent-to-agent negotiation as the authoritative decision system.
+- A symmetrical buyer-agent/seller-agent character interface.
+- A single opaque “AI fit” percentage.
+- A full seller workspace or open RFP marketplace in the first buyer-value release.
 - Claiming a payment approval is a completed purchase.
 - Claiming the marketplace covers every product or merchant when it does not.
 
@@ -3077,9 +3405,9 @@ The full product is accepted only when every applicable criterion passes in a pr
 ### 35.3 Stackfile and decisions
 
 12. A company can import/export Stackfile and reproduce its canonical lock hash.
-13. Every candidate purchase displays a graph patch, dependency impact, total cost, and rollback/migration needs.
+13. Every proposed purchase/replacement action displays a graph patch, dependency impact, total cost, and rollback/migration needs.
 14. Gap, overlap, blast-radius, replacement, renewal, cost, risk, and adoption analyses pass reference fixtures.
-15. The same snapshots and engine version replay to the same candidate result.
+15. The same snapshots and engine version replay to the same canonical option ordering and decision hash.
 16. A failed hard constraint never wins through preference score.
 17. Every decision shows criterion evidence, uncertainty, alternatives, and generic-request counterfactual.
 18. An authorized override creates a new immutable record without rewriting the original.
@@ -3140,6 +3468,20 @@ The full product is accepted only when every applicable criterion passes in a pr
 58. An unconfirmed learned preference has exactly zero effect on eligibility or rank; acceptance by an authorized owner creates a new policy/preference version.
 59. Cancellation/consolidation completing dependency-safe exit criteria and intended outcomes counts as success even with no active replacement subscription.
 60. Every blocking fact, review, gate, approval, exception, deployment, renewal, and reconciliation issue appears in an authorized task inbox and can resume its waiting workflow after audited resolution.
+61. Candidate recall, alias/edition/reseller resolution, and deduplication reproduce from frozen configuration; duplicate supply cannot improve rank, coverage, or display frequency.
+62. Every eligible option exposes conservative and optimistic preference bounds plus rank stability; an unstable result cannot execute without resolving the evidence frontier or obtaining explicit authorized approval.
+63. The generic-request and decisive-private-fact counterfactuals reproduce by deterministic rerun and persist matching before/after evaluation-payload hashes without circular Decision Record references.
+64. A first-time buyer can complete the five-stage Decision Room flow and access every material state without relying on chat, color alone, or hidden evidence.
+65. A contract/invoice plus minimal current-tool input can produce a useful renewal, overlap, and no-buy analysis without requiring seller participation or enterprise connectors.
+66. The backend-owned Decision Room projection supplies stage, actor capabilities, permitted action descriptors, blockers, active operation, and supersession state; the client never infers authority.
+67. Every Product Evidence surface separates publisher authority from claim verification/freshness, and no platform-compiled or external-unsealed package can imply seller approval or authorize autonomous purchase.
+68. The locked reference fixture produces renew, resize, configure, no-action, replace, and cancel alternatives from an incumbent contract/usage/outcome snapshot and selects the same action on replay.
+69. Exact rational score values determine order and hash while two-decimal UI rounding remains presentation-only.
+70. A no-history option receives the exact `1/2` v1 outcome prior for satisfaction, zero outcome-evidence coverage, a visible prior label, and no hard-gate benefit; the same inputs replay identically.
+71. Every Stack-risk lower/base/upper tier reproduces from versioned category rule IDs and normalized input hashes; missing rule coverage produces `BOUND_UNAVAILABLE`, never an inferred low risk.
+72. Plan selection is role-authorized, idempotent, and bound to source Decision version/hash; reselection supersedes downstream authority, and the server-owned typed execution steps render without client-inferred authority.
+73. Seller-safe search, immutable review decisions, Pack suspension, hash-bound reusable exports, and windowed answer/handoff/observed-self-service metrics work without exposing unpublished or buyer-private fields.
+74. The first sandbox itemizes `buyer_txn_demo_v1` exactly once as USD 2.00 on a charge-bearing Purchase Intent, never on retry/no-charge action, and never presents it as validated production pricing.
 
 ---
 
@@ -3206,7 +3548,12 @@ Provider documentation is discovery evidence, not a substitute for sandbox confo
 |---|---|---|
 | Focus on B2B software procurement/lifecycle | Locked | Strongest fit for company context, reusable seller truth, Stackfile, and digital fulfillment |
 | First category is meeting intelligence for client-service teams | Locked | Makes multi-stakeholder privacy, stack fit, digital fulfillment, and measurable outcome immediately visible |
-| SIRA buyer-side; SEIL seller-side | Locked | Clear loyalty and privacy boundaries |
+| SIRA is the visible buyer product; SEIL is the seller truth protocol/service | Locked | Preserves loyalty and privacy boundaries without presenting a derivative two-character experience |
+| SIRA Decision Graph is the proprietary matching and decision core | Locked | Differentiates company-state-to-action evaluation from profile matching and keeps rank deterministic |
+| Chat-first SIRA workspace with one embedded five-stage Decision Canvas | Locked | Makes natural-language intake immediate while keeping Need, Company fit, Options, Action, and Result structured, replayable, and linkable |
+| Buyer UI and public API are procurement-native; legacy candidate/action aliases are migration-only | Locked | Removes recruitment vocabulary from partner surfaces while permitting an explicit compatibility window |
+| SEIL Pack is labelled Product Evidence with publisher/verification state | Locked | Avoids presenting seller assertions or provisional research as indisputable facts |
+| Operational-cartography visual system | Locked | Gives SIRA a graph/diff/ledger-native identity distinct from warm editorial matching products |
 | One seller SEIL manages many product Packs | Locked | Pack is reusable asset; agent/service is seller-level operator |
 | Stackfile is a core SIRA subsystem and portable graph | Locked | Deepens purchase quality without adding a third authority persona |
 | PostgreSQL is canonical | Locked | Typed, transactional, versioned, auditable domain state |
@@ -3216,6 +3563,10 @@ Provider documentation is discovery evidence, not a substitute for sandbox confo
 | Models interpret/explain; deterministic services decide | Locked | Auditability and safety |
 | Positioning occurs after eligibility and does not score | Locked | Preserves seller value without corrupting buyer decision |
 | Buyer-paid primary revenue; no paid rank | Locked | Aligns platform incentives with buyer outcomes |
+| Basic vendor claim/correction is free | Locked | Improves Product Evidence quality without selling rank access |
+| Production wedge is governed meeting-intelligence renewal for 20-200-person client-service firms | Locked | Urgent, measurable, recurring workflow with an incumbent and a clear Operations champion |
+| Renewal Decision Room slice precedes marketplace/payment automation | Locked | Proves buyer value from contract, usage, Stackfile, and curated evidence without waiting for transaction infrastructure |
+| Hackathon purchase is a proof path, not the commercial wedge | Locked | Preserves the required transaction demonstration without distorting launch strategy |
 | Continuous optimizer proposes by default | Locked | Prevents destabilizing autonomous stack changes |
 | Full lifecycle is in scope | Locked | Purchase value includes renewal, switch, cancellation, and realized outcome |
 | 48-hour build is a proof milestone only | Locked | Product definition is not constrained by event timing |
