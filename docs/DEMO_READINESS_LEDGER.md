@@ -26,6 +26,7 @@ This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes t
 | PAY-02 | **FIXED:** Provider uncertainty and hosted-session failures are recoverable; malformed outbox events no longer starve later work. | `70dc0a3`. |
 | PAY-03 | **FIXED:** Fulfillment retries separately from checkout, so paid-but-unfulfilled recovery does not repeat the charge. | `d6ee047`. |
 | PAY-04 | **FIXED IN CODE:** Concurrent first idempotency claims use a savepoint, resolve the uniqueness race, and reread the canonical record. Live PostgreSQL proof is still open below. | `86ef60a`. |
+| PAY-05 | **FIXED IN CODE:** Purchase Intent merchant, Pack, offer, quote, amount, currency, line items, fulfillment expectations, and Stackfile patch now come from a hashed snapshot on the exact persisted selected plan. Missing or altered terms fail closed. | Batch 1 transaction-binding tests; live PostgreSQL proof remains open. |
 | SEC-01 | **PASS IN CODE:** Production defaults fail closed, fixture adapters are labelled, tenant scoping/RLS policies exist, and the one-time Prava credential stays out of persistence, payloads, workflow history, and errors. | Production-boundary, provider, worker, and contract tests. |
 
 ## Required on the laptop for the demo
@@ -44,7 +45,6 @@ Docker is not required for these checks. A local laptop PostgreSQL/Temporal setu
 
 | ID | Blocker |
 |---|---|
-| LIVE-01 | Purchase Intent merchant, offer, quote, amount, currency, fulfillment, and patch must be derived from the exact selected persisted plan. They are still copied from the fixed fixture. |
 | LIVE-02 | Validate the currency returned by Prava before merchant dispatch, not only merchant URL and amount. |
 | LIVE-03 | Add approval revocation and enforce it through dispatch. Expiry is fixed; revocation is not implemented. |
 | LIVE-04 | Configure authentic Prava, controlled merchant/entitlement, Temporal, and HTTPS return URL values and run the real sandbox contracts. Development adapters must remain visibly non-production. |

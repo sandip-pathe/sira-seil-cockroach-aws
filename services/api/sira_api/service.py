@@ -84,6 +84,11 @@ from persistence.repositories import (
 )
 
 from .callback_state import BrowserReturnStateSigner
+from .commercial_terms import (
+    CommercialTermsConflict,
+    build_demo_plan_commercial_terms,
+    build_purchase_intent_payload,
+)
 from .decision_room_projection import project_decision_room
 from .errors import ApiProblem, SetupBlocked
 from .fixtures import DEMO, DemoFixtureBundle, content_hash
@@ -143,7 +148,13 @@ class WorkflowService:
         stack_patch_id: str,
         preference_weights: dict[str, int] | None = None,
         created_at: datetime | None = None,
-    ) -> tuple[DecisionGraphInput, DecisionGraphDecision, dict[str, Any], dict[str, Any]]:
+    ) -> tuple[
+        DecisionGraphInput,
+        DecisionGraphDecision,
+        dict[str, Any],
+        dict[str, Any],
+        dict[str, dict[str, Any]],
+    ]:
         """Run the deterministic graph and bind DB-owned artifact identifiers."""
 
         fixtures = self._fixture_bundle()
@@ -206,7 +217,13 @@ class WorkflowService:
         patch["content_hash"] = content_hash(
             {key: value for key, value in patch.items() if key != "content_hash"}
         )
-        return graph_input, graph_decision, ledger, patch
+        commercial_terms = build_demo_plan_commercial_terms(
+            fixtures,
+            graph_input,
+            graph_decision,
+            stack_patch_id=stack_patch_id,
+        )
+        return graph_input, graph_decision, ledger, patch, commercial_terms
 
     async def _persist_base_graph(
         self,
@@ -219,6 +236,7 @@ class WorkflowService:
         graph_input: DecisionGraphInput,
         graph_decision: DecisionGraphDecision,
         ledger: dict[str, Any],
+        commercial_terms_by_plan_id: dict[str, dict[str, Any]],
     ) -> str:
         metadata = EvaluationPersistenceMetadata(
             organization_id=organization_id,
@@ -236,6 +254,7 @@ class WorkflowService:
             graph_input,
             ledger,
             metadata,
+            commercial_terms_by_plan_id=commercial_terms_by_plan_id,
         )
         await repository.add_evaluation_graph(graph_write)
         return graph_write.evaluation_run.id
@@ -323,17 +342,19 @@ class WorkflowService:
 
             brief = deepcopy(fixtures.purchase_brief)
             requirement = deepcopy(fixtures.requirement_brief)
-            graph_input, graph_decision, ledger, patch = self._demo_graph_artifacts(
-                organization_id=organization_id,
-                request_id="req_demo",
-                decision_id="dec_consultco_v1",
-                decision_version=1,
-                supersedes_decision_id=None,
-                purchase_brief_id=str(brief["purchase_brief_id"]),
-                purchase_brief_version=int(brief["version"]),
-                requirement_brief_id=str(requirement["requirement_brief_id"]),
-                requirement_brief_version=int(requirement["version"]),
-                stack_patch_id="patch_consultco_fixture_d",
+            graph_input, graph_decision, ledger, patch, commercial_terms = (
+                self._demo_graph_artifacts(
+                    organization_id=organization_id,
+                    request_id="req_demo",
+                    decision_id="dec_consultco_v1",
+                    decision_version=1,
+                    supersedes_decision_id=None,
+                    purchase_brief_id=str(brief["purchase_brief_id"]),
+                    purchase_brief_version=int(brief["version"]),
+                    requirement_brief_id=str(requirement["requirement_brief_id"]),
+                    requirement_brief_version=int(requirement["version"]),
+                    stack_patch_id="patch_consultco_fixture_d",
+                )
             )
             request = PurchaseRequest(
                 id="req_demo",
@@ -421,6 +442,7 @@ class WorkflowService:
                 graph_input=graph_input,
                 graph_decision=graph_decision,
                 ledger=ledger,
+                commercial_terms_by_plan_id=commercial_terms,
             )
             decision_record.payload = {
                 **decision_record.payload,
@@ -597,19 +619,21 @@ class WorkflowService:
 
             decision_id = new_id("dec")
             stack_patch_id = f"patch_{decision_id}"
-            graph_input, graph_decision, ledger, stack_patch = self._demo_graph_artifacts(
-                organization_id=organization_id,
-                request_id=request_id,
-                decision_id=decision_id,
-                decision_version=decision_version,
-                supersedes_decision_id=(
-                    previous_decision.id if previous_decision is not None else None
-                ),
-                purchase_brief_id=brief.id,
-                purchase_brief_version=brief.version,
-                requirement_brief_id=requirement.id,
-                requirement_brief_version=requirement.version,
-                stack_patch_id=stack_patch_id,
+            graph_input, graph_decision, ledger, stack_patch, commercial_terms = (
+                self._demo_graph_artifacts(
+                    organization_id=organization_id,
+                    request_id=request_id,
+                    decision_id=decision_id,
+                    decision_version=decision_version,
+                    supersedes_decision_id=(
+                        previous_decision.id if previous_decision is not None else None
+                    ),
+                    purchase_brief_id=brief.id,
+                    purchase_brief_version=brief.version,
+                    requirement_brief_id=requirement.id,
+                    requirement_brief_version=requirement.version,
+                    stack_patch_id=stack_patch_id,
+                )
             )
             decision_record = DecisionRecord(
                 id=decision_id,
@@ -687,6 +711,7 @@ class WorkflowService:
                 graph_input=graph_input,
                 graph_decision=graph_decision,
                 ledger=ledger,
+                commercial_terms_by_plan_id=commercial_terms,
             )
             decision_record.payload = {
                 **decision_record.payload,
@@ -1404,19 +1429,21 @@ class WorkflowService:
             if plan["solution_plan_id"] == ledger["selected_solution_plan_id"]
         )
         created_at = datetime.fromisoformat(str(ledger["created_at"]).replace("Z", "+00:00"))
-        _graph_input, replay, replayed_ledger, _patch = self._demo_graph_artifacts(
-            organization_id=organization_id,
-            request_id=str(ledger["request_id"]),
-            decision_id=decision.id,
-            decision_version=int(ledger["decision_version"]),
-            supersedes_decision_id=ledger["supersedes_decision_id"],
-            purchase_brief_id=str(ledger["purchase_brief_id"]),
-            purchase_brief_version=int(ledger["purchase_brief_version"]),
-            requirement_brief_id=str(ledger["requirement_brief_id"]),
-            requirement_brief_version=int(ledger["requirement_brief_version"]),
-            stack_patch_id=str(selected_plan["stack_patch_id"]),
-            preference_weights=preference_weights,
-            created_at=created_at,
+        _graph_input, replay, replayed_ledger, _patch, _commercial_terms = (
+            self._demo_graph_artifacts(
+                organization_id=organization_id,
+                request_id=str(ledger["request_id"]),
+                decision_id=decision.id,
+                decision_version=int(ledger["decision_version"]),
+                supersedes_decision_id=ledger["supersedes_decision_id"],
+                purchase_brief_id=str(ledger["purchase_brief_id"]),
+                purchase_brief_version=int(ledger["purchase_brief_version"]),
+                requirement_brief_id=str(ledger["requirement_brief_id"]),
+                requirement_brief_version=int(ledger["requirement_brief_version"]),
+                stack_patch_id=str(selected_plan["stack_patch_id"]),
+                preference_weights=preference_weights,
+                created_at=created_at,
+            )
         )
         stored_statuses = {
             str(item["pack_id"]): str(item["status"]) for item in ledger["component_results"]
@@ -1652,7 +1679,13 @@ class WorkflowService:
                     str(item["criterion_id"]): int(item["weight"])
                     for item in payload["preferences"]
                 }
-                graph_input, graph_decision, graph_ledger, graph_patch = self._demo_graph_artifacts(
+                (
+                    graph_input,
+                    graph_decision,
+                    graph_ledger,
+                    graph_patch,
+                    commercial_terms,
+                ) = self._demo_graph_artifacts(
                     organization_id=organization_id,
                     request_id=base.purchase_request_id,
                     decision_id=resulting_decision_id,
@@ -1749,6 +1782,7 @@ class WorkflowService:
                     graph_input=graph_input,
                     graph_decision=graph_decision,
                     ledger=graph_ledger,
+                    commercial_terms_by_plan_id=commercial_terms,
                 )
                 decision_record.payload = {
                     **decision_record.payload,
@@ -1895,7 +1929,6 @@ class WorkflowService:
         idempotency_key: str,
         body: dict[str, Any],
     ) -> tuple[int, dict[str, Any]]:
-        fixtures = self._fixture_bundle()
         request_hash = content_hash({"decision_id": decision_id, **body})
         async with self.database.transaction(organization_id) as session:
             repository = WorkflowRepository(session, organization_id)
@@ -1912,6 +1945,13 @@ class WorkflowService:
             decision = await self._not_found(repository.get_decision(decision_id), "DECISION")
             await self._require_current_decision(session, organization_id, decision)
             selected_plan_id = decision.selected_solution_plan_id
+            if not isinstance(selected_plan_id, str) or not selected_plan_id:
+                raise ApiProblem(
+                    code="NO_EXECUTABLE_SOLUTION_PLAN",
+                    message="The Decision has no executable Solution Plan to lock.",
+                    status_code=409,
+                    next_action="refresh_decision",
+                )
             if body.get("solution_plan_id") not in {None, selected_plan_id}:
                 raise ApiProblem(
                     code="SOLUTION_PLAN_MISMATCH",
@@ -1921,19 +1961,28 @@ class WorkflowService:
                     status_code=409,
                     next_action="refresh_decision",
                 )
-            ledger = decision.payload.get("ledger")
-            solution_plans = ledger.get("solution_plans", []) if isinstance(ledger, dict) else []
-            selected_plan = next(
-                (
-                    plan
-                    for plan in solution_plans
-                    if isinstance(plan, dict) and plan.get("solution_plan_id") == selected_plan_id
-                ),
-                None,
-            )
-            stack_patch_id = (
-                selected_plan.get("stack_patch_id") if isinstance(selected_plan, dict) else None
-            )
+            try:
+                selected_plan = await repository.get_selected_solution_plan(
+                    decision.id, selected_plan_id
+                )
+            except RecordNotFound:
+                raise ApiProblem(
+                    code="SOLUTION_PLAN_NOT_PERSISTED",
+                    message="The selected Solution Plan is not bound to the canonical evaluation.",
+                    status_code=409,
+                    next_action="refresh_decision",
+                ) from None
+            if selected_plan.lifecycle != "EXECUTABLE" or selected_plan.candidate_status not in {
+                "ELIGIBLE",
+                "ELIGIBLE_WITH_EXCEPTION",
+            }:
+                raise ApiProblem(
+                    code="SOLUTION_PLAN_NOT_EXECUTABLE",
+                    message="The selected Solution Plan is not executable.",
+                    status_code=409,
+                    next_action="refresh_decision",
+                )
+            stack_patch_id = selected_plan.payload.get("stack_patch_id")
             if not isinstance(stack_patch_id, str) or not stack_patch_id:
                 raise ApiProblem(
                     code="DECISION_STACK_PATCH_MISSING",
@@ -1954,22 +2003,33 @@ class WorkflowService:
                     status_code=409,
                     next_action="refresh_decision",
                 )
-            payload = fixtures.purchase_intent_payload()
-            payload["decision_id"] = decision.id
-            payload["decision_version"] = decision.version
-            payload["decision_hash"] = decision.decision_hash
             selection = decision.payload.get("selection")
-            payload["selection_id"] = (
+            selection_id = (
                 str(selection["selection_id"])
                 if isinstance(selection, dict) and isinstance(selection.get("selection_id"), str)
                 else f"selection_{decision.id}"
             )
-            payload["solution_plan_id"] = selected_plan_id
-            payload["stack_patch_id"] = stack_patch_id
-            payload["purchase_intent_id"] = new_id("pi")
-            payload["intent_hash"] = content_hash(
-                {k: v for k, v in payload.items() if k != "intent_hash"}
-            )
+            try:
+                payload = build_purchase_intent_payload(
+                    organization_id=organization_id,
+                    decision_id=decision.id,
+                    decision_version=decision.version,
+                    decision_hash=decision.decision_hash,
+                    selection_id=selection_id,
+                    solution_plan_id=selected_plan_id,
+                    stack_patch_id=stack_patch_id,
+                    purchase_intent_id=new_id("pi"),
+                    commercial_terms=selected_plan.payload.get("commercial_terms", {}),
+                    locked_at=datetime.now(UTC),
+                )
+            except CommercialTermsConflict as error:
+                raise ApiProblem(
+                    code="PLAN_COMMERCIAL_TERMS_INVALID",
+                    message="The selected Solution Plan has no valid immutable commercial terms.",
+                    status_code=409,
+                    next_action="refresh_quote",
+                    details={"reason": str(error)},
+                ) from None
             merchant = payload["merchant"]
             record = PurchaseIntent(
                 id=payload["purchase_intent_id"],

@@ -279,6 +279,7 @@ class WorkflowRepository:
         for plan in graph.solution_plans:
             if plan.evaluation_run_id != evaluation.id:
                 raise PersistenceConflict("Solution Plan is not bound to the evaluation")
+            self._assert_payload_hash(plan.payload, plan.plan_hash, "Solution Plan")
 
         plan_children = (
             *graph.decision_gate_results,
@@ -344,6 +345,23 @@ class WorkflowRepository:
             select(EvaluationRun).where(
                 EvaluationRun.organization_id == self.organization_id,
                 EvaluationRun.evaluation_payload_hash == payload_hash,
+            ),
+        )
+
+    async def get_selected_solution_plan(
+        self, decision_id: str, solution_plan_id: str
+    ) -> EvaluationSolutionPlan:
+        return await _one_or_missing(
+            self.session,
+            select(EvaluationSolutionPlan)
+            .join(EvaluationRun, EvaluationRun.id == EvaluationSolutionPlan.evaluation_run_id)
+            .where(
+                EvaluationSolutionPlan.organization_id == self.organization_id,
+                EvaluationSolutionPlan.solution_plan_id == solution_plan_id,
+                EvaluationSolutionPlan.selected.is_(True),
+                EvaluationRun.organization_id == self.organization_id,
+                EvaluationRun.decision_id == decision_id,
+                EvaluationRun.run_kind == "BASE",
             ),
         )
 

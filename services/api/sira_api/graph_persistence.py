@@ -376,6 +376,7 @@ def _solution_plan_records(
     ledger: dict[str, Any],
     metadata: EvaluationPersistenceMetadata,
     evaluation_run_id: str,
+    commercial_terms_by_plan_id: Mapping[str, Mapping[str, Any]],
 ) -> tuple[EvaluationSolutionPlan, ...]:
     raw_plans = cast(list[dict[str, Any]], ledger["solution_plans"])
     ledger_plan_by_id = {cast(str, item["solution_plan_id"]): item for item in raw_plans}
@@ -385,6 +386,9 @@ def _solution_plan_records(
     rows: list[EvaluationSolutionPlan] = []
     for plan in evaluation.plans:
         payload = _json_document(ledger_plan_by_id[plan.plan_id])
+        commercial_terms = commercial_terms_by_plan_id.get(plan.plan_id)
+        if commercial_terms is not None:
+            payload["commercial_terms"] = _json_document(commercial_terms)
         rows.append(
             EvaluationSolutionPlan(
                 id=_stable_id("esp", metadata.organization_id, evaluation_run_id, plan.plan_id),
@@ -1053,6 +1057,8 @@ def build_evaluation_graph_write(
     decision_input: DecisionGraphInput,
     ledger: Mapping[str, Any],
     metadata: EvaluationPersistenceMetadata,
+    *,
+    commercial_terms_by_plan_id: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> EvaluationGraphWrite:
     """Build the complete normalized BASE evaluation aggregate for one Decision."""
 
@@ -1060,6 +1066,12 @@ def build_evaluation_graph_write(
     if evaluation.versions != decision_input.versions:
         raise ValueError("Decision Graph evaluation versions do not match its frozen input")
     ledger_document = _ledger_document(ledger, evaluation=evaluation, metadata=metadata)
+    frozen_commercial_terms = commercial_terms_by_plan_id or {}
+    unknown_commercial_plan_ids = set(frozen_commercial_terms) - {
+        plan.plan_id for plan in evaluation.plans
+    }
+    if unknown_commercial_plan_ids:
+        raise ValueError("Commercial terms reference an unknown Solution Plan")
     pipeline = build_evaluation_pipeline_version(decision_input, metadata)
     input_payload = _input_payload(evaluation, metadata)
     evaluation_payload = _json_document(evaluation_canonical_payload(evaluation))
@@ -1144,6 +1156,7 @@ def build_evaluation_graph_write(
         ledger=ledger_document,
         metadata=metadata,
         evaluation_run_id=evaluation_run_id,
+        commercial_terms_by_plan_id=frozen_commercial_terms,
     )
     plan_record_ids = {item.solution_plan_id: item.id for item in plan_records}
     return EvaluationGraphWrite(
