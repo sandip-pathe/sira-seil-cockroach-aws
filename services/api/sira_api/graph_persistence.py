@@ -897,6 +897,7 @@ def _score_bounds(
                 calculation_payload=_json_document(
                     {
                         "offer_id": cost.offer_id,
+                        "horizon_days": cost.horizon_days,
                         "payment_required": cost.payment_required,
                         "line_items": cost.line_items,
                     }

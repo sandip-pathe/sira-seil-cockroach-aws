@@ -70,6 +70,7 @@ def _money_bounds(
     values: Mapping[str, object],
     *,
     currency: str,
+    horizon_days: int,
     line_items: tuple[CostLineItem, ...] = (),
     payment_required: bool = False,
 ) -> OfferCost:
@@ -78,6 +79,7 @@ def _money_bounds(
         Money(str(values["low"]), currency),
         Money(str(values["base"]), currency),
         Money(str(values["high"]), currency),
+        horizon_days,
         line_items,
         payment_required,
     )
@@ -172,6 +174,7 @@ def _fee_adjusted_offers(
                 landed,
                 landed,
                 Money(landed.amount + 20, currency),
+                int(raw["horizon_days"]),
                 line_items,
                 True,
             )
@@ -439,6 +442,9 @@ def _current_actions(
     renewal = _json(root / "renewal_event.json")
     incumbent = next(item for item in candidates if item.pack_id == contract["pack_id"])
     currency = str(contract["currency"])
+    horizon_days = int(
+        _json(root / "requirement_brief.json")["team"]["comparison_horizon_days"]
+    )
     contract_evidence = str(contract["evidence_id"])
     renewal_evidence = str(renewal["evidence_id"])
     instance_id = str(contract["instance_id"])
@@ -452,22 +458,40 @@ def _current_actions(
 
     raw_costs = {
         SolutionAction.REUSE_EXISTING: _money_bounds(
-            "current_reuse_cost", contract["reuse_cost"], currency=currency
+            "current_reuse_cost",
+            contract["reuse_cost"],
+            currency=currency,
+            horizon_days=horizon_days,
         ),
         SolutionAction.CONFIGURE_EXISTING: _money_bounds(
-            "current_configure_cost", contract["configuration_cost"], currency=currency
+            "current_configure_cost",
+            contract["configuration_cost"],
+            currency=currency,
+            horizon_days=horizon_days,
         ),
         SolutionAction.NO_ACTION: _money_bounds(
-            "current_no_action_cost", contract["no_action_cost"], currency=currency
+            "current_no_action_cost",
+            contract["no_action_cost"],
+            currency=currency,
+            horizon_days=horizon_days,
         ),
         SolutionAction.RENEW: _money_bounds(
-            "current_renew_quote", renewal["renew_quote"], currency=currency
+            "current_renew_quote",
+            renewal["renew_quote"],
+            currency=currency,
+            horizon_days=horizon_days,
         ),
         SolutionAction.RESIZE: _money_bounds(
-            "current_resize_quote", renewal["resize_quote"], currency=currency
+            "current_resize_quote",
+            renewal["resize_quote"],
+            currency=currency,
+            horizon_days=horizon_days,
         ),
         SolutionAction.CANCEL: _money_bounds(
-            "current_cancel_cost", contract["cancel_cost"], currency=currency
+            "current_cancel_cost",
+            contract["cancel_cost"],
+            currency=currency,
+            horizon_days=horizon_days,
         ),
     }
     actions: list[CurrentActionRecord] = []
@@ -477,6 +501,7 @@ def _current_actions(
             raw_cost.low,
             raw_cost.base,
             raw_cost.high,
+            raw_cost.horizon_days,
             _cost_line("CONTRACT_COST", raw_cost),
             False,
         )

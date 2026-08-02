@@ -5,8 +5,11 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from decision_engine.bounds import ExactRatio
 from decision_engine.graph_v1 import (
+    _predicate_matches,
     _primary_status,
     evaluate_decision_graph,
     evaluate_decision_graph_once,
@@ -22,17 +25,129 @@ from decision_engine.graph_v1_models import (
     GateResult,
     NormalizationKind,
     OfferCost,
+    Predicate,
     PreferenceCriterion,
     ProductFact,
+    RiskRule,
 )
+from decision_engine.graph_v1_recall import _scope_matches, recall_and_deduplicate
 from domain import content_hash
-from domain.enums import CandidateStatus, PackAuthority, RankStability, SolutionAction, TruthValue
+from domain.enums import (
+    CandidateStatus,
+    PackAuthority,
+    RankStability,
+    SolutionAction,
+    StackRisk,
+    TruthValue,
+)
+from domain.errors import DomainValidationError
+from domain.money import Money
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[2] / "fixtures" / "demo"
 
 
 def _selected(evaluation: DecisionGraphEvaluation) -> EvaluatedPlan:
     return next(plan for plan in evaluation.plans if plan.plan_id == evaluation.selected_plan_id)
+
+
+def test_graph_predicates_do_not_coerce_booleans_to_integers() -> None:
+    assert not _predicate_matches(True, Predicate("product.flag", "eq", 1))
+    assert _predicate_matches(True, Predicate("product.flag", "neq", 1))
+
+
+def test_evidence_scope_requires_exact_match_or_explicit_wildcard() -> None:
+    assert _scope_matches("US", "us")
+    assert _scope_matches("*", "RUSSIA")
+    assert not _scope_matches("US", "RUSSIA")
+
+
+@pytest.mark.parametrize("change", ("currency", "horizon"))
+def test_graph_rejects_incomparable_costs(change: str) -> None:
+    decision_input = load_demo_decision_graph_input(FIXTURE_ROOT)
+    selected_offer = next(item for item in decision_input.offers if "fixture_d" in item.offer_id)
+    if change == "currency":
+        replacement = replace(
+            selected_offer,
+            low=Money("89.00", "EUR"),
+            base=Money("89.00", "EUR"),
+            high=Money("109.00", "EUR"),
+            line_items=(),
+            payment_required=False,
+        )
+    else:
+        replacement = replace(selected_offer, horizon_days=31)
+    offers = tuple(
+        replacement if item is selected_offer else item for item in decision_input.offers
+    )
+
+    with pytest.raises(DomainValidationError, match="currency and comparison horizon"):
+        evaluate_decision_graph_once(replace(decision_input, offers=offers))
+
+
+def test_risk_rules_use_assessed_evidence_instead_of_stale_raw_facts() -> None:
+    decision_input = load_demo_decision_graph_input(FIXTURE_ROOT)
+    selected_candidate = next(
+        item for item in decision_input.candidates if item.product_id == "product_fixture_d"
+    )
+    stale_ids = {
+        evidence_id for fact in selected_candidate.facts for evidence_id in fact.evidence_ids
+    }
+    stale_time = decision_input.evaluated_at - timedelta(days=365)
+    evidence = tuple(
+        replace(item, observed_at_lower=stale_time, observed_at_upper=stale_time)
+        if item.evidence_id in stale_ids
+        else item
+        for item in decision_input.evidence
+    )
+    risk = RiskRule(
+        "risk_stale_fact_must_not_match",
+        (SolutionAction.REPLACE,),
+        Predicate("product.deployment_days", "eq", 1),
+        StackRisk.CRITICAL,
+        StackRisk.CRITICAL,
+        StackRisk.CRITICAL,
+        StackRisk.LOW,
+        StackRisk.LOW,
+        StackRisk.LOW,
+    )
+    evaluation = evaluate_decision_graph_once(
+        replace(decision_input, evidence=evidence, risk_rules=(*decision_input.risk_rules, risk))
+    )
+    plan = next(
+        item for item in evaluation.plans if item.components[0].component_id == "product_fixture_d"
+    )
+
+    assert "risk_stale_fact_must_not_match:STALE_EVIDENCE" in (
+        plan.dimensions.triggered_risk_rule_ids
+    )
+    assert plan.dimensions.stack_risk is not None
+    assert plan.dimensions.stack_risk.base is StackRisk.LOW
+
+
+def test_dedup_representative_keeps_a_real_pack_version_offer_binding() -> None:
+    decision_input = load_demo_decision_graph_input(FIXTURE_ROOT)
+    original = next(
+        item for item in decision_input.candidates if item.product_id == "product_fixture_d"
+    )
+    newer = replace(
+        original,
+        record_id="record_fixture_d_newer",
+        pack_id="pack_fixture_d_newer",
+        pack_version=2,
+        offer_id="offer_fixture_d_newer",
+    )
+    recalled = recall_and_deduplicate(
+        replace(decision_input, candidates=(*decision_input.candidates, newer))
+    )
+    representative = next(
+        item for item in recalled.representatives if item.product_id == original.product_id
+    )
+
+    assert (
+        representative.pack_id,
+        representative.pack_version,
+        representative.offer_id,
+    ) == (newer.pack_id, newer.pack_version, newer.offer_id)
 
 
 def test_frozen_fixture_runs_from_raw_facts_and_builds_every_locked_action() -> None:
@@ -284,7 +399,13 @@ def test_rank_stability_detects_unknown_frontier_and_missing_bounds() -> None:
     current_actions = tuple(
         replace(
             item,
-            cost=OfferCost(item.cost.offer_id, item.cost.low, item.cost.base, None),
+            cost=OfferCost(
+                item.cost.offer_id,
+                item.cost.low,
+                item.cost.base,
+                None,
+                item.cost.horizon_days,
+            ),
         )
         if item.action is SolutionAction.CANCEL
         else item

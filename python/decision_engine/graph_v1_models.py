@@ -211,11 +211,14 @@ class OfferCost:
     low: Money | None
     base: Money | None
     high: Money | None
+    horizon_days: int
     line_items: tuple[CostLineItem, ...] = ()
     payment_required: bool = False
 
     def __post_init__(self) -> None:
         require_id(self.offer_id, "offer_id")
+        if isinstance(self.horizon_days, bool) or self.horizon_days < 1:
+            raise DomainValidationError("an offer cost requires a positive comparison horizon")
         object.__setattr__(self, "line_items", tuple(self.line_items))
         if not self.payment_required and any(
             item.line_item_type == "SIRA_TRANSACTION_FEE" for item in self.line_items

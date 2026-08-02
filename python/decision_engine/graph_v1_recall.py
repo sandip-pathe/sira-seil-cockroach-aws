@@ -112,16 +112,17 @@ def recall_and_deduplicate(decision_input: DecisionGraphInput) -> RecallResult:
             )
         )
         first = group[0]
+        anchor = min(group, key=lambda item: (-item.pack_version, item.record_id))
         representatives.append(
             RawCandidateRecord(
                 record_id=canonical_id,
-                pack_id=pack_ids[0],
-                pack_version=max(item.pack_version for item in group),
+                pack_id=anchor.pack_id,
+                pack_version=anchor.pack_version,
                 seller_id=key[0],
                 product_id=key[1],
                 edition=key[2],
                 region=key[3],
-                offer_id=offer_ids[0],
+                offer_id=_canonical(anchor.offer_id, aliases),
                 authority=_authority_floor(group),
                 available=all(item.available for item in group),
                 facts=_merge_facts(group),
@@ -148,7 +149,9 @@ def recall_and_deduplicate(decision_input: DecisionGraphInput) -> RecallResult:
 
 
 def _scope_matches(required_scope: str, actual_scope: str) -> bool:
-    return required_scope == "*" or required_scope.casefold() in actual_scope.casefold()
+    required = required_scope.casefold().strip()
+    actual = actual_scope.casefold().strip()
+    return required == "*" or required == actual
 
 
 def _assessment(

@@ -7,7 +7,6 @@ rank, or decisive counterfactual is accepted.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -146,17 +145,27 @@ def _exact_product(left: ExactRatio, right: int | ExactRatio) -> ExactRatio:
     return ExactRatio(value.numerator, value.denominator)
 
 
+def _strict_equal(left: FactValue, right: FactValue) -> bool:
+    if isinstance(left, bool) or isinstance(right, bool):
+        return isinstance(left, bool) and isinstance(right, bool) and left is right
+    return left == right
+
+
 def _predicate_matches(value: FactValue, predicate: Predicate) -> bool:
     expected = predicate.value
     if predicate.operator == "eq":
-        return value == expected
+        return _strict_equal(value, expected)
     if predicate.operator == "neq":
-        return value != expected
+        return not _strict_equal(value, expected)
     if predicate.operator == "in":
-        return isinstance(expected, tuple) and value in expected
+        return isinstance(expected, tuple) and any(
+            _strict_equal(value, item) for item in expected
+        )
     if predicate.operator == "contains_all":
         return (
-            isinstance(value, tuple) and isinstance(expected, tuple) and set(expected) <= set(value)
+            isinstance(value, tuple)
+            and isinstance(expected, tuple)
+            and all(any(_strict_equal(item, actual) for actual in value) for item in expected)
         )
     if predicate.operator in {"lte", "lt", "gte", "gt"}:
         if isinstance(value, bool) or isinstance(expected, bool):
@@ -444,7 +453,7 @@ def _normalization_value(
     value: FactValue,
 ) -> ExactRatio:
     if criterion.normalization is NormalizationKind.BOOLEAN_EQUALS:
-        return ExactRatio(1 if value == criterion.expected else 0)
+        return ExactRatio(1 if _strict_equal(value, criterion.expected) else 0)
     if criterion.normalization is NormalizationKind.SET_CONTAINS_ALL:
         matched = (
             isinstance(value, tuple)
@@ -575,20 +584,22 @@ def _score_components(
 def _risk_bounds(
     decision_input: DecisionGraphInput,
     material: _PlanMaterial,
+    assessments: Sequence[EvidenceAssessment],
 ) -> tuple[RiskBounds | None, tuple[str, ...], tuple[str, ...]]:
     component_bounds: list[RiskBounds] = []
     triggered_ids: list[str] = []
     reasons: list[str] = []
-    raw_values: dict[str, tuple[FactValue, ...]] = defaultdict(tuple)
-    for fact in material.facts:
-        raw_values[fact.field] = (*raw_values[fact.field], fact.value)
+    assessment_index = _assessment_index(assessments)
     for rule in sorted(decision_input.risk_rules, key=lambda item: item.rule_id):
         if material.action not in rule.actions:
             continue
         if rule.predicate is None:
             matched = True
         else:
-            values = raw_values.get(rule.predicate.field, ())
+            field_state = _field_state(material.facts, rule.predicate.field, assessment_index)
+            values = (
+                field_state.values if field_state.state is EvidenceState.ACCEPTABLE else ()
+            )
             if not values:
                 missing = (rule.missing_lower, rule.missing_base, rule.missing_upper)
                 if any(item is None for item in missing):
@@ -602,7 +613,12 @@ def _risk_bounds(
                     component_bounds.append(
                         RiskBounds(rule.missing_lower, rule.missing_base, rule.missing_upper)
                     )
-                triggered_ids.append(f"{rule.rule_id}:MISSING_INPUT")
+                suffix = (
+                    "MISSING_INPUT"
+                    if field_state.state is EvidenceState.UNKNOWN and not field_state.values
+                    else f"{field_state.state.value}_EVIDENCE"
+                )
+                triggered_ids.append(f"{rule.rule_id}:{suffix}")
                 continue
             matched = all(_predicate_matches(value, rule.predicate) for value in values)
         if matched:
@@ -737,7 +753,7 @@ def _material_dimensions(
         )
     else:
         score_reasons = (*score_reasons, "BOUND_UNAVAILABLE:NO_APPLICABLE_PREFERENCE")
-    risk, risk_reasons, risk_rule_ids = _risk_bounds(decision_input, material)
+    risk, risk_reasons, risk_rule_ids = _risk_bounds(decision_input, material, assessments)
     coverage, age, hard_coverage, evidence_reasons = _coverage_and_age(
         decision_input, material, gates, scores, assessments
     )
@@ -799,7 +815,8 @@ def _pack_materials(
             component_id=item.product_id,
             facts=item.facts,
             cost=offers.get(
-                canonical_offer(item.offer_id), OfferCost(item.offer_id, None, None, None)
+                canonical_offer(item.offer_id),
+                OfferCost(item.offer_id, None, None, None, 1),
             ),
             available=item.available,
             authority=item.authority,
@@ -938,6 +955,18 @@ def _rank_and_frontiers(
     )
     bounded = tuple(_bounded_plan(plan) for plan in eligible)
     rankable = tuple(plan for plan in bounded if plan.bounds is not None)
+    horizon_by_plan = {
+        plan.plan_id: plan.dimensions.total_cost.horizon_days for plan in eligible
+    }
+    cost_signatures = {
+        (plan.bounds.total_cost.base.currency, horizon_by_plan[plan.plan_id])
+        for plan in rankable
+        if plan.bounds is not None
+    }
+    if len(cost_signatures) > 1:
+        raise DomainValidationError(
+            "authoritative ranking requires one currency and comparison horizon"
+        )
     ranked = tuple(sorted(rankable, key=authoritative_ordering_key))
     ranked_ids = tuple(item.plan_id for item in ranked)
     selected = ranked[0] if ranked else None
@@ -1076,6 +1105,7 @@ def _canonical_plan(plan: EvaluatedPlan) -> dict[str, Any]:
                 "low": _money_payload(dimensions.total_cost.low),
                 "base": _money_payload(dimensions.total_cost.base),
                 "high": _money_payload(dimensions.total_cost.high),
+                "horizon_days": dimensions.total_cost.horizon_days,
                 "payment_required": dimensions.total_cost.payment_required,
                 "line_items": tuple(
                     {
