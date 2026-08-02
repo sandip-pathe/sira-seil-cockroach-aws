@@ -67,6 +67,17 @@ type CatalogProduct = {
   summary: string;
   claims: string[];
   integrations: string[];
+  category?: string;
+  deployment?: string;
+  fit?: string;
+  why_company?: string;
+  admin_effort?: string;
+  evidence_freshness?: string;
+  requirement_coverage?: string;
+  limitation?: string;
+  logo?: string;
+  logo_tone?: "blue" | "gold" | "plum" | "teal";
+  seats?: string;
 };
 
 type ChatMessage = {
@@ -113,6 +124,121 @@ const MODE_COPY = {
   },
 } as const;
 
+const FIXTURE_CATALOG: CatalogProduct[] = [
+  {
+    id: "product_fixture_d",
+    name: "Northstar Notes",
+    seller: "Northstar Labs",
+    edition: "Team",
+    price: "USD 89",
+    billing_unit: "workspace_month",
+    status: "Published evidence",
+    summary: "Source-linked meeting intelligence for client-facing teams with low administration overhead.",
+    claims: [
+      "Answers link to exact transcript moments.",
+      "A ten-seat workspace can be deployed in one day.",
+      "Native Google Workspace, Slack, and Zoom integrations are included.",
+      "The Team edition supports up to 50 seats.",
+    ],
+    integrations: ["google_workspace", "slack", "zoom"],
+    category: "Meeting intelligence",
+    deployment: "1 day",
+    fit: "Best company fit",
+    why_company: "Fits a ten-consultant team, keeps client conversations private, and works with the tools already in use.",
+    admin_effort: "Low",
+    evidence_freshness: "Reviewed 2 days ago",
+    requirement_coverage: "4 of 4 key needs",
+    limitation: "Advanced governance controls require the Enterprise edition.",
+    logo: "N",
+    logo_tone: "teal",
+    seats: "Up to 50 seats",
+  },
+  {
+    id: "product_fixture_c",
+    name: "RelayIQ",
+    seller: "Relay Systems",
+    edition: "Business",
+    price: "USD 99",
+    billing_unit: "workspace_month",
+    status: "Published evidence",
+    summary: "Structured meeting capture and controls for growing teams with a dedicated workspace administrator.",
+    claims: [
+      "Answers link to exact transcript moments.",
+      "A ten-seat workspace typically deploys in three days.",
+      "Native Google Workspace, Slack, and Zoom integrations are included.",
+      "The Business edition supports up to 100 seats.",
+    ],
+    integrations: ["google_workspace", "slack", "zoom"],
+    category: "Conversation intelligence",
+    deployment: "3 days",
+    fit: "Supported alternative",
+    why_company: "Covers the current stack and privacy needs, but needs a named workspace administrator.",
+    admin_effort: "Medium",
+    evidence_freshness: "Reviewed 6 days ago",
+    requirement_coverage: "4 of 4 key needs",
+    limitation: "Ongoing administration is heavier than the preferred operating model.",
+    logo: "R",
+    logo_tone: "blue",
+    seats: "Up to 100 seats",
+  },
+  {
+    id: "product_fixture_b",
+    name: "Briefly Cloud",
+    seller: "Briefly Software",
+    edition: "Team",
+    price: "USD 79",
+    billing_unit: "workspace_month",
+    status: "Published evidence",
+    summary: "Fast meeting capture for internal teams that do not need shared external-client workspaces.",
+    claims: [
+      "Customer content is not used for general model training.",
+      "A ten-seat workspace can be deployed in one day.",
+      "Native Google Workspace, Slack, and Zoom integrations are included.",
+      "Restricted shared client workspaces are not supported.",
+    ],
+    integrations: ["google_workspace", "slack", "zoom"],
+    category: "Meeting assistant",
+    deployment: "1 day",
+    fit: "Internal teams only",
+    why_company: "Low-cost option for internal meetings, but it cannot support the required shared client workspaces.",
+    admin_effort: "Low",
+    evidence_freshness: "Reviewed 12 days ago",
+    requirement_coverage: "3 of 4 key needs",
+    limitation: "Restricted shared client workspaces are not supported.",
+    logo: "B",
+    logo_tone: "plum",
+    seats: "Up to 50 seats",
+  },
+  {
+    id: "product_fixture_a",
+    name: "MemoFlow",
+    seller: "MemoFlow Inc.",
+    edition: "Starter",
+    price: "USD 49",
+    billing_unit: "workspace_month",
+    status: "Published evidence",
+    summary: "A lightweight and affordable way for small teams to capture searchable meeting notes.",
+    claims: [
+      "Answers link to exact transcript moments.",
+      "A ten-seat workspace can be deployed in one day.",
+      "Native Google Workspace, Slack, and Zoom integrations are included.",
+      "Customer content may be used for general model improvement.",
+    ],
+    integrations: ["google_workspace", "slack", "zoom"],
+    category: "AI meeting notes",
+    deployment: "1 day",
+    fit: "Policy mismatch",
+    why_company: "Affordable and easy to deploy, but its model-improvement policy conflicts with the client-data requirement.",
+    admin_effort: "Low",
+    evidence_freshness: "Reviewed 8 days ago",
+    requirement_coverage: "2 of 4 key needs",
+    limitation: "Customer content may be used for general model improvement.",
+    logo: "M",
+    logo_tone: "gold",
+    seats: "Up to 25 seats",
+  },
+];
+
 const SEED_CONVERSATIONS: Record<CommerceWorkspaceMode, Conversation[]> = {
   sira: [
     {
@@ -132,7 +258,8 @@ const SEED_CONVERSATIONS: Record<CommerceWorkspaceMode, Conversation[]> = {
           role: "assistant",
           meta: "Decision plan updated",
           content:
-            "## I have started the decision\n\nThe goal is clear: keep client conversations private while making source-linked answers easy for ten consultants.\n\n**What I am checking now**\n\n- your current contract and stack dependencies\n- company requirements that can block an option\n- reuse, resize, renew, and replacement actions\n- the exact approval path if money needs to move\n\nI found **10 supported actions to evaluate**. The live plan and current options are open on the right.",
+            "## I have started the decision\n\nThe goal is clear: keep client conversations private while making source-linked answers easy for ten consultants.\n\n**What I am checking now**\n\n- your current contract and stack dependencies\n- company requirements that can block an option\n- reuse, resize, renew, and replacement actions\n- the exact approval path if money needs to move\n\nI found **4 published products** that could support this need. Open any product to review its evidence, pricing, and stack fit.",
+          products: FIXTURE_CATALOG,
         },
       ],
     },
@@ -265,8 +392,8 @@ function responseFor(mode: CommerceWorkspaceMode, prompt: string) {
     if (normalized.includes("connector") || normalized.includes("senso") || normalized.includes("prava")) {
       return "## Connector status is open\n\nI moved the work panel to **Connectors**. Senso is healthy, while Prava still needs production setup before a live charged purchase can run.\n\nNo purchase or company record was changed.";
     }
-    if (normalized.includes("product") || normalized.includes("option") || normalized.includes("compare")) {
-      return "## I opened the evaluated options\n\nThe right panel now separates supported actions from company-blocked and seller-unsupported options. Selection remains separate from approval and payment.";
+    if (normalized.includes("product") || normalized.includes("catalog") || normalized.includes("option") || normalized.includes("compare")) {
+      return "## I found four published products\n\nThese products have comparable pricing and published evidence for this need. Open a card to review company fit, deployment, integrations, and supported claims.\n\nThis is a **catalogue preview** only; choosing a product remains separate from approval and purchase.";
     }
     return "## I added this to the decision workspace\n\nI will use it to refine the need, company fit, and evaluated actions. The structured decision on the right remains the record that governs selection and execution.";
   }
@@ -278,6 +405,14 @@ function responseFor(mode: CommerceWorkspaceMode, prompt: string) {
     return "## I opened Product Evidence\n\nThe right panel shows the current product, publication state, and the exact evidence gap. Private seller material stays in this workspace and is not sent to buyers.";
   }
   return "## I added this to the seller workspace\n\nI will use it to improve the product record, evidence, fit rules, and buyer-ready answers. Only reviewed fields can become published Product Evidence.";
+}
+
+function fixtureProductsForPrompt(mode: CommerceWorkspaceMode, prompt: string) {
+  if (mode !== "sira") return [];
+  const normalized = prompt.toLowerCase();
+  return ["product", "catalog", "software", "option", "compare", "alternative"].some((term) => normalized.includes(term))
+    ? FIXTURE_CATALOG
+    : [];
 }
 
 function useIsCompact() {
@@ -726,20 +861,71 @@ function InboxPanel() {
   );
 }
 
+function ProductLogo({ product, large = false }: { product: CatalogProduct; large?: boolean }) {
+  const fallback = product.name
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <span
+      className={`${styles.productLogo} ${large ? styles.productLogoLarge : ""}`}
+      data-tone={product.logo_tone ?? "teal"}
+      aria-hidden="true"
+    >
+      {product.logo ?? fallback}
+    </span>
+  );
+}
+
+function ProductCard({
+  product,
+  onSelect,
+  compact = false,
+}: {
+  product: CatalogProduct;
+  onSelect: (product: CatalogProduct) => void;
+  compact?: boolean;
+}) {
+  return (
+    <article className={`${styles.productCard} ${compact ? styles.productCardCompact : ""}`}>
+      <button type="button" onClick={() => onSelect(product)} aria-label={`Open ${product.name} details`}>
+        <div className={styles.productCardBrand}>
+          <ProductLogo product={product} />
+          <div>
+            <span>{product.seller}</span>
+            <small>{product.category ?? "Business software"}</small>
+          </div>
+          <BadgeCheck aria-label="Published evidence" />
+        </div>
+        <h3>{product.name}</h3>
+        <p>{product.summary}</p>
+        <div className={styles.productCompanyReason}>
+          <span>Why it fits your company</span>
+          <p>{product.why_company ?? "Company fit has not been evaluated yet."}</p>
+        </div>
+        <div className={styles.productCardFacts}>
+          <span>{product.requirement_coverage ?? product.edition}</span>
+          <span>{product.deployment ?? "Deployment varies"}</span>
+          <span>{product.admin_effort ? `${product.admin_effort} admin effort` : "Admin effort unknown"}</span>
+        </div>
+        <footer>
+          <div><strong>{product.price}</strong><span> / {product.billing_unit.replaceAll("_", " ")}</span></div>
+          <span className={styles.productCardAction}>View details <ArrowRight aria-hidden="true" /></span>
+        </footer>
+      </button>
+    </article>
+  );
+}
+
 function CatalogPanel({ products, onSelect }: { products: CatalogProduct[]; onSelect: (product: CatalogProduct) => void }) {
   return (
     <div className={styles.contextBody}>
-      <section className={styles.documentHeader}><span>Published Product Evidence</span><h2>Product catalogue</h2><p>Products supplied by the backend catalogue. Open one to inspect its supported facts.</p></section>
-      <section className={styles.optionList}>
-        {products.map((product) => (
-          <article key={product.id}>
-            <button type="button" onClick={() => onSelect(product)}>
-              <div><strong>{product.name}</strong><span>{product.price}</span></div>
-              <p>{product.summary}</p>
-              <dl><div><dt>Seller</dt><dd>{product.seller}</dd></div><div><dt>Edition</dt><dd>{product.edition}</dd></div></dl>
-            </button>
-          </article>
-        ))}
+      <section className={styles.documentHeader}><span>Published Product Evidence</span><h2>Product catalogue</h2><p>Browse B2B software with comparable pricing, deployment, and fit details. Open a product to inspect its published facts.</p></section>
+      <section className={styles.catalogGrid}>
+        {products.map((product) => <ProductCard key={product.id} product={product} onSelect={onSelect} />)}
         {!products.length ? <p className={styles.sectionCopy}>Ask SIRA to show products. Catalogue results will appear in this pane and in the conversation.</p> : null}
       </section>
     </div>
@@ -751,9 +937,28 @@ function ProductPanel({ product, onBack }: { product: CatalogProduct | null; onB
   return (
     <div className={styles.contextBody}>
       <button className={styles.fullViewLink} type="button" onClick={onBack}>Back to catalogue</button>
-      <section className={styles.documentHeader}><span>{product.seller}</span><h2>{product.name}</h2><p>{product.summary}</p><div className={styles.documentMeta}><span><BadgeCheck aria-hidden="true" /> {product.status}</span><span>{product.price} / {product.billing_unit.replaceAll("_", " ")}</span></div></section>
+      <section className={styles.productHero}>
+        <div className={styles.productHeroBrand}>
+          <ProductLogo product={product} large />
+          <div><span>{product.seller}</span><small>{product.category ?? "Business software"}</small></div>
+          <span className={styles.productEvidenceBadge}><BadgeCheck aria-hidden="true" /> {product.status}</span>
+        </div>
+        <h2>{product.name}</h2>
+        <p>{product.summary}</p>
+        <div className={styles.productPrice}><strong>{product.price}</strong><span>per {product.billing_unit.replaceAll("_", " ")}</span></div>
+        <dl className={styles.productSpecs}>
+          <div><dt>Edition</dt><dd>{product.edition}</dd></div>
+          <div><dt>Company fit</dt><dd>{product.fit ?? "Not evaluated"}</dd></div>
+          <div><dt>Deployment</dt><dd>{product.deployment ?? "Varies"}</dd></div>
+          <div><dt>Capacity</dt><dd>{product.seats ?? "Contact seller"}</dd></div>
+          <div><dt>Requirements</dt><dd>{product.requirement_coverage ?? "Not evaluated"}</dd></div>
+          <div><dt>Admin effort</dt><dd>{product.admin_effort ?? "Unknown"}</dd></div>
+          <div><dt>Evidence freshness</dt><dd>{product.evidence_freshness ?? "Unknown"}</dd></div>
+        </dl>
+      </section>
+      <section className={styles.contextSection}><div className={styles.sectionHeading}><div><span>Company context</span><h3>Why it makes sense</h3></div><Layers3 aria-hidden="true" /></div><p className={styles.sectionCopy}>{product.why_company ?? "Company fit has not been evaluated yet."}</p>{product.limitation ? <p className={styles.productLimitation}><strong>Important limitation</strong>{product.limitation}</p> : null}</section>
       <section className={styles.contextSection}><div className={styles.sectionHeading}><div><span>Evidence</span><h3>Published claims</h3></div><FileCheck2 aria-hidden="true" /></div><ul>{product.claims.map((claim) => <li key={claim}>{claim}</li>)}</ul></section>
-      <section className={styles.contextSection}><div className={styles.sectionHeading}><div><span>Stack fit</span><h3>Native integrations</h3></div><Plug aria-hidden="true" /></div><p className={styles.sectionCopy}>{product.integrations.map((item) => item.replaceAll("_", " ")).join(", ") || "No published integration facts."}</p></section>
+      <section className={styles.contextSection}><div className={styles.sectionHeading}><div><span>Stack fit</span><h3>Native integrations</h3></div><Plug aria-hidden="true" /></div><div className={styles.integrationTags}>{product.integrations.map((item) => <span key={item}>{item.replaceAll("_", " ")}</span>)}</div></section>
     </div>
   );
 }
@@ -849,7 +1054,7 @@ export function CommerceWorkspace({
   const [contextExpanded, setContextExpanded] = useState(false);
   const [running, setRunning] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>(() => WEB_DATA_MODE === "fixture" ? FIXTURE_CATALOG : []);
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
   const compact = useIsCompact();
   const messageRootRef = useRef<HTMLDivElement>(null);
@@ -974,9 +1179,11 @@ export function CommerceWorkspace({
     if (WEB_DATA_MODE === "fixture") {
       responseTimerRef.current = setTimeout(() => {
         const response = responseFor(targetMode, value);
+        const products = fixtureProductsForPrompt(targetMode, value);
+        if (products.length) setCatalogProducts(products);
         updateConversation(targetMode, conversationId, (conversation) => ({
           ...conversation,
-          messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: response, meta: "Preview updated" } : message),
+          messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: response, meta: "Preview updated", products } : message),
         }));
         if (targetMode === mode) setRunning(false);
         responseTimerRef.current = null;
@@ -1135,15 +1342,8 @@ export function CommerceWorkspace({
                     <div className={styles.typingState} role="status"><LoaderCircle className={styles.spin} aria-hidden="true" /> Working through the current context...</div>
                   )}
                   {message.products?.length ? (
-                    <div className={styles.optionList}>
-                      {message.products.map((product) => (
-                        <article key={product.id}>
-                          <button type="button" onClick={() => { setSelectedProduct(product); openContext("product"); }}>
-                            <div><strong>{product.name}</strong><span>{product.price}</span></div>
-                            <p>{product.summary}</p>
-                          </button>
-                        </article>
-                      ))}
+                    <div className={styles.messageProductShelf} aria-label="Matching products">
+                      {message.products.map((product) => <ProductCard key={product.id} product={product} compact onSelect={(selected) => { setSelectedProduct(selected); openContext("product"); }} />)}
                     </div>
                   ) : null}
                 </article>
