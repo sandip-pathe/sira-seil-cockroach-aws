@@ -13,9 +13,13 @@ from sira_worker.contracts import (
     FulfillmentActivityResult,
     IsolatedCheckoutActivityInput,
     PurchaseCheckoutWorkflowInput,
+    PurchaseReversalWorkflowInput,
     ReconcileActivityInput,
+    RefundActivityInput,
+    RefundActivityResult,
     SafeFulfillmentStatus,
     SafeMerchantOutcome,
+    SafeReversalStatus,
     VerifyFulfillmentActivityInput,
     WorkflowFailureActivityInput,
 )
@@ -44,6 +48,32 @@ def _reconcile_input() -> ReconcileActivityInput:
         merchant_adapter_id="merchant_demo",
         idempotency_key="checkout_demo_v1",
         transaction_reference="txn_demo",
+    )
+
+
+def _reversal_input() -> PurchaseReversalWorkflowInput:
+    return PurchaseReversalWorkflowInput(
+        organization_id="org_consultco",
+        reversal_id="rev_demo",
+        purchase_intent_id="pi_demo",
+        intent_hash="sha256:demo",
+        idempotency_key="wf_reversal_rev_demo",
+    )
+
+
+def _refund_result(
+    *,
+    status: SafeReversalStatus = SafeReversalStatus.REFUNDED,
+    reconciliation_required: bool = False,
+) -> RefundActivityResult:
+    return RefundActivityResult(
+        reversal_id="rev_demo",
+        status=status,
+        refunded_amount="89.00" if status is SafeReversalStatus.REFUNDED else "0.00",
+        currency="USD",
+        provider_reference="refund_demo" if status is SafeReversalStatus.REFUNDED else None,
+        entitlements_revoked=status is SafeReversalStatus.REFUNDED,
+        reconciliation_required=reconciliation_required,
     )
 
 
@@ -287,12 +317,17 @@ def test_temporal_worker_builds_registered_workflow_and_activities(
     assert isinstance(worker, FakeWorker)
     assert captured["client"] is sentinel
     assert captured["task_queue"] == "checkout-test"
-    assert captured["workflows"] == [workflows.PurchaseCheckoutWorkflow]
+    assert captured["workflows"] == [
+        workflows.PurchaseCheckoutWorkflow,
+        workflows.PurchaseReversalWorkflow,
+    ]
     assert [item.__name__ for item in captured["activities"]] == [
         "execute_isolated_checkout",
         "reconcile_checkout",
         "verify_fulfillment",
         "fail_checkout_workflow",
+        "execute_refund",
+        "reconcile_refund",
     ]
 
 
@@ -485,6 +520,50 @@ async def test_workflow_schedules_authoritative_reconciliation_until_exhausted(
         purchase_intent_id="pi_demo",
         safe_code="CHECKOUT_RECONCILIATION_INCOMPLETE",
     )
+
+
+@pytest.mark.asyncio
+async def test_reversal_workflow_mutates_once_then_reconciles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, object, dict[str, Any]]] = []
+    sleeps: list[timedelta] = []
+    results = iter(
+        [
+            _refund_result(
+                status=SafeReversalStatus.PROVIDER_PENDING,
+                reconciliation_required=True,
+            ),
+            _refund_result(),
+        ]
+    )
+
+    async def fake_execute(name: str, request: object, **kwargs: Any) -> object:
+        calls.append((name, request, kwargs))
+        return next(results)
+
+    async def fake_sleep(delay: timedelta) -> None:
+        sleeps.append(delay)
+
+    monkeypatch.setattr(workflows.workflow, "execute_activity", fake_execute)
+    monkeypatch.setattr(workflows.workflow, "sleep", fake_sleep)
+
+    result = await workflows.PurchaseReversalWorkflow().run(_reversal_input())
+
+    assert result.status is SafeReversalStatus.REFUNDED
+    assert [call[0] for call in calls] == [
+        "sira.execute_refund",
+        "sira.reconcile_refund",
+    ]
+    assert calls[0][1] == RefundActivityInput(
+        organization_id="org_consultco",
+        reversal_id="rev_demo",
+        purchase_intent_id="pi_demo",
+        intent_hash="sha256:demo",
+        idempotency_key="wf_reversal_rev_demo",
+    )
+    assert calls[0][2]["retry_policy"].maximum_attempts == 1
+    assert sleeps == []
 
 
 @pytest.mark.asyncio

@@ -8,7 +8,7 @@ from temporalio.worker import Worker
 from sira_worker.activities import CheckoutActivities
 from sira_worker.contracts import assert_all_contract_schemas_are_credential_free
 from sira_worker.ports import CheckoutActivityCoordinator
-from sira_worker.workflows import PurchaseCheckoutWorkflow
+from sira_worker.workflows import PurchaseCheckoutWorkflow, PurchaseReversalWorkflow
 
 
 def build_worker(
@@ -26,12 +26,14 @@ def build_worker(
     return Worker(
         client,
         task_queue=task_queue,
-        workflows=[PurchaseCheckoutWorkflow],
+        workflows=[PurchaseCheckoutWorkflow, PurchaseReversalWorkflow],
         activities=[
             activities.execute_isolated_checkout,
             activities.reconcile_checkout,
             activities.verify_fulfillment,
             activities.fail_checkout_workflow,
+            activities.execute_refund,
+            activities.reconcile_refund,
         ],
     )
 

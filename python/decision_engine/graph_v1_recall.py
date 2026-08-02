@@ -86,7 +86,9 @@ def _merge_facts(
 
 
 def _recall_exclusion(
-    record: RawCandidateRecord, decision_input: DecisionGraphInput
+    record: RawCandidateRecord,
+    decision_input: DecisionGraphInput,
+    aliases: dict[str, str],
 ) -> RecallExclusion | None:
     policy = decision_input.recall_policy
     if record.pack_status == "REVOKED":
@@ -107,7 +109,9 @@ def _recall_exclusion(
             "JTBD_MISMATCH",
             f"Pack does not support JTBD {policy.jtbd_id}",
         )
-    if record.region not in policy.allowed_regions:
+    normalized_region = _canonical(record.region, aliases)
+    allowed_regions = {_canonical(value, aliases) for value in policy.allowed_regions}
+    if normalized_region not in allowed_regions:
         return RecallExclusion(
             record.record_id,
             "REGION_UNSUPPORTED",
@@ -128,7 +132,7 @@ def recall_and_deduplicate(decision_input: DecisionGraphInput) -> RecallResult:
     grouped: dict[tuple[str, str, str, str], list[RawCandidateRecord]] = defaultdict(list)
     exclusions: list[RecallExclusion] = []
     for record in sorted(decision_input.candidates, key=lambda item: item.record_id):
-        exclusion = _recall_exclusion(record, decision_input)
+        exclusion = _recall_exclusion(record, decision_input, aliases)
         if exclusion is not None:
             exclusions.append(exclusion)
             continue

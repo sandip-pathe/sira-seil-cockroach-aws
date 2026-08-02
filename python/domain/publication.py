@@ -24,6 +24,7 @@ DEFAULT_REQUIREMENT_BRIEF_ALLOWLIST = frozenset(
         "desired_outcome",
         "desired_outcome.metric",
         "desired_outcome.target",
+        "desired_outcome.operator",
         "desired_outcome.checkpoint_days",
         "seat_count",
         "deadline",

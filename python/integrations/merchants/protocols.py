@@ -10,6 +10,8 @@ from integrations.merchants.models import (
     EntitlementVerificationResult,
     MerchantCheckoutOutcome,
     MerchantCheckoutRequest,
+    MerchantRefundRequest,
+    MerchantRefundResult,
 )
 
 
@@ -44,3 +46,15 @@ class ControlledMerchantAdapter(Protocol):
     ) -> EntitlementVerificationResult: ...
 
     async def aclose(self) -> None: ...
+
+
+@runtime_checkable
+class ControlledMerchantReversalAdapter(Protocol):
+    """Optional certified refund capability; checkout support does not imply it."""
+
+    @property
+    def descriptor(self) -> AdapterDescriptor: ...
+
+    async def request_refund(self, request: MerchantRefundRequest) -> MerchantRefundResult: ...
+
+    async def reconcile_refund(self, request: MerchantRefundRequest) -> MerchantRefundResult: ...

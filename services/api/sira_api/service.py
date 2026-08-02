@@ -50,11 +50,13 @@ from persistence.models import (
     MerchantOrder,
     Organization,
     OutboxEvent,
+    OutcomeCheckpoint,
     PaymentAttempt,
     PaymentSession,
     PurchaseBriefVersion,
     PurchaseIntent,
     PurchaseRequest,
+    PurchaseReversal,
     Receipt,
     RequirementBriefVersion,
     ResultArtifact,
@@ -3523,17 +3525,395 @@ class WorkflowService:
             intent = await self._not_found(
                 repository.get_purchase_intent(intent_id), "PURCHASE_INTENT"
             )
+            reversal = (
+                await session.execute(
+                    select(PurchaseReversal)
+                    .where(
+                        PurchaseReversal.organization_id == organization_id,
+                        PurchaseReversal.purchase_intent_id == intent.id,
+                    )
+                    .order_by(PurchaseReversal.created_at.desc(), PurchaseReversal.id.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            outcome = (
+                await session.execute(
+                    select(OutcomeCheckpoint)
+                    .where(
+                        OutcomeCheckpoint.organization_id == organization_id,
+                        OutcomeCheckpoint.purchase_intent_id == intent.id,
+                    )
+                    .order_by(
+                        OutcomeCheckpoint.observed_at.desc(), OutcomeCheckpoint.id.desc()
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
             return {
                 "purchase_intent_id": intent.id,
                 "approval_status": intent.approval_status,
                 "payment_status": intent.payment_status,
                 "fulfillment_status": intent.fulfillment_status,
-                "purchase_state": self._derive_purchase_state(intent),
+                "purchase_state": self._derive_purchase_state(intent, reversal),
                 "deployment_state": "STAGED"
                 if intent.fulfillment_status == "VERIFIED"
                 else "NOT_STARTED",
-                "outcome_state": "NOT_MEASURED",
+                "outcome_state": outcome.state if outcome is not None else "NOT_MEASURED",
             }
+
+    async def request_reversal(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        intent_id: str,
+        idempotency_key: str,
+        body: dict[str, Any],
+    ) -> tuple[int, dict[str, Any]]:
+        request_hash = content_hash({"intent_id": intent_id, **body})
+        async with self.database.transaction(organization_id) as session:
+            repository = WorkflowRepository(session, organization_id)
+            claim = await repository.claim_idempotency(
+                actor_id=actor_id,
+                operation="purchase_reversal.create",
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+            )
+            if claim.replay:
+                return int(claim.record.response_status or 202), dict(
+                    claim.record.response_payload or {}
+                )
+            intent = await self._not_found(
+                repository.get_purchase_intent(intent_id, lock=True), "PURCHASE_INTENT"
+            )
+            if intent.payment_status != "PRAVA_COMPLETED":
+                raise ApiProblem(
+                    code="REVERSAL_REQUIRES_SETTLED_PAYMENT",
+                    message=(
+                        "A refund or paid cancellation requires a reconciled completed payment."
+                    ),
+                    status_code=409,
+                    next_action="check_purchase_status",
+                )
+            merchant_order = (
+                await session.execute(
+                    select(MerchantOrder)
+                    .where(
+                        MerchantOrder.organization_id == organization_id,
+                        MerchantOrder.purchase_intent_id == intent.id,
+                        MerchantOrder.status == "APPROVED",
+                    )
+                    .order_by(MerchantOrder.id)
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if merchant_order is None or not merchant_order.external_order_id:
+                raise ApiProblem(
+                    code="REVERSAL_MERCHANT_ORDER_REQUIRED",
+                    message="The canonical merchant order is unavailable for reversal.",
+                    status_code=409,
+                )
+            committed = (
+                await session.execute(
+                    select(func.coalesce(func.sum(PurchaseReversal.requested_amount), 0)).where(
+                        PurchaseReversal.organization_id == organization_id,
+                        PurchaseReversal.purchase_intent_id == intent.id,
+                        PurchaseReversal.status.not_in(["REJECTED", "CANCELLED"]),
+                    )
+                )
+            ).scalar_one()
+            remaining = intent.amount - Decimal(committed)
+            requested = (
+                Decimal(str(body["requested_amount"]))
+                if body.get("requested_amount") is not None
+                else remaining
+            )
+            if requested <= 0 or requested > remaining:
+                raise ApiProblem(
+                    code="REVERSAL_AMOUNT_EXCEEDS_REMAINING",
+                    message="The requested reversal exceeds the unsettled purchase amount.",
+                    status_code=409,
+                    details={"remaining_amount": f"{remaining:.2f}", "currency": intent.currency},
+                )
+            reason_hash = content_hash(
+                {
+                    "intent_hash": intent.intent_hash,
+                    "kind": body["kind"],
+                    "requested_amount": f"{requested:.2f}",
+                    "currency": intent.currency,
+                    "reason_code": body["reason_code"],
+                    "reason": body["reason"],
+                }
+            )
+            now = datetime.now(UTC)
+            reversal = PurchaseReversal(
+                id=new_id("rev"),
+                organization_id=organization_id,
+                purchase_intent_id=intent.id,
+                intent_hash=intent.intent_hash,
+                kind=body["kind"],
+                status="REQUESTED",
+                requested_amount=requested,
+                refunded_amount=Decimal("0.00"),
+                currency=intent.currency,
+                merchant_order_id=merchant_order.external_order_id,
+                provider_reference=None,
+                provider_adapter_id=merchant_order.merchant_adapter_id,
+                provider_confirmed=False,
+                reason_code=body["reason_code"],
+                reason_hash=reason_hash,
+                requested_by_actor_id=actor_id,
+                safe_error_code=None,
+                completed_at=None,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(reversal)
+            workflow_id = f"wf_reversal_{reversal.id}"
+            session.add(
+                WorkflowRun(
+                    id=workflow_id,
+                    organization_id=organization_id,
+                    aggregate_type="purchase_reversal",
+                    aggregate_id=reversal.id,
+                    operation="refund",
+                    status="PENDING",
+                    result_reference=None,
+                    safe_error_code=None,
+                    event_log=[
+                        {
+                            "id": "1",
+                            "status": "PENDING",
+                            "message": "Refund request queued",
+                        }
+                    ],
+                )
+            )
+            await repository.add_outbox(
+                aggregate_type="purchase_reversal",
+                aggregate_id=reversal.id,
+                event_type="purchase_reversal.requested",
+                event_key=f"purchase-reversal-requested:{reversal.id}:{reason_hash}",
+                payload={
+                    "reversal_id": reversal.id,
+                    "workflow_id": workflow_id,
+                    "purchase_intent_id": intent.id,
+                    "intent_hash": intent.intent_hash,
+                    "merchant_order_id": merchant_order.external_order_id,
+                    "amount": f"{requested:.2f}",
+                    "currency": intent.currency,
+                    "kind": reversal.kind,
+                    "reason_code": reversal.reason_code,
+                },
+            )
+            response = self._reversal_view(reversal)
+            await repository.complete_idempotency(
+                claim.record,
+                response_status=202,
+                response_payload=response,
+                response_reference=reversal.id,
+            )
+            return 202, response
+
+    async def record_outcome_checkpoint(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        intent_id: str,
+        idempotency_key: str,
+        body: dict[str, Any],
+    ) -> tuple[int, dict[str, Any]]:
+        request_hash = content_hash({"intent_id": intent_id, **body})
+        async with self.database.transaction(organization_id) as session:
+            repository = WorkflowRepository(session, organization_id)
+            claim = await repository.claim_idempotency(
+                actor_id=actor_id,
+                operation="outcome_checkpoint.create",
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+            )
+            if claim.replay:
+                return int(claim.record.response_status or 201), dict(
+                    claim.record.response_payload or {}
+                )
+            intent = await self._not_found(
+                repository.get_purchase_intent(intent_id), "PURCHASE_INTENT"
+            )
+            if intent.fulfillment_status != "VERIFIED":
+                raise ApiProblem(
+                    code="OUTCOME_REQUIRES_VERIFIED_FULFILLMENT",
+                    message="Outcome measurement starts only after verified fulfillment.",
+                    status_code=409,
+                    next_action="verify_fulfillment",
+                )
+            decision = await self._not_found(
+                repository.get_decision(intent.decision_id), "DECISION"
+            )
+            purchase_brief = (
+                await session.execute(
+                    select(PurchaseBriefVersion).where(
+                        PurchaseBriefVersion.id == decision.purchase_brief_id,
+                        PurchaseBriefVersion.organization_id == organization_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if purchase_brief is None:
+                raise self._missing("PURCHASE_BRIEF")
+            desired = purchase_brief.payload.get("desired_outcome")
+            if not isinstance(desired, dict):
+                raise ApiProblem(
+                    code="OUTCOME_TARGET_NOT_DECLARED",
+                    message="The frozen Purchase Brief has no measurable outcome target.",
+                    status_code=409,
+                )
+            metric = desired.get("metric")
+            target_raw = desired.get("target")
+            target_operator = desired.get("operator", "gte")
+            checkpoint_days = desired.get("checkpoint_days")
+            if (
+                body["metric"] != metric
+                or isinstance(target_raw, bool)
+                or not isinstance(target_raw, (int, float))
+                or isinstance(checkpoint_days, bool)
+                or not isinstance(checkpoint_days, int)
+                or not 1 <= checkpoint_days <= 365
+                or target_operator not in {"gte", "lte"}
+            ):
+                raise ApiProblem(
+                    code="OUTCOME_TARGET_MISMATCH",
+                    message="The checkpoint must match the frozen metric and measurement window.",
+                    status_code=409,
+                )
+            observed_at = self._as_utc(cast(datetime, body["observed_at"]))
+            now = datetime.now(UTC)
+            if observed_at > now + timedelta(minutes=5):
+                raise ApiProblem(
+                    code="OUTCOME_OBSERVATION_IN_FUTURE",
+                    message="Outcome observations cannot be recorded in the future.",
+                    status_code=422,
+                )
+            measurement_started_at = (
+                await session.execute(
+                    select(TransactionTransition.occurred_at)
+                    .where(
+                        TransactionTransition.organization_id == organization_id,
+                        TransactionTransition.purchase_intent_id == intent.id,
+                        TransactionTransition.to_state == "VERIFIED",
+                        TransactionTransition.reason_code == "ENTITLEMENT_VERIFIED",
+                    )
+                    .order_by(TransactionTransition.occurred_at, TransactionTransition.id)
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if measurement_started_at is None:
+                raise ApiProblem(
+                    code="OUTCOME_MEASUREMENT_START_UNAVAILABLE",
+                    message="The verified fulfillment checkpoint is unavailable.",
+                    status_code=409,
+                )
+            measurement_started_at = self._as_utc(measurement_started_at)
+            if observed_at < measurement_started_at:
+                raise ApiProblem(
+                    code="OUTCOME_OBSERVATION_BEFORE_FULFILLMENT",
+                    message="Outcome observations cannot predate verified fulfillment.",
+                    status_code=422,
+                )
+            checkpoint_due_at = measurement_started_at + timedelta(days=checkpoint_days)
+            target = Decimal(str(target_raw))
+            observed = Decimal(str(body["observed_value"]))
+            state = (
+                "MEASURING"
+                if observed_at < checkpoint_due_at
+                else "ACHIEVED"
+                if (
+                    observed >= target
+                    if target_operator == "gte"
+                    else observed <= target
+                )
+                else "NOT_ACHIEVED"
+            )
+            source_reference_hash = content_hash(
+                {
+                    "source_class": body["source_class"],
+                    "source_reference": body["source_reference"],
+                }
+            )
+            checkpoint_payload = {
+                "purchase_intent_id": intent.id,
+                "decision_id": intent.decision_id,
+                "decision_hash": intent.decision_hash,
+                "solution_plan_id": intent.solution_plan_id,
+                "metric": metric,
+                "target_value": self._metric_value(target),
+                "target_operator": target_operator,
+                "observed_value": self._metric_value(observed),
+                "checkpoint_days": checkpoint_days,
+                "measurement_started_at": measurement_started_at.isoformat(),
+                "checkpoint_due_at": checkpoint_due_at.isoformat(),
+                "observed_at": observed_at.isoformat(),
+                "state": state,
+                "source_class": body["source_class"],
+                "source_reference_hash": source_reference_hash,
+            }
+            checkpoint_hash = content_hash(checkpoint_payload)
+            proposal = (
+                {
+                    "status": "PROPOSED",
+                    "action": "REVIEW_OUTCOME_PREFERENCE",
+                    "metric": metric,
+                    "ranking_effect": False,
+                    "silent_policy_update": False,
+                }
+                if state == "NOT_ACHIEVED"
+                else None
+            )
+            checkpoint = OutcomeCheckpoint(
+                id=new_id("out"),
+                organization_id=organization_id,
+                purchase_intent_id=intent.id,
+                decision_id=intent.decision_id,
+                decision_hash=intent.decision_hash,
+                solution_plan_id=intent.solution_plan_id,
+                metric_id=str(metric),
+                target_value=target,
+                target_operator=target_operator,
+                observed_value=observed,
+                checkpoint_days=checkpoint_days,
+                measurement_started_at=measurement_started_at,
+                checkpoint_due_at=checkpoint_due_at,
+                observed_at=observed_at,
+                state=state,
+                source_class=body["source_class"],
+                source_reference_hash=source_reference_hash,
+                recorded_by_actor_id=actor_id,
+                checkpoint_hash=checkpoint_hash,
+                preference_proposal=proposal,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(checkpoint)
+            await repository.add_outbox(
+                aggregate_type="outcome_checkpoint",
+                aggregate_id=checkpoint.id,
+                event_type="outcome_checkpoint.recorded",
+                event_key=f"outcome-checkpoint-recorded:{checkpoint_hash}",
+                payload={
+                    "outcome_checkpoint_id": checkpoint.id,
+                    "purchase_intent_id": intent.id,
+                    "decision_hash": intent.decision_hash,
+                    "state": state,
+                    "checkpoint_hash": checkpoint_hash,
+                },
+            )
+            response = self._outcome_checkpoint_view(checkpoint)
+            await repository.complete_idempotency(
+                claim.record,
+                response_status=201,
+                response_payload=response,
+                response_reference=checkpoint.id,
+            )
+            return 201, response
 
     async def get_receipt(self, organization_id: str, purchase_id: str) -> dict[str, Any]:
         async with self.database.transaction(organization_id) as session:
@@ -3634,6 +4014,25 @@ class WorkflowService:
         brief["request_id"] = request.id
         brief["organization_id"] = organization_id
         brief["intent"] = request.intent
+        request_outcome = request.payload.get("desired_outcome")
+        if isinstance(request_outcome, dict):
+            if request_outcome.get("metric") != brief["desired_outcome"]["metric"]:
+                raise ApiProblem(
+                    code="DEMO_OUTCOME_METRIC_UNSUPPORTED",
+                    message="The selected demo scenario has a fixed measurable outcome metric.",
+                    status_code=422,
+                    details={"supported_metric": brief["desired_outcome"]["metric"]},
+                )
+            brief["desired_outcome"] = {
+                **brief["desired_outcome"],
+                **request_outcome,
+            }
+            outcome = brief["desired_outcome"]
+            outcome["statement"] = (
+                f"{outcome['metric']} {outcome['operator']} {outcome['target']} "
+                f"{outcome['unit']} at {outcome['checkpoint_days']} days after verified "
+                "fulfillment"
+            )
         brief["content_hash"] = content_hash(
             {key: value for key, value in brief.items() if key != "content_hash"}
         )
@@ -3642,6 +4041,7 @@ class WorkflowService:
         requirement["requirement_brief_id"] = requirement_id
         requirement["purchase_brief_id"] = brief_id
         requirement["intent"] = request.intent
+        requirement["desired_outcome"] = brief["desired_outcome"]["statement"]
         requirement["content_hash"] = content_hash(
             {key: value for key, value in requirement.items() if key != "content_hash"}
         )
@@ -3860,7 +4260,76 @@ class WorkflowService:
         }
 
     @staticmethod
-    def _derive_purchase_state(intent: PurchaseIntent) -> str:
+    def _reversal_view(reversal: PurchaseReversal) -> dict[str, Any]:
+        return {
+            "id": reversal.id,
+            "purchase_intent_id": reversal.purchase_intent_id,
+            "intent_hash": reversal.intent_hash,
+            "kind": reversal.kind,
+            "status": reversal.status,
+            "requested_amount": f"{reversal.requested_amount:.2f}",
+            "refunded_amount": f"{reversal.refunded_amount:.2f}",
+            "currency": reversal.currency,
+            "provider_confirmed": reversal.provider_confirmed,
+            "provider_action_required": reversal.status
+            in {"REQUESTED", "PROVIDER_PENDING", "FAILED_RETRYABLE"},
+            "safe_error_code": reversal.safe_error_code,
+            "created_at": reversal.created_at.isoformat(),
+            "completed_at": (
+                reversal.completed_at.isoformat() if reversal.completed_at else None
+            ),
+        }
+
+    @classmethod
+    def _outcome_checkpoint_view(
+        cls, checkpoint: OutcomeCheckpoint
+    ) -> dict[str, Any]:
+        return {
+            "id": checkpoint.id,
+            "purchase_intent_id": checkpoint.purchase_intent_id,
+            "decision_id": checkpoint.decision_id,
+            "decision_hash": checkpoint.decision_hash,
+            "solution_plan_id": checkpoint.solution_plan_id,
+            "metric": checkpoint.metric_id,
+            "target_value": cls._metric_value(checkpoint.target_value),
+            "target_operator": checkpoint.target_operator,
+            "observed_value": cls._metric_value(checkpoint.observed_value),
+            "checkpoint_days": checkpoint.checkpoint_days,
+            "measurement_started_at": checkpoint.measurement_started_at.isoformat(),
+            "checkpoint_due_at": checkpoint.checkpoint_due_at.isoformat(),
+            "observed_at": checkpoint.observed_at.isoformat(),
+            "state": checkpoint.state,
+            "source_class": checkpoint.source_class,
+            "source_reference_hash": checkpoint.source_reference_hash,
+            "checkpoint_hash": checkpoint.checkpoint_hash,
+            "preference_proposal": deepcopy(checkpoint.preference_proposal),
+        }
+
+    @staticmethod
+    def _metric_value(value: Decimal) -> str:
+        rendered = format(value, "f")
+        if "." in rendered:
+            rendered = rendered.rstrip("0").rstrip(".")
+        return rendered or "0"
+
+    @staticmethod
+    def _derive_purchase_state(
+        intent: PurchaseIntent, reversal: PurchaseReversal | None = None
+    ) -> str:
+        if reversal is not None:
+            if (
+                reversal.status == "REFUNDED"
+                and reversal.refunded_amount == intent.amount
+            ):
+                return "REFUNDED"
+            if reversal.status in {
+                "REQUESTED",
+                "PROVIDER_PENDING",
+                "PARTIALLY_REFUNDED",
+                "FAILED_RETRYABLE",
+                "COMPENSATION_REQUIRED",
+            }:
+                return "REFUND_PENDING"
         if intent.approval_status != "APPROVED":
             return "AWAITING_APPROVAL"
         if intent.payment_status == "NOT_STARTED":
@@ -3884,7 +4353,9 @@ class WorkflowService:
         return "PAYMENT_UNCERTAIN"
 
     @staticmethod
-    def _as_utc(value: datetime) -> datetime:
+    def _as_utc(value: datetime | str) -> datetime:
+        if isinstance(value, str):
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)

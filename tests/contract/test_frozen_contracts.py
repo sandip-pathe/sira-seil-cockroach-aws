@@ -398,6 +398,8 @@ def test_required_api_paths_are_frozen_in_openapi() -> None:
         "/v1/purchase-intents/{intent_id}/prava-sessions": {"post"},
         "/v1/prava/browser-return": {"get"},
         "/v1/purchase-intents/{intent_id}/status": {"get"},
+        "/v1/purchase-intents/{intent_id}/reversals": {"post"},
+        "/v1/purchase-intents/{intent_id}/outcome-checkpoints": {"post"},
         "/v1/purchases/{purchase_id}/receipt": {"get"},
         "/v1/organizations/{organization_id}/stackfile": {"get"},
     }

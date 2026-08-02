@@ -11,6 +11,8 @@ from sira_worker.contracts import (
     FulfillmentActivityResult,
     IsolatedCheckoutActivityInput,
     ReconcileActivityInput,
+    RefundActivityInput,
+    RefundActivityResult,
     VerifyFulfillmentActivityInput,
     WorkflowFailureActivityInput,
     assert_credential_free_contract,
@@ -125,3 +127,45 @@ class CheckoutActivities:
                 type="WORKFLOW_FAILURE_CHECKPOINT_REDACTED_FAILURE",
                 non_retryable=False,
             ) from None
+
+    @activity.defn(name="sira.execute_refund")
+    async def execute_refund(self, request: RefundActivityInput) -> RefundActivityResult:
+        return await self._refund_activity(request, reconcile=False)
+
+    @activity.defn(name="sira.reconcile_refund")
+    async def reconcile_refund(self, request: RefundActivityInput) -> RefundActivityResult:
+        return await self._refund_activity(request, reconcile=True)
+
+    async def _refund_activity(
+        self, request: RefundActivityInput, *, reconcile: bool
+    ) -> RefundActivityResult:
+        assert_credential_free_contract(request)
+        result: RefundActivityResult | None = None
+        failure_type: str | None = None
+        non_retryable = False
+        try:
+            result = (
+                await self._coordinator.reconcile_refund(request)
+                if reconcile
+                else await self._coordinator.execute_refund(request)
+            )
+        except ProviderError as exc:
+            failure_type = exc.code.value
+            non_retryable = not exc.retryable
+        except Exception:
+            failure_type = "REFUND_ACTIVITY_REDACTED_FAILURE"
+            non_retryable = True
+        if failure_type is not None:
+            raise ApplicationError(
+                "refund activity failed",
+                type=failure_type,
+                non_retryable=non_retryable,
+            ) from None
+        if result is None:
+            raise ApplicationError(
+                "refund activity returned no result",
+                type="REFUND_ACTIVITY_REDACTED_FAILURE",
+                non_retryable=True,
+            ) from None
+        assert_credential_free_contract(result)
+        return result

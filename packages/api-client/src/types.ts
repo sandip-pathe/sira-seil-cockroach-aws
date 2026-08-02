@@ -595,6 +595,35 @@ export interface OptionFeedbackView {
   solution_plan_id: string;
 }
 
+export interface OutcomeCheckpointCreate {
+  metric: string;
+  observed_at: string;
+  observed_value: string;
+  source_class: "SYSTEM_OBSERVATION" | "HUMAN_ATTESTATION" | "PROVIDER_REPORT";
+  source_reference: string;
+}
+
+export interface OutcomeCheckpointView {
+  checkpoint_days: number;
+  checkpoint_due_at: string;
+  checkpoint_hash: string;
+  decision_hash: string;
+  decision_id: string;
+  id: string;
+  measurement_started_at: string;
+  metric: string;
+  observed_at: string;
+  observed_value: string;
+  preference_proposal?: { [key: string]: unknown; } | null;
+  purchase_intent_id: string;
+  solution_plan_id: string;
+  source_class: "SYSTEM_OBSERVATION" | "HUMAN_ATTESTATION" | "PROVIDER_REPORT";
+  source_reference_hash: string;
+  state: "MEASURING" | "ACHIEVED" | "NOT_ACHIEVED" | "INCONCLUSIVE";
+  target_operator: "gte" | "lte";
+  target_value: string;
+}
+
 export type PackAuthority = "SELLER_SEALED" | "PLATFORM_COMPILED" | "EXTERNAL_UNSEALED";
 
 export interface PaymentProjection {
@@ -758,7 +787,7 @@ export interface PurchaseStatusView {
   approval_status: ApprovalStatus;
   deployment_state: "NOT_STARTED" | "STAGED" | "ACTIVE";
   fulfillment_status: FulfillmentStatus;
-  outcome_state: "NOT_MEASURED" | "MEASURING" | "ACHIEVED" | "NOT_ACHIEVED";
+  outcome_state: "NOT_MEASURED" | "MEASURING" | "ACHIEVED" | "NOT_ACHIEVED" | "INCONCLUSIVE";
   payment_status: PaymentStatus;
   purchase_intent_id: string;
   purchase_state: "AWAITING_APPROVAL" | "APPROVED_NOT_STARTED" | "PAYMENT_IN_PROGRESS" | "PAYMENT_NOT_COMPLETED" | "PAYMENT_UNCERTAIN" | "PAID_UNFULFILLED" | "PURCHASE_FULFILLED" | "REFUND_PENDING" | "REFUNDED";
@@ -894,6 +923,29 @@ export interface ResultArtifact {
 }
 
 export type ResultArtifactType = "DECISION_RECORD" | "CONFIGURATION_CHANGE" | "CONTRACT_CONFIRMATION" | "CANCELLATION_CONFIRMATION" | "ORDER" | "ENTITLEMENT" | "MIGRATION_RECORD" | "STACK_PATCH" | "OUTCOME_CHECKPOINT";
+
+export interface ReversalCreate {
+  kind: "CANCELLATION" | "REFUND";
+  reason: string;
+  reason_code: string;
+  requested_amount?: string | null;
+}
+
+export interface ReversalView {
+  completed_at?: string | null;
+  created_at: string;
+  currency: string;
+  id: string;
+  intent_hash: string;
+  kind: "CANCELLATION" | "REFUND";
+  provider_action_required: boolean;
+  provider_confirmed: boolean;
+  purchase_intent_id: string;
+  refunded_amount: string;
+  requested_amount: string;
+  safe_error_code?: string | null;
+  status: "REQUESTED" | "PROVIDER_PENDING" | "PARTIALLY_REFUNDED" | "REFUNDED" | "REJECTED" | "FAILED_RETRYABLE" | "COMPENSATION_REQUIRED" | "COMPENSATED" | "CANCELLED";
+}
 
 export interface ScoreComponentView {
   conservative_contribution: ExactRatioView;
@@ -1326,10 +1378,12 @@ export interface Operations {
   lock_purchase_intent: { method: "POST"; path: "/v1/decisions/{decision_id}/purchase-intents"; pathParams: { decision_id: string; }; body: PurchaseIntentCreate; response: PurchaseIntentView; requiresIdempotency: true; };
   purchase_status: { method: "GET"; path: "/v1/purchase-intents/{intent_id}/status"; pathParams: { intent_id: string; }; body: never; response: PurchaseStatusView; requiresIdempotency: false; };
   record_consent: { method: "POST"; path: "/v1/engagements/{engagement_id}/consent"; pathParams: { engagement_id: string; }; body: ConsentCreate; response: EngagementView; requiresIdempotency: true; };
+  record_purchase_outcome: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/outcome-checkpoints"; pathParams: { intent_id: string; }; body: OutcomeCheckpointCreate; response: OutcomeCheckpointView; requiresIdempotency: true; };
   record_solution_option_feedback: { method: "POST"; path: "/v1/decision-requests/{request_id}/solution-options/{solution_plan_id}/actions"; pathParams: { request_id: string; solution_plan_id: string; }; body: OptionFeedbackCreate; response: OptionFeedbackView; requiresIdempotency: true; };
   reject_approval: { method: "POST"; path: "/v1/approval-requests/{approval_id}/reject"; pathParams: { approval_id: string; }; body: ApprovalRejectCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   reject_rule_proposal: { method: "POST"; path: "/v1/decision-rules/{rules_id}/proposals/{proposal_id}/reject"; pathParams: { rules_id: string; proposal_id: string; }; body: ProposalDecisionCreate; response: ProposalDecisionView; requiresIdempotency: true; };
   replay_evaluation: { method: "POST"; path: "/v1/evaluation-runs/{evaluation_run_id}/replay"; pathParams: { evaluation_run_id: string; }; body: never; response: EvaluationReplayView; requiresIdempotency: false; };
+  request_purchase_reversal: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/reversals"; pathParams: { intent_id: string; }; body: ReversalCreate; response: ReversalView; requiresIdempotency: true; };
   reset_demo: { method: "POST"; path: "/v1/demo/reset"; pathParams: Record<never, never>; body: never; response: { [key: string]: unknown; }; requiresIdempotency: false; };
   revoke_approval: { method: "POST"; path: "/v1/approval-requests/{approval_id}/revoke"; pathParams: { approval_id: string; }; body: ApprovalRevokeCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   run_decision_calibration: { method: "POST"; path: "/v1/decision-requests/{request_id}/calibration-runs"; pathParams: { request_id: string; }; body: CalibrationRunCreate; response: CalibrationRunView; requiresIdempotency: true; };

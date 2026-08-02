@@ -1,12 +1,19 @@
 import pytest
 
 from domain import ApprovalBinding, content_hash
-from domain.enums import ApprovalStatus, FulfillmentStatus, PaymentStatus, PurchaseState
+from domain.enums import (
+    ApprovalStatus,
+    FulfillmentStatus,
+    PaymentStatus,
+    PurchaseState,
+    ReversalStatus,
+)
 from domain.errors import DomainValidationError, InvalidTransitionError
 from domain.state_machines import (
     ApprovalTransitionService,
     FulfillmentTransitionService,
     PaymentTransitionService,
+    ReversalTransitionService,
     derive_purchase_state,
 )
 
@@ -176,4 +183,24 @@ def test_impossible_fulfillment_before_payment_fails_closed() -> None:
             ApprovalStatus.APPROVED,
             PaymentStatus.CHECKOUT_PENDING,
             FulfillmentStatus.PENDING,
+        )
+
+
+def test_reversal_state_machine_supports_direct_confirmation_and_compensation() -> None:
+    assert (
+        ReversalTransitionService.transition(
+            ReversalStatus.REQUESTED, ReversalStatus.REFUNDED
+        )
+        is ReversalStatus.REFUNDED
+    )
+    assert (
+        ReversalTransitionService.transition(
+            ReversalStatus.PROVIDER_PENDING,
+            ReversalStatus.COMPENSATION_REQUIRED,
+        )
+        is ReversalStatus.COMPENSATION_REQUIRED
+    )
+    with pytest.raises(InvalidTransitionError):
+        ReversalTransitionService.transition(
+            ReversalStatus.REFUNDED, ReversalStatus.PROVIDER_PENDING
         )

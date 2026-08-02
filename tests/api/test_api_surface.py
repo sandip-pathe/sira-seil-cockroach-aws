@@ -152,6 +152,12 @@ async def test_create_discover_workflow_and_idempotent_replay(
     body = {
         "intent": "Find meeting intelligence for another ten-person consulting team",
         "scenario_id": "consultco_meeting_intelligence_v1",
+        "desired_outcome": {
+            "metric": "decision_retrieval_time_seconds",
+            "target": 90,
+            "operator": "lte",
+            "checkpoint_days": 45,
+        },
     }
     first = await api_client.post(
         "/v1/purchase-requests",
@@ -168,6 +174,19 @@ async def test_create_discover_workflow_and_idempotent_replay(
     assert first.json()["evaluation_mode"] == "DEVELOPMENT_FIXTURE_NON_PRODUCTION"
     assert first.json()["fixture_label"] == "DEVELOPMENT_FIXTURE_NON_PRODUCTION"
     request_id = first.json()["id"]
+    brief = await api_client.get(f"/v1/purchase-requests/{request_id}/purchase-brief")
+    assert brief.json()["desired_outcome"] == {
+        "jtbd_id": "capture_meeting_decisions",
+        "statement": (
+            "decision_retrieval_time_seconds lte 90 seconds at 45 days after verified "
+            "fulfillment"
+        ),
+        "metric": "decision_retrieval_time_seconds",
+        "target": 90,
+        "operator": "lte",
+        "unit": "seconds",
+        "checkpoint_days": 45,
+    }
 
     conflict = await api_client.post(
         "/v1/purchase-requests",

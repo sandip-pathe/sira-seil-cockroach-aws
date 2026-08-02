@@ -16,6 +16,9 @@ Identifier = Annotated[
 ]
 HashValue = Annotated[str, StringConstraints(pattern=r"^sha256:[0-9a-f]{64}$")]
 MoneyAmount = Annotated[str, StringConstraints(pattern=r"^(0|[1-9][0-9]*)\.[0-9]{2}$")]
+MetricValue = Annotated[
+    str, StringConstraints(pattern=r"^-?(0|[1-9][0-9]*)(\.[0-9]{1,6})?$")
+]
 Currency = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
 HttpsUrl = Annotated[AnyUrl, UrlConstraints(allowed_schemes=["https"], host_required=True)]
 
@@ -110,6 +113,7 @@ class ErrorEnvelope(StrictModel):
 class DesiredOutcomeInput(StrictModel):
     metric: str
     target: int | float
+    operator: Literal["gte", "lte"] = "gte"
     checkpoint_days: int = Field(ge=1, le=365)
 
 
@@ -590,7 +594,77 @@ class PurchaseStatusView(StrictModel):
         "REFUNDED",
     ]
     deployment_state: Literal["NOT_STARTED", "STAGED", "ACTIVE"]
-    outcome_state: Literal["NOT_MEASURED", "MEASURING", "ACHIEVED", "NOT_ACHIEVED"]
+    outcome_state: Literal[
+        "NOT_MEASURED", "MEASURING", "ACHIEVED", "NOT_ACHIEVED", "INCONCLUSIVE"
+    ]
+
+
+class ReversalCreate(StrictModel):
+    kind: Literal["CANCELLATION", "REFUND"]
+    requested_amount: MoneyAmount | None = None
+    reason_code: Annotated[
+        str, StringConstraints(pattern=r"^[A-Z][A-Z0-9_]{2,79}$")
+    ]
+    reason: str = Field(min_length=3, max_length=1000)
+
+
+class ReversalView(StrictModel):
+    id: Identifier
+    purchase_intent_id: Identifier
+    intent_hash: HashValue
+    kind: Literal["CANCELLATION", "REFUND"]
+    status: Literal[
+        "REQUESTED",
+        "PROVIDER_PENDING",
+        "PARTIALLY_REFUNDED",
+        "REFUNDED",
+        "REJECTED",
+        "FAILED_RETRYABLE",
+        "COMPENSATION_REQUIRED",
+        "COMPENSATED",
+        "CANCELLED",
+    ]
+    requested_amount: MoneyAmount
+    refunded_amount: MoneyAmount
+    currency: Currency
+    provider_confirmed: bool
+    provider_action_required: bool
+    safe_error_code: str | None = None
+    created_at: datetime
+    completed_at: datetime | None = None
+
+
+class OutcomeCheckpointCreate(StrictModel):
+    metric: str = Field(min_length=1, max_length=200)
+    observed_value: MetricValue
+    observed_at: datetime
+    source_class: Literal[
+        "SYSTEM_OBSERVATION", "HUMAN_ATTESTATION", "PROVIDER_REPORT"
+    ]
+    source_reference: str = Field(min_length=3, max_length=500)
+
+
+class OutcomeCheckpointView(StrictModel):
+    id: Identifier
+    purchase_intent_id: Identifier
+    decision_id: Identifier
+    decision_hash: HashValue
+    solution_plan_id: Identifier
+    metric: str
+    target_value: MetricValue
+    target_operator: Literal["gte", "lte"]
+    observed_value: MetricValue
+    checkpoint_days: int = Field(ge=1, le=365)
+    measurement_started_at: datetime
+    checkpoint_due_at: datetime
+    observed_at: datetime
+    state: Literal["MEASURING", "ACHIEVED", "NOT_ACHIEVED", "INCONCLUSIVE"]
+    source_class: Literal[
+        "SYSTEM_OBSERVATION", "HUMAN_ATTESTATION", "PROVIDER_REPORT"
+    ]
+    source_reference_hash: HashValue
+    checkpoint_hash: HashValue
+    preference_proposal: dict[str, Any] | None = None
 
 
 class ReceiptView(StrictModel):

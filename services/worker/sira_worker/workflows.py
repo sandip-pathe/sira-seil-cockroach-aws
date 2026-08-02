@@ -13,7 +13,10 @@ with workflow.unsafe.imports_passed_through():
         FulfillmentActivityResult,
         PurchaseCheckoutWorkflowInput,
         PurchaseCheckoutWorkflowResult,
+        PurchaseReversalWorkflowInput,
+        PurchaseReversalWorkflowResult,
         ReconcileActivityInput,
+        RefundActivityResult,
         SafeMerchantOutcome,
         VerifyFulfillmentActivityInput,
         WorkflowFailureActivityInput,
@@ -124,4 +127,53 @@ class PurchaseCheckoutWorkflow:
             merchant_order_id=checkout.merchant_order_id,
             provider_reported=checkout.provider_reported,
             reconciliation_required=checkout.reconciliation_required,
+        )
+
+
+@workflow.defn(name="sira.purchase_reversal")
+class PurchaseReversalWorkflow:
+    """Request one idempotent refund, then reconcile without replaying the mutation."""
+
+    @workflow.run
+    async def run(
+        self,
+        request: PurchaseReversalWorkflowInput,
+    ) -> PurchaseReversalWorkflowResult:
+        assert_credential_free_contract(request)
+        activity_input = request.activity_input()
+        result = await workflow.execute_activity(
+            "sira.execute_refund",
+            activity_input,
+            result_type=RefundActivityResult,
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=RetryPolicy(maximum_attempts=1),
+        )
+        assert_credential_free_contract(result)
+        if result.reconciliation_required:
+            for delay_seconds in _RECONCILIATION_DELAYS_SECONDS:
+                if delay_seconds:
+                    await workflow.sleep(timedelta(seconds=delay_seconds))
+                result = await workflow.execute_activity(
+                    "sira.reconcile_refund",
+                    activity_input,
+                    result_type=RefundActivityResult,
+                    start_to_close_timeout=timedelta(seconds=30),
+                    retry_policy=RetryPolicy(
+                        initial_interval=timedelta(seconds=2),
+                        backoff_coefficient=2.0,
+                        maximum_interval=timedelta(seconds=30),
+                        maximum_attempts=5,
+                    ),
+                )
+                assert_credential_free_contract(result)
+                if not result.reconciliation_required:
+                    break
+        return PurchaseReversalWorkflowResult(
+            reversal_id=result.reversal_id,
+            status=result.status,
+            refunded_amount=result.refunded_amount,
+            currency=result.currency,
+            provider_reference=result.provider_reference,
+            entitlements_revoked=result.entitlements_revoked,
+            reconciliation_required=result.reconciliation_required,
         )

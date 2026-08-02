@@ -3719,6 +3719,194 @@
         "title": "OptionFeedbackView",
         "type": "object"
       },
+      "OutcomeCheckpointCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "metric": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Metric",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "observed_value": {
+            "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,6})?$",
+            "title": "Observed Value",
+            "type": "string"
+          },
+          "source_class": {
+            "enum": [
+              "SYSTEM_OBSERVATION",
+              "HUMAN_ATTESTATION",
+              "PROVIDER_REPORT"
+            ],
+            "title": "Source Class",
+            "type": "string"
+          },
+          "source_reference": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Source Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric",
+          "observed_value",
+          "observed_at",
+          "source_class",
+          "source_reference"
+        ],
+        "title": "OutcomeCheckpointCreate",
+        "type": "object"
+      },
+      "OutcomeCheckpointView": {
+        "additionalProperties": false,
+        "properties": {
+          "checkpoint_days": {
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Checkpoint Days",
+            "type": "integer"
+          },
+          "checkpoint_due_at": {
+            "format": "date-time",
+            "title": "Checkpoint Due At",
+            "type": "string"
+          },
+          "checkpoint_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Checkpoint Hash",
+            "type": "string"
+          },
+          "decision_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Decision Hash",
+            "type": "string"
+          },
+          "decision_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "measurement_started_at": {
+            "format": "date-time",
+            "title": "Measurement Started At",
+            "type": "string"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "observed_value": {
+            "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,6})?$",
+            "title": "Observed Value",
+            "type": "string"
+          },
+          "preference_proposal": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preference Proposal"
+          },
+          "purchase_intent_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Purchase Intent Id",
+            "type": "string"
+          },
+          "solution_plan_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Solution Plan Id",
+            "type": "string"
+          },
+          "source_class": {
+            "enum": [
+              "SYSTEM_OBSERVATION",
+              "HUMAN_ATTESTATION",
+              "PROVIDER_REPORT"
+            ],
+            "title": "Source Class",
+            "type": "string"
+          },
+          "source_reference_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Source Reference Hash",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "MEASURING",
+              "ACHIEVED",
+              "NOT_ACHIEVED",
+              "INCONCLUSIVE"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "target_operator": {
+            "enum": [
+              "gte",
+              "lte"
+            ],
+            "title": "Target Operator",
+            "type": "string"
+          },
+          "target_value": {
+            "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,6})?$",
+            "title": "Target Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "purchase_intent_id",
+          "decision_id",
+          "decision_hash",
+          "solution_plan_id",
+          "metric",
+          "target_value",
+          "target_operator",
+          "observed_value",
+          "checkpoint_days",
+          "measurement_started_at",
+          "checkpoint_due_at",
+          "observed_at",
+          "state",
+          "source_class",
+          "source_reference_hash",
+          "checkpoint_hash"
+        ],
+        "title": "OutcomeCheckpointView",
+        "type": "object"
+      },
       "PackAuthority": {
         "enum": [
           "SELLER_SEALED",
@@ -4753,7 +4941,8 @@
               "NOT_MEASURED",
               "MEASURING",
               "ACHIEVED",
-              "NOT_ACHIEVED"
+              "NOT_ACHIEVED",
+              "INCONCLUSIVE"
             ],
             "title": "Outcome State",
             "type": "string"
@@ -5671,6 +5860,162 @@
         ],
         "title": "ResultArtifactType",
         "type": "string"
+      },
+      "ReversalCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "CANCELLATION",
+              "REFUND"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "reason_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{2,79}$",
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "requested_amount": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Amount"
+          }
+        },
+        "required": [
+          "kind",
+          "reason_code",
+          "reason"
+        ],
+        "title": "ReversalCreate",
+        "type": "object"
+      },
+      "ReversalView": {
+        "additionalProperties": false,
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "intent_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Intent Hash",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "CANCELLATION",
+              "REFUND"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "provider_action_required": {
+            "title": "Provider Action Required",
+            "type": "boolean"
+          },
+          "provider_confirmed": {
+            "title": "Provider Confirmed",
+            "type": "boolean"
+          },
+          "purchase_intent_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Purchase Intent Id",
+            "type": "string"
+          },
+          "refunded_amount": {
+            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
+            "title": "Refunded Amount",
+            "type": "string"
+          },
+          "requested_amount": {
+            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
+            "title": "Requested Amount",
+            "type": "string"
+          },
+          "safe_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safe Error Code"
+          },
+          "status": {
+            "enum": [
+              "REQUESTED",
+              "PROVIDER_PENDING",
+              "PARTIALLY_REFUNDED",
+              "REFUNDED",
+              "REJECTED",
+              "FAILED_RETRYABLE",
+              "COMPENSATION_REQUIRED",
+              "COMPENSATED",
+              "CANCELLED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "purchase_intent_id",
+          "intent_hash",
+          "kind",
+          "status",
+          "requested_amount",
+          "refunded_amount",
+          "currency",
+          "provider_confirmed",
+          "provider_action_required",
+          "created_at"
+        ],
+        "title": "ReversalView",
+        "type": "object"
       },
       "ScoreComponentView": {
         "additionalProperties": false,
@@ -13912,6 +14257,234 @@
         ]
       }
     },
+    "/v1/purchase-intents/{intent_id}/outcome-checkpoints": {
+      "post": {
+        "operationId": "record_purchase_outcome",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "title": "Intent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutcomeCheckpointCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomeCheckpointView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Record Purchase Outcome",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
     "/v1/purchase-intents/{intent_id}/prava-sessions": {
       "post": {
         "operationId": "create_prava_session",
@@ -14135,6 +14708,234 @@
           }
         ],
         "summary": "Create Prava Session",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/v1/purchase-intents/{intent_id}/reversals": {
+      "post": {
+        "operationId": "request_purchase_reversal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "title": "Intent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReversalCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReversalView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Request Purchase Reversal",
         "tags": [
           "commerce"
         ]

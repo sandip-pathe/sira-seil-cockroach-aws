@@ -1074,6 +1074,120 @@ class PurchaseIntent(Base, TenantOwned, Timestamped):
     )
 
 
+class PurchaseReversal(Base, TenantOwned, Timestamped):
+    """Refund/cancellation state bound to one exact paid Purchase Intent."""
+
+    __tablename__ = "purchase_reversals"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    purchase_intent_id: Mapped[str] = mapped_column(
+        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=False
+    )
+    intent_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    kind: Mapped[str] = mapped_column(String(24), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    requested_amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
+    refunded_amount: Mapped[Decimal] = mapped_column(
+        Numeric(20, 2), nullable=False, default=Decimal("0.00")
+    )
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    merchant_order_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    provider_reference: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    provider_adapter_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    provider_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    reason_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    reason_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    requested_by_actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    safe_error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('CANCELLATION','REFUND')", name="ck_reversal_kind"),
+        CheckConstraint(
+            "status IN ('REQUESTED','PROVIDER_PENDING','PARTIALLY_REFUNDED','REFUNDED',"
+            "'REJECTED','FAILED_RETRYABLE','COMPENSATION_REQUIRED','COMPENSATED','CANCELLED')",
+            name="ck_reversal_status",
+        ),
+        CheckConstraint("requested_amount > 0", name="ck_reversal_requested_positive"),
+        CheckConstraint("refunded_amount >= 0", name="ck_reversal_refunded_nonnegative"),
+        CheckConstraint(
+            "refunded_amount <= requested_amount", name="ck_reversal_refunded_bounded"
+        ),
+        CheckConstraint("currency = upper(currency)", name="ck_reversal_currency_upper"),
+        UniqueConstraint(
+            "organization_id",
+            "purchase_intent_id",
+            "reason_hash",
+            name="uq_reversal_request",
+        ),
+        Index(
+            "ix_reversal_intent_status",
+            "organization_id",
+            "purchase_intent_id",
+            "status",
+        ),
+    )
+
+
+class OutcomeCheckpoint(Base, TenantOwned, Timestamped):
+    """Immutable measured outcome tied to the frozen decision and selected plan."""
+
+    __tablename__ = "outcome_checkpoints"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    purchase_intent_id: Mapped[str] = mapped_column(
+        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=False
+    )
+    decision_id: Mapped[str] = mapped_column(
+        ForeignKey("decision_records.id", ondelete="RESTRICT"), nullable=False
+    )
+    decision_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    solution_plan_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    metric_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    target_value: Mapped[Decimal] = mapped_column(Numeric(30, 6), nullable=False)
+    target_operator: Mapped[str] = mapped_column(String(8), nullable=False)
+    observed_value: Mapped[Decimal] = mapped_column(Numeric(30, 6), nullable=False)
+    checkpoint_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    measurement_started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    checkpoint_due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False)
+    source_class: Mapped[str] = mapped_column(String(40), nullable=False)
+    source_reference_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    recorded_by_actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    checkpoint_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    preference_proposal: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON_DOCUMENT, nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint("checkpoint_days BETWEEN 1 AND 365", name="ck_outcome_checkpoint_days"),
+        CheckConstraint(
+            "target_operator IN ('gte','lte')", name="ck_outcome_target_operator"
+        ),
+        CheckConstraint(
+            "state IN ('MEASURING','ACHIEVED','NOT_ACHIEVED','INCONCLUSIVE')",
+            name="ck_outcome_state",
+        ),
+        CheckConstraint(
+            "source_class IN ('SYSTEM_OBSERVATION','HUMAN_ATTESTATION','PROVIDER_REPORT')",
+            name="ck_outcome_source_class",
+        ),
+        UniqueConstraint(
+            "organization_id", "checkpoint_hash", name="uq_outcome_checkpoint_hash"
+        ),
+        Index(
+            "ix_outcome_intent_metric",
+            "organization_id",
+            "purchase_intent_id",
+            "metric_id",
+            "observed_at",
+        ),
+    )
+
+
 class ActionRun(Base, TenantOwned, Timestamped):
     """Action-neutral execution run bound to an immutable Decision and plan."""
 

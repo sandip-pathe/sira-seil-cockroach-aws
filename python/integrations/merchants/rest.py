@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 from urllib.parse import quote
 
@@ -21,6 +22,9 @@ from integrations.merchants.models import (
     MerchantCheckoutOutcome,
     MerchantCheckoutRequest,
     MerchantOutcome,
+    MerchantRefundRequest,
+    MerchantRefundResult,
+    RefundOutcomeStatus,
 )
 from integrations.security import HttpsUrlPolicy, validate_identifier
 
@@ -331,6 +335,92 @@ class ControlledMerchantRestAdapter:
             access_probe_verified=access_probe_verified,
             adapter=self.descriptor,
             provider_confirmed=True,
+        )
+
+    def _parse_refund(
+        self,
+        response: httpx.Response,
+        *,
+        operation: str,
+        request: MerchantRefundRequest,
+    ) -> MerchantRefundResult:
+        raise_for_status(response.status_code, provider=MERCHANT_PROVIDER, operation=operation)
+        payload = _object_payload(response, operation=operation)
+        try:
+            raw_status = payload.get("status")
+            if not isinstance(raw_status, str):
+                raise ValueError
+            status = RefundOutcomeStatus(raw_status.upper())
+            raw_amount = payload.get("refunded_amount", "0.00")
+            if isinstance(raw_amount, bool) or not isinstance(raw_amount, (str, int, float)):
+                raise ValueError
+            amount = Decimal(str(raw_amount))
+            requested_amount = Decimal(request.amount)
+            currency = payload.get("currency")
+            refund_id = payload.get("refund_id")
+            entitlements_revoked = payload.get("entitlements_revoked")
+            if (
+                not amount.is_finite()
+                or amount < 0
+                or amount > requested_amount
+                or currency != request.currency
+                or (refund_id is not None and not isinstance(refund_id, str))
+                or not isinstance(entitlements_revoked, bool)
+            ):
+                raise ValueError
+            return MerchantRefundResult(
+                status=status,
+                provider_refund_id=refund_id,
+                refunded_amount=f"{amount:.2f}",
+                currency=request.currency,
+                entitlements_revoked=entitlements_revoked,
+                adapter=self.descriptor,
+                provider_confirmed=True,
+            )
+        except (InvalidOperation, ValueError):
+            raise ProviderError(
+                provider=MERCHANT_PROVIDER,
+                operation=operation,
+                code=ProviderErrorCode.INVALID_RESPONSE,
+                retryable=False,
+            ) from None
+
+    async def request_refund(
+        self, request: MerchantRefundRequest
+    ) -> MerchantRefundResult:
+        operation = "request_refund"
+        order_id = validate_identifier(
+            request.merchant_order_id,
+            provider=MERCHANT_PROVIDER,
+            operation=operation,
+        )
+        response = await self._request(
+            "POST",
+            f"/v1/orders/{order_id}/refunds",
+            operation=operation,
+            headers={"Idempotency-Key": request.idempotency_key},
+            json={
+                "amount": request.amount,
+                "currency": request.currency,
+                "reason_code": request.reason_code,
+            },
+        )
+        return self._parse_refund(
+            response, operation=operation, request=request
+        )
+
+    async def reconcile_refund(
+        self, request: MerchantRefundRequest
+    ) -> MerchantRefundResult:
+        operation = "reconcile_refund"
+        key = quote(request.idempotency_key, safe="")
+        response = await self._request(
+            "GET",
+            f"/v1/refunds/by-idempotency-key/{key}",
+            operation=operation,
+        )
+        return self._parse_refund(
+            response, operation=operation, request=request
         )
 
     async def aclose(self) -> None:

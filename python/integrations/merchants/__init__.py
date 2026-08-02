@@ -8,13 +8,20 @@ from integrations.merchants.models import (
     MerchantCheckoutOutcome,
     MerchantCheckoutRequest,
     MerchantOutcome,
+    MerchantRefundRequest,
+    MerchantRefundResult,
+    RefundOutcomeStatus,
 )
-from integrations.merchants.protocols import ControlledMerchantAdapter
+from integrations.merchants.protocols import (
+    ControlledMerchantAdapter,
+    ControlledMerchantReversalAdapter,
+)
 from integrations.merchants.rest import ControlledMerchantRestAdapter
 
 __all__ = [
     "ControlledMerchantAdapter",
     "ControlledMerchantRestAdapter",
+    "ControlledMerchantReversalAdapter",
     "DevelopmentFixtureMerchantAdapter",
     "EntitlementVerificationRequest",
     "EntitlementVerificationResult",
@@ -22,4 +29,7 @@ __all__ = [
     "MerchantCheckoutOutcome",
     "MerchantCheckoutRequest",
     "MerchantOutcome",
+    "MerchantRefundRequest",
+    "MerchantRefundResult",
+    "RefundOutcomeStatus",
 ]

@@ -14,10 +14,15 @@ from temporalio.exceptions import WorkflowAlreadyStartedError
 
 from persistence.database import Database
 from persistence.models import OutboxEvent, WorkflowRun
-from sira_worker.contracts import PurchaseCheckoutWorkflowInput, assert_credential_free_contract
-from sira_worker.workflows import PurchaseCheckoutWorkflow
+from sira_worker.contracts import (
+    PurchaseCheckoutWorkflowInput,
+    PurchaseReversalWorkflowInput,
+    assert_credential_free_contract,
+)
+from sira_worker.workflows import PurchaseCheckoutWorkflow, PurchaseReversalWorkflow
 
 CHECKOUT_EVENT_TYPE = "purchase_checkout.requested"
+REVERSAL_EVENT_TYPE = "purchase_reversal.requested"
 
 
 class CheckoutOutboxDispatcher:
@@ -63,6 +68,7 @@ class CheckoutOutboxDispatcher:
 
     async def dispatch_once(self, organization_id: str) -> bool:
         event_id: str
+        event_type: str
         payload: dict[str, Any]
         async with self._database.transaction(organization_id) as session:
             event = (
@@ -70,7 +76,9 @@ class CheckoutOutboxDispatcher:
                     select(OutboxEvent)
                     .where(
                         OutboxEvent.organization_id == organization_id,
-                        OutboxEvent.event_type == CHECKOUT_EVENT_TYPE,
+                        OutboxEvent.event_type.in_(
+                            [CHECKOUT_EVENT_TYPE, REVERSAL_EVENT_TYPE]
+                        ),
                         OutboxEvent.published_at.is_(None),
                     )
                     .order_by(OutboxEvent.occurred_at, OutboxEvent.id)
@@ -80,21 +88,41 @@ class CheckoutOutboxDispatcher:
             if event is None:
                 return False
             event_id = event.id
+            event_type = event.event_type
             payload = deepcopy(event.payload)
 
         try:
-            workflow_id, request = self._workflow_request(organization_id, payload)
+            if event_type == CHECKOUT_EVENT_TYPE:
+                workflow_id, checkout_request = self._workflow_request(
+                    organization_id, payload
+                )
+                reversal_request = None
+            else:
+                workflow_id, reversal_request = self._reversal_workflow_request(
+                    organization_id, payload
+                )
+                checkout_request = None
         except ValueError:
             await self._quarantine_invalid_event(organization_id, event_id)
             return True
         try:
-            await self._temporal.start_workflow(
-                PurchaseCheckoutWorkflow.run,
-                request,
-                id=workflow_id,
-                task_queue=self._task_queue,
-                id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
-            )
+            if checkout_request is not None:
+                await self._temporal.start_workflow(
+                    PurchaseCheckoutWorkflow.run,
+                    checkout_request,
+                    id=workflow_id,
+                    task_queue=self._task_queue,
+                    id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
+                )
+            else:
+                assert reversal_request is not None
+                await self._temporal.start_workflow(
+                    PurchaseReversalWorkflow.run,
+                    reversal_request,
+                    id=workflow_id,
+                    task_queue=self._task_queue,
+                    id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
+                )
         except WorkflowAlreadyStartedError:
             # A crash can happen after Temporal accepts the start and before PostgreSQL
             # records publication. The deterministic ID makes that retry an acknowledgement.
@@ -131,7 +159,11 @@ class CheckoutOutboxDispatcher:
                     {
                         "id": str(len(workflow.event_log) + 1),
                         "status": "RUNNING",
-                        "message": "Checkout workflow accepted",
+                        "message": (
+                            "Checkout workflow accepted"
+                            if event_type == CHECKOUT_EVENT_TYPE
+                            else "Refund workflow accepted"
+                        ),
                     },
                 ]
         return True
@@ -198,6 +230,39 @@ class CheckoutOutboxDispatcher:
             intent_hash=str(payload["intent_hash"]),
             prava_session_id=str(payload["prava_session_id"]),
             merchant_adapter_id=self._merchant_adapter_id,
+            idempotency_key=workflow_id,
+        )
+        assert_credential_free_contract(payload)
+        assert_credential_free_contract(request)
+        return workflow_id, request
+
+    def _reversal_workflow_request(
+        self, organization_id: str, payload: dict[str, Any]
+    ) -> tuple[str, PurchaseReversalWorkflowInput]:
+        required = {
+            "workflow_id",
+            "reversal_id",
+            "purchase_intent_id",
+            "intent_hash",
+            "merchant_order_id",
+            "amount",
+            "currency",
+            "kind",
+            "reason_code",
+        }
+        if set(payload) != required or not all(
+            isinstance(payload[name], str) and payload[name] for name in required
+        ):
+            raise ValueError("reversal outbox payload does not match the safe contract")
+        reversal_id = str(payload["reversal_id"])
+        workflow_id = str(payload["workflow_id"])
+        if workflow_id != f"wf_reversal_{reversal_id}":
+            raise ValueError("reversal workflow identity is not deterministic")
+        request = PurchaseReversalWorkflowInput(
+            organization_id=organization_id,
+            reversal_id=reversal_id,
+            purchase_intent_id=str(payload["purchase_intent_id"]),
+            intent_hash=str(payload["intent_hash"]),
             idempotency_key=workflow_id,
         )
         assert_credential_free_contract(payload)

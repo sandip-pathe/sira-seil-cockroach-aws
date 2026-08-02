@@ -33,6 +33,14 @@ class SafeFulfillmentStatus(StrEnum):
     FAILED_FINAL = "FAILED_FINAL"
 
 
+class SafeReversalStatus(StrEnum):
+    PROVIDER_PENDING = "PROVIDER_PENDING"
+    PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED"
+    REFUNDED = "REFUNDED"
+    REJECTED = "REJECTED"
+    COMPENSATION_REQUIRED = "COMPENSATION_REQUIRED"
+
+
 @dataclass(frozen=True, slots=True)
 class IsolatedCheckoutActivityInput:
     """Only durable identifiers needed to load canonical state inside the activity."""
@@ -86,6 +94,55 @@ class WorkflowFailureActivityInput:
     organization_id: str
     purchase_intent_id: str
     safe_code: str
+
+
+@dataclass(frozen=True, slots=True)
+class RefundActivityInput:
+    organization_id: str
+    reversal_id: str
+    purchase_intent_id: str
+    intent_hash: str
+    idempotency_key: str
+
+
+@dataclass(frozen=True, slots=True)
+class RefundActivityResult:
+    reversal_id: str
+    status: SafeReversalStatus
+    refunded_amount: str
+    currency: str
+    provider_reference: str | None
+    entitlements_revoked: bool
+    reconciliation_required: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PurchaseReversalWorkflowInput:
+    organization_id: str
+    reversal_id: str
+    purchase_intent_id: str
+    intent_hash: str
+    idempotency_key: str
+
+    def activity_input(self) -> RefundActivityInput:
+        return RefundActivityInput(
+            organization_id=self.organization_id,
+            reversal_id=self.reversal_id,
+            purchase_intent_id=self.purchase_intent_id,
+            intent_hash=self.intent_hash,
+            idempotency_key=self.idempotency_key,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PurchaseReversalWorkflowResult:
+    reversal_id: str
+    status: SafeReversalStatus
+    refunded_amount: str
+    currency: str
+    provider_reference: str | None
+    entitlements_revoked: bool
+    reconciliation_required: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +219,10 @@ def assert_all_contract_schemas_are_credential_free() -> None:
         WorkflowFailureActivityInput,
         PurchaseCheckoutWorkflowInput,
         PurchaseCheckoutWorkflowResult,
+        RefundActivityInput,
+        RefundActivityResult,
+        PurchaseReversalWorkflowInput,
+        PurchaseReversalWorkflowResult,
     )
     for contract_type in contract_types:
         for field in fields(contract_type):

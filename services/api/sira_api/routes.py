@@ -38,6 +38,8 @@ from .schemas import (
     EngagementView,
     EvaluationReplayView,
     HealthResponse,
+    OutcomeCheckpointCreate,
+    OutcomeCheckpointView,
     PravaBrowserReturnCreate,
     PravaSessionCreate,
     PravaSessionView,
@@ -51,6 +53,8 @@ from .schemas import (
     PurchaseStatusView,
     ReceiptView,
     RequirementBriefView,
+    ReversalCreate,
+    ReversalView,
     StackfileView,
     WorkflowAccepted,
     WorkflowView,
@@ -602,6 +606,60 @@ async def purchase_status(
 ) -> dict[str, object]:
     require_permission(context, "can_view_context")
     return await service.purchase_status(context.organization_id, intent_id)
+
+
+@router.post(
+    "/v1/purchase-intents/{intent_id}/reversals",
+    response_model=ReversalView,
+    status_code=status.HTTP_202_ACCEPTED,
+    tags=["commerce"],
+)
+async def request_purchase_reversal(
+    intent_id: str,
+    body: ReversalCreate,
+    context: ContextDependency,
+    service: ServiceDependency,
+    idempotency_key: IdempotencyDependency,
+    response: Response,
+) -> dict[str, object]:
+    require_human_identity(context)
+    require_permission(context, "can_execute_purchase", require_step_up=True)
+    response_status, payload = await service.request_reversal(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        intent_id=intent_id,
+        idempotency_key=idempotency_key,
+        body=body.model_dump(mode="json"),
+    )
+    response.status_code = response_status
+    return payload
+
+
+@router.post(
+    "/v1/purchase-intents/{intent_id}/outcome-checkpoints",
+    response_model=OutcomeCheckpointView,
+    status_code=status.HTTP_201_CREATED,
+    tags=["commerce"],
+)
+async def record_purchase_outcome(
+    intent_id: str,
+    body: OutcomeCheckpointCreate,
+    context: ContextDependency,
+    service: ServiceDependency,
+    idempotency_key: IdempotencyDependency,
+    response: Response,
+) -> dict[str, object]:
+    require_human_identity(context)
+    require_permission(context, "can_select_recommendation")
+    response_status, payload = await service.record_outcome_checkpoint(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        intent_id=intent_id,
+        idempotency_key=idempotency_key,
+        body=body.model_dump(mode="json"),
+    )
+    response.status_code = response_status
+    return payload
 
 
 @router.get("/v1/purchases/{purchase_id}/receipt", response_model=ReceiptView, tags=["commerce"])

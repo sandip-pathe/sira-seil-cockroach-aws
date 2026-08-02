@@ -6,7 +6,10 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from sira_worker.contracts import PurchaseCheckoutWorkflowInput
+from sira_worker.contracts import (
+    PurchaseCheckoutWorkflowInput,
+    PurchaseReversalWorkflowInput,
+)
 from sira_worker.outbox import CheckoutOutboxDispatcher
 from sqlalchemy import select
 from temporalio.common import WorkflowIDReusePolicy
@@ -18,17 +21,25 @@ from persistence.models import Base, Organization, OutboxEvent, WorkflowRun
 ORGANIZATION_ID = "org_consultco"
 INTENT_ID = "pi_dispatch_test"
 WORKFLOW_ID = f"wf_checkout_{INTENT_ID}"
+REVERSAL_ID = "rev_dispatch_test"
+REVERSAL_WORKFLOW_ID = f"wf_reversal_{REVERSAL_ID}"
 
 
 class FakeTemporal:
     def __init__(self, failure: Exception | None = None) -> None:
         self.failure = failure
-        self.calls: list[tuple[object, PurchaseCheckoutWorkflowInput, dict[str, Any]]] = []
+        self.calls: list[
+            tuple[
+                object,
+                PurchaseCheckoutWorkflowInput | PurchaseReversalWorkflowInput,
+                dict[str, Any],
+            ]
+        ] = []
 
     async def start_workflow(
         self,
         workflow: object,
-        request: PurchaseCheckoutWorkflowInput,
+        request: PurchaseCheckoutWorkflowInput | PurchaseReversalWorkflowInput,
         **kwargs: Any,
     ) -> object:
         self.calls.append((workflow, request, kwargs))
@@ -85,6 +96,47 @@ async def seed_checkout_event(database: Database, *, workflow_status: str = "PEN
         )
 
 
+async def seed_reversal_event(database: Database) -> None:
+    async with database.sessions() as session, session.begin():
+        session.add(Organization(id=ORGANIZATION_ID, name="Dispatcher test"))
+    async with database.transaction(ORGANIZATION_ID) as session:
+        session.add(
+            WorkflowRun(
+                id=REVERSAL_WORKFLOW_ID,
+                organization_id=ORGANIZATION_ID,
+                aggregate_type="purchase_reversal",
+                aggregate_id=REVERSAL_ID,
+                operation="refund",
+                status="PENDING",
+                result_reference=None,
+                safe_error_code=None,
+                event_log=[],
+            )
+        )
+        session.add(
+            OutboxEvent(
+                id="out_reversal_dispatch_test",
+                organization_id=ORGANIZATION_ID,
+                aggregate_type="purchase_reversal",
+                aggregate_id=REVERSAL_ID,
+                event_type="purchase_reversal.requested",
+                event_key="purchase-reversal-requested:rev_dispatch_test",
+                payload={
+                    "workflow_id": REVERSAL_WORKFLOW_ID,
+                    "reversal_id": REVERSAL_ID,
+                    "purchase_intent_id": INTENT_ID,
+                    "intent_hash": "sha256:" + "1" * 64,
+                    "merchant_order_id": "merchant_order_demo",
+                    "amount": "89.00",
+                    "currency": "USD",
+                    "kind": "REFUND",
+                    "reason_code": "PRODUCT_NOT_ADOPTED",
+                },
+                published_at=None,
+            )
+        )
+
+
 def dispatcher(database: Database, temporal: FakeTemporal) -> CheckoutOutboxDispatcher:
     return CheckoutOutboxDispatcher(
         database=database,
@@ -125,6 +177,25 @@ async def test_dispatcher_starts_exact_credential_free_workflow_and_acknowledges
         workflow = (await session.execute(select(WorkflowRun))).scalar_one()
         assert event.published_at is not None
         assert workflow.status == "RUNNING"
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_starts_exact_reversal_workflow(
+    outbox_database: Database,
+) -> None:
+    await seed_reversal_event(outbox_database)
+    temporal = FakeTemporal()
+
+    assert await dispatcher(outbox_database, temporal).dispatch_once(ORGANIZATION_ID) is True
+
+    assert temporal.calls[0][1] == PurchaseReversalWorkflowInput(
+        organization_id=ORGANIZATION_ID,
+        reversal_id=REVERSAL_ID,
+        purchase_intent_id=INTENT_ID,
+        intent_hash="sha256:" + "1" * 64,
+        idempotency_key=REVERSAL_WORKFLOW_ID,
+    )
+    assert temporal.calls[0][2]["id"] == REVERSAL_WORKFLOW_ID
 
 
 @pytest.mark.asyncio

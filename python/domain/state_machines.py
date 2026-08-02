@@ -9,6 +9,7 @@ from .enums import (
     FulfillmentStatus,
     PaymentStatus,
     PurchaseState,
+    ReversalStatus,
 )
 from .errors import DomainValidationError, InvalidTransitionError
 from .models import ApprovalBinding, require_hash
@@ -187,6 +188,59 @@ class FulfillmentTransitionService:
             and payment_status is not PaymentStatus.PRAVA_COMPLETED
         ):
             raise InvalidTransitionError("fulfillment cannot start before Prava completion")
+        return target
+
+
+class ReversalTransitionService:
+    _allowed: ClassVar[dict[ReversalStatus, frozenset[ReversalStatus]]] = {
+        ReversalStatus.REQUESTED: frozenset(
+            {
+                ReversalStatus.PROVIDER_PENDING,
+                ReversalStatus.PARTIALLY_REFUNDED,
+                ReversalStatus.REFUNDED,
+                ReversalStatus.REJECTED,
+                ReversalStatus.COMPENSATION_REQUIRED,
+                ReversalStatus.CANCELLED,
+            }
+        ),
+        ReversalStatus.PROVIDER_PENDING: frozenset(
+            {
+                ReversalStatus.PARTIALLY_REFUNDED,
+                ReversalStatus.REFUNDED,
+                ReversalStatus.REJECTED,
+                ReversalStatus.FAILED_RETRYABLE,
+                ReversalStatus.COMPENSATION_REQUIRED,
+            }
+        ),
+        ReversalStatus.FAILED_RETRYABLE: frozenset(
+            {
+                ReversalStatus.PROVIDER_PENDING,
+                ReversalStatus.COMPENSATION_REQUIRED,
+                ReversalStatus.CANCELLED,
+            }
+        ),
+        ReversalStatus.PARTIALLY_REFUNDED: frozenset(
+            {
+                ReversalStatus.PROVIDER_PENDING,
+                ReversalStatus.REFUNDED,
+                ReversalStatus.COMPENSATION_REQUIRED,
+            }
+        ),
+        ReversalStatus.COMPENSATION_REQUIRED: frozenset(
+            {ReversalStatus.COMPENSATED}
+        ),
+        ReversalStatus.REFUNDED: frozenset(),
+        ReversalStatus.REJECTED: frozenset(),
+        ReversalStatus.COMPENSATED: frozenset(),
+        ReversalStatus.CANCELLED: frozenset(),
+    }
+
+    @classmethod
+    def transition(
+        cls, current: ReversalStatus, target: ReversalStatus
+    ) -> ReversalStatus:
+        if target not in cls._allowed[current]:
+            raise InvalidTransitionError(f"reversal cannot transition {current} -> {target}")
         return target
 
 

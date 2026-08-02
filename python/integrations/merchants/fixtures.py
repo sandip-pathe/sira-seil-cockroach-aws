@@ -10,6 +10,9 @@ from integrations.merchants.models import (
     MerchantCheckoutOutcome,
     MerchantCheckoutRequest,
     MerchantOutcome,
+    MerchantRefundRequest,
+    MerchantRefundResult,
+    RefundOutcomeStatus,
 )
 
 
@@ -77,6 +80,20 @@ class DevelopmentFixtureMerchantAdapter:
             adapter=self.descriptor,
             provider_confirmed=False,
         )
+
+    async def request_refund(self, request: MerchantRefundRequest) -> MerchantRefundResult:
+        return MerchantRefundResult(
+            status=RefundOutcomeStatus.PENDING,
+            provider_refund_id=None,
+            refunded_amount="0.00",
+            currency=request.currency,
+            entitlements_revoked=False,
+            adapter=self.descriptor,
+            provider_confirmed=False,
+        )
+
+    async def reconcile_refund(self, request: MerchantRefundRequest) -> MerchantRefundResult:
+        return await self.request_refund(request)
 
     async def aclose(self) -> None:
         return None

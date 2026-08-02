@@ -9,6 +9,8 @@ from sira_worker.contracts import (
     FulfillmentActivityResult,
     IsolatedCheckoutActivityInput,
     ReconcileActivityInput,
+    RefundActivityInput,
+    RefundActivityResult,
     VerifyFulfillmentActivityInput,
     WorkflowFailureActivityInput,
 )
@@ -36,3 +38,13 @@ class CheckoutActivityCoordinator(Protocol):
         self,
         request: WorkflowFailureActivityInput,
     ) -> None: ...
+
+    async def execute_refund(
+        self,
+        request: RefundActivityInput,
+    ) -> RefundActivityResult: ...
+
+    async def reconcile_refund(
+        self,
+        request: RefundActivityInput,
+    ) -> RefundActivityResult: ...

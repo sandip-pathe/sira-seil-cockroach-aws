@@ -4,7 +4,7 @@ Updated: 2026-08-02
 
 Branch reviewed: `core-backend`
 
-Implementation reviewed through: `757719c` plus the current trust/reconciliation batch
+Implementation reviewed through: `942712f` plus the current post-purchase batch
 
 This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes that followed it. It is the short, current checklist for the demo; the earlier audit remains useful background but its original P0 verdict is stale.
 
@@ -40,6 +40,8 @@ This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes t
 | PAY-06 | **PASS IN CONTRACT:** Prava binds the exact ISO currency at session creation and the same canonical currency reaches the controlled merchant. The official payment-result response does not return a currency field, so result-time currency comparison is not possible; session/order/amount/merchant checks prevent substitution. | Prava adapter contract tests and official [Create Session](https://docs.prava.space/api-reference/create-session)/[Get Payment Result](https://docs.prava.space/api-reference/get-payment-result) documentation. |
 | PAY-07 | **FIXED IN APPLICATION:** An authorized approver can revoke the exact intent hash before merchant dispatch. Revocation invalidates local hosted-session/browser authority, retires queued checkout work, and the worker recheck proves zero Prava or merchant dispatch. | Approval API/domain/worker tests; provider-side session cancellation remains open under LIVE-03. |
 | PAY-08 | **FIXED IN CODE:** Lost browser returns and provider uncertainty use a durable Temporal schedule of authoritative merchant/Prava reconciliation. Unknown results are retried with spaced timers, transition keys remain idempotent, fulfillment starts only after confirmed approval, and the workflow records a safe terminal failure only after the schedule is exhausted. | Workflow scheduling, credential-free history, duplicate-transition, checkout recovery, provider adapter, lint, and strict typing tests. |
+| PAY-09 | **FIXED IN CODE:** Refunds and cancellations are exact-intent, amount-bounded, idempotent reversal records. The real controlled-merchant adapter mutates once and reconciles by idempotency key; fixture adapters remain pending and cannot claim provider success. A confirmed refund is not complete until paid entitlements are revoked, otherwise the state becomes `COMPENSATION_REQUIRED`. | Reversal API, state-machine, adapter, outbox, Temporal, persistence, and entitlement-revocation tests; migration `e7b4c2d8f105`. |
+| CORE-10 | **FIXED IN CODE:** Outcome checkpoints bind the exact decision, selected plan, versioned Purchase Brief metric, direction, target, and window. Measurement starts at the canonical verified-fulfillment transition, raw source references are hashed, and a missed outcome creates a review proposal with no ranking or policy effect. | Purchase Brief schema/fixture, compiler propagation, outcome API and frozen OpenAPI/client tests; migration `e7b4c2d8f105`. |
 | SEC-01 | **PASS IN CODE:** Production defaults fail closed, fixture adapters are labelled, tenant scoping/RLS policies exist, and the one-time Prava credential stays out of persistence, payloads, workflow history, and errors. | Production-boundary, provider, worker, and contract tests. |
 
 ## Required on the laptop for the demo
@@ -62,6 +64,7 @@ Docker is not required for these checks. A local laptop PostgreSQL/Temporal setu
 | LIVE-04 | Configure authentic Prava, controlled merchant/entitlement, Temporal, and HTTPS return URL values and run the real sandbox contracts. Development adapters must remain visibly non-production. |
 | LIVE-05 | Prove pending/timeout, unknown result, duplicate attempt, crash-after-charge, and paid-but-unfulfilled recovery against the sandbox without a duplicate charge. |
 | LIVE-06 | Configure a real folder-scoped Senso key and OpenAI model, then run the composed ingestion path through human acceptance and a fresh Purchase Brief/source snapshot before claiming live company evidence affected a decision. The code seam is covered by CORE-09; no credentialed run has occurred. |
+| LIVE-07 | Certify controlled-merchant refund creation, reconciliation, partial refund behavior, and entitlement revocation in the merchant sandbox. Until then, the fixture reversal remains visibly pending and no refund success is claimed. |
 
 Until those pass, demonstrate the deterministic transaction state machine with labelled fixtures only; do not describe it as a completed purchase.
 
@@ -69,12 +72,12 @@ Until those pass, demonstrate the deterministic transaction state machine with l
 
 | Check | Current evidence |
 |---|---|
-| Focused P0 regression | **PASS:** 133 tests. |
+| Full local regression | **PASS:** 300 tests; **2 skipped** only because the dedicated laptop PostgreSQL test URL is not configured here. |
 | Approval-revocation regression | **PASS:** 37 focused API, domain, and worker tests; frozen OpenAPI and generated client checks pass. |
 | Persistence-focused run | **PASS:** 73 tests; **2 skipped** because `SIRA_TEST_DATABASE_ADMIN_URL` was not set to a dedicated `sira_test` PostgreSQL database. |
 | Python lint | **PASS:** Ruff. |
-| Python typing | **PASS:** strict mypy across 23 source files. |
-| Credential scan | **PARTIAL:** current-tree scan produced no listed credential finding; history mode is not green because its heuristic flags old hashes/example values. Baseline or narrow the history rules before treating this check as passed. |
+| Python typing | **PASS:** strict mypy across 83 source files. |
+| Credential scan | **PASS for this batch:** no finding across 37 changed code/contract files. The full-repository walk timed out here; history mode also still needs an audited baseline before it can be called green. |
 | Live providers | **NOT RUN:** credentials and reachable sandbox services are required. |
 | Full browser purchase E2E | **NOT RUN:** UI/provider composition is incomplete and owned by the laptop work. |
 
@@ -83,8 +86,8 @@ Until those pass, demonstrate the deterministic transaction state machine with l
 These are real launch requirements, but they should not distract from a truthful fixed-scenario demo:
 
 - identity-provider tenant provisioning, invitations, MFA enrollment, and session/token revocation operations;
-- refund, cancellation, dispute, and compensation workflows;
-- adoption, ROI, renewal, cancellation, and claim-accuracy learning;
+- dispute adjudication and manual compensation execution after a provider reports an entitlement/refund mismatch;
+- automated adoption, ROI, renewal, cancellation, and claim-accuracy learning beyond explicit human-reviewed outcome proposals;
 - broad catalog retrieval, mutually exclusive/quantity-constrained optimization, multi-merchant execution, open RFP, and autonomous agent orchestration;
 - production deployment, rate limits, telemetry, alerting, backup/restore, load tests, and provider quota controls;
 - complete web component/accessibility/E2E coverage and non-critical visual polish.
@@ -93,4 +96,4 @@ These are real launch requirements, but they should not distract from a truthful
 
 The defensible demo claim is: **"SIRA deterministically evaluates seller-published SEIL evidence against a frozen company context, explains every gate and ordering decision, shows the generic counterfactual, and proposes an auditable Stackfile change."**
 
-Do not yet claim production matching, live Senso intelligence, autonomous purchasing, verified entitlement from a real merchant, outcome learning, or a production-ready marketplace.
+Do not yet claim production matching, live Senso intelligence, autonomous purchasing, a real merchant refund, automatic outcome learning, or a production-ready marketplace.

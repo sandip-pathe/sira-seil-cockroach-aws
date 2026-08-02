@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 from sqlalchemy import select
 
+from domain.enums import ReversalStatus
 from domain.hashing import content_hash
+from domain.state_machines import ReversalTransitionService
 from integrations.common import AdapterMode
 from integrations.errors import ProviderError, ProviderErrorCode
 from integrations.merchants.models import (
@@ -17,8 +20,14 @@ from integrations.merchants.models import (
     MerchantCheckoutOutcome,
     MerchantCheckoutRequest,
     MerchantOutcome,
+    MerchantRefundRequest,
+    MerchantRefundResult,
+    RefundOutcomeStatus,
 )
-from integrations.merchants.protocols import ControlledMerchantAdapter
+from integrations.merchants.protocols import (
+    ControlledMerchantAdapter,
+    ControlledMerchantReversalAdapter,
+)
 from integrations.prava.models import PravaCheckoutResult, PravaPaymentStatus
 from integrations.prava.protocols import PravaHostedCheckoutProvider
 from persistence.database import Database
@@ -30,6 +39,7 @@ from persistence.models import (
     PaymentAttempt,
     PaymentSession,
     PurchaseIntent,
+    PurchaseReversal,
     Receipt,
     StackPatch,
     WorkflowRun,
@@ -40,8 +50,11 @@ from sira_worker.contracts import (
     FulfillmentActivityResult,
     IsolatedCheckoutActivityInput,
     ReconcileActivityInput,
+    RefundActivityInput,
+    RefundActivityResult,
     SafeFulfillmentStatus,
     SafeMerchantOutcome,
+    SafeReversalStatus,
     VerifyFulfillmentActivityInput,
     WorkflowFailureActivityInput,
     assert_credential_free_contract,
@@ -57,6 +70,7 @@ class PersistentCheckoutCoordinator:
         database: Database,
         prava: PravaHostedCheckoutProvider,
         merchant: ControlledMerchantAdapter,
+        reversal_merchant: ControlledMerchantReversalAdapter | None = None,
         merchant_adapter_id: str,
         environment: Literal["sandbox", "production"] = "sandbox",
     ) -> None:
@@ -65,6 +79,9 @@ class PersistentCheckoutCoordinator:
         self._database = database
         self._prava = prava
         self._merchant = merchant
+        self._reversal_merchant = reversal_merchant or (
+            merchant if isinstance(merchant, ControlledMerchantReversalAdapter) else None
+        )
         self._merchant_adapter_id = merchant_adapter_id
         self._environment = environment
 
@@ -171,6 +188,37 @@ class PersistentCheckoutCoordinator:
             )
         assert_credential_free_contract(output)
         return output
+
+    async def execute_refund(self, request: RefundActivityInput) -> RefundActivityResult:
+        assert_credential_free_contract(request)
+        provider = self._require_reversal_provider()
+        merchant_request = await self._load_refund_state(request)
+        result: MerchantRefundResult | None = None
+        uncertain = False
+        try:
+            result = await provider.request_refund(merchant_request)
+        except ProviderError as exc:
+            if not exc.retryable and exc.code is not ProviderErrorCode.REVERSAL_UNCERTAIN:
+                raise
+            uncertain = True
+        if uncertain or result is None:
+            result = MerchantRefundResult(
+                status=RefundOutcomeStatus.UNKNOWN,
+                provider_refund_id=None,
+                refunded_amount="0.00",
+                currency=merchant_request.currency,
+                entitlements_revoked=False,
+                adapter=provider.descriptor,
+                provider_confirmed=False,
+            )
+        return await self._persist_refund_result(request, result)
+
+    async def reconcile_refund(self, request: RefundActivityInput) -> RefundActivityResult:
+        assert_credential_free_contract(request)
+        provider = self._require_reversal_provider()
+        merchant_request = await self._load_refund_state(request)
+        result = await provider.reconcile_refund(merchant_request)
+        return await self._persist_refund_result(request, result)
 
     async def verify_fulfillment(
         self, request: VerifyFulfillmentActivityInput
@@ -442,6 +490,214 @@ class PersistentCheckoutCoordinator:
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
+
+    def _require_reversal_provider(self) -> ControlledMerchantReversalAdapter:
+        if self._reversal_merchant is None:
+            raise ProviderError(
+                provider="controlled_merchant",
+                operation="refund",
+                code=ProviderErrorCode.CONFIGURATION_INVALID,
+                retryable=False,
+            ) from None
+        return self._reversal_merchant
+
+    async def _load_refund_state(
+        self, request: RefundActivityInput
+    ) -> MerchantRefundRequest:
+        async with self._database.transaction(request.organization_id) as session:
+            reversal = (
+                await session.execute(
+                    select(PurchaseReversal)
+                    .where(
+                        PurchaseReversal.id == request.reversal_id,
+                        PurchaseReversal.organization_id == request.organization_id,
+                        PurchaseReversal.purchase_intent_id == request.purchase_intent_id,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one()
+            intent = (
+                await session.execute(
+                    select(PurchaseIntent)
+                    .where(
+                        PurchaseIntent.id == request.purchase_intent_id,
+                        PurchaseIntent.organization_id == request.organization_id,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one()
+            if (
+                intent.intent_hash != request.intent_hash
+                or reversal.intent_hash != request.intent_hash
+                or reversal.currency != intent.currency
+                or reversal.status
+                not in {"REQUESTED", "PROVIDER_PENDING", "PARTIALLY_REFUNDED", "FAILED_RETRYABLE"}
+            ):
+                raise ProviderError(
+                    provider="controlled_merchant",
+                    operation="refund",
+                    code=ProviderErrorCode.INVALID_STATE,
+                    retryable=False,
+                ) from None
+            return MerchantRefundRequest(
+                merchant_order_id=reversal.merchant_order_id,
+                idempotency_key=request.idempotency_key,
+                amount=f"{reversal.requested_amount:.2f}",
+                currency=reversal.currency,
+                reason_code=reversal.reason_code,
+            )
+
+    async def _persist_refund_result(
+        self,
+        request: RefundActivityInput,
+        result: MerchantRefundResult,
+    ) -> RefundActivityResult:
+        async with self._database.transaction(request.organization_id) as session:
+            repository = WorkflowRepository(session, request.organization_id)
+            reversal = (
+                await session.execute(
+                    select(PurchaseReversal)
+                    .where(
+                        PurchaseReversal.id == request.reversal_id,
+                        PurchaseReversal.organization_id == request.organization_id,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one()
+            intent = await repository.get_purchase_intent(
+                request.purchase_intent_id, lock=True
+            )
+            refunded_amount = Decimal(result.refunded_amount)
+            if (
+                result.currency != reversal.currency
+                or refunded_amount > reversal.requested_amount
+                or (result.provider_confirmed and result.adapter.mode is not AdapterMode.PRODUCTION)
+                or (
+                    result.status
+                    in {
+                        RefundOutcomeStatus.PARTIALLY_REFUNDED,
+                        RefundOutcomeStatus.REFUNDED,
+                        RefundOutcomeStatus.REJECTED,
+                    }
+                    and not result.provider_confirmed
+                )
+            ):
+                raise ProviderError(
+                    provider="controlled_merchant",
+                    operation="refund",
+                    code=ProviderErrorCode.INVALID_RESPONSE,
+                    retryable=False,
+                ) from None
+            reconciliation_required = False
+            if result.status in {RefundOutcomeStatus.PENDING, RefundOutcomeStatus.UNKNOWN}:
+                status = "PROVIDER_PENDING"
+                reconciliation_required = True
+            elif result.status is RefundOutcomeStatus.PARTIALLY_REFUNDED:
+                status = "PARTIALLY_REFUNDED"
+                reconciliation_required = True
+            elif result.status is RefundOutcomeStatus.REJECTED:
+                status = "REJECTED"
+            elif (
+                refunded_amount == reversal.requested_amount
+                and (
+                    intent.fulfillment_status != "VERIFIED"
+                    or result.entitlements_revoked
+                )
+            ):
+                status = "REFUNDED"
+            else:
+                status = "COMPENSATION_REQUIRED"
+            if reversal.status != status:
+                ReversalTransitionService.transition(
+                    ReversalStatus(reversal.status), ReversalStatus(status)
+                )
+                reversal.status = status
+            reversal.refunded_amount = refunded_amount
+            reversal.provider_reference = result.provider_refund_id
+            reversal.provider_confirmed = result.provider_confirmed
+            reversal.safe_error_code = (
+                "ENTITLEMENT_REVOCATION_REQUIRED"
+                if status == "COMPENSATION_REQUIRED"
+                else None
+            )
+            if not reconciliation_required:
+                reversal.completed_at = datetime.now(UTC)
+            if status == "REFUNDED" and result.entitlements_revoked:
+                if intent.fulfillment_status == "VERIFIED":
+                    await repository.transition_purchase_intent(
+                        intent_id=intent.id,
+                        state_field="fulfillment_status",
+                        allowed_from={"VERIFIED"},
+                        to_state="REVOKED",
+                        event_key=f"refund-entitlements-revoked:{reversal.id}",
+                        actor_type="worker",
+                        actor_id="refund_coordinator",
+                        reason_code="REFUND_ENTITLEMENTS_REVOKED",
+                        payload_hash=content_hash(
+                            {
+                                "reversal_id": reversal.id,
+                                "provider_reference": result.provider_refund_id,
+                            }
+                        ),
+                    )
+            result_hash = content_hash(
+                {
+                    "reversal_id": reversal.id,
+                    "status": status,
+                    "refunded_amount": f"{refunded_amount:.2f}",
+                    "provider_reference": result.provider_refund_id,
+                    "provider_confirmed": result.provider_confirmed,
+                    "entitlements_revoked": result.entitlements_revoked,
+                }
+            )
+            await repository.add_outbox(
+                aggregate_type="purchase_reversal",
+                aggregate_id=reversal.id,
+                event_type="purchase_reversal.updated",
+                event_key=f"purchase-reversal-updated:{result_hash}",
+                payload={
+                    "reversal_id": reversal.id,
+                    "purchase_intent_id": intent.id,
+                    "status": status,
+                    "refunded_amount": f"{refunded_amount:.2f}",
+                    "currency": reversal.currency,
+                    "result_hash": result_hash,
+                },
+            )
+            workflow = (
+                await session.execute(
+                    select(WorkflowRun)
+                    .where(
+                        WorkflowRun.organization_id == request.organization_id,
+                        WorkflowRun.aggregate_type == "purchase_reversal",
+                        WorkflowRun.aggregate_id == reversal.id,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if workflow is not None:
+                workflow.status = "RUNNING" if reconciliation_required else "COMPLETED"
+                workflow.result_reference = reversal.id
+                workflow.safe_error_code = reversal.safe_error_code
+                workflow.event_log = [
+                    *workflow.event_log,
+                    {
+                        "id": str(len(workflow.event_log) + 1),
+                        "status": workflow.status,
+                        "message": "Refund state reconciled",
+                    },
+                ]
+            output = RefundActivityResult(
+                reversal_id=reversal.id,
+                status=SafeReversalStatus(status),
+                refunded_amount=f"{refunded_amount:.2f}",
+                currency=reversal.currency,
+                provider_reference=result.provider_refund_id,
+                entitlements_revoked=result.entitlements_revoked,
+                reconciliation_required=reconciliation_required,
+            )
+            assert_credential_free_contract(output)
+            return output
 
     async def _load_reconciliation_state(
         self, request: ReconcileActivityInput

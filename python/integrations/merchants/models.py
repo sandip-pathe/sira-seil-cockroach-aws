@@ -32,6 +32,14 @@ class EntitlementVerificationStatus(StrEnum):
     FAILED_FINAL = "FAILED_FINAL"
 
 
+class RefundOutcomeStatus(StrEnum):
+    PENDING = "PENDING"
+    PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED"
+    REFUNDED = "REFUNDED"
+    REJECTED = "REJECTED"
+    UNKNOWN = "UNKNOWN"
+
+
 @dataclass(frozen=True, slots=True)
 class MerchantCheckoutRequest:
     purchase_intent_id: str
@@ -100,3 +108,47 @@ class EntitlementVerificationResult:
             raise ValueError("observed_quantity must not be negative")
         if self.adapter.mode.value == "development_fixture" and self.provider_confirmed:
             raise ValueError("development fixtures cannot confirm production fulfillment")
+
+
+@dataclass(frozen=True, slots=True)
+class MerchantRefundRequest:
+    merchant_order_id: str
+    idempotency_key: str
+    amount: str
+    currency: str
+    reason_code: str
+
+    def __post_init__(self) -> None:
+        if not self.merchant_order_id or not self.idempotency_key or not self.reason_code:
+            raise ValueError("merchant order, idempotency key, and reason code are required")
+        _validate_amount(self.amount)
+        if len(self.currency) != 3 or not self.currency.isalpha() or not self.currency.isupper():
+            raise ValueError("currency must be an uppercase ISO 4217 code")
+
+
+@dataclass(frozen=True, slots=True)
+class MerchantRefundResult:
+    status: RefundOutcomeStatus
+    provider_refund_id: str | None
+    refunded_amount: str
+    currency: str
+    entitlements_revoked: bool
+    adapter: AdapterDescriptor
+    provider_confirmed: bool
+
+    def __post_init__(self) -> None:
+        try:
+            amount = Decimal(self.refunded_amount)
+        except InvalidOperation as error:
+            raise ValueError("refunded amount must be a non-negative decimal") from error
+        if not amount.is_finite() or amount < 0:
+            raise ValueError("refunded amount must be a non-negative decimal")
+        if len(self.currency) != 3 or not self.currency.isalpha() or not self.currency.isupper():
+            raise ValueError("currency must be an uppercase ISO 4217 code")
+        if self.status in {
+            RefundOutcomeStatus.PARTIALLY_REFUNDED,
+            RefundOutcomeStatus.REFUNDED,
+        } and (not self.provider_refund_id or amount <= 0):
+            raise ValueError("confirmed refunds require a provider reference and positive amount")
+        if self.adapter.mode.value == "development_fixture" and self.provider_confirmed:
+            raise ValueError("development fixtures cannot confirm a production refund")

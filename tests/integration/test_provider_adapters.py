@@ -29,6 +29,8 @@ from integrations.merchants import (
     EntitlementVerificationStatus,
     MerchantCheckoutRequest,
     MerchantOutcome,
+    MerchantRefundRequest,
+    RefundOutcomeStatus,
 )
 from integrations.prava import (
     DevelopmentFixturePravaAdapter,
@@ -714,6 +716,65 @@ async def test_controlled_merchant_verifies_expected_entitlement_quantity() -> N
     assert result.provider_confirmed is True
 
 
+@respx.mock
+@pytest.mark.asyncio
+async def test_controlled_merchant_refund_is_idempotent_and_reconciles_exact_terms() -> None:
+    create_route = respx.post(
+        f"{MERCHANT_API_BASE}/v1/orders/merchant_order_demo/refunds"
+    ).mock(
+        return_value=httpx.Response(
+            202,
+            json={
+                "status": "PENDING",
+                "refund_id": "refund_demo",
+                "refunded_amount": "0.00",
+                "currency": "USD",
+                "entitlements_revoked": False,
+            },
+        )
+    )
+    reconcile_route = respx.get(
+        f"{MERCHANT_API_BASE}/v1/refunds/by-idempotency-key/refund_demo_v1"
+    ).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "status": "REFUNDED",
+                "refund_id": "refund_demo",
+                "refunded_amount": "89.00",
+                "currency": "USD",
+                "entitlements_revoked": True,
+            },
+        )
+    )
+    request = MerchantRefundRequest(
+        merchant_order_id="merchant_order_demo",
+        idempotency_key="refund_demo_v1",
+        amount="89.00",
+        currency="USD",
+        reason_code="PRODUCT_NOT_ADOPTED",
+    )
+    merchant = _merchant_adapter()
+    try:
+        pending = await merchant.request_refund(request)
+        completed = await merchant.reconcile_refund(request)
+    finally:
+        await merchant.aclose()
+
+    assert create_route.calls[0].request.headers["Idempotency-Key"] == "refund_demo_v1"
+    assert json.loads(create_route.calls[0].request.content) == {
+        "amount": "89.00",
+        "currency": "USD",
+        "reason_code": "PRODUCT_NOT_ADOPTED",
+    }
+    assert reconcile_route.called
+    assert pending.status is RefundOutcomeStatus.PENDING
+    assert completed.status is RefundOutcomeStatus.REFUNDED
+    assert completed.refunded_amount == "89.00"
+    assert completed.entitlements_revoked is True
+    assert completed.provider_confirmed is True
+
+
 @pytest.mark.asyncio
 async def test_development_fixtures_are_structurally_non_production() -> None:
     senso = DevelopmentFixtureSensoAdapter(
@@ -750,6 +811,15 @@ async def test_development_fixtures_are_structurally_non_production() -> None:
         ),
         merchant=merchant,
     )
+    refund_result = await merchant.request_refund(
+        MerchantRefundRequest(
+            merchant_order_id="fixture_order",
+            idempotency_key="fixture_refund",
+            amount="1.00",
+            currency="USD",
+            reason_code="FIXTURE_ONLY",
+        )
+    )
 
     descriptors = (
         senso.descriptor,
@@ -758,11 +828,14 @@ async def test_development_fixtures_are_structurally_non_production() -> None:
         senso_result.adapter,
         entitlement_result.adapter,
         checkout_result.adapter,
+        refund_result.adapter,
     )
     assert all(item.mode is AdapterMode.DEVELOPMENT_FIXTURE for item in descriptors)
     assert all(item.production_capable is False for item in descriptors)
     assert all(item.production_verified is False for item in descriptors)
     assert senso.scope == SENSO_SCOPE
+    assert refund_result.status is RefundOutcomeStatus.PENDING
+    assert refund_result.provider_confirmed is False
     assert senso_result.scope == SENSO_SCOPE
     assert entitlement_result.provider_confirmed is False
     assert checkout_result.provider_reported is False

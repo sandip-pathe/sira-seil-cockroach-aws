@@ -15,8 +15,10 @@ from sira_api.service import WorkflowService
 from sira_worker.contracts import (
     IsolatedCheckoutActivityInput,
     ReconcileActivityInput,
+    RefundActivityInput,
     SafeFulfillmentStatus,
     SafeMerchantOutcome,
+    SafeReversalStatus,
     VerifyFulfillmentActivityInput,
 )
 from sira_worker.coordinator import PersistentCheckoutCoordinator
@@ -31,6 +33,9 @@ from integrations.merchants.models import (
     MerchantCheckoutOutcome,
     MerchantCheckoutRequest,
     MerchantOutcome,
+    MerchantRefundRequest,
+    MerchantRefundResult,
+    RefundOutcomeStatus,
 )
 from integrations.merchants.protocols import ControlledMerchantAdapter
 from integrations.prava.models import (
@@ -49,6 +54,7 @@ from persistence.models import (
     PaymentAttempt,
     PaymentSession,
     PurchaseIntent,
+    PurchaseReversal,
     StackPatch,
     TransactionTransition,
     WorkflowRun,
@@ -127,6 +133,36 @@ class FlakyEntitlementMerchant(FakeMerchant):
             observed_quantity=0,
             external_entitlement_ids=(),
             access_probe_verified=False,
+            adapter=self.descriptor,
+            provider_confirmed=True,
+        )
+
+
+class RefundMerchant(FakeMerchant):
+    def __init__(self) -> None:
+        self.request_calls = 0
+        self.reconcile_calls = 0
+
+    async def request_refund(self, request: MerchantRefundRequest) -> MerchantRefundResult:
+        self.request_calls += 1
+        return MerchantRefundResult(
+            status=RefundOutcomeStatus.PENDING,
+            provider_refund_id="refund_real_contract",
+            refunded_amount="0.00",
+            currency=request.currency,
+            entitlements_revoked=False,
+            adapter=self.descriptor,
+            provider_confirmed=True,
+        )
+
+    async def reconcile_refund(self, request: MerchantRefundRequest) -> MerchantRefundResult:
+        self.reconcile_calls += 1
+        return MerchantRefundResult(
+            status=RefundOutcomeStatus.REFUNDED,
+            provider_refund_id="refund_real_contract",
+            refunded_amount=request.amount,
+            currency=request.currency,
+            entitlements_revoked=True,
             adapter=self.descriptor,
             provider_confirmed=True,
         )
@@ -399,6 +435,78 @@ async def test_worker_persists_payment_fulfillment_receipt_and_staged_patch(
     assert patches["patch_consultco_fixture_d"] == "STAGED"
     assert patches["patch_unrelated_newer"] == "PROPOSED"
     assert payment_session.status == "PRAVA_COMPLETED"
+
+
+@pytest.mark.asyncio
+async def test_refund_reconciles_without_repeating_mutation_and_revokes_entitlement(
+    checkout_database: Database,
+) -> None:
+    service, intent = await prepare_approved_checkout(checkout_database)
+    intent_id = str(intent["purchase_intent_id"])
+    merchant = RefundMerchant()
+    coordinator = PersistentCheckoutCoordinator(
+        database=checkout_database,
+        prava=FakePrava(),
+        merchant=merchant,
+        merchant_adapter_id="merchant_fixture_d",
+    )
+    checkout = await coordinator.execute_isolated_checkout(
+        IsolatedCheckoutActivityInput(
+            organization_id="org_consultco",
+            purchase_intent_id=intent_id,
+            intent_hash=str(intent["intent_hash"]),
+            prava_session_id="prava_session_real_contract",
+            merchant_adapter_id="merchant_fixture_d",
+            idempotency_key="checkout-before-refund",
+        )
+    )
+    await coordinator.verify_fulfillment(
+        VerifyFulfillmentActivityInput(
+            organization_id="org_consultco",
+            purchase_intent_id=intent_id,
+            merchant_order_id=str(checkout.merchant_order_id),
+        )
+    )
+    _, reversal = await service.request_reversal(
+        organization_id="org_consultco",
+        actor_id="usr_operations_owner",
+        intent_id=intent_id,
+        idempotency_key="request-real-refund",
+        body={
+            "kind": "REFUND",
+            "requested_amount": intent["amount"],
+            "reason_code": "PRODUCT_NOT_ADOPTED",
+            "reason": "The measured operating outcome was not achieved.",
+        },
+    )
+    activity_input = RefundActivityInput(
+        organization_id="org_consultco",
+        reversal_id=str(reversal["id"]),
+        purchase_intent_id=intent_id,
+        intent_hash=str(intent["intent_hash"]),
+        idempotency_key=f"wf_reversal_{reversal['id']}",
+    )
+
+    pending = await coordinator.execute_refund(activity_input)
+    completed = await coordinator.reconcile_refund(activity_input)
+
+    assert pending.status is SafeReversalStatus.PROVIDER_PENDING
+    assert pending.reconciliation_required is True
+    assert completed.status is SafeReversalStatus.REFUNDED
+    assert completed.reconciliation_required is False
+    assert merchant.request_calls == 1
+    assert merchant.reconcile_calls == 1
+    status = await service.purchase_status("org_consultco", intent_id)
+    assert status["purchase_state"] == "REFUNDED"
+    assert status["fulfillment_status"] == "REVOKED"
+    async with checkout_database.transaction("org_consultco") as session:
+        persisted = (
+            await session.execute(
+                select(PurchaseReversal).where(PurchaseReversal.id == reversal["id"])
+            )
+        ).scalar_one()
+        assert persisted.provider_confirmed is True
+        assert persisted.provider_reference == "refund_real_contract"
 
 
 @pytest.mark.asyncio
