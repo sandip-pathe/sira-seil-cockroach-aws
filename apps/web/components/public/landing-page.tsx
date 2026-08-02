@@ -16,6 +16,8 @@ import Link from "next/link";
 import { useEffect, useRef, type RefObject } from "react";
 import { layout, prepare, type PreparedText } from "@chenglou/pretext";
 
+import { CombinedBrandLogo } from "@/components/brand/combined-brand-logo";
+
 import styles from "./landing-page.module.css";
 
 type PreparedElement = {
@@ -105,9 +107,7 @@ export function LandingPage() {
       <header className={styles.siteHeader}>
         <div className={styles.headerInner}>
           <Link className={styles.wordmark} href="/" aria-label="SIRA and SEIL home">
-            <span>SIRA</span>
-            <span aria-hidden="true">+</span>
-            <span>SEIL</span>
+            <CombinedBrandLogo className={styles.combinedLogo} priority />
           </Link>
 
           <nav className={styles.primaryNav} aria-label="Primary navigation">
@@ -117,9 +117,14 @@ export function LandingPage() {
             <Link href="/pricing">Pricing</Link>
           </nav>
 
-          <Link className={styles.signInLink} href="/sign-in">
-            Sign in <ArrowRight aria-hidden="true" />
-          </Link>
+          <div className={styles.signInGroup} aria-label="Sign in">
+            <Link className={styles.signInLink} data-workspace="sira" href="/sira/sign-in">
+              SIRA sign in
+            </Link>
+            <Link className={styles.signInLink} data-workspace="seil" href="/seil/sign-in">
+              SEIL sign in
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -136,15 +141,15 @@ export function LandingPage() {
               and respond honestly when the fit is real.
             </p>
             <div className={styles.heroActions} aria-label="Choose a product">
-              <Link className={styles.siraAction} href="/sign-in?workspace=sira">
-                Decide with SIRA <ArrowRight aria-hidden="true" />
+              <Link className={styles.siraAction} href="/sira">
+                Talk to SIRA <ArrowRight aria-hidden="true" />
               </Link>
-              <Link className={styles.seilAction} href="/sign-in?workspace=seil">
-                Publish with SEIL <ArrowRight aria-hidden="true" />
+              <Link className={styles.seilAction} href="/seil">
+                Talk to SEIL <ArrowRight aria-hidden="true" />
               </Link>
             </div>
             <p className={styles.heroNote}>
-              Two private workspaces. One typed, consented exchange. Payment never buys rank.
+              Separate products for different teams. Information crosses only when people choose to share it. Payment never buys rank.
             </p>
           </div>
         </section>
@@ -154,7 +159,7 @@ export function LandingPage() {
             <div className={styles.sectionHeading}>
               <p>Choose your side</p>
               <h2 id="product-doors-title" data-pretext>
-                Each product works for its own principal.
+                Buying teams use SIRA. B2B sellers use SEIL.
               </h2>
             </div>
 
@@ -166,9 +171,8 @@ export function LandingPage() {
                 </div>
                 <h3>SIRA</h3>
                 <p data-pretext>
-                  Bring the outcome, deadline, incumbent, company rules, and current
-                  Stack. SIRA builds a versioned Purchase Brief and compares supported
-                  actions without hiding uncertainty in one score.
+                  Tell SIRA what your company needs, what you already use, and what
+                  matters. It compares supported actions and keeps approvals explicit.
                 </p>
                 <ul>
                   {buyerOutcomes.map((outcome) => (
@@ -177,8 +181,8 @@ export function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/sign-in?workspace=sira">
-                  Open SIRA <ArrowRight aria-hidden="true" />
+                <Link href="/sira">
+                  Talk to SIRA <ArrowRight aria-hidden="true" />
                 </Link>
               </article>
 
@@ -189,9 +193,8 @@ export function LandingPage() {
                 </div>
                 <h3>SEIL</h3>
                 <p data-pretext>
-                  Compile private product knowledge into reviewed, immutable Product
-                  Evidence. Publish what buyers may evaluate while commercial limits,
-                  roadmap, capacity, and unpublished constraints stay private.
+                  Give SEIL your product sources, fit rules, and constraints. It turns
+                  reviewed facts into reusable Product Evidence for B2B buyers.
                 </p>
                 <ul>
                   {sellerOutcomes.map((outcome) => (
@@ -200,8 +203,8 @@ export function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/sign-in?workspace=seil">
-                  Open SEIL <ArrowRight aria-hidden="true" />
+                <Link href="/seil">
+                  Talk to SEIL <ArrowRight aria-hidden="true" />
                 </Link>
               </article>
             </div>
@@ -365,7 +368,9 @@ export function LandingPage() {
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
           <div>
-            <Link className={styles.footerWordmark} href="/">SIRA + SEIL</Link>
+            <Link className={styles.footerWordmark} href="/" aria-label="SIRA and SEIL home">
+              <CombinedBrandLogo className={styles.footerLogo} />
+            </Link>
             <p>Company-aware decisions and reusable product truth.</p>
           </div>
           <nav aria-label="Footer navigation">

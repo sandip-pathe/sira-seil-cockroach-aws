@@ -1,9 +1,5 @@
-import type { Metadata } from "next";
-
-import { DecisionIndex } from "@/components/decisions/decision-surfaces";
-
-export const metadata: Metadata = { title: "Decisions" };
+import { redirect } from "next/navigation";
 
 export default function DecisionsPage() {
-  return <DecisionIndex />;
+  redirect("/sira/decisions");
 }

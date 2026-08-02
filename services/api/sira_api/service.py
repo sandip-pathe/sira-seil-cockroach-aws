@@ -651,6 +651,7 @@ class WorkflowService:
                 requirement=requirement_record,
                 stack_snapshot=stack_snapshot,
             )
+            await session.flush()
             session.add(
                 StackPatch(
                     id=patch["patch_id"],
