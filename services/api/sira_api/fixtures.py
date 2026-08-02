@@ -14,6 +14,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 DEMO = ROOT / "fixtures" / "demo"
+DEMO_SCENARIO_ID = "consultco_meeting_intelligence_v1"
+DEMO_FIXTURE_LABEL = "DEVELOPMENT_FIXTURE_NON_PRODUCTION"
 CANDIDATE_IDS = (
     "fixture_low_price_policy_fail",
     "fixture_honest_anti_fit",

@@ -16,7 +16,12 @@ from persistence.models import (
     Receipt,
 )
 
-from .fixtures import DemoFixtureBundle, content_hash
+from .fixtures import (
+    DEMO_FIXTURE_LABEL,
+    DEMO_SCENARIO_ID,
+    DemoFixtureBundle,
+    content_hash,
+)
 
 _STATUS_MAP = {
     "ELIGIBLE": "SUPPORTED",
@@ -772,6 +777,9 @@ def project_decision_room(
             "decision_version": decision.version,
             "decision_state": "CURRENT" if is_current else "SUPERSEDED",
             "superseded_by": superseded_by.id if superseded_by is not None else None,
+            "evaluation_mode": request.payload.get("evaluation_mode", DEMO_FIXTURE_LABEL),
+            "scenario_id": request.payload.get("scenario_id", DEMO_SCENARIO_ID),
+            "fixture_label": request.payload.get("fixture_label", DEMO_FIXTURE_LABEL),
         },
         "workflow": {
             "current_stage": stage,

@@ -22,6 +22,7 @@ This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes t
 | CORE-01 | **PASS:** The decision engine is deterministic and uses hard eligibility gates before bounded preference/TCO ordering. Missing, stale, or conflicting evidence cannot silently become a pass. | Decision and property suites; frozen demo ledger and hashes. |
 | CORE-02 | **PASS:** The demo proves `SIRA_INELIGIBLE`, seller `SEIL_PASS`, eligible runner-up/winner, company-aware winner change, and a proposed Stackfile patch. Seller positioning is excluded from rank. | `tests/unit/test_decision_graph_v1.py`; `tests/unit/test_domain_decision.py`. |
 | CORE-03 | **FIXED:** Strict typed comparisons, exact evidence scope, comparable currency/horizon, assessed-evidence risk rules, and coherent deduplication are enforced. | `a1f22bb`. |
+| DEMO-01 | **FIXED:** Arbitrary request text can be saved only as an explicitly unevaluated draft. Discovery requires the declared `consultco_meeting_intelligence_v1` scenario, and every request/decision projection carries the non-production fixture mode and label. | Primary and compatibility API tests; frozen Decision View and generated client contracts. |
 | PAY-01 | **FIXED:** Approval expiry is rechecked at hosted-session creation, browser return, and final dispatch; stale authority becomes `EXPIRED` before side effects. | `47db419`. |
 | PAY-02 | **FIXED:** Provider uncertainty and hosted-session failures are recoverable; malformed outbox events no longer starve later work. | `70dc0a3`. |
 | PAY-03 | **FIXED:** Fulfillment retries separately from checkout, so paid-but-unfulfilled recovery does not repeat the charge. | `d6ee047`. |
@@ -35,7 +36,6 @@ This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes t
 
 | ID | Priority | Required proof | Done when |
 |---|---:|---|---|
-| DEMO-01 | P0 | **Make fixture versus API mode unmistakable.** Arbitrary request text currently persists, but discovery still compiles the fixed ConsultCo/meeting-intelligence graph. | The demo is explicitly introduced as the fixed scenario, or two real persisted company contexts produce different frozen input hashes without the fixture loader. |
 | DB-01 | P0 | **Run fresh PostgreSQL migrations with separate owner and runtime roles.** PostgreSQL is canonical; SQLite is not an acceptable substitute. | Alembic reaches head; runtime is `NOSUPERUSER`, `NOBYPASSRLS`, non-owner; forced RLS allows same-tenant access and denies cross-tenant access. |
 | DB-02 | P0 | **Run the idempotency race against live PostgreSQL.** The code fix is tested with mocks but database transaction behavior has not been certified locally. | Two concurrent first requests produce one canonical idempotency record and no 500/duplicate intent. |
 | DEMO-02 | P0 | **Complete one laptop startup smoke test.** | Fresh setup starts web/API/worker, health reports the expected mode, migrations are current, and the chosen scripted path survives a refresh without changing hashes/state. |

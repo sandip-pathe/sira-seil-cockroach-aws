@@ -93,6 +93,7 @@ class DecisionRoomSurface:
     ) -> tuple[int, dict[str, Any]]:
         legacy_body = {
             "intent": body["intent"],
+            "scenario_id": body.get("scenario_id"),
             "desired_outcome": (
                 {
                     "metric": body["desired_outcome"],
@@ -763,6 +764,7 @@ class DecisionRoomSurface:
             else ("OPTIONS" if decision is not None else "NEED")
         )
         deadline_value = request.payload.get("deadline")
+        evaluation = self.service._request_evaluation_metadata(request)
         return {
             "id": request.id,
             "intent": request.intent,
@@ -771,9 +773,14 @@ class DecisionRoomSurface:
             "owner_role": resolved_role.value,
             "deadline": deadline_value,
             "current_stage": stage,
-            "blocker": None,
+            "blocker": (
+                "Choose the supported demo scenario before running evaluation."
+                if evaluation["evaluation_mode"] == "SCENARIO_SELECTION_REQUIRED"
+                else None
+            ),
             "last_checkpoint": "Decision ready" if decision is not None else "Request saved",
             "current_decision_version": decision.version if decision is not None else None,
+            **evaluation,
             "href": (
                 f"/decisions/{request.id}/versions/{decision.version}/{stage.lower()}"
                 if decision is not None

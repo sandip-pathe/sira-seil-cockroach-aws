@@ -74,14 +74,17 @@
     "RequestView": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "intent", "status", "decision_version", "decision_state", "superseded_by"],
+      "required": ["id", "intent", "status", "decision_version", "decision_state", "superseded_by", "evaluation_mode", "scenario_id", "fixture_label"],
       "properties": {
         "id": { "$ref": "common.schema.json#/$defs/Identifier" },
         "intent": { "type": "string", "minLength": 1, "maxLength": 500 },
         "status": { "type": "string", "enum": ["DRAFT", "DISCOVERING", "DECISION_READY", "ACTION_IN_PROGRESS", "RESULT_READY", "COMPLETED"] },
         "decision_version": { "type": "integer", "minimum": 1 },
         "decision_state": { "$ref": "enums.schema.json#/$defs/DecisionVersionState" },
-        "superseded_by": { "$ref": "#/$defs/NullableIdentifier" }
+        "superseded_by": { "$ref": "#/$defs/NullableIdentifier" },
+        "evaluation_mode": { "const": "DEVELOPMENT_FIXTURE_NON_PRODUCTION" },
+        "scenario_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "fixture_label": { "const": "DEVELOPMENT_FIXTURE_NON_PRODUCTION" }
       }
     },
     "ActorView": {

@@ -121,10 +121,38 @@ async def test_brief_privacy_and_ledger(api_client: httpx.AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_arbitrary_request_stays_unevaluated_in_fixture_mode(
+    api_client: httpx.AsyncClient,
+) -> None:
+    created = await api_client.post(
+        "/v1/purchase-requests",
+        headers=idempotency("create-unbound-request-0001"),
+        json={"intent": "Evaluate payroll software for a hundred-person manufacturer"},
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["evaluation_mode"] == "SCENARIO_SELECTION_REQUIRED"
+    assert created.json()["fixture_label"] is None
+
+    discovery = await api_client.post(
+        f"/v1/purchase-requests/{created.json()['id']}/discover",
+        headers=idempotency("discover-unbound-request-0001"),
+    )
+    assert discovery.status_code == 409, discovery.text
+    assert discovery.json()["error"]["code"] == "DEMO_SCENARIO_REQUIRED"
+    assert (
+        discovery.json()["error"]["details"]["supported_scenario_id"]
+        == "consultco_meeting_intelligence_v1"
+    )
+
+
+@pytest.mark.asyncio
 async def test_create_discover_workflow_and_idempotent_replay(
     api_client: httpx.AsyncClient,
 ) -> None:
-    body = {"intent": "Find meeting intelligence for another ten-person consulting team"}
+    body = {
+        "intent": "Find meeting intelligence for another ten-person consulting team",
+        "scenario_id": "consultco_meeting_intelligence_v1",
+    }
     first = await api_client.post(
         "/v1/purchase-requests",
         headers=idempotency("create-request-0001"),
@@ -137,6 +165,8 @@ async def test_create_discover_workflow_and_idempotent_replay(
     )
     assert first.status_code == replay.status_code == 201
     assert first.json() == replay.json()
+    assert first.json()["evaluation_mode"] == "DEVELOPMENT_FIXTURE_NON_PRODUCTION"
+    assert first.json()["fixture_label"] == "DEVELOPMENT_FIXTURE_NON_PRODUCTION"
     request_id = first.json()["id"]
 
     conflict = await api_client.post(
@@ -364,6 +394,7 @@ async def test_private_request_cannot_open_seller_outreach(
         headers=idempotency("private-request-0001"),
         json={
             "intent": "Privately review meeting intelligence without seller outreach",
+            "scenario_id": "consultco_meeting_intelligence_v1",
             "visibility": "PRIVATE",
         },
     )

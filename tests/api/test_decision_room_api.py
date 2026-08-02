@@ -31,6 +31,29 @@ def idempotency(value: str) -> dict[str, str]:
 
 
 @pytest.mark.asyncio
+async def test_primary_api_marks_unbound_text_as_unevaluated(
+    api_client: httpx.AsyncClient,
+) -> None:
+    created = await api_client.post(
+        "/v1/decision-requests",
+        headers=idempotency("v2-unbound-request-0001"),
+        json={"intent": "Compare an unrelated payroll system for this company"},
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["evaluation_mode"] == "SCENARIO_SELECTION_REQUIRED"
+    assert created.json()["blocker"] == (
+        "Choose the supported demo scenario before running evaluation."
+    )
+
+    discovery = await api_client.post(
+        f"/v1/decision-requests/{created.json()['id']}/discover",
+        headers=idempotency("v2-unbound-discover-0001"),
+    )
+    assert discovery.status_code == 409, discovery.text
+    assert discovery.json()["error"]["code"] == "DEMO_SCENARIO_REQUIRED"
+
+
+@pytest.mark.asyncio
 async def test_decision_ledger_uses_the_frozen_graph_contract(
     api_client: httpx.AsyncClient,
 ) -> None:
@@ -57,6 +80,9 @@ async def test_decision_room_is_action_neutral_and_role_filtered(
     assert response.status_code == 200, response.text
     view = response.json()
     frozen_validator("decision-view.schema.json").validate(view)
+    assert view["request"]["evaluation_mode"] == "DEVELOPMENT_FIXTURE_NON_PRODUCTION"
+    assert view["request"]["scenario_id"] == "consultco_meeting_intelligence_v1"
+    assert view["request"]["fixture_label"] == "DEVELOPMENT_FIXTURE_NON_PRODUCTION"
     assert "candidates" not in view
     assert view["workflow"]["current_stage"] == "OPTIONS"
     assert view["coverage"]["product_evidence_option_count"] == 4

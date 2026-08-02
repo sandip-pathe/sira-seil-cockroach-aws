@@ -141,6 +141,9 @@ class DecisionRequestHeader(StrictModel):
     decision_version: int = Field(ge=1)
     decision_state: DecisionVersionState
     superseded_by: Identifier | None = None
+    evaluation_mode: Literal["DEVELOPMENT_FIXTURE_NON_PRODUCTION"]
+    scenario_id: Identifier
+    fixture_label: Literal["DEVELOPMENT_FIXTURE_NON_PRODUCTION"]
 
 
 class EvaluationSummary(StrictModel):
@@ -779,6 +782,7 @@ class DecisionLedgerV2(StrictModel):
 
 class DecisionRequestCreate(StrictModel):
     intent: str = Field(min_length=10, max_length=2000)
+    scenario_id: Identifier | None = None
     desired_outcome: str | None = Field(default=None, max_length=1000)
     deadline: date | None = None
     visibility: RequestVisibility = RequestVisibility.SELECTIVE
@@ -796,6 +800,13 @@ class DecisionRequestView(StrictModel):
     blocker: str | None = None
     last_checkpoint: str
     current_decision_version: int | None = Field(default=None, ge=1)
+    evaluation_mode: Literal[
+        "SCENARIO_SELECTION_REQUIRED",
+        "DEVELOPMENT_FIXTURE_NON_PRODUCTION",
+        "PROVIDER_CONFIGURATION_REQUIRED",
+    ]
+    scenario_id: Identifier | None = None
+    fixture_label: Literal["DEVELOPMENT_FIXTURE_NON_PRODUCTION"] | None = None
     href: str
 
 

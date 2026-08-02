@@ -257,14 +257,18 @@ export interface DecisionRequestCreate {
   desired_outcome?: string | null;
   incumbent_instance_id?: string | null;
   intent: string;
+  scenario_id?: string | null;
   visibility?: RequestVisibility;
 }
 
 export interface DecisionRequestHeader {
   decision_state: DecisionVersionState;
   decision_version: number;
+  evaluation_mode: "DEVELOPMENT_FIXTURE_NON_PRODUCTION";
+  fixture_label: "DEVELOPMENT_FIXTURE_NON_PRODUCTION";
   id: string;
   intent: string;
+  scenario_id: string;
   status: "DRAFT" | "DISCOVERING" | "DECISION_READY" | "ACTION_IN_PROGRESS" | "RESULT_READY" | "COMPLETED";
   superseded_by?: string | null;
 }
@@ -274,11 +278,14 @@ export interface DecisionRequestView {
   current_decision_version?: number | null;
   current_stage: DecisionStage;
   deadline?: string | null;
+  evaluation_mode: "SCENARIO_SELECTION_REQUIRED" | "DEVELOPMENT_FIXTURE_NON_PRODUCTION" | "PROVIDER_CONFIGURATION_REQUIRED";
+  fixture_label?: "DEVELOPMENT_FIXTURE_NON_PRODUCTION" | null;
   href: string;
   id: string;
   intent: string;
   last_checkpoint: string;
   owner_role: ActorRole;
+  scenario_id?: string | null;
   status: string;
   visibility: RequestVisibility;
 }

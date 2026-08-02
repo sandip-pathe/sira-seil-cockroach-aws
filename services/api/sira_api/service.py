@@ -91,7 +91,13 @@ from .commercial_terms import (
 )
 from .decision_room_projection import project_decision_room
 from .errors import ApiProblem, SetupBlocked
-from .fixtures import DEMO, DemoFixtureBundle, content_hash
+from .fixtures import (
+    DEMO,
+    DEMO_FIXTURE_LABEL,
+    DEMO_SCENARIO_ID,
+    DemoFixtureBundle,
+    content_hash,
+)
 from .graph_ledger import DecisionLedgerMetadata, build_decision_ledger
 from .graph_persistence import (
     EvaluationPersistenceMetadata,
@@ -132,6 +138,26 @@ class WorkflowService:
                 ["SENSO_PROVIDER_CONFIGURATION", "AGENT_RUNTIME_CONFIGURATION"],
             )
         return self.fixtures
+
+    def _request_evaluation_metadata(self, request: PurchaseRequest) -> dict[str, Any]:
+        scenario_id = request.payload.get("scenario_id")
+        if self.fixtures is None:
+            return {
+                "evaluation_mode": "PROVIDER_CONFIGURATION_REQUIRED",
+                "scenario_id": scenario_id,
+                "fixture_label": None,
+            }
+        if scenario_id == DEMO_SCENARIO_ID:
+            return {
+                "evaluation_mode": DEMO_FIXTURE_LABEL,
+                "scenario_id": DEMO_SCENARIO_ID,
+                "fixture_label": DEMO_FIXTURE_LABEL,
+            }
+        return {
+            "evaluation_mode": "SCENARIO_SELECTION_REQUIRED",
+            "scenario_id": scenario_id,
+            "fixture_label": None,
+        }
 
     def _demo_graph_artifacts(
         self,
@@ -366,7 +392,9 @@ class WorkflowService:
                 payload={
                     "intent": "Find meeting intelligence for ten consultants",
                     "jtbd_id": "capture_meeting_decisions",
-                    "fixture_label": "DEVELOPMENT_FIXTURE_NON_PRODUCTION",
+                    "scenario_id": DEMO_SCENARIO_ID,
+                    "evaluation_mode": DEMO_FIXTURE_LABEL,
+                    "fixture_label": DEMO_FIXTURE_LABEL,
                 },
                 request_hash=content_hash({"request_id": "req_demo", "version": 1}),
                 created_at=graph_input.evaluated_at,
@@ -487,6 +515,41 @@ class WorkflowService:
         idempotency_key: str,
         body: dict[str, Any],
     ) -> tuple[int, dict[str, Any]]:
+        scenario_id = body.get("scenario_id")
+        if (
+            self.fixtures is not None
+            and scenario_id is not None
+            and scenario_id != DEMO_SCENARIO_ID
+        ):
+            raise ApiProblem(
+                code="DEMO_SCENARIO_UNSUPPORTED",
+                message="Only the declared meeting-intelligence demo scenario can be evaluated.",
+                status_code=422,
+                next_action="select_supported_demo_scenario",
+                details={"supported_scenario_id": DEMO_SCENARIO_ID},
+            )
+        payload = deepcopy(body)
+        if self.fixtures is None:
+            payload.update(
+                {
+                    "evaluation_mode": "PROVIDER_CONFIGURATION_REQUIRED",
+                    "fixture_label": None,
+                }
+            )
+        elif scenario_id == DEMO_SCENARIO_ID:
+            payload.update(
+                {
+                    "evaluation_mode": DEMO_FIXTURE_LABEL,
+                    "fixture_label": DEMO_FIXTURE_LABEL,
+                }
+            )
+        else:
+            payload.update(
+                {
+                    "evaluation_mode": "SCENARIO_SELECTION_REQUIRED",
+                    "fixture_label": None,
+                }
+            )
         request_hash = content_hash(body)
         async with self.database.transaction(organization_id) as session:
             repository = WorkflowRepository(session, organization_id)
@@ -510,11 +573,11 @@ class WorkflowService:
                 status="DRAFT",
                 visibility=body.get("visibility", "SELECTIVE"),
                 version=1,
-                payload=body,
+                payload=payload,
                 request_hash=request_hash,
             )
             await repository.add_purchase_request(record)
-            if self.fixtures is not None:
+            if self.fixtures is not None and scenario_id == DEMO_SCENARIO_ID:
                 await self._add_request_briefs(session, organization_id, record)
             response = self._request_view(record)
             await repository.complete_idempotency(
@@ -581,6 +644,18 @@ class WorkflowService:
             request = await self._not_found(
                 repository.get_purchase_request(request_id, lock=True), "PURCHASE_REQUEST"
             )
+            evaluation = self._request_evaluation_metadata(request)
+            if evaluation["evaluation_mode"] != DEMO_FIXTURE_LABEL:
+                raise ApiProblem(
+                    code="DEMO_SCENARIO_REQUIRED",
+                    message=(
+                        "This build only evaluates the declared meeting-intelligence demo "
+                        "scenario; arbitrary request text remains an unevaluated draft."
+                    ),
+                    status_code=409,
+                    next_action="select_supported_demo_scenario",
+                    details={"supported_scenario_id": DEMO_SCENARIO_ID},
+                )
             brief = (
                 await session.execute(
                     select(PurchaseBriefVersion)
@@ -3292,8 +3367,7 @@ class WorkflowService:
             )
         )
 
-    @staticmethod
-    def _request_view(request: PurchaseRequest) -> dict[str, Any]:
+    def _request_view(self, request: PurchaseRequest) -> dict[str, Any]:
         return {
             "id": request.id,
             "organization_id": request.organization_id,
@@ -3301,6 +3375,7 @@ class WorkflowService:
             "status": request.status,
             "visibility": request.visibility,
             "version": request.version,
+            **self._request_evaluation_metadata(request),
             "workflow_id": None,
             "decision_id": None,
         }

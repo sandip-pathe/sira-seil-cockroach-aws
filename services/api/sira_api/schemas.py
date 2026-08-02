@@ -121,6 +121,7 @@ class StakeholdersInput(StrictModel):
 
 class PurchaseRequestCreate(StrictModel):
     intent: str = Field(min_length=10, max_length=2000)
+    scenario_id: Identifier | None = None
     jtbd_id: Identifier | None = None
     stakeholders: StakeholdersInput | None = None
     desired_outcome: DesiredOutcomeInput | None = None
@@ -135,6 +136,13 @@ class PurchaseRequestView(StrictModel):
     status: str
     visibility: RequestVisibility
     version: int
+    evaluation_mode: Literal[
+        "SCENARIO_SELECTION_REQUIRED",
+        "DEVELOPMENT_FIXTURE_NON_PRODUCTION",
+        "PROVIDER_CONFIGURATION_REQUIRED",
+    ]
+    scenario_id: Identifier | None = None
+    fixture_label: Literal["DEVELOPMENT_FIXTURE_NON_PRODUCTION"] | None = None
     workflow_id: Identifier | None = None
     decision_id: Identifier | None = None
 

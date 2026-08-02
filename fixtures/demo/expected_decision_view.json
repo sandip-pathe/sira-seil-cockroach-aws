@@ -5,7 +5,10 @@
     "status": "DECISION_READY",
     "decision_version": 1,
     "decision_state": "CURRENT",
-    "superseded_by": null
+    "superseded_by": null,
+    "evaluation_mode": "DEVELOPMENT_FIXTURE_NON_PRODUCTION",
+    "scenario_id": "consultco_meeting_intelligence_v1",
+    "fixture_label": "DEVELOPMENT_FIXTURE_NON_PRODUCTION"
   },
   "workflow": {
     "current_stage": "OPTIONS",

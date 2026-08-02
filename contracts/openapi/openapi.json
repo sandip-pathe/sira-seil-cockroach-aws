@@ -1689,6 +1689,20 @@
             "title": "Intent",
             "type": "string"
           },
+          "scenario_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 3,
+                "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario Id"
+          },
           "visibility": {
             "$ref": "#/components/schemas/RequestVisibility",
             "default": "SELECTIVE"
@@ -1711,6 +1725,16 @@
             "title": "Decision Version",
             "type": "integer"
           },
+          "evaluation_mode": {
+            "const": "DEVELOPMENT_FIXTURE_NON_PRODUCTION",
+            "title": "Evaluation Mode",
+            "type": "string"
+          },
+          "fixture_label": {
+            "const": "DEVELOPMENT_FIXTURE_NON_PRODUCTION",
+            "title": "Fixture Label",
+            "type": "string"
+          },
           "id": {
             "maxLength": 128,
             "minLength": 3,
@@ -1722,6 +1746,13 @@
             "maxLength": 500,
             "minLength": 1,
             "title": "Intent",
+            "type": "string"
+          },
+          "scenario_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Scenario Id",
             "type": "string"
           },
           "status": {
@@ -1756,7 +1787,10 @@
           "intent",
           "status",
           "decision_version",
-          "decision_state"
+          "decision_state",
+          "evaluation_mode",
+          "scenario_id",
+          "fixture_label"
         ],
         "title": "DecisionRequestHeader",
         "type": "object"
@@ -1802,6 +1836,27 @@
             ],
             "title": "Deadline"
           },
+          "evaluation_mode": {
+            "enum": [
+              "SCENARIO_SELECTION_REQUIRED",
+              "DEVELOPMENT_FIXTURE_NON_PRODUCTION",
+              "PROVIDER_CONFIGURATION_REQUIRED"
+            ],
+            "title": "Evaluation Mode",
+            "type": "string"
+          },
+          "fixture_label": {
+            "anyOf": [
+              {
+                "const": "DEVELOPMENT_FIXTURE_NON_PRODUCTION",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixture Label"
+          },
           "href": {
             "title": "Href",
             "type": "string"
@@ -1824,6 +1879,20 @@
           "owner_role": {
             "$ref": "#/components/schemas/ActorRole"
           },
+          "scenario_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 3,
+                "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario Id"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -1840,6 +1909,7 @@
           "owner_role",
           "current_stage",
           "last_checkpoint",
+          "evaluation_mode",
           "href"
         ],
         "title": "DecisionRequestView",
