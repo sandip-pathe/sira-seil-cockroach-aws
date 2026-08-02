@@ -10842,6 +10842,23 @@
             }
           },
           {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          },
+          {
             "in": "header",
             "name": "X-Organization-Id",
             "required": false,

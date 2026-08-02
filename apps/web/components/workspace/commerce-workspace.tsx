@@ -939,11 +939,42 @@ function DecisionsPanel({ onStart }: { onStart: () => void }) {
   );
 }
 
-function InboxPanel() {
+function InboxPanel({ mode }: { mode: CommerceWorkspaceMode }) {
+  const query = useQuery({
+    queryKey: ["workspace-inbox", mode, WEB_DATA_MODE],
+    enabled: WEB_DATA_MODE === "api",
+    queryFn: async () => {
+      if (mode === "sira") {
+        const result = await getBrowserApiClient().request("list_decision_requests", { headers: buyerDevelopmentHeaders });
+        return result.active.map((item) => ({
+          href: item.href,
+          id: item.id,
+          label: item.current_stage.replaceAll("_", " "),
+          title: item.intent,
+        }));
+      }
+      const result = await getBrowserApiClient().request("seller_evidence_search_products", {
+        headers: sellerEditorDevelopmentHeaders,
+        query: {},
+      });
+      return result.results
+        .filter((item) => !["PUBLISHED", "SUPERSEDED"].includes(item.state))
+        .map((item) => ({
+          href: `/seil/product-evidence/${encodeURIComponent(item.id)}`,
+          id: item.id,
+          label: item.state.replaceAll("_", " "),
+          title: item.name,
+        }));
+    },
+  });
+  const items = query.data ?? [];
   return (
     <div className={styles.contextBody}>
       <section className={styles.documentHeader}><span>Assigned work</span><h2>Inbox</h2><p>Requests that need your review or approval appear here without leaving the workspace.</p></section>
-      <section className={styles.contextSection}><div className={styles.sectionHeading}><div><span>Up to date</span><h3>No assigned items</h3></div><Inbox aria-hidden="true" /></div><p className={styles.sectionCopy}>SIRA will surface a task here only when a real workflow assigns it to you.</p></section>
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}><div><span>{items.length ? "Needs attention" : "Up to date"}</span><h3>{query.isPending ? "Loading assigned work" : `${items.length} assigned item${items.length === 1 ? "" : "s"}`}</h3></div><Inbox aria-hidden="true" /></div>
+        {items.length ? <div className={styles.decisionMiniList}>{items.map((item) => <Link href={item.href} key={item.id}><span>{item.label}</span><strong>{item.title}</strong><ArrowRight aria-hidden="true" /></Link>)}</div> : <p className={styles.sectionCopy}>{query.isError ? "Assigned work is temporarily unavailable." : "New work appears here only when a real workflow record requires attention."}</p>}
+      </section>
     </div>
   );
 }
@@ -1112,7 +1143,7 @@ function ContextPanel({
         {tab === "work" && mode === "sira" ? <SiraWorkPanel /> : null}
         {tab === "work" && mode === "seil" ? <SeilWorkPanel /> : null}
         {tab === "decisions" ? <DecisionsPanel onStart={onStartChat} /> : null}
-        {tab === "inbox" ? <InboxPanel /> : null}
+        {tab === "inbox" ? <InboxPanel mode={mode} /> : null}
         {tab === "catalog" ? <CatalogPanel products={products} onSelect={onSelectProduct} /> : null}
         {tab === "product" ? <ProductPanel product={selectedProduct} onBack={() => onTabChange("catalog")} /> : null}
         {tab === "connectors" ? <ConnectorsPanel mode={mode} /> : null}

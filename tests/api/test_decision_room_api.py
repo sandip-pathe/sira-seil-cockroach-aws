@@ -191,6 +191,13 @@ async def test_plan_selection_and_action_run_bind_the_exact_decision(
     assert current["request"]["decision_version"] == 2
     assert current["workflow"]["current_stage"] == "ACTION"
     assert current["selected_action_plan"]["id"] == selected_option["id"]
+    historical = (
+        await api_client.get(
+            "/v1/decision-requests/req_demo/decision-view", params={"version": 1}
+        )
+    ).json()
+    assert historical["request"]["decision_version"] == 1
+    assert historical["selected_action_plan"] is None
     assert current["payment"]["line_items"] == [
         {"type": "MERCHANT_SUBTOTAL", "amount": "87.00"},
         {

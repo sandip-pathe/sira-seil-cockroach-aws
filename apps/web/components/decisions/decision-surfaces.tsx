@@ -2,11 +2,14 @@
 
 import type {
   ActionDescriptor,
+  ApprovalRequestView,
   DecisionIndexView,
   DecisionRequestView,
   DecisionStage,
   DecisionView,
   OptionFeedbackAction,
+  PravaSessionView,
+  PurchaseIntentView,
   SolutionOption,
 } from "@sira/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -357,13 +360,14 @@ function OptionsStage({
   );
 }
 
-function ActionStage({ view, optionsHref, onExecute, pending }: { view: DecisionView; optionsHref: string; onExecute: (action: ActionDescriptor) => void; pending: boolean }) {
+function ActionStage({ view, optionsHref, onExecute, pending, purchaseIntent, approval, pravaSession, onPrepareAuthority, onApprove, onCreatePrava, authorityPending }: { view: DecisionView; optionsHref: string; onExecute: (action: ActionDescriptor) => void; pending: boolean; purchaseIntent: PurchaseIntentView | null; approval: ApprovalRequestView | null; pravaSession: PravaSessionView | null; onPrepareAuthority: () => void; onApprove: (role: string) => void; onCreatePrava: () => void; authorityPending: boolean }) {
   const plan = view.selected_action_plan;
   const steps = plan?.execution_steps ?? [];
   return (
     <section className={styles.stageSection}>
       <div className={styles.stageIntro}><p>04 · Action</p><h2>{plan ? "Execute the selected action safely" : "Select an action plan first"}</h2><span>Review, required authority, execution or assignment, and verification remain separate.</span></div>
       {!plan ? <div className={styles.emptyStage}><FileCheck2 aria-hidden="true" /><h3>No plan is selected in this version</h3><p>Return to Options and select the exact plan/version/hash. A fixture preview never creates approval or payment authority.</p><Link className={styles.primaryButton} href={optionsHref}>Review options</Link></div> : <div className={styles.executionGrid}><ol className={styles.executionTimeline}>{steps.map((step, index) => <li key={step.id} data-status={step.status.toLowerCase()}><span>{step.status === "COMPLETED" ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{step.type.replaceAll("_", " ").toLowerCase()}</strong><small>{step.owner_role.replaceAll("_", " ")} · {step.status.replaceAll("_", " ")}</small>{step.blocker ? <p>{step.blocker}</p> : null}</div>{step.available_action ? <button type="button" disabled={pending || WEB_DATA_MODE === "fixture" || !step.available_action.href.includes("/action-runs")} onClick={() => onExecute(step.available_action!)}>{pending ? "Starting…" : step.available_action.label}</button> : null}</li>)}</ol><aside className={styles.authorityPanel}><p>Authority</p><dl><div><dt>Plan selection</dt><dd>{plan.selected_by_role.replaceAll("_", " ")}</dd></div><div><dt>Approval</dt><dd>{view.approval?.status ?? "Not requested"}</dd></div><div><dt>Payment</dt><dd>{view.payment?.status ?? "Not required"}</dd></div><div><dt>Fulfillment</dt><dd>{view.fulfillment?.status ?? "Not started"}</dd></div></dl></aside></div>}
+      {plan && WEB_DATA_MODE === "api" ? <section className={styles.commerceAuthority}><div><small>Exact offer authority</small><h3>{purchaseIntent ? `${purchaseIntent.currency} ${purchaseIntent.landed_total}` : "Lock the selected offer"}</h3><p>{purchaseIntent ? `Offer ${purchaseIntent.offer_id} · decision v${purchaseIntent.decision_version}` : "This freezes the decision hash, offer, merchant, amount, fee, and approval policy."}</p></div>{!purchaseIntent ? <button type="button" disabled={authorityPending} onClick={onPrepareAuthority}>Lock offer and request approval</button> : approval?.status !== "APPROVED" ? <div className={styles.approvalRoles}>{approval?.required_roles.map((role) => <button type="button" disabled={authorityPending || approval.approved_roles.includes(role)} onClick={() => onApprove(role)} key={role}>{approval.approved_roles.includes(role) ? <Check aria-hidden="true" /> : null}{role.replaceAll("_", " ")}</button>)}</div> : !pravaSession ? <button type="button" disabled={authorityPending} onClick={onCreatePrava}>Create Prava authority</button> : pravaSession.hosted_url ? <a href={pravaSession.hosted_url}>Open secure Prava checkout</a> : <p>Prava setup blocked: {pravaSession.missing_configuration?.join(", ") || "provider unavailable"}</p>}</section> : null}
     </section>
   );
 }
@@ -388,10 +392,17 @@ function StageCanvas(props: {
   pendingFeedback: boolean;
   onExecute: (action: ActionDescriptor) => void;
   pendingExecution: boolean;
+  purchaseIntent: PurchaseIntentView | null;
+  approval: ApprovalRequestView | null;
+  pravaSession: PravaSessionView | null;
+  onPrepareAuthority: () => void;
+  onApprove: (role: string) => void;
+  onCreatePrava: () => void;
+  authorityPending: boolean;
 }) {
   if (props.stage === "need") return <NeedStage view={props.view} />;
   if (props.stage === "company-fit") return <CompanyFitStage view={props.view} />;
-  if (props.stage === "action") return <ActionStage view={props.view} optionsHref={props.optionsHref} onExecute={props.onExecute} pending={props.pendingExecution} />;
+  if (props.stage === "action") return <ActionStage view={props.view} optionsHref={props.optionsHref} onExecute={props.onExecute} pending={props.pendingExecution} purchaseIntent={props.purchaseIntent} approval={props.approval} pravaSession={props.pravaSession} onPrepareAuthority={props.onPrepareAuthority} onApprove={props.onApprove} onCreatePrava={props.onCreatePrava} authorityPending={props.authorityPending} />;
   if (props.stage === "result") return <ResultStage view={props.view} />;
   return <OptionsStage view={props.view} onLedger={props.onLedger} onSelect={props.onSelect} onFeedback={props.onFeedback} pendingFeedback={props.pendingFeedback} />;
 }
@@ -430,6 +441,9 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
   const [mobileChat, setMobileChat] = useState(false);
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState<SolutionOption | null>(null);
+  const [purchaseIntent, setPurchaseIntent] = useState<PurchaseIntentView | null>(null);
+  const [approval, setApproval] = useState<ApprovalRequestView | null>(null);
+  const [pravaSession, setPravaSession] = useState<PravaSessionView | null>(null);
   const [toast, setToast] = useState("");
   const mobileChatRef = useRef<HTMLDialogElement>(null);
 
@@ -442,9 +456,9 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
   }, [toast]);
 
   const query = useQuery({
-    queryKey: ["decision-view", requestId],
+    queryKey: ["decision-view", requestId, version],
     enabled: WEB_DATA_MODE === "api",
-    queryFn: () => getBrowserApiClient().request("get_decision_room", { pathParams: { request_id: requestId }, headers: buyerDevelopmentHeaders }),
+    queryFn: () => getBrowserApiClient().request("get_decision_room", { pathParams: { request_id: requestId }, query: { version: Number(version) }, headers: buyerDevelopmentHeaders }),
   });
   const loadedView = WEB_DATA_MODE === "fixture"
     ? requestId === decisionFixture.request.id
@@ -513,6 +527,74 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
     onError: () => setToast("The action workflow was not started. No approval or payment was created."),
   });
 
+  const authorityMutation = useMutation({
+    mutationFn: async () => {
+      if (!view?.selected_action_plan) throw new Error("No selected plan");
+      const plan = view.selected_action_plan;
+      const actionHref = plan.execution_steps.find((step) => step.available_action)?.available_action?.href;
+      const decisionId = actionHref?.match(/\/v1\/decisions\/([^/]+)\//)?.[1];
+      if (!decisionId) throw new Error("Decision authority action unavailable");
+      const intent = await getBrowserApiClient().request("lock_purchase_intent", {
+        pathParams: { decision_id: decisionId },
+        body: { solution_plan_id: plan.id },
+        idempotencyKey: `lock-${plan.selection_id}`,
+        headers: buyerDevelopmentHeaders,
+      });
+      const requestedApproval = await getBrowserApiClient().request("create_approval_request", {
+        pathParams: { intent_id: intent.purchase_intent_id },
+        body: {},
+        idempotencyKey: `approval-${intent.purchase_intent_id}`,
+        headers: buyerDevelopmentHeaders,
+      });
+      return { intent, approval: requestedApproval };
+    },
+    onSuccess: (result) => {
+      setPurchaseIntent(result.intent);
+      setApproval(result.approval);
+      setToast("Exact offer locked. Required approvals are now explicit.");
+    },
+    onError: () => setToast("The exact offer was not locked. No approval or payment authority was created."),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (role: string) => {
+      if (!approval) throw new Error("Approval not started");
+      return getBrowserApiClient().request("approve", {
+        pathParams: { approval_id: approval.id },
+        body: { intent_hash: approval.intent_hash, actor_role: role },
+        idempotencyKey: `approve-${approval.id}-${role}`,
+        headers: {
+          ...buyerDevelopmentHeaders,
+          "X-Actor-Id": `usr_${role}`,
+          "X-Actor-Roles": `${role},can_approve_purchase`,
+          "X-Step-Up-Verified": "true",
+        },
+      });
+    },
+    onSuccess: (result) => {
+      setApproval(result);
+      setToast(result.status === "APPROVED" ? "Exact offer approved." : "Approval recorded. Next owner is required.");
+    },
+    onError: () => setToast("Approval was not recorded. The exact offer remains unchanged."),
+  });
+
+  const pravaMutation = useMutation({
+    mutationFn: async () => {
+      if (!purchaseIntent || approval?.status !== "APPROVED") throw new Error("Approval incomplete");
+      return getBrowserApiClient().request("create_prava_session", {
+        pathParams: { intent_id: purchaseIntent.purchase_intent_id },
+        body: { return_url: `${window.location.origin}/decisions/${requestId}/versions/${version}/result` },
+        idempotencyKey: `prava-${purchaseIntent.purchase_intent_id}`,
+        headers: buyerDevelopmentHeaders,
+      });
+    },
+    onSuccess: (result) => {
+      setPravaSession(result);
+      setToast(result.setup_blocked ? "Prava reported missing setup." : "Bounded Prava authority created.");
+    },
+    onError: () => setToast("Prava authority was not created; no payment was attempted."),
+  });
+
   const activeStage = stages.some((item) => item.slug === stage) ? stage : "options";
   const title = view?.request.intent ?? "Decision Room";
 
@@ -538,7 +620,7 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
           <ConversationPanel onReviewSources={() => setLedgerOpen(true)} />
           <div className={styles.structuredCanvas} id="main-content">
             {query.isPending && WEB_DATA_MODE === "api" ? <div className={styles.canvasLoading}><i /><i /><i /></div> : null}
-            {view ? <StageCanvas stage={activeStage} optionsHref={`/decisions/${requestId}/versions/${version}/options`} view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} onExecute={(action) => executionMutation.mutate(action)} pendingExecution={executionMutation.isPending} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>The last verified state cannot be loaded. Retry after the local API is available.</p></div> : versionMismatch || fixtureRequestMissing ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Nothing was substituted</h2><p>The requested immutable decision record is not available in this data mode.</p></div> : null}
+            {view ? <StageCanvas stage={activeStage} optionsHref={`/decisions/${requestId}/versions/${version}/options`} view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} onExecute={(action) => executionMutation.mutate(action)} pendingExecution={executionMutation.isPending} purchaseIntent={purchaseIntent} approval={approval} pravaSession={pravaSession} onPrepareAuthority={() => authorityMutation.mutate()} onApprove={(role) => approveMutation.mutate(role)} onCreatePrava={() => pravaMutation.mutate()} authorityPending={authorityMutation.isPending || approveMutation.isPending || pravaMutation.isPending} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>The last verified state cannot be loaded. Retry after the local API is available.</p></div> : versionMismatch || fixtureRequestMissing ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Nothing was substituted</h2><p>The requested immutable decision record is not available in this data mode.</p></div> : null}
           </div>
         </div>
       </main>
