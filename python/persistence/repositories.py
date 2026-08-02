@@ -945,7 +945,10 @@ class WorkflowRepository:
     async def get_engagement(self, engagement_id: str, *, lock: bool = False) -> Engagement:
         statement = select(Engagement).where(
             Engagement.id == engagement_id,
-            Engagement.organization_id == self.organization_id,
+            or_(
+                Engagement.organization_id == self.organization_id,
+                Engagement.seller_organization_id == self.organization_id,
+            ),
         )
         if lock:
             statement = statement.with_for_update()

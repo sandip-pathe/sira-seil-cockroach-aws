@@ -107,6 +107,7 @@ from .graph_persistence import (
     build_evaluation_graph_write,
     ensure_evaluation_pipeline_version,
 )
+from .marketplace import SellerOrganizationDirectory
 from .providers import PravaRuntimeConfiguration
 
 DEMO_ORGANIZATION_ID = "org_consultco"
@@ -125,6 +126,7 @@ class WorkflowService:
         allow_development_tenant_bootstrap: bool = False,
         browser_return_signer: BrowserReturnStateSigner | None = None,
         browser_return_ttl_seconds: int = 600,
+        seller_directory: SellerOrganizationDirectory | None = None,
     ) -> None:
         self.database = database
         self.fixtures = fixtures
@@ -133,6 +135,7 @@ class WorkflowService:
             "development-only-browser-return-key"  # pragma: allowlist secret
         )
         self.browser_return_ttl_seconds = browser_return_ttl_seconds
+        self.seller_directory = seller_directory
 
     def _fixture_bundle(self) -> DemoFixtureBundle:
         if self.fixtures is None:
@@ -1084,20 +1087,15 @@ class WorkflowService:
         actor_id: str,
         actor_party: str | None,
     ) -> dict[str, Any]:
-        async with self.database.transaction(organization_id) as session:
-            repository = WorkflowRepository(session, organization_id)
-            brief = await self._not_found(
-                repository.get_requirement_brief(brief_id), "REQUIREMENT_BRIEF"
-            )
-            if actor_party == "SELLER":
+        if actor_party == "SELLER":
+            async with self.database.transaction(organization_id) as session:
                 engagement = (
                     await session.execute(
                         select(Engagement).where(
-                            Engagement.organization_id == organization_id,
-                            Engagement.requirement_brief_id == brief.id,
-                            Engagement.requirement_brief_version == brief.version,
-                            Engagement.requirement_brief_hash == brief.content_hash,
+                            Engagement.seller_organization_id == organization_id,
+                            Engagement.requirement_brief_id == brief_id,
                             Engagement.expected_seller_actor_id == actor_id,
+                            Engagement.grant_status == "ACTIVE",
                             Engagement.status.not_in(["DECLINED", "EXPIRED"]),
                         )
                     )
@@ -1111,6 +1109,12 @@ class WorkflowService:
                         ),
                         status_code=403,
                     )
+                return deepcopy(engagement.seller_visible_requirement_brief)
+        async with self.database.transaction(organization_id) as session:
+            repository = WorkflowRepository(session, organization_id)
+            brief = await self._not_found(
+                repository.get_requirement_brief(brief_id), "REQUIREMENT_BRIEF"
+            )
             return self._requirement_brief_view(brief.payload)
 
     async def run_calibration(
@@ -1363,7 +1367,52 @@ class WorkflowService:
                         ),
                         status_code=409,
                     )
+                binding = (
+                    self.seller_directory.resolve(candidate_id)
+                    if self.seller_directory is not None
+                    else None
+                )
+                if binding is None or binding.seller_actor_id != seller_actor_id:
+                    raise ApiProblem(
+                        code="SELLER_ORGANIZATION_BINDING_REQUIRED",
+                        message=(
+                            "The candidate is not bound to a verified seller organization."
+                        ),
+                        status_code=409,
+                        next_action="verify_seller_organization",
+                    )
+                seller_organization = await session.get(
+                    Organization, binding.seller_organization_id
+                )
+                if seller_organization is None:
+                    if not self.allow_development_tenant_bootstrap:
+                        raise ApiProblem(
+                            code="SELLER_ORGANIZATION_BINDING_REQUIRED",
+                            message="The verified seller organization is unavailable.",
+                            status_code=409,
+                        )
+                    session.add(
+                        Organization(
+                            id=binding.seller_organization_id,
+                            name=f"{seller_actor_id} (fictional fixture)",
+                            version=1,
+                        )
+                    )
                 engagement_id = new_id("eng")
+                seller_visible_brief = self._requirement_brief_view(requirement_brief.payload)
+                granted_at = datetime.now(UTC)
+                grant_scope = "SANITIZED_BRIEF_AND_CONTACT_CONSENT"
+                grant_hash = content_hash(
+                    {
+                        "engagement_id": engagement_id,
+                        "buyer_organization_id": organization_id,
+                        "seller_organization_id": binding.seller_organization_id,
+                        "buyer_actor_id": actor_id,
+                        "seller_actor_id": seller_actor_id,
+                        "requirement_brief_hash": requirement_brief.content_hash,
+                        "grant_scope": grant_scope,
+                    }
+                )
                 session.add(
                     Engagement(
                         id=engagement_id,
@@ -1373,8 +1422,14 @@ class WorkflowService:
                         requirement_brief_version=requirement_brief.version,
                         requirement_brief_hash=requirement_brief.content_hash,
                         candidate_id=candidate_id,
+                        seller_organization_id=binding.seller_organization_id,
                         expected_buyer_actor_id=actor_id,
                         expected_seller_actor_id=seller_actor_id,
+                        grant_scope=grant_scope,
+                        grant_status="ACTIVE",
+                        grant_hash=grant_hash,
+                        seller_visible_requirement_brief=seller_visible_brief,
+                        granted_at=granted_at,
                         status="SELLER_REVIEWING",
                         buyer_consented=False,
                         seller_consented=False,
@@ -1439,7 +1494,16 @@ class WorkflowService:
                 if actor_party == "BUYER"
                 else engagement.expected_seller_actor_id
             )
-            if actor_id != expected_actor_id:
+            expected_organization_id = (
+                engagement.organization_id
+                if actor_party == "BUYER"
+                else engagement.seller_organization_id
+            )
+            if (
+                engagement.grant_status != "ACTIVE"
+                or organization_id != expected_organization_id
+                or actor_id != expected_actor_id
+            ):
                 raise ApiProblem(
                     code="CONSENT_ACTOR_MISMATCH",
                     message=(

@@ -378,6 +378,7 @@ async def test_browser_cannot_invent_approval_policy_or_consent_party(
             **idempotency("same-actor-seller"),
             "X-Actor-Id": "usr_same_party",
             "X-Actor-Party": "SELLER",
+            "X-Organization-Id": "org_seller_fixture_d",
         },
         json={"consent": True},
     )
@@ -430,15 +431,32 @@ async def test_selective_engagement_requires_mutual_consent(
     seller_read_headers = {
         "X-Actor-Id": "seller_fixture_d",
         "X-Actor-Party": "SELLER",
+        "X-Organization-Id": "org_seller_fixture_d",
     }
     seller_brief = await api_client.get(
         "/v1/requirement-briefs/rb_consultco_v1", headers=seller_read_headers
     )
     assert seller_brief.status_code == 200, seller_brief.text
     assert "organization_id" not in seller_brief.text.lower()
+    wrong_seller_tenant = await api_client.get(
+        "/v1/requirement-briefs/rb_consultco_v1",
+        headers={
+            "X-Actor-Id": "seller_fixture_d",
+            "X-Actor-Party": "SELLER",
+            "X-Organization-Id": "org_unrelated_seller",
+        },
+    )
+    assert wrong_seller_tenant.status_code == 403
+    assert wrong_seller_tenant.json()["error"]["code"] == (
+        "REQUIREMENT_BRIEF_ENGAGEMENT_REQUIRED"
+    )
     unrelated_seller = await api_client.get(
         "/v1/requirement-briefs/rb_consultco_v1",
-        headers={"X-Actor-Id": "seller_unrelated", "X-Actor-Party": "SELLER"},
+        headers={
+            "X-Actor-Id": "seller_unrelated",
+            "X-Actor-Party": "SELLER",
+            "X-Organization-Id": "org_seller_fixture_d",
+        },
     )
     assert unrelated_seller.status_code == 403, unrelated_seller.text
     assert unrelated_seller.json()["error"]["code"] == ("REQUIREMENT_BRIEF_ENGAGEMENT_REQUIRED")
@@ -472,6 +490,7 @@ async def test_selective_engagement_requires_mutual_consent(
             **idempotency("seller-consent-0001"),
             "X-Actor-Id": "seller_fixture_d",
             "X-Actor-Party": "SELLER",
+            "X-Organization-Id": "org_seller_fixture_d",
         },
         json={"consent": True, "scope": "CONTACT_EXCHANGE"},
     )
@@ -515,6 +534,7 @@ async def test_decline_revokes_contact_and_stale_consent_replays_cannot_restore_
     seller_headers = {
         "X-Actor-Id": "seller_fixture_d",
         "X-Actor-Party": "SELLER",
+        "X-Organization-Id": "org_seller_fixture_d",
     }
     action = await api_client.post(
         "/v1/purchase-requests/req_demo/candidates/fixture_selected_fit/actions",

@@ -17,7 +17,7 @@ from sira_api.dependencies import (
     require_human_identity,
 )
 from sira_api.errors import ApiProblem
-from sira_api.identity import VerifiedPrincipal
+from sira_api.identity import IdentityProviderUnavailable, VerifiedPrincipal
 from sira_api.main import create_app
 
 from persistence.database import Database, DatabaseSettings
@@ -25,6 +25,8 @@ from persistence.database import Database, DatabaseSettings
 
 class FakeIdentityAdapter:
     async def authenticate(self, bearer_token: str) -> VerifiedPrincipal | None:
+        if bearer_token == "identity-provider-outage":
+            raise IdentityProviderUnavailable("safe outage")
         if bearer_token == "verified-test-token":
             return VerifiedPrincipal(
                 organization_id="org_production_test",
@@ -100,6 +102,11 @@ def test_production_configuration_requires_stable_browser_return_signing_key() -
             development_fixture_mode=False,
             demo_reset_enabled=False,
         )
+
+
+def test_production_identity_configuration_is_explicit() -> None:
+    with pytest.raises(ValueError, match="IDENTITY_INTROSPECTION_URL"):
+        production_settings().assert_identity_configuration()
 
 
 def test_app_startup_rechecks_runtime_modes_after_settings_mutation() -> None:
@@ -198,6 +205,20 @@ async def test_production_rejects_unverified_bearer(
     )
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "AUTHENTICATION_FAILED"
+
+
+@pytest.mark.asyncio
+async def test_production_identity_outage_is_retryable_and_safe(
+    production_security_client: httpx.AsyncClient,
+) -> None:
+    response = await production_security_client.get(
+        "/v1/purchase-requests/req_missing/decision-view",
+        headers={"Authorization": "Bearer identity-provider-outage"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "IDENTITY_PROVIDER_UNAVAILABLE"
+    assert "outage" not in response.text.lower()
 
 
 @pytest.mark.asyncio

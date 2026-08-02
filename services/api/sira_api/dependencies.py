@@ -10,7 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .config import ApiSettings
 from .errors import ApiProblem
-from .identity import IdentityAdapter, IdentityKind
+from .identity import IdentityAdapter, IdentityKind, IdentityProviderUnavailable
 from .service import DEMO_ACTOR_ID, DEMO_ORGANIZATION_ID, WorkflowService
 
 
@@ -82,7 +82,16 @@ async def get_request_context(
                 status_code=401,
                 next_action="authenticate",
             )
-        principal = await adapter.authenticate(bearer.credentials)
+        try:
+            principal = await adapter.authenticate(bearer.credentials)
+        except IdentityProviderUnavailable:
+            raise ApiProblem(
+                code="IDENTITY_PROVIDER_UNAVAILABLE",
+                message="Identity verification is temporarily unavailable.",
+                status_code=503,
+                retryable=True,
+                next_action="retry_later",
+            ) from None
         if principal is None:
             raise ApiProblem(
                 code="AUTHENTICATION_FAILED",

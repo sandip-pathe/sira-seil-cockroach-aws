@@ -20,7 +20,12 @@ from .callback_state import BrowserReturnStateSigner
 from .config import ApiSettings, get_settings
 from .errors import ApiProblem
 from .fixtures import DemoFixtureBundle
-from .identity import IdentityAdapter
+from .identity import IdentityAdapter, IntrospectionIdentityAdapter
+from .marketplace import (
+    SellerOrganizationDirectory,
+    SellerPrincipalBinding,
+    StaticSellerOrganizationDirectory,
+)
 from .routes import public_router, router
 from .routes_v2 import router_v2
 from .schemas import ErrorEnvelope
@@ -40,6 +45,7 @@ def create_app(
     settings: ApiSettings | None = None,
     database: Database | None = None,
     identity_adapter: IdentityAdapter | None = None,
+    seller_directory: SellerOrganizationDirectory | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     resolved_settings.assert_safe_runtime()
@@ -51,13 +57,38 @@ def create_app(
         and resolved_database.engine.dialect.name != "postgresql"
     ):
         raise ValueError("production requires a PostgreSQL database engine with RLS support")
+    resolved_identity_adapter = identity_adapter
+    if not resolved_settings.is_development and resolved_identity_adapter is None:
+        resolved_settings.assert_identity_configuration()
+        resolved_identity_adapter = IntrospectionIdentityAdapter(
+            introspection_url=resolved_settings.identity_introspection_url,
+            client_id=resolved_settings.identity_client_id,
+            client_secret=resolved_settings.identity_client_secret.get_secret_value(),
+            expected_issuer=resolved_settings.identity_expected_issuer,
+            expected_audience=resolved_settings.identity_expected_audience,
+            allowed_roles=resolved_settings.identity_roles(),
+            step_up_acr_values=resolved_settings.identity_step_up_values(),
+            step_up_max_age_seconds=resolved_settings.identity_step_up_max_age_seconds,
+        )
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         application.state.settings = resolved_settings
         application.state.database = resolved_database
-        application.state.identity_adapter = identity_adapter
+        application.state.identity_adapter = resolved_identity_adapter
         fixtures = DemoFixtureBundle.load() if resolved_settings.development_fixture_mode else None
+        resolved_seller_directory = seller_directory
+        if resolved_seller_directory is None and fixtures is not None:
+            resolved_seller_directory = StaticSellerOrganizationDirectory(
+                tuple(
+                    SellerPrincipalBinding(
+                        candidate_id=candidate_id,
+                        seller_actor_id=str(pack["seller_id"]),
+                        seller_organization_id=f"org_{pack['seller_id']}",
+                    )
+                    for candidate_id, pack in sorted(fixtures.packs.items())
+                )
+            )
         application.state.workflow_service = WorkflowService(
             resolved_database,
             fixtures,
@@ -66,12 +97,16 @@ def create_app(
                 resolved_settings.browser_return_signing_secret()
             ),
             browser_return_ttl_seconds=resolved_settings.browser_return_ttl_seconds,
+            seller_directory=resolved_seller_directory,
         )
         application.state.seller_evidence_service = SellerEvidenceService(
             resolved_database,
             development_fixture_mode=resolved_settings.development_fixture_mode,
         )
         yield
+        close_identity = getattr(resolved_identity_adapter, "aclose", None)
+        if close_identity is not None:
+            await close_identity()
         await resolved_database.close()
 
     application = FastAPI(

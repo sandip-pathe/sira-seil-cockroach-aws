@@ -937,8 +937,18 @@ class Engagement(Base, TenantOwned, Timestamped):
     requirement_brief_version: Mapped[int] = mapped_column(Integer, nullable=False)
     requirement_brief_hash: Mapped[str] = mapped_column(String(80), nullable=False)
     candidate_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    seller_organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
     expected_buyer_actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
     expected_seller_actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    grant_scope: Mapped[str] = mapped_column(String(80), nullable=False)
+    grant_status: Mapped[str] = mapped_column(String(24), nullable=False)
+    grant_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    seller_visible_requirement_brief: Mapped[dict[str, Any]] = mapped_column(
+        JSON_DOCUMENT, nullable=False
+    )
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String(40), nullable=False)
     buyer_consented: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     seller_consented: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -955,6 +965,18 @@ class Engagement(Base, TenantOwned, Timestamped):
         CheckConstraint(
             "expected_buyer_actor_id <> expected_seller_actor_id",
             name="ck_engagement_distinct_participants",
+        ),
+        CheckConstraint(
+            "organization_id <> seller_organization_id",
+            name="ck_engagement_distinct_organizations",
+        ),
+        CheckConstraint(
+            "grant_scope = 'SANITIZED_BRIEF_AND_CONTACT_CONSENT'",
+            name="ck_engagement_grant_scope",
+        ),
+        CheckConstraint(
+            "grant_status IN ('ACTIVE','REVOKED','EXPIRED')",
+            name="ck_engagement_grant_status",
         ),
         CheckConstraint(
             "requirement_brief_version >= 1",
@@ -977,6 +999,7 @@ class Engagement(Base, TenantOwned, Timestamped):
             ondelete="RESTRICT",
         ),
         Index("ix_engagements_requirement_brief", "requirement_brief_id"),
+        UniqueConstraint("organization_id", "grant_hash", name="uq_engagement_grant_hash"),
     )
 
 
