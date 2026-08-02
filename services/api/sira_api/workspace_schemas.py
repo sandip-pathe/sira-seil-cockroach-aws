@@ -36,6 +36,7 @@ class WorkspaceChatView(BaseModel):
     follow_up_required: bool = False
     panel: Literal["run", "catalog", "connectors", "decisions", "inbox"] = "run"
     products: list[CatalogProductView] = Field(default_factory=list)
+    tool_calls: list[str] = Field(default_factory=list)
     advisory_only: bool = True
 
 

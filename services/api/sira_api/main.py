@@ -102,7 +102,7 @@ def create_app(
                     for candidate_id, pack in sorted(fixtures.packs.items())
                 )
             )
-        application.state.workflow_service = WorkflowService(
+        workflow_service = WorkflowService(
             resolved_database,
             fixtures,
             allow_development_tenant_bootstrap=resolved_settings.is_development,
@@ -113,14 +113,18 @@ def create_app(
             seller_directory=resolved_seller_directory,
             quote_clock=fixture_quote_clock,
         )
-        application.state.seller_evidence_service = SellerEvidenceService(
+        seller_evidence_service = SellerEvidenceService(
             resolved_database,
             development_fixture_mode=resolved_settings.development_fixture_mode,
         )
+        application.state.workflow_service = workflow_service
+        application.state.seller_evidence_service = seller_evidence_service
         application.state.workspace_service = WorkspaceService(
             fixtures,
             api_key=resolved_settings.openai_api_key.get_secret_value(),
             model=resolved_settings.openai_model,
+            workflow_service=workflow_service,
+            seller_evidence_service=seller_evidence_service,
         )
         yield
         close_identity = getattr(resolved_identity_adapter, "aclose", None)

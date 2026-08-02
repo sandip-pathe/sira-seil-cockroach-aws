@@ -46,7 +46,12 @@ import {
 } from "react";
 import { prepareWithSegments, walkLineRanges } from "@chenglou/pretext";
 
-import { buyerDevelopmentHeaders, WEB_DATA_MODE } from "@/lib/api";
+import {
+  buyerDevelopmentHeaders,
+  getBrowserApiClient,
+  sellerEditorDevelopmentHeaders,
+  WEB_DATA_MODE,
+} from "@/lib/api";
 import { WORKSPACE_ACCOUNTS } from "@/components/home/workspace-account";
 import { ProfileSettingsModal } from "@/components/home/profile-preview";
 
@@ -86,6 +91,7 @@ type ChatMessage = {
   content: string;
   meta?: string;
   products?: CatalogProduct[];
+  toolCalls?: string[];
 };
 
 type Conversation = {
@@ -94,12 +100,6 @@ type Conversation = {
   title: string;
   updatedLabel: string;
   messages: ChatMessage[];
-};
-
-type RunStep = {
-  label: string;
-  detail: string;
-  state: "complete" | "current" | "waiting";
 };
 
 type Connector = {
@@ -326,23 +326,6 @@ const SEED_CONVERSATIONS: Record<CommerceWorkspaceMode, Conversation[]> = {
       updatedLabel: "30 Jul",
       messages: [],
     },
-  ],
-};
-
-const RUN_STEPS: Record<CommerceWorkspaceMode, RunStep[]> = {
-  sira: [
-    { label: "Need understood", detail: "Outcome, deadline, and owner captured", state: "complete" },
-    { label: "Company fit", detail: "Private rules and stack checked", state: "complete" },
-    { label: "Compare actions", detail: "Evaluating 10 supported actions", state: "current" },
-    { label: "Authority", detail: "Waiting for an exact plan", state: "waiting" },
-    { label: "Verify result", detail: "Starts after execution", state: "waiting" },
-  ],
-  seil: [
-    { label: "Product identity", detail: "Claim and seller scope confirmed", state: "complete" },
-    { label: "Claims compiled", detail: "9 of 12 required fields complete", state: "complete" },
-    { label: "Evidence check", detail: "Retention source needs attention", state: "current" },
-    { label: "Independent review", detail: "Waiting for a valid revision", state: "waiting" },
-    { label: "Publish", detail: "Available after approval", state: "waiting" },
   ],
 };
 
@@ -616,52 +599,67 @@ function Sidebar({
   );
 }
 
-function RunPanel({ mode, running }: { mode: CommerceWorkspaceMode; running: boolean }) {
-  const steps = RUN_STEPS[mode];
-  const completeCount = steps.filter((step) => step.state === "complete").length;
+const TOOL_LABELS: Record<string, string> = {
+  search_published_products: "Searched published products",
+  get_published_product: "Read published product evidence",
+  get_purchase_request: "Read purchase request",
+  get_purchase_brief: "Read purchase brief",
+  get_stack_snapshot: "Checked company stack",
+  get_decision_view: "Read current decision",
+  get_decision_ledger: "Read decision ledger",
+  get_decision_counterfactuals: "Checked counterfactuals",
+  get_purchase_status: "Checked purchase status",
+  search_seller_products: "Searched seller products",
+  get_seller_product_view: "Inspected product evidence health",
+  get_seller_pack_draft: "Read evidence-pack draft",
+  get_seller_pack_exports: "Checked published exports",
+  get_engagement_requirement_brief: "Read shared buyer requirements",
+};
+
+function RunPanel({ mode, running, conversation }: { mode: CommerceWorkspaceMode; running: boolean; conversation: Conversation | null }) {
+  const latestAssistant = conversation?.messages.findLast((message) => message.role === "assistant" && Boolean(message.content));
+  const latestUser = conversation?.messages.findLast((message) => message.role === "user");
+  const toolCalls = latestAssistant?.toolCalls ?? [];
+  const hasRun = Boolean(latestAssistant);
 
   return (
     <div className={styles.contextBody}>
       <section className={styles.runHero}>
         <div className={styles.runEyebrow}>
           <span className={styles.liveDot} />
-          {WEB_DATA_MODE === "fixture" ? (running ? "Preview response" : "Sample agent run") : (running ? "Agent working" : "Current agent run")}
+          {running ? "Agent working" : hasRun ? "Latest completed run" : "No run yet"}
         </div>
-        <h2>{mode === "sira" ? "Meeting-intelligence decision" : "Product Evidence review"}</h2>
-        <p>
-          {mode === "sira"
-            ? "SIRA is checking company fit before it recommends an exact action."
-            : "SEIL is checking the seller record before it can enter independent review."}
-        </p>
-        <div className={styles.progressTrack} aria-label={`${completeCount} of ${steps.length} steps completed`}>
-          <span style={{ width: `${((completeCount + (running ? 0.5 : 1)) / steps.length) * 100}%` }} />
-        </div>
-        <div className={styles.runMeta}>
-          <span>{completeCount} complete</span>
-          <span>{steps.length - completeCount} remaining</span>
-        </div>
+        <h2>{conversation?.title ?? `${MODE_COPY[mode].name} workspace`}</h2>
+        <p>{running ? `Processing: ${latestUser?.content ?? "your request"}` : hasRun ? "This is the activity reported by the latest agent response." : `Send a message to start a real ${MODE_COPY[mode].name} run.`}</p>
       </section>
 
       <section className={styles.contextSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <span>Plan</span>
-            <h3>What the agent is doing</h3>
+            <span>Activity</span>
+            <h3>{running ? "Run in progress" : "Tools used"}</h3>
           </div>
           {running ? <LoaderCircle className={styles.spin} aria-label="Running" /> : <Activity aria-hidden="true" />}
         </div>
         <ol className={styles.runSteps}>
-          {steps.map((step) => (
-            <li data-state={step.state} key={step.label}>
+          {running ? (
+            <li data-state="current">
               <span className={styles.stepIcon}>
-                {step.state === "complete" ? <Check aria-hidden="true" /> : step.state === "current" ? <LoaderCircle aria-hidden="true" /> : <Circle aria-hidden="true" />}
+                <LoaderCircle aria-hidden="true" />
               </span>
-              <div>
-                <strong>{step.label}</strong>
-                <small>{step.detail}</small>
-              </div>
+              <div><strong>Agent is processing</strong><small>Exact tool activity appears when the run completes.</small></div>
             </li>
-          ))}
+          ) : toolCalls.length ? toolCalls.map((tool) => (
+            <li data-state="complete" key={tool}>
+              <span className={styles.stepIcon}><Check aria-hidden="true" /></span>
+              <div><strong>{TOOL_LABELS[tool] ?? tool.replaceAll("_", " ")}</strong><small>{tool}</small></div>
+            </li>
+          )) : (
+            <li data-state={hasRun ? "complete" : "waiting"}>
+              <span className={styles.stepIcon}>{hasRun ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}</span>
+              <div><strong>{hasRun ? "Answered without tools" : "Waiting for a message"}</strong><small>{hasRun ? "The latest response did not call an application tool." : "No agent activity has been recorded."}</small></div>
+            </li>
+          )}
         </ol>
       </section>
 
@@ -683,7 +681,47 @@ function RunPanel({ mode, running }: { mode: CommerceWorkspaceMode; running: boo
   );
 }
 
+function AgentWorkingState({ mode }: { mode: CommerceWorkspaceMode }) {
+  const stages = mode === "sira"
+    ? ["Understanding your request", "Checking buyer context and product tools", "Preparing a recommendation"]
+    : ["Understanding your product task", "Checking seller evidence and pack tools", "Preparing the next step"];
+  const [stage, setStage] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setStage((current) => Math.min(current + 1, stages.length - 1));
+    }, 1800);
+    return () => window.clearInterval(timer);
+  }, [stages.length]);
+
+  return (
+    <div className={styles.typingState} role="status" aria-live="polite">
+      <span className={styles.thinkingMark} aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
+      <span>{stages[stage]}</span>
+    </div>
+  );
+}
+
 function SiraWorkPanel() {
+  if (WEB_DATA_MODE !== "fixture") {
+    return (
+      <div className={styles.contextBody}>
+        <section className={styles.documentHeader}>
+          <span>Decision details</span>
+          <h2>No decision selected</h2>
+          <p>A real decision will appear here after SIRA has enough context and the backend creates a decision record.</p>
+        </section>
+        <section className={styles.contextSection}>
+          <div className={styles.sectionHeading}><div><span>Current state</span><h3>Continue in chat</h3></div><MessageSquare aria-hidden="true" /></div>
+          <p className={styles.sectionCopy}>Describe the outcome, users, deadline, constraints, budget, and approval path. This panel will not invent missing decision data.</p>
+        </section>
+      </div>
+    );
+  }
   return (
     <div className={styles.contextBody}>
       <section className={styles.documentHeader}>
@@ -737,6 +775,21 @@ function SiraWorkPanel() {
 }
 
 function SeilWorkPanel() {
+  if (WEB_DATA_MODE !== "fixture") {
+    return (
+      <div className={styles.contextBody}>
+        <section className={styles.documentHeader}>
+          <span>Product details</span>
+          <h2>No product selected</h2>
+          <p>Select a seller product returned by SEIL before Product Evidence and pack health appear here.</p>
+        </section>
+        <section className={styles.contextSection}>
+          <div className={styles.sectionHeading}><div><span>Current state</span><h3>Continue in chat</h3></div><MessageSquare aria-hidden="true" /></div>
+          <p className={styles.sectionCopy}>Ask SEIL to search your products or inspect an exact product ID. This panel will show only backend-supplied evidence.</p>
+        </section>
+      </div>
+    );
+  }
   return (
     <div className={styles.contextBody}>
       <section className={styles.documentHeader}>
@@ -965,6 +1018,7 @@ function ProductPanel({ product, onBack }: { product: CatalogProduct | null; onB
 
 function ContextPanel({
   mode,
+  conversation,
   tab,
   running,
   expanded,
@@ -977,6 +1031,7 @@ function ContextPanel({
   onStartChat,
 }: {
   mode: CommerceWorkspaceMode;
+  conversation: Conversation | null;
   tab: CommerceContextTab;
   running: boolean;
   expanded: boolean;
@@ -1019,7 +1074,7 @@ function ContextPanel({
       </div>
 
       <div className={styles.contextScroller}>
-        {tab === "run" ? <RunPanel mode={mode} running={running} /> : null}
+        {tab === "run" ? <RunPanel mode={mode} running={running} conversation={conversation} /> : null}
         {tab === "work" && mode === "sira" ? <SiraWorkPanel /> : null}
         {tab === "work" && mode === "seil" ? <SeilWorkPanel /> : null}
         {tab === "decisions" ? <DecisionsPanel onStart={onStartChat} /> : null}
@@ -1195,21 +1250,23 @@ export function CommerceWorkspace({
     responseAbortRef.current = controller;
     try {
       const history = selectedConversation.messages.slice(-12).map(({ role, content }) => ({ role, content }));
-      const response = await fetch("/v1/workspace/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...buyerDevelopmentHeaders },
-        body: JSON.stringify({ mode: targetMode, message: value, history }),
+      const payload = await getBrowserApiClient().request("workspace_chat", {
+        headers: {
+          ...(targetMode === "seil"
+            ? sellerEditorDevelopmentHeaders
+            : buyerDevelopmentHeaders),
+        },
+        body: { mode: targetMode, message: value, history },
         signal: controller.signal,
       });
-      const payload = await response.json() as { message?: string; panel?: CommerceContextTab; products?: CatalogProduct[]; error?: { message?: string } };
-      if (!response.ok) throw new Error(payload.error?.message ?? "SIRA could not respond.");
+      const panel = payload.panel as CommerceContextTab;
       const products = payload.products ?? [];
       if (products.length) setCatalogProducts(products);
       updateConversation(targetMode, conversationId, (conversation) => ({
         ...conversation,
-        messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: payload.message ?? "I need a little more context.", meta: "Context updated", products } : message),
+        messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: payload.message ?? "I need a little more context.", meta: "Context updated", products, toolCalls: payload.tool_calls ?? [] } : message),
       }));
-      if (payload.panel) openContext(payload.panel);
+      if (panel) openContext(panel);
     } catch (error) {
       if (!controller.signal.aborted) {
         updateConversation(targetMode, conversationId, (conversation) => ({
@@ -1290,7 +1347,6 @@ export function CommerceWorkspace({
             </div>
           </div>
           <div className={styles.chatHeaderActions}>
-            <span className={styles.privacyHeader}><LockKeyhole aria-hidden="true" /> {MODE_COPY[mode].privacy}</span>
             <button type="button" onClick={() => { setContextOpen(true); if (compact) setSidebarOpen(false); }} aria-label="Open work panel" title="Open work panel">
               <PanelRightOpen aria-hidden="true" />
             </button>
@@ -1337,9 +1393,9 @@ export function CommerceWorkspace({
                 </article>
               ) : (
                 <article className={styles.assistantMessage} key={message.id}>
-                  {message.meta ? <p className={styles.messageMeta}><Sparkles aria-hidden="true" /> {message.meta}</p> : null}
+                  {message.meta && message.content ? <p className={styles.messageMeta}><Sparkles aria-hidden="true" /> {message.meta}</p> : null}
                   {message.content ? <ChatMessageBody content={message.content} /> : (
-                    <div className={styles.typingState} role="status"><LoaderCircle className={styles.spin} aria-hidden="true" /> Working through the current context...</div>
+                    <AgentWorkingState mode={mode} />
                   )}
                   {message.products?.length ? (
                     <div className={styles.messageProductShelf} aria-label="Matching products">
@@ -1401,13 +1457,17 @@ export function CommerceWorkspace({
               </div>
             </div>
           </div>
-          <p className={styles.composerBoundary}>{WEB_DATA_MODE === "fixture" ? `Development preview · no message or file leaves this browser. ${MODE_COPY[mode].privacy}.` : `${MODE_COPY[mode].privacy}. Agent suggestions are advisory; approvals and purchases use server-owned workflows.`}</p>
+          <p className={styles.composerBoundary}>
+            <LockKeyhole aria-hidden="true" />
+            {MODE_COPY[mode].privacy}. Agent suggestions are advisory; approvals and purchases use server-owned workflows.
+          </p>
         </div>
       </section>
 
       {contextOpen ? (
         <ContextPanel
           mode={mode}
+          conversation={selectedConversation}
           tab={contextTab}
           running={running}
           expanded={contextExpanded}

@@ -3,6 +3,7 @@
 from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, Request
+from sira_agents.runtime import AgentRunContext
 
 from .dependencies import (
     RequestContext,
@@ -32,10 +33,40 @@ ServiceDependency = Annotated[WorkspaceService, Depends(get_workspace_service)]
 
 @workspace_router.post("/v1/workspace/chat", response_model=WorkspaceChatView, tags=["workspace"])
 async def workspace_chat(
-    body: WorkspaceChatCreate, context: ContextDependency, service: ServiceDependency
+    body: WorkspaceChatCreate,
+    request: Request,
+    context: ContextDependency,
+    service: ServiceDependency,
 ) -> dict[str, object]:
-    require_permission(context, "can_view_context")
-    return await service.chat(body)
+    if body.mode == "seil" and context.party != "SELLER":
+        raise ApiProblem(
+            code="SEIL_IDENTITY_REQUIRED",
+            message="SEIL requires an authenticated seller identity.",
+            status_code=403,
+            next_action="use_authorized_seller_identity",
+        )
+    if body.mode == "sira" and context.party == "SELLER":
+        raise ApiProblem(
+            code="SIRA_IDENTITY_REQUIRED",
+            message="SIRA requires an authenticated buyer identity.",
+            status_code=403,
+            next_action="use_authorized_buyer_identity",
+        )
+    if body.mode == "sira":
+        require_permission(context, "can_view_context")
+    return await service.chat(
+        body,
+        run_context=AgentRunContext(
+            organization_id=context.organization_id,
+            actor_id=context.actor_id,
+            actor_roles=context.roles,
+            permissions=context.roles,
+            party=context.party,
+            step_up_verified=context.step_up_verified,
+            request_id=request.state.request_id,
+            services=service.agent_services(),
+        ),
+    )
 
 
 @workspace_router.get(

@@ -1074,8 +1074,8 @@ class SellerEvidenceService:
             publisher_authority=PackAuthority.SELLER_SEALED.value,
             state=SellerEvidenceState.SELLER_DRAFT.value,
             owner_actor_id="seller_fixture_d",
-            current_draft_id="draft_fixture_d",
-            current_pack_version_id="pack_fixture_d_v1",
+            current_draft_id=None,
+            current_pack_version_id=None,
             current_version=2,
             fixture_label=DEMO_FIXTURE_LABEL,
             created_at=now,
@@ -1225,7 +1225,16 @@ class SellerEvidenceService:
             published_at=now - timedelta(days=60),
             superseded_by_version_id=None,
         )
-        session.add_all([product, unclaimed, draft, revision, stale_evidence, pack])
+        # PostgreSQL enforces these foreign keys during fixture bootstrap. Insert
+        # the graph in dependency order, then bind the product's current pointers.
+        session.add_all([product, unclaimed])
+        await session.flush()
+        session.add(draft)
+        await session.flush()
+        session.add_all([revision, stale_evidence, pack])
+        await session.flush()
+        product.current_draft_id = draft.id
+        product.current_pack_version_id = pack.id
         await session.flush()
         await self._create_exports(session, organization_id, pack)
         events = [

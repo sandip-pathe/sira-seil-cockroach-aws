@@ -4,7 +4,12 @@ from dataclasses import dataclass, field
 
 import pytest
 from sira_agents.guardrails import AgentBoundaryViolation
-from sira_agents.runtime import AgentRole, AgentRunRequest, OpenAIAgentsRuntime
+from sira_agents.runtime import (
+    AgentRole,
+    AgentRunContext,
+    AgentRunRequest,
+    OpenAIAgentsRuntime,
+)
 
 
 @dataclass
@@ -35,6 +40,7 @@ class FakeSdk:
         agent: object,
         input_text: str,
         *,
+        context: AgentRunContext | None,
         max_turns: int,
         workflow_name: str,
     ) -> object:
@@ -44,6 +50,7 @@ class FakeSdk:
                 {
                     "agent": agent,
                     "input": input_text,
+                    "context": context,
                     "max_turns": max_turns,
                     "workflow_name": workflow_name,
                 },
@@ -66,7 +73,12 @@ async def test_runtime_is_advisory_and_uses_only_registered_tools() -> None:
             role=AgentRole.SIRA,
             instructions="Extract facts.",
             prompt="Summarize the supported facts.",
-            context={"organization_id": "org_consultco"},
+            model_context={"purchase_goal": "meeting intelligence"},
+            run_context=AgentRunContext(
+                organization_id="org_consultco",
+                actor_id="actor_buyer",
+                permissions=frozenset({"buyer:read"}),
+            ),
             allowed_tools=("retrieve_evidence",),
         )
     )
@@ -87,7 +99,7 @@ async def test_seil_payload_rejects_private_buyer_context() -> None:
                 role=AgentRole.SEIL,
                 instructions="Explain fit.",
                 prompt="Explain.",
-                context={"buyer_passport": {"hidden_budget": "100.00"}},
+                model_context={"buyer_passport": {"hidden_budget": "100.00"}},
             )
         )
 
@@ -102,7 +114,9 @@ async def test_all_model_payloads_reject_credentials_and_card_like_values() -> N
                 role=AgentRole.SIRA,
                 instructions="Extract.",
                 prompt="Extract.",
-                context={"prava_secret_key": "do-not-send"},  # pragma: allowlist secret
+                model_context={
+                    "prava_secret_key": "do-not-send"  # pragma: allowlist secret
+                },
             )
         )
 
@@ -112,7 +126,7 @@ async def test_all_model_payloads_reject_credentials_and_card_like_values() -> N
                 role=AgentRole.SIRA,
                 instructions="Extract.",
                 prompt="Extract.",
-                context={"note": "4111 1111 1111 1111"},
+                model_context={"note": "4111 1111 1111 1111"},
             )
         )
 
@@ -128,8 +142,35 @@ async def test_unknown_tool_is_rejected_before_sdk_execution() -> None:
                 role=AgentRole.SIRA,
                 instructions="Extract.",
                 prompt="Extract.",
-                context={},
+                model_context={},
                 allowed_tools=("checkout",),
             )
         )
     assert sdk.calls == []
+
+
+@pytest.mark.asyncio
+async def test_private_run_context_is_passed_to_tools_but_not_model_input() -> None:
+    sdk = FakeSdk()
+    runtime = OpenAIAgentsRuntime(model="test", _sdk=sdk)
+    private_context = AgentRunContext(
+        organization_id="org_private",
+        actor_id="actor_private",
+        services={"credential_handle": object()},
+    )
+
+    await runtime.run(
+        AgentRunRequest(
+            role=AgentRole.SIRA,
+            instructions="Explain.",
+            prompt="Explain.",
+            model_context={"allowed_fact": "public"},
+            run_context=private_context,
+        )
+    )
+
+    run_call = sdk.calls[1][1]
+    assert isinstance(run_call, dict)
+    assert run_call["context"] is private_context
+    assert "org_private" not in str(run_call["input"])
+    assert "actor_private" not in str(run_call["input"])

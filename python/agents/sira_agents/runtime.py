@@ -17,11 +17,32 @@ class AgentRole(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class AgentRunContext:
+    """Private application state available to tools, never serialized for the model."""
+
+    organization_id: str
+    actor_id: str
+    actor_roles: frozenset[str] = frozenset()
+    permissions: frozenset[str] = frozenset()
+    party: str | None = None
+    step_up_verified: bool = False
+    request_id: str | None = None
+    services: Mapping[str, object] = field(default_factory=dict, compare=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if not self.organization_id.strip():
+            raise ValueError("agent run context requires organization_id")
+        if not self.actor_id.strip():
+            raise ValueError("agent run context requires actor_id")
+
+
+@dataclass(frozen=True, slots=True)
 class AgentRunRequest:
     role: AgentRole
     instructions: str
     prompt: str
-    context: Mapping[str, Any]
+    model_context: Mapping[str, Any]
+    run_context: AgentRunContext | None = None
     allowed_tools: tuple[str, ...] = ()
     output_type: type[Any] | None = None
 
@@ -29,6 +50,7 @@ class AgentRunRequest:
 @dataclass(frozen=True, slots=True)
 class AgentRunResult:
     output: object
+    tool_calls: tuple[str, ...] = ()
     runtime: str = "openai-agents"
     advisory_only: bool = True
     ranking_effect: bool = False
@@ -45,11 +67,18 @@ class _SdkFacade(Protocol):
         output_type: type[Any] | None,
     ) -> object: ...
 
+
+@dataclass(frozen=True, slots=True)
+class _SdkRunOutcome:
+    output: object
+    tool_calls: tuple[str, ...]
+
     async def run(
         self,
         agent: object,
         input_text: str,
         *,
+        context: AgentRunContext | None,
         max_turns: int,
         workflow_name: str,
     ) -> object: ...
@@ -84,15 +113,17 @@ class _OpenAISdkFacade:
         agent: object,
         input_text: str,
         *,
+        context: AgentRunContext | None,
         max_turns: int,
         workflow_name: str,
     ) -> object:
-        from agents import RunConfig, Runner
+        from agents import RunConfig, Runner, ToolCallItem
 
         sdk_runner: Any = Runner
         result: Any = await sdk_runner.run(
             agent,
             input_text,
+            context=context,
             max_turns=max_turns,
             run_config=RunConfig(
                 tracing_disabled=True,
@@ -101,7 +132,12 @@ class _OpenAISdkFacade:
             ),
         )
         output: object = result.final_output
-        return output
+        tool_calls = tuple(
+            item.tool_name
+            for item in result.new_items
+            if isinstance(item, ToolCallItem) and item.tool_name is not None
+        )
+        return _SdkRunOutcome(output=output, tool_calls=tool_calls)
 
 
 @dataclass(slots=True)
@@ -118,7 +154,7 @@ class OpenAIAgentsRuntime:
         payload = {
             "role": request.role.value,
             "prompt": request.prompt,
-            "context": request.context,
+            "context": request.model_context,
         }
         validate_agent_payload(payload, seller_visible=seller_visible)
 
@@ -135,10 +171,13 @@ class OpenAIAgentsRuntime:
             tools=resolved_tools,
             output_type=request.output_type,
         )
-        output = await self._sdk.run(
+        outcome = await self._sdk.run(
             agent,
             json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str),
+            context=request.run_context,
             max_turns=self.max_turns,
             workflow_name=f"sira-seil-{request.role.value.lower()}",
         )
-        return AgentRunResult(output=output)
+        if isinstance(outcome, _SdkRunOutcome):
+            return AgentRunResult(output=outcome.output, tool_calls=outcome.tool_calls)
+        return AgentRunResult(output=outcome)
