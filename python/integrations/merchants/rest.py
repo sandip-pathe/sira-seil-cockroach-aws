@@ -385,9 +385,7 @@ class ControlledMerchantRestAdapter:
                 retryable=False,
             ) from None
 
-    async def request_refund(
-        self, request: MerchantRefundRequest
-    ) -> MerchantRefundResult:
+    async def request_refund(self, request: MerchantRefundRequest) -> MerchantRefundResult:
         operation = "request_refund"
         order_id = validate_identifier(
             request.merchant_order_id,
@@ -405,13 +403,9 @@ class ControlledMerchantRestAdapter:
                 "reason_code": request.reason_code,
             },
         )
-        return self._parse_refund(
-            response, operation=operation, request=request
-        )
+        return self._parse_refund(response, operation=operation, request=request)
 
-    async def reconcile_refund(
-        self, request: MerchantRefundRequest
-    ) -> MerchantRefundResult:
+    async def reconcile_refund(self, request: MerchantRefundRequest) -> MerchantRefundResult:
         operation = "reconcile_refund"
         key = quote(request.idempotency_key, safe="")
         response = await self._request(
@@ -419,9 +413,7 @@ class ControlledMerchantRestAdapter:
             f"/v1/refunds/by-idempotency-key/{key}",
             operation=operation,
         )
-        return self._parse_refund(
-            response, operation=operation, request=request
-        )
+        return self._parse_refund(response, operation=operation, request=request)
 
     async def aclose(self) -> None:
         await self._client.aclose()

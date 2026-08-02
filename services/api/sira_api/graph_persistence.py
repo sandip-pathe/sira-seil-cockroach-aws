@@ -242,9 +242,7 @@ def _candidate_members(
         for record_id in identity.record_ids
     }
     duplicate_ids = {item.merged_record_id for item in evaluation.identity_merges}
-    exclusion_by_record = {
-        item.record_id: item for item in evaluation.recall_exclusions
-    }
+    exclusion_by_record = {item.record_id: item for item in evaluation.recall_exclusions}
     rows: list[CandidateSetMember] = []
     ordinal = 0
     for candidate in sorted(decision_input.candidates, key=lambda item: item.record_id):
@@ -253,9 +251,9 @@ def _candidate_members(
         if identity is None and exclusion is None:
             raise ValueError(f"Candidate {candidate.record_id} is absent from graph discovery")
         if exclusion is not None:
-            canonical_identity_id = "excluded_" + content_hash(
-                candidate.record_id
-            ).split(":", 1)[1][:20]
+            canonical_identity_id = (
+                "excluded_" + content_hash(candidate.record_id).split(":", 1)[1][:20]
+            )
             disposition = "EXCLUDED"
             canonical_identity: dict[str, Any] | None = None
             exclusion_payload: dict[str, str] | None = {

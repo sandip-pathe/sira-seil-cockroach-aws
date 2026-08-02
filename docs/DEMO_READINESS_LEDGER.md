@@ -4,7 +4,7 @@ Updated: 2026-08-02
 
 Branch reviewed: `core-backend`
 
-Implementation reviewed through: `942712f` plus the current post-purchase batch
+Implementation reviewed through: `7842367` plus the current operational-safeguards batch
 
 This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes that followed it. It is the short, current checklist for the demo; the earlier audit remains useful background but its original P0 verdict is stale.
 
@@ -44,6 +44,7 @@ This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes t
 | CORE-10 | **FIXED IN CODE:** Outcome checkpoints bind the exact decision, selected plan, versioned Purchase Brief metric, direction, target, and window. Measurement starts at the canonical verified-fulfillment transition, raw source references are hashed, and a missed outcome creates a review proposal with no ranking or policy effect. | Purchase Brief schema/fixture, compiler propagation, outcome API and frozen OpenAPI/client tests; migration `e7b4c2d8f105`. |
 | CORE-11 | **PASS:** Reuse, deliberate `NO_ACTION`, and `NO_ELIGIBLE_SUPPORTED_ACTION` are separate deterministic outcomes. Reuse and no-action require no payment and can be selected autonomously only after hard gates and stable ordering; an unavailable universe cannot masquerade as a no-buy recommendation. | Coherent graph-level winner scenarios in `tests/unit/test_decision_graph_v1.py`. |
 | SEC-01 | **PASS IN CODE:** Production defaults fail closed, fixture adapters are labelled, tenant scoping/RLS policies exist, and the one-time Prava credential stays out of persistence, payloads, workflow history, and errors. | Production-boundary, provider, worker, and contract tests. |
+| OPS-01 | **FIXED IN REPOSITORY:** Backend CI now installs the exact Python and Node lockfiles, runs lint/format/strict typing, executes the full suite against a real PostgreSQL 16 service, checks frozen OpenAPI/generated-client drift, and scans the current tree for credentials. The workflow has read-only repository permission, no persisted checkout credential, cancellation for obsolete runs, and a 20-minute ceiling. | `.github/workflows/backend.yml`; first hosted run remains unverified until this batch is pushed. |
 
 ## Required on the laptop for the demo
 
@@ -53,7 +54,7 @@ This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes t
 | DB-02 | P0 | **Run the idempotency race against live PostgreSQL.** The code fix is tested with mocks but database transaction behavior has not been certified locally. | Two concurrent first requests produce one canonical idempotency record and no 500/duplicate intent. |
 | DB-03 | P0 | **Certify the cross-organization engagement RLS migration on PostgreSQL.** | The buyer and bound seller tenants can read the same sanitized engagement; an unrelated tenant cannot read/update it; seller access never reaches Buyer Passport, Purchase Brief, Stackfile, or buyer-owned Requirement Brief rows. |
 | DEMO-02 | P0 | **Complete one laptop startup smoke test.** | Fresh setup starts web/API/worker, health reports the expected mode, migrations are current, and the chosen scripted path survives a refresh without changing hashes/state. |
-| UI-01 | P0, UI owner | **Wire or deliberately scope the visible journey.** | The user can complete the claimed demo path; unavailable provider actions remain disabled and honestly labelled rather than reporting fake success. |
+| UI-01 | P0, UI owner | **Wire or deliberately scope the visible journey.** The current laptop-owned web check fails because two `DecisionRequestView` samples in `apps/web/components/decisions/decision-surfaces.tsx` do not provide the required `evaluation_mode`. | The web typecheck passes, the user can complete the claimed demo path, and unavailable provider actions remain disabled and honestly labelled rather than reporting fake success. |
 
 Docker is not required for these checks. A local laptop PostgreSQL/Temporal setup or reachable services on the laptop can be used.
 
@@ -73,12 +74,15 @@ Until those pass, demonstrate the deterministic transaction state machine with l
 
 | Check | Current evidence |
 |---|---|
-| Full local regression | **PASS:** 300 tests; **2 skipped** only because the dedicated laptop PostgreSQL test URL is not configured here. |
+| Full local regression | **PASS:** 303 tests; **2 skipped** only because the dedicated laptop PostgreSQL test URL is not configured here. |
 | Approval-revocation regression | **PASS:** 37 focused API, domain, and worker tests; frozen OpenAPI and generated client checks pass. |
 | Persistence-focused run | **PASS:** 73 tests; **2 skipped** because `SIRA_TEST_DATABASE_ADMIN_URL` was not set to a dedicated `sira_test` PostgreSQL database. |
 | Python lint | **PASS:** Ruff. |
-| Python typing | **PASS:** strict mypy across 83 source files. |
-| Credential scan | **PASS for this batch:** no finding across 37 changed code/contract files. The full-repository walk timed out here; history mode also still needs an audited baseline before it can be called green. |
+| Python typing | **PASS:** strict mypy across 84 source files. |
+| Python formatting | **PASS:** all 143 Python files match the configured Ruff formatter. |
+| Frozen contracts | **PASS:** OpenAPI and generated TypeScript client are current; the shared client typecheck passes. |
+| Credential scan | **PASS:** source, configuration, fixtures, migrations, and reachable Git history were checked with project rules plus `detect-secrets`; no credential was detected. Current files receive entropy detection; history ignores entropy-only hits from frozen content hashes while retaining credential-signature detectors. |
+| Web application | **FAIL, laptop-owned:** two sample `DecisionRequestView` objects lack `evaluation_mode`; backend/client contract checks remain green and no `apps/web/**` file was changed in this batch. |
 | Live providers | **NOT RUN:** credentials and reachable sandbox services are required. |
 | Full browser purchase E2E | **NOT RUN:** UI/provider composition is incomplete and owned by the laptop work. |
 

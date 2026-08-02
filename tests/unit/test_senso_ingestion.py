@@ -36,9 +36,7 @@ class FakeExtractor:
     advisory_only: bool = True
     ranking_effect: bool = False
 
-    async def extract_buyer_facts(
-        self, *, prompt: str, private_context: dict[str, Any]
-    ) -> object:
+    async def extract_buyer_facts(self, *, prompt: str, private_context: dict[str, Any]) -> object:
         self.calls.append({"prompt": prompt, "context": private_context})
         return type(
             "Extraction",
@@ -137,19 +135,14 @@ async def test_senso_evidence_becomes_human_accepted_hash_bound_source_fact() ->
     assert compiled.provenance.evidence_hash == result.proposals[0].evidence_hash
     assert extractor.calls[0]["context"]["content_trust"] == "UNTRUSTED_EVIDENCE_DATA"
     assert (
-        extractor.calls[0]["context"]["documents"][0]["trust_boundary"]
-        == "UNTRUSTED_EVIDENCE_DATA"
+        extractor.calls[0]["context"]["documents"][0]["trust_boundary"] == "UNTRUSTED_EVIDENCE_DATA"
     )
 
 
 @pytest.mark.asyncio
 async def test_agent_cannot_supply_authority_or_decision_fields() -> None:
     extractor = FakeExtractor(
-        {
-            "facts": [
-                _proposal(extra={"rank": 1, "authority": "policy_owner"})
-            ]
-        }
+        {"facts": [_proposal(extra={"rank": 1, "authority": "policy_owner"})]}
     )
 
     with pytest.raises(ValueError, match="authority-bearing fields"):
@@ -222,12 +215,8 @@ async def test_embedded_instructions_require_explicit_adversarial_review() -> No
         "SECRET_EXFILTRATION_REQUEST",
     )
     fact = reviewed.source.buyer_passport["facts"][-1]
-    assert fact["source"]["content_flags"] == list(
-        reviewed.proposals[0].adversarial_flags
-    )
-    assert fact["verification"]["method"] == (
-        "senso_evidence_owner_and_adversarial_review"
-    )
+    assert fact["source"]["content_flags"] == list(reviewed.proposals[0].adversarial_flags)
+    assert fact["verification"]["method"] == ("senso_evidence_owner_and_adversarial_review")
 
 
 @pytest.mark.asyncio
@@ -248,11 +237,7 @@ async def test_non_advisory_extractor_result_is_rejected() -> None:
 @pytest.mark.asyncio
 async def test_agent_support_must_be_an_exact_span_from_the_exact_version() -> None:
     extractor = FakeExtractor(
-        {
-            "facts": [
-                _proposal(extra={"supporting_text": "The policy definitely requires MFA."})
-            ]
-        }
+        {"facts": [_proposal(extra={"supporting_text": "The policy definitely requires MFA."})]}
     )
 
     with pytest.raises(ValueError, match="exact source-document span"):
@@ -279,7 +264,5 @@ async def test_unversioned_retrieval_is_blocked_before_model_extraction() -> Non
     )
 
     assert result.state == "BLOCKED_NO_VERSIONED_EVIDENCE"
-    assert result.retrieval_exclusions == (
-        "content_procurement_policy:UNVERSIONED_SEARCH_HIT",
-    )
+    assert result.retrieval_exclusions == ("content_procurement_policy:UNVERSIONED_SEARCH_HIT",)
     assert extractor.calls == []

@@ -163,9 +163,7 @@ def _predicate_matches(value: FactValue, predicate: Predicate) -> bool:
     if predicate.operator == "neq":
         return not _strict_equal(value, expected)
     if predicate.operator == "in":
-        return isinstance(expected, tuple) and any(
-            _strict_equal(value, item) for item in expected
-        )
+        return isinstance(expected, tuple) and any(_strict_equal(value, item) for item in expected)
     if predicate.operator == "contains_all":
         return (
             isinstance(value, tuple)
@@ -384,9 +382,7 @@ def _evaluate_gate(
             )
             continue
 
-        field_states = _component_field_states(
-            material, predicate.field, assessment_index
-        )
+        field_states = _component_field_states(material, predicate.field, assessment_index)
         states_by_evidence = {item.state for item in field_states}
         if EvidenceState.CONFLICT in states_by_evidence:
             states.append(TruthValue.CONFLICT)
@@ -421,10 +417,7 @@ def _evaluate_gate(
             for field_state in field_states:
                 states.append(
                     TruthValue.TRUE
-                    if all(
-                        _predicate_matches(value, predicate)
-                        for value in field_state.values
-                    )
+                    if all(_predicate_matches(value, predicate) for value in field_state.values)
                     else TruthValue.FALSE
                 )
 
@@ -647,9 +640,7 @@ def _risk_bounds(
             matched = True
         else:
             field_state = _field_state(material.facts, rule.predicate.field, assessment_index)
-            values = (
-                field_state.values if field_state.state is EvidenceState.ACCEPTABLE else ()
-            )
+            values = field_state.values if field_state.state is EvidenceState.ACCEPTABLE else ()
             if not values:
                 missing = (rule.missing_lower, rule.missing_base, rule.missing_upper)
                 if any(item is None for item in missing):
@@ -868,8 +859,7 @@ def _aggregate_preference_facts(
     bundle_id = primary.product_id
     for field, criterion in sorted(preference_by_field.items()):
         per_component = [
-            tuple(fact for fact in record.facts if fact.field == field)
-            for record in records
+            tuple(fact for fact in record.facts if fact.field == field) for record in records
         ]
         if criterion.aggregation == "PRIMARY_COMPONENT":
             retained.extend(per_component[-1])
@@ -885,8 +875,7 @@ def _aggregate_preference_facts(
         aggregated: FactValue
         if criterion.aggregation in {"SUM", "MIN", "MAX"}:
             if any(
-                isinstance(value, bool) or not isinstance(value, (int, str))
-                for value in values
+                isinstance(value, bool) or not isinstance(value, (int, str)) for value in values
             ):
                 retained.extend(facts)
                 continue
@@ -903,14 +892,7 @@ def _aggregate_preference_facts(
                 retained.extend(facts)
                 continue
             aggregated = tuple(
-                sorted(
-                    {
-                        item
-                        for value in values
-                        if isinstance(value, tuple)
-                        for item in value
-                    }
-                )
+                sorted({item for value in values if isinstance(value, tuple) for item in value})
             )
         elif criterion.aggregation in {"ALL", "ANY"}:
             if any(not isinstance(value, bool) for value in values):
@@ -943,9 +925,9 @@ def _combined_cost(
     }
     if len(horizons) > 1 or len(currencies) > 1:
         issues.add("INCOMPARABLE_DEPENDENCY_COST")
-    bundle_offer_id = "bundle_" + content_hash(
-        tuple(cost.offer_id for cost in costs)
-    ).split(":", 1)[1][:20]
+    bundle_offer_id = (
+        "bundle_" + content_hash(tuple(cost.offer_id for cost in costs)).split(":", 1)[1][:20]
+    )
     horizon = next(iter(horizons), 1)
     currency = next(iter(currencies), "USD")
 
@@ -986,8 +968,7 @@ def _pack_materials(
 
     offers = {canonical_offer(item.offer_id): item for item in decision_input.offers}
     representatives = tuple(
-        replace(item, offer_id=canonical_offer(item.offer_id))
-        for item in recall.representatives
+        replace(item, offer_id=canonical_offer(item.offer_id)) for item in recall.representatives
     )
     by_product: dict[str, list[RawCandidateRecord]] = {}
     for item in representatives:
@@ -1233,9 +1214,7 @@ def _rank_and_frontiers(
     )
     bounded = tuple(_bounded_plan(plan) for plan in eligible)
     rankable = tuple(plan for plan in bounded if plan.bounds is not None)
-    horizon_by_plan = {
-        plan.plan_id: plan.dimensions.total_cost.horizon_days for plan in eligible
-    }
+    horizon_by_plan = {plan.plan_id: plan.dimensions.total_cost.horizon_days for plan in eligible}
     cost_signatures = {
         (plan.bounds.total_cost.base.currency, horizon_by_plan[plan.plan_id])
         for plan in rankable

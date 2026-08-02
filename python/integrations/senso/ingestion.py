@@ -147,16 +147,11 @@ def _fact_value(value: object) -> str | int | bool | tuple[str, ...]:
 
 
 def _adversarial_flags(text: str) -> tuple[str, ...]:
-    return tuple(
-        code for code, pattern in _ADVERSARIAL_CONTENT_PATTERNS if pattern.search(text)
-    )
+    return tuple(code for code, pattern in _ADVERSARIAL_CONTENT_PATTERNS if pattern.search(text))
 
 
 def _agent_output(result: FactExtractionRun) -> object:
-    if (
-        result.advisory_only is not True
-        or result.ranking_effect is not False
-    ):
+    if result.advisory_only is not True or result.ranking_effect is not False:
         raise ValueError("fact extraction must be advisory and have zero ranking authority")
     output = result.output
     if isinstance(output, str):
@@ -259,9 +254,7 @@ def _apply_acceptances(
         if proposal is None:
             raise ValueError("acceptance references an unknown Senso proposal")
         if proposal.adversarial_flags and not acceptance.adversarial_reviewed:
-            raise ValueError(
-                "adversarial Senso evidence requires explicit human security review"
-            )
+            raise ValueError("adversarial Senso evidence requires explicit human security review")
         if (
             acceptance.fact_id in existing_fact_ids
             or acceptance.stakeholder_role not in allowed_roles
@@ -386,7 +379,7 @@ async def ingest_senso_buyer_facts(
                 for document in sorted(
                     documents.values(), key=lambda item: (item.node_id, item.version)
                 )
-            ]
+            ],
         },
     )
     proposals = _parse_proposals(_agent_output(extraction), documents)

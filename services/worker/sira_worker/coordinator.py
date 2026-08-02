@@ -385,9 +385,7 @@ class PersistentCheckoutCoordinator:
                     payload_hash=content_hash(
                         {
                             "payment_session_id": payment_session.id,
-                            "approval_expires_at": self._as_utc(
-                                approval.expires_at
-                            ).isoformat(),
+                            "approval_expires_at": self._as_utc(approval.expires_at).isoformat(),
                             "quote_expires_at": self._as_utc(intent.quote_expires_at).isoformat(),
                             "session_expires_at": self._as_utc(
                                 payment_session.expires_at
@@ -501,9 +499,7 @@ class PersistentCheckoutCoordinator:
             ) from None
         return self._reversal_merchant
 
-    async def _load_refund_state(
-        self, request: RefundActivityInput
-    ) -> MerchantRefundRequest:
+    async def _load_refund_state(self, request: RefundActivityInput) -> MerchantRefundRequest:
         async with self._database.transaction(request.organization_id) as session:
             reversal = (
                 await session.execute(
@@ -564,9 +560,7 @@ class PersistentCheckoutCoordinator:
                     .with_for_update()
                 )
             ).scalar_one()
-            intent = await repository.get_purchase_intent(
-                request.purchase_intent_id, lock=True
-            )
+            intent = await repository.get_purchase_intent(request.purchase_intent_id, lock=True)
             refunded_amount = Decimal(result.refunded_amount)
             if (
                 result.currency != reversal.currency
@@ -597,12 +591,8 @@ class PersistentCheckoutCoordinator:
                 reconciliation_required = True
             elif result.status is RefundOutcomeStatus.REJECTED:
                 status = "REJECTED"
-            elif (
-                refunded_amount == reversal.requested_amount
-                and (
-                    intent.fulfillment_status != "VERIFIED"
-                    or result.entitlements_revoked
-                )
+            elif refunded_amount == reversal.requested_amount and (
+                intent.fulfillment_status != "VERIFIED" or result.entitlements_revoked
             ):
                 status = "REFUNDED"
             else:
@@ -616,9 +606,7 @@ class PersistentCheckoutCoordinator:
             reversal.provider_reference = result.provider_refund_id
             reversal.provider_confirmed = result.provider_confirmed
             reversal.safe_error_code = (
-                "ENTITLEMENT_REVOCATION_REQUIRED"
-                if status == "COMPENSATION_REQUIRED"
-                else None
+                "ENTITLEMENT_REVOCATION_REQUIRED" if status == "COMPENSATION_REQUIRED" else None
             )
             if not reconciliation_required:
                 reversal.completed_at = datetime.now(UTC)

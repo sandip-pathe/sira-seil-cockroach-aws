@@ -37,9 +37,7 @@ async def _paid_intent(client: httpx.AsyncClient) -> dict[str, Any]:
     now = datetime.now(UTC)
     async with _database(client).transaction("org_consultco") as session:
         intent = (
-            await session.execute(
-                select(PurchaseIntent).where(PurchaseIntent.id == intent_id)
-            )
+            await session.execute(select(PurchaseIntent).where(PurchaseIntent.id == intent_id))
         ).scalar_one()
         intent.approval_status = "APPROVED"
         intent.payment_status = "PRAVA_COMPLETED"
@@ -117,17 +115,13 @@ async def test_refund_request_is_durable_idempotent_and_never_fake_success(
         json={**body, "reason": "A second full refund must not be possible."},
     )
     assert duplicate_amount.status_code == 409
-    assert duplicate_amount.json()["error"]["code"] == (
-        "REVERSAL_AMOUNT_EXCEEDS_REMAINING"
-    )
+    assert duplicate_amount.json()["error"]["code"] == ("REVERSAL_AMOUNT_EXCEEDS_REMAINING")
     status = await api_client.get(f"/v1/purchase-intents/{intent_id}/status")
     assert status.json()["purchase_state"] == "REFUND_PENDING"
     async with _database(api_client).transaction("org_consultco") as session:
         event = (
             await session.execute(
-                select(OutboxEvent).where(
-                    OutboxEvent.event_type == "purchase_reversal.requested"
-                )
+                select(OutboxEvent).where(OutboxEvent.event_type == "purchase_reversal.requested")
             )
         ).scalar_one()
         assert event.payload["amount"] == intent["amount"]

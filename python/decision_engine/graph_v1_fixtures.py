@@ -127,8 +127,10 @@ class DecisionSourceBundle:
                 raise ValueError(f"decision source {name} must be an object")
             documents[name] = deepcopy(value)
         raw_packs = payload.get("packs")
-        if not isinstance(raw_packs, list) or not raw_packs or any(
-            not isinstance(item, dict) for item in raw_packs
+        if (
+            not isinstance(raw_packs, list)
+            or not raw_packs
+            or any(not isinstance(item, dict) for item in raw_packs)
         ):
             raise ValueError("decision source packs must be a non-empty array of objects")
         raw_versions = payload.get("versions")
@@ -209,10 +211,9 @@ def _buyer_facts(
     source: DecisionSourceBundle, requirement: Mapping[str, Any]
 ) -> tuple[FrozenFact, ...]:
     passport = source.buyer_passport
-    allowed_roles = {
-        str(item["role"])
-        for item in passport["stakeholders"]
-    } | set(_field_owner_roles(source.purchase_brief).values())
+    allowed_roles = {str(item["role"]) for item in passport["stakeholders"]} | set(
+        _field_owner_roles(source.purchase_brief).values()
+    )
     facts: list[FrozenFact] = []
     for item in passport["facts"]:
         role = str(item["stakeholder_role"])
@@ -372,10 +373,7 @@ def _resolve_actor_conflicts(
     resolutions: list[ActorConflictResolution] = []
     conflicted_fields: set[str] = set()
     for field, field_facts in sorted(by_field.items()):
-        value_groups = {
-            content_hash(fact.value): fact.value
-            for fact in field_facts
-        }
+        value_groups = {content_hash(fact.value): fact.value for fact in field_facts}
         if len(value_groups) == 1:
             selected.extend(field_facts)
             continue
@@ -415,9 +413,7 @@ def _resolve_actor_conflicts(
                 None,
             )
             if matched is None:
-                raise DomainValidationError(
-                    f"actor conflict for {field} selected an unknown fact"
-                )
+                raise DomainValidationError(f"actor conflict for {field} selected an unknown fact")
             chosen = matched
             strategy = "EXPLICIT_OWNER_DECISION"
             reason = str(explicit.get("reason", "")).strip()
@@ -539,9 +535,7 @@ def _pack_records(
                 )
             )
         offer_id = candidate_offer[pack_id]
-        offer = next(
-            item for item in source.offers["offers"] if item["offer_id"] == offer_id
-        )
+        offer = next(item for item in source.offers["offers"] if item["offer_id"] == offer_id)
         facts.append(
             ProductFact(
                 "offer.landed_total",
@@ -850,9 +844,7 @@ def _current_actions(
     renewal = source.renewal_event
     incumbent = next(item for item in candidates if item.pack_id == contract["pack_id"])
     currency = str(contract["currency"])
-    horizon_days = int(
-        source.requirement_brief["team"]["comparison_horizon_days"]
-    )
+    horizon_days = int(source.requirement_brief["team"]["comparison_horizon_days"])
     contract_evidence = str(contract["evidence_id"])
     renewal_evidence = str(renewal["evidence_id"])
     instance_id = str(contract["instance_id"])

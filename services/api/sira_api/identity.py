@@ -155,8 +155,10 @@ class IntrospectionIdentityAdapter:
     def _audience_matches(self, value: object) -> bool:
         if isinstance(value, str):
             return value == self._audience
-        return isinstance(value, list) and all(isinstance(item, str) for item in value) and (
-            self._audience in value
+        return (
+            isinstance(value, list)
+            and all(isinstance(item, str) for item in value)
+            and (self._audience in value)
         )
 
     @staticmethod

@@ -30,9 +30,7 @@ class DevelopmentFixtureSensoAdapter:
     ) -> None:
         self._scope = scope
         self._hits = hits
-        self._versions = {
-            (item.node_id, item.version): item for item in content_versions
-        }
+        self._versions = {(item.node_id, item.version): item for item in content_versions}
         self._descriptor = AdapterDescriptor.development_fixture("senso_fixture")
 
     @property

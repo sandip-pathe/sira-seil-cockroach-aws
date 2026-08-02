@@ -188,9 +188,7 @@ def test_impossible_fulfillment_before_payment_fails_closed() -> None:
 
 def test_reversal_state_machine_supports_direct_confirmation_and_compensation() -> None:
     assert (
-        ReversalTransitionService.transition(
-            ReversalStatus.REQUESTED, ReversalStatus.REFUNDED
-        )
+        ReversalTransitionService.transition(ReversalStatus.REQUESTED, ReversalStatus.REFUNDED)
         is ReversalStatus.REFUNDED
     )
     assert (

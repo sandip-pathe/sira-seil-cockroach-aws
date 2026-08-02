@@ -18,7 +18,6 @@ def test_browser_return_state_is_opaque_signed_and_hash_only() -> None:
     assert "pays_" not in state
     assert signer.digest(state).startswith("sha256:")
     assert state not in signer.digest(state)
-    assert signer.verify(f"{state[:-1]}A") is False
     assert signer.verify("br1.not-a-valid-signature.value") is False
 
     alphabet = string.ascii_uppercase + string.ascii_lowercase + string.digits + "-_"

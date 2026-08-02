@@ -16,9 +16,7 @@ Identifier = Annotated[
 ]
 HashValue = Annotated[str, StringConstraints(pattern=r"^sha256:[0-9a-f]{64}$")]
 MoneyAmount = Annotated[str, StringConstraints(pattern=r"^(0|[1-9][0-9]*)\.[0-9]{2}$")]
-MetricValue = Annotated[
-    str, StringConstraints(pattern=r"^-?(0|[1-9][0-9]*)(\.[0-9]{1,6})?$")
-]
+MetricValue = Annotated[str, StringConstraints(pattern=r"^-?(0|[1-9][0-9]*)(\.[0-9]{1,6})?$")]
 Currency = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
 HttpsUrl = Annotated[AnyUrl, UrlConstraints(allowed_schemes=["https"], host_required=True)]
 
@@ -594,17 +592,13 @@ class PurchaseStatusView(StrictModel):
         "REFUNDED",
     ]
     deployment_state: Literal["NOT_STARTED", "STAGED", "ACTIVE"]
-    outcome_state: Literal[
-        "NOT_MEASURED", "MEASURING", "ACHIEVED", "NOT_ACHIEVED", "INCONCLUSIVE"
-    ]
+    outcome_state: Literal["NOT_MEASURED", "MEASURING", "ACHIEVED", "NOT_ACHIEVED", "INCONCLUSIVE"]
 
 
 class ReversalCreate(StrictModel):
     kind: Literal["CANCELLATION", "REFUND"]
     requested_amount: MoneyAmount | None = None
-    reason_code: Annotated[
-        str, StringConstraints(pattern=r"^[A-Z][A-Z0-9_]{2,79}$")
-    ]
+    reason_code: Annotated[str, StringConstraints(pattern=r"^[A-Z][A-Z0-9_]{2,79}$")]
     reason: str = Field(min_length=3, max_length=1000)
 
 
@@ -638,9 +632,7 @@ class OutcomeCheckpointCreate(StrictModel):
     metric: str = Field(min_length=1, max_length=200)
     observed_value: MetricValue
     observed_at: datetime
-    source_class: Literal[
-        "SYSTEM_OBSERVATION", "HUMAN_ATTESTATION", "PROVIDER_REPORT"
-    ]
+    source_class: Literal["SYSTEM_OBSERVATION", "HUMAN_ATTESTATION", "PROVIDER_REPORT"]
     source_reference: str = Field(min_length=3, max_length=500)
 
 
@@ -659,9 +651,7 @@ class OutcomeCheckpointView(StrictModel):
     checkpoint_due_at: datetime
     observed_at: datetime
     state: Literal["MEASURING", "ACHIEVED", "NOT_ACHIEVED", "INCONCLUSIVE"]
-    source_class: Literal[
-        "SYSTEM_OBSERVATION", "HUMAN_ATTESTATION", "PROVIDER_REPORT"
-    ]
+    source_class: Literal["SYSTEM_OBSERVATION", "HUMAN_ATTESTATION", "PROVIDER_REPORT"]
     source_reference_hash: HashValue
     checkpoint_hash: HashValue
     preference_proposal: dict[str, Any] | None = None

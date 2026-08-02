@@ -141,12 +141,8 @@ def upgrade() -> None:
         sa.Column("recorded_by_actor_id", sa.String(100), nullable=False),
         sa.Column("checkpoint_hash", sa.String(80), nullable=False),
         sa.Column("preference_proposal", sa.JSON(), nullable=True),
-        sa.CheckConstraint(
-            "checkpoint_days BETWEEN 1 AND 365", name="ck_outcome_checkpoint_days"
-        ),
-        sa.CheckConstraint(
-            "target_operator IN ('gte','lte')", name="ck_outcome_target_operator"
-        ),
+        sa.CheckConstraint("checkpoint_days BETWEEN 1 AND 365", name="ck_outcome_checkpoint_days"),
+        sa.CheckConstraint("target_operator IN ('gte','lte')", name="ck_outcome_target_operator"),
         sa.CheckConstraint(
             "state IN ('MEASURING','ACHIEVED','NOT_ACHIEVED','INCONCLUSIVE')",
             name="ck_outcome_state",

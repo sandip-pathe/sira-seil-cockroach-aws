@@ -264,14 +264,10 @@ async def test_invalid_oldest_event_is_quarantined_without_blocking_next_event(
             )
         ).scalar_one()
         invalid_workflow = (
-            await session.execute(
-                select(WorkflowRun).where(WorkflowRun.id == invalid_workflow_id)
-            )
+            await session.execute(select(WorkflowRun).where(WorkflowRun.id == invalid_workflow_id))
         ).scalar_one()
         valid_event = (
-            await session.execute(
-                select(OutboxEvent).where(OutboxEvent.id == "out_dispatch_test")
-            )
+            await session.execute(select(OutboxEvent).where(OutboxEvent.id == "out_dispatch_test"))
         ).scalar_one()
         assert invalid_event.published_at is not None
         assert invalid_workflow.status == "FAILED"

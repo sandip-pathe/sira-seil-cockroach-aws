@@ -719,9 +719,7 @@ async def test_controlled_merchant_verifies_expected_entitlement_quantity() -> N
 @respx.mock
 @pytest.mark.asyncio
 async def test_controlled_merchant_refund_is_idempotent_and_reconciles_exact_terms() -> None:
-    create_route = respx.post(
-        f"{MERCHANT_API_BASE}/v1/orders/merchant_order_demo/refunds"
-    ).mock(
+    create_route = respx.post(f"{MERCHANT_API_BASE}/v1/orders/merchant_order_demo/refunds").mock(
         return_value=httpx.Response(
             202,
             json={

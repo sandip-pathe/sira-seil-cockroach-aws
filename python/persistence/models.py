@@ -1110,9 +1110,7 @@ class PurchaseReversal(Base, TenantOwned, Timestamped):
         ),
         CheckConstraint("requested_amount > 0", name="ck_reversal_requested_positive"),
         CheckConstraint("refunded_amount >= 0", name="ck_reversal_refunded_nonnegative"),
-        CheckConstraint(
-            "refunded_amount <= requested_amount", name="ck_reversal_refunded_bounded"
-        ),
+        CheckConstraint("refunded_amount <= requested_amount", name="ck_reversal_refunded_bounded"),
         CheckConstraint("currency = upper(currency)", name="ck_reversal_currency_upper"),
         UniqueConstraint(
             "organization_id",
@@ -1158,15 +1156,11 @@ class OutcomeCheckpoint(Base, TenantOwned, Timestamped):
     source_reference_hash: Mapped[str] = mapped_column(String(80), nullable=False)
     recorded_by_actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
     checkpoint_hash: Mapped[str] = mapped_column(String(80), nullable=False)
-    preference_proposal: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON_DOCUMENT, nullable=True
-    )
+    preference_proposal: Mapped[dict[str, Any] | None] = mapped_column(JSON_DOCUMENT, nullable=True)
 
     __table_args__ = (
         CheckConstraint("checkpoint_days BETWEEN 1 AND 365", name="ck_outcome_checkpoint_days"),
-        CheckConstraint(
-            "target_operator IN ('gte','lte')", name="ck_outcome_target_operator"
-        ),
+        CheckConstraint("target_operator IN ('gte','lte')", name="ck_outcome_target_operator"),
         CheckConstraint(
             "state IN ('MEASURING','ACHIEVED','NOT_ACHIEVED','INCONCLUSIVE')",
             name="ck_outcome_state",
@@ -1175,9 +1169,7 @@ class OutcomeCheckpoint(Base, TenantOwned, Timestamped):
             "source_class IN ('SYSTEM_OBSERVATION','HUMAN_ATTESTATION','PROVIDER_REPORT')",
             name="ck_outcome_source_class",
         ),
-        UniqueConstraint(
-            "organization_id", "checkpoint_hash", name="uq_outcome_checkpoint_hash"
-        ),
+        UniqueConstraint("organization_id", "checkpoint_hash", name="uq_outcome_checkpoint_hash"),
         Index(
             "ix_outcome_intent_metric",
             "organization_id",

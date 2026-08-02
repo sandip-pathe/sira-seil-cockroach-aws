@@ -178,8 +178,7 @@ async def test_create_discover_workflow_and_idempotent_replay(
     assert brief.json()["desired_outcome"] == {
         "jtbd_id": "capture_meeting_decisions",
         "statement": (
-            "decision_retrieval_time_seconds lte 90 seconds at 45 days after verified "
-            "fulfillment"
+            "decision_retrieval_time_seconds lte 90 seconds at 45 days after verified fulfillment"
         ),
         "metric": "decision_retrieval_time_seconds",
         "target": 90,
@@ -466,9 +465,7 @@ async def test_selective_engagement_requires_mutual_consent(
         },
     )
     assert wrong_seller_tenant.status_code == 403
-    assert wrong_seller_tenant.json()["error"]["code"] == (
-        "REQUIREMENT_BRIEF_ENGAGEMENT_REQUIRED"
-    )
+    assert wrong_seller_tenant.json()["error"]["code"] == ("REQUIREMENT_BRIEF_ENGAGEMENT_REQUIRED")
     unrelated_seller = await api_client.get(
         "/v1/requirement-briefs/rb_consultco_v1",
         headers={
@@ -1107,9 +1104,7 @@ async def test_prava_session_create_can_retry_after_uncertain_provider_failure(
             headers=idempotency("retry-configured-prava-session"),
             json={"return_url": "https://app.example.test/purchase/return"},
         )
-        status = await api_client.get(
-            f"/v1/purchase-intents/{intent['purchase_intent_id']}/status"
-        )
+        status = await api_client.get(f"/v1/purchase-intents/{intent['purchase_intent_id']}/status")
         second = await api_client.post(
             f"/v1/purchase-intents/{intent['purchase_intent_id']}/prava-sessions",
             headers=idempotency("retry-configured-prava-session"),

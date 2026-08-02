@@ -240,17 +240,13 @@ class WorkflowService:
             mismatch.append("run_kind")
         if content_hash(payload.get("versions")) != content_hash(asdict(graph_input.versions)):
             mismatch.append("versions")
-        run_versions = {
-            field: getattr(run, field)
-            for field in asdict(graph_input.versions)
-        }
+        run_versions = {field: getattr(run, field) for field in asdict(graph_input.versions)}
         if run_versions != asdict(graph_input.versions):
             mismatch.append("version_columns")
         if (
             payload.get("candidate_set_version") != run.candidate_set_version
             or payload.get("quote_set_version") != run.quote_set_version
-            or payload.get("risk_rule_set_version")
-            != "demo_risk_rules_v1"
+            or payload.get("risk_rule_set_version") != "demo_risk_rules_v1"
         ):
             mismatch.append("source_set_versions")
         try:
@@ -729,9 +725,7 @@ class WorkflowService:
                 brief, requirement = await self._add_request_briefs(
                     session, organization_id, record
                 )
-                stack_snapshot = await self._ensure_demo_stack_snapshot(
-                    session, organization_id
-                )
+                stack_snapshot = await self._ensure_demo_stack_snapshot(session, organization_id)
                 await self._add_demo_decision_source(
                     repository=repository,
                     organization_id=organization_id,
@@ -929,8 +923,7 @@ class WorkflowService:
             session.add(decision_record)
             snapshot = (
                 await session.execute(
-                    select(StackSnapshot)
-                    .where(
+                    select(StackSnapshot).where(
                         StackSnapshot.organization_id == organization_id,
                         StackSnapshot.id == source_snapshot.stack_snapshot_id,
                     )
@@ -1377,9 +1370,7 @@ class WorkflowService:
                 if binding is None or binding.seller_actor_id != seller_actor_id:
                     raise ApiProblem(
                         code="SELLER_ORGANIZATION_BINDING_REQUIRED",
-                        message=(
-                            "The candidate is not bound to a verified seller organization."
-                        ),
+                        message=("The candidate is not bound to a verified seller organization."),
                         status_code=409,
                         next_action="verify_seller_organization",
                     )
@@ -1648,9 +1639,7 @@ class WorkflowService:
             source_run = await self._not_found(
                 source_repository.get_evaluation_run(decision_id), "EVALUATION_RUN"
             )
-        graph_input, _baseline_replay = self._verified_demo_replay_source(
-            source_run, source_ledger
-        )
+        graph_input, _baseline_replay = self._verified_demo_replay_source(source_run, source_ledger)
         known_criteria = {item.criterion_id for item in graph_input.preferences}
         unknown = sorted(set(overrides).difference(known_criteria))
         if unknown:
@@ -1760,9 +1749,7 @@ class WorkflowService:
                     message="The frozen evaluation is not bound to a Decision Ledger.",
                     status_code=409,
                 )
-            decision = await self._not_found(
-                repository.get_decision(run.decision_id), "DECISION"
-            )
+            decision = await self._not_found(repository.get_decision(run.decision_id), "DECISION")
             ledger = deepcopy(decision.payload["ledger"])
 
         self._verified_demo_replay_source(run, ledger)
@@ -2800,15 +2787,19 @@ class WorkflowService:
                 )
 
             sessions = (
-                await session.execute(
-                    select(PaymentSession)
-                    .where(
-                        PaymentSession.organization_id == organization_id,
-                        PaymentSession.purchase_intent_id == intent.id,
+                (
+                    await session.execute(
+                        select(PaymentSession)
+                        .where(
+                            PaymentSession.organization_id == organization_id,
+                            PaymentSession.purchase_intent_id == intent.id,
+                        )
+                        .with_for_update()
                     )
-                    .with_for_update()
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             if any(item.status == "CREATING" for item in sessions):
                 raise ApiProblem(
                     code="SESSION_CREATE_PENDING",
@@ -2836,31 +2827,39 @@ class WorkflowService:
                 if payment_session.status in {"SESSION_CREATED", "CARDHOLDER_PENDING"}:
                     payment_session.status = "REVOKED"
             bindings = (
-                await session.execute(
-                    select(BrowserReturnBinding)
-                    .where(
-                        BrowserReturnBinding.organization_id == organization_id,
-                        BrowserReturnBinding.purchase_intent_id == intent.id,
-                        BrowserReturnBinding.consumed_at.is_(None),
+                (
+                    await session.execute(
+                        select(BrowserReturnBinding)
+                        .where(
+                            BrowserReturnBinding.organization_id == organization_id,
+                            BrowserReturnBinding.purchase_intent_id == intent.id,
+                            BrowserReturnBinding.consumed_at.is_(None),
+                        )
+                        .with_for_update()
                     )
-                    .with_for_update()
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             for binding in bindings:
                 binding.consumed_at = now
             queued_events = (
-                await session.execute(
-                    select(OutboxEvent)
-                    .where(
-                        OutboxEvent.organization_id == organization_id,
-                        OutboxEvent.aggregate_type == "purchase_intent",
-                        OutboxEvent.aggregate_id == intent.id,
-                        OutboxEvent.event_type == "purchase_checkout.requested",
-                        OutboxEvent.published_at.is_(None),
+                (
+                    await session.execute(
+                        select(OutboxEvent)
+                        .where(
+                            OutboxEvent.organization_id == organization_id,
+                            OutboxEvent.aggregate_type == "purchase_intent",
+                            OutboxEvent.aggregate_id == intent.id,
+                            OutboxEvent.event_type == "purchase_checkout.requested",
+                            OutboxEvent.published_at.is_(None),
+                        )
+                        .with_for_update()
                     )
-                    .with_for_update()
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             for event in queued_events:
                 event.published_at = now
             workflow = (
@@ -3014,9 +3013,7 @@ class WorkflowService:
         idempotency_record_id: str
         session_request: PravaSessionRequest
 
-        approval_expiry = await self._expire_purchase_approval_if_needed(
-            organization_id, intent_id
-        )
+        approval_expiry = await self._expire_purchase_approval_if_needed(organization_id, intent_id)
         if approval_expiry is not None:
             raise approval_expiry
 
@@ -3100,10 +3097,9 @@ class WorkflowService:
                         response_reference=existing.id,
                     )
                     return 201, response
-                if (
-                    existing.status == "CREATING"
-                    and self._as_utc(existing.expires_at) > datetime.now(UTC)
-                ):
+                if existing.status == "CREATING" and self._as_utc(
+                    existing.expires_at
+                ) > datetime.now(UTC):
                     raise ApiProblem(
                         code="SESSION_CREATE_PENDING",
                         message=(
@@ -3543,9 +3539,7 @@ class WorkflowService:
                         OutcomeCheckpoint.organization_id == organization_id,
                         OutcomeCheckpoint.purchase_intent_id == intent.id,
                     )
-                    .order_by(
-                        OutcomeCheckpoint.observed_at.desc(), OutcomeCheckpoint.id.desc()
-                    )
+                    .order_by(OutcomeCheckpoint.observed_at.desc(), OutcomeCheckpoint.id.desc())
                     .limit(1)
                 )
             ).scalar_one_or_none()
@@ -3826,11 +3820,7 @@ class WorkflowService:
                 "MEASURING"
                 if observed_at < checkpoint_due_at
                 else "ACHIEVED"
-                if (
-                    observed >= target
-                    if target_operator == "gte"
-                    else observed <= target
-                )
+                if (observed >= target if target_operator == "gte" else observed <= target)
                 else "NOT_ACHIEVED"
             )
             source_reference_hash = content_hash(
@@ -4275,15 +4265,11 @@ class WorkflowService:
             in {"REQUESTED", "PROVIDER_PENDING", "FAILED_RETRYABLE"},
             "safe_error_code": reversal.safe_error_code,
             "created_at": reversal.created_at.isoformat(),
-            "completed_at": (
-                reversal.completed_at.isoformat() if reversal.completed_at else None
-            ),
+            "completed_at": (reversal.completed_at.isoformat() if reversal.completed_at else None),
         }
 
     @classmethod
-    def _outcome_checkpoint_view(
-        cls, checkpoint: OutcomeCheckpoint
-    ) -> dict[str, Any]:
+    def _outcome_checkpoint_view(cls, checkpoint: OutcomeCheckpoint) -> dict[str, Any]:
         return {
             "id": checkpoint.id,
             "purchase_intent_id": checkpoint.purchase_intent_id,
@@ -4317,10 +4303,7 @@ class WorkflowService:
         intent: PurchaseIntent, reversal: PurchaseReversal | None = None
     ) -> str:
         if reversal is not None:
-            if (
-                reversal.status == "REFUNDED"
-                and reversal.refunded_amount == intent.amount
-            ):
+            if reversal.status == "REFUNDED" and reversal.refunded_amount == intent.amount:
                 return "REFUNDED"
             if reversal.status in {
                 "REQUESTED",

@@ -362,11 +362,7 @@ async def test_workflow_returns_direct_checkout_without_reconciliation(
 
     async def fake_execute(name: str, request: object, **kwargs: Any) -> object:
         calls.append((name, request, kwargs))
-        return (
-            _fulfillment_result()
-            if name == "sira.verify_fulfillment"
-            else _checkout_result()
-        )
+        return _fulfillment_result() if name == "sira.verify_fulfillment" else _checkout_result()
 
     monkeypatch.setattr(workflows.workflow, "execute_activity", fake_execute)
     request = PurchaseCheckoutWorkflowInput(

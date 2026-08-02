@@ -43,15 +43,11 @@ class ApiSettings(BaseSettings):
     identity_client_secret: SecretStr = Field(
         default=SecretStr(""), validation_alias="IDENTITY_CLIENT_SECRET"
     )
-    identity_expected_issuer: str = Field(
-        default="", validation_alias="IDENTITY_EXPECTED_ISSUER"
-    )
+    identity_expected_issuer: str = Field(default="", validation_alias="IDENTITY_EXPECTED_ISSUER")
     identity_expected_audience: str = Field(
         default="", validation_alias="IDENTITY_EXPECTED_AUDIENCE"
     )
-    identity_allowed_roles: str = Field(
-        default="", validation_alias="IDENTITY_ALLOWED_ROLES"
-    )
+    identity_allowed_roles: str = Field(default="", validation_alias="IDENTITY_ALLOWED_ROLES")
     identity_step_up_acr_values: str = Field(
         default="", validation_alias="IDENTITY_STEP_UP_ACR_VALUES"
     )
@@ -68,9 +64,7 @@ class ApiSettings(BaseSettings):
 
     def assert_safe_runtime(self) -> None:
         if self.app_env.lower() not in {"development", "test", "production"}:
-            raise ValueError(
-                "APP_ENV must be explicitly set to development, test, or production"
-            )
+            raise ValueError("APP_ENV must be explicitly set to development, test, or production")
         if self.is_development:
             return
         if self.development_fixture_mode or self.demo_reset_enabled:

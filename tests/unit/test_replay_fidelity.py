@@ -20,19 +20,17 @@ def _frozen_run() -> tuple[WorkflowService, Any, dict[str, Any]]:
         database=cast(Any, None),
         fixtures=DemoFixtureBundle.load(),
     )
-    graph_input, graph_decision, ledger, _patch, commercial_terms = (
-        service._demo_graph_artifacts(
-            organization_id="org_consultco",
-            request_id="req_replay_demo",
-            decision_id="dec_replay_demo",
-            decision_version=1,
-            supersedes_decision_id=None,
-            purchase_brief_id="pb_replay_demo",
-            purchase_brief_version=1,
-            requirement_brief_id="rb_replay_demo",
-            requirement_brief_version=1,
-            stack_patch_id="patch_replay_demo",
-        )
+    graph_input, graph_decision, ledger, _patch, commercial_terms = service._demo_graph_artifacts(
+        organization_id="org_consultco",
+        request_id="req_replay_demo",
+        decision_id="dec_replay_demo",
+        decision_version=1,
+        supersedes_decision_id=None,
+        purchase_brief_id="pb_replay_demo",
+        purchase_brief_version=1,
+        requirement_brief_id="rb_replay_demo",
+        requirement_brief_version=1,
+        stack_patch_id="patch_replay_demo",
     )
     graph = build_evaluation_graph_write(
         graph_decision,

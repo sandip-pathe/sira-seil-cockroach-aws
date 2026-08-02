@@ -16,9 +16,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.drop_constraint(
-        "ck_purchase_intent_approval_status", "purchase_intents", type_="check"
-    )
+    op.drop_constraint("ck_purchase_intent_approval_status", "purchase_intents", type_="check")
     op.create_check_constraint(
         "ck_purchase_intent_approval_status",
         "purchase_intents",
@@ -46,9 +44,7 @@ def downgrade() -> None:
         "action IN ('APPROVE','REJECT','DELEGATE')",
     )
     op.drop_constraint("ck_approval_request_status", "approval_requests", type_="check")
-    op.drop_constraint(
-        "ck_purchase_intent_approval_status", "purchase_intents", type_="check"
-    )
+    op.drop_constraint("ck_purchase_intent_approval_status", "purchase_intents", type_="check")
     op.create_check_constraint(
         "ck_purchase_intent_approval_status",
         "purchase_intents",

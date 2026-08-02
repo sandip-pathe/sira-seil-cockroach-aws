@@ -89,9 +89,7 @@ def _backfill() -> None:
         payload = row["payload"]
         if isinstance(payload, str):
             payload = json.loads(payload)
-        safe_brief = {
-            key: value for key, value in dict(payload).items() if key in _BRIEF_KEYS
-        }
+        safe_brief = {key: value for key, value in dict(payload).items() if key in _BRIEF_KEYS}
         grant_scope = "SANITIZED_BRIEF_AND_CONTACT_CONSENT"
         grant_hash = _hash(
             {
@@ -181,9 +179,7 @@ def upgrade() -> None:
         batch.add_column(sa.Column("grant_scope", sa.String(80), nullable=True))
         batch.add_column(sa.Column("grant_status", sa.String(24), nullable=True))
         batch.add_column(sa.Column("grant_hash", sa.String(80), nullable=True))
-        batch.add_column(
-            sa.Column("seller_visible_requirement_brief", sa.JSON(), nullable=True)
-        )
+        batch.add_column(sa.Column("seller_visible_requirement_brief", sa.JSON(), nullable=True))
         batch.add_column(sa.Column("granted_at", sa.DateTime(timezone=True), nullable=True))
     _backfill()
     with op.batch_alter_table("engagements") as batch:
@@ -218,9 +214,7 @@ def upgrade() -> None:
         batch.create_unique_constraint(
             "uq_engagement_grant_hash", ["organization_id", "grant_hash"]
         )
-        batch.create_index(
-            "ix_engagements_seller_organization_id", ["seller_organization_id"]
-        )
+        batch.create_index("ix_engagements_seller_organization_id", ["seller_organization_id"])
     _install_postgres_policies()
 
 

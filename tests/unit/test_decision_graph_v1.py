@@ -191,9 +191,7 @@ def test_reuse_existing_can_win_without_a_purchase() -> None:
     evaluation = evaluate_decision_graph_once(
         replace(
             decision_input,
-            candidates=tuple(
-                replace(item, available=False) for item in decision_input.candidates
-            ),
+            candidates=tuple(replace(item, available=False) for item in decision_input.candidates),
             current_actions=(reuse,),
         )
     )
@@ -207,9 +205,7 @@ def test_reuse_existing_can_win_without_a_purchase() -> None:
 def test_no_action_can_win_when_buying_is_not_supported() -> None:
     decision_input = load_demo_decision_graph_input(FIXTURE_ROOT)
     no_action = next(
-        item
-        for item in decision_input.current_actions
-        if item.action is SolutionAction.NO_ACTION
+        item for item in decision_input.current_actions if item.action is SolutionAction.NO_ACTION
     )
     gates = tuple(
         replace(
@@ -228,9 +224,7 @@ def test_no_action_can_win_when_buying_is_not_supported() -> None:
     evaluation = evaluate_decision_graph_once(
         replace(
             decision_input,
-            candidates=tuple(
-                replace(item, available=False) for item in decision_input.candidates
-            ),
+            candidates=tuple(replace(item, available=False) for item in decision_input.candidates),
             current_actions=(no_action,),
             gates=gates,
         )
@@ -247,9 +241,7 @@ def test_no_eligible_supported_action_is_distinct_from_no_action() -> None:
     evaluation = evaluate_decision_graph_once(
         replace(
             decision_input,
-            candidates=tuple(
-                replace(item, available=False) for item in decision_input.candidates
-            ),
+            candidates=tuple(replace(item, available=False) for item in decision_input.candidates),
             current_actions=(),
         )
     )

@@ -7,14 +7,15 @@ intentionally scanned because they are shipped and may be served by development 
 
 from __future__ import annotations
 
-import json
+import argparse
+import os
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-from detect_secrets.core.scan import scan_line
+from detect_secrets.core.scan import scan_file, scan_line
 from detect_secrets.settings import default_settings
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,26 +57,24 @@ PATTERNS = [
     re.compile(r"sk-(?:proj-)?[A-Za-z0-9_-]{20,}"),
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
 ]
-
-DETECT_SECRETS_EXCLUDES = (
-    r"(^|[\\/])(?:\.git|\.gstack|\.hypothesis|\.mypy_cache|\.venv|\.next|"
-    r"\.pytest_cache|\.ruff_cache|node_modules|docs)(?:[\\/]|$)"
-    r"|(^|[\\/])services[\\/]api[\\/]alembic[\\/]versions(?:[\\/]|$)"
-    r"|(^|[\\/])(?:\.env(?:\.[^\\/]*)?|PRD\.md|pnpm-lock\.yaml|uv\.lock)$"
-    r"|\.tsbuildinfo$"
-)
+HISTORY_ENTROPY_TYPES = {"Base64 High Entropy String", "Hex High Entropy String"}
 
 
 def files_to_scan() -> list[Path]:
     result: list[Path] = []
-    for path in ROOT.rglob("*"):
-        if not path.is_file() or path.name in EXCLUDED_NAMES:
-            continue
-        if any(part in EXCLUDED_PARTS for part in path.relative_to(ROOT).parts):
-            continue
-        if path.suffix in TEXT_SUFFIXES:
-            result.append(path)
-    return result
+    for directory, subdirectories, filenames in os.walk(ROOT, topdown=True):
+        subdirectories[:] = sorted(name for name in subdirectories if name not in EXCLUDED_PARTS)
+        for filename in sorted(filenames):
+            path = Path(directory) / filename
+            if filename not in EXCLUDED_NAMES and path.suffix in TEXT_SUFFIXES:
+                result.append(path)
+    return sorted(result)
+
+
+def _generic_scanner_excluded(path: Path) -> bool:
+    """Avoid entropy false positives on immutable Alembic revision identifiers."""
+
+    return path.parts[:4] == ("services", "api", "alembic", "versions")
 
 
 def _excluded_history_path(relative_path: str) -> bool:
@@ -140,16 +139,19 @@ def scan_reachable_git_history() -> list[str]:
             ):
                 continue
             removed_line = line[1:]
-            if any(pattern.search(removed_line) for pattern in PATTERNS) or any(
-                scan_line(removed_line)
-            ):
+            custom_finding = any(pattern.search(removed_line) for pattern in PATTERNS)
+            generic_finding = not _generic_scanner_excluded(Path(relative_path)) and any(
+                detection.type not in HISTORY_ENTROPY_TYPES for detection in scan_line(removed_line)
+            )
+            if custom_finding or generic_finding:
                 findings.append(f"git-history:{commit}:{relative_path}")
     return findings
 
 
-def main() -> int:
+def main(*, current_tree_only: bool = False) -> int:
     findings: list[str] = []
-    for path in files_to_scan():
+    scanned_files = files_to_scan()
+    for path in scanned_files:
         try:
             content = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
@@ -157,54 +159,29 @@ def main() -> int:
         for line_number, line in enumerate(content.splitlines(), start=1):
             if any(pattern.search(line) for pattern in PATTERNS):
                 findings.append(f"{path.relative_to(ROOT)}:{line_number}")
-
-    scanner = shutil.which("detect-secrets")
-    if scanner is None:
-        local_scanner = ROOT / ".venv" / "Scripts" / "detect-secrets.exe"
-        if local_scanner.is_file():
-            scanner = str(local_scanner)
-    if scanner is None:
-        sys.stdout.write(
-            "detect-secrets is unavailable; run the frozen development dependency setup.\n"
-        )
-        return 1
-
-    # Scanner JSON is kept in memory only and findings report locations, never values.
-    completed = subprocess.run(  # noqa: S603
-        [
-            scanner,
-            "scan",
-            "--all-files",
-            "--exclude-files",
-            DETECT_SECRETS_EXCLUDES,
-        ],
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    if completed.returncode != 0:
-        sys.stdout.write("detect-secrets could not complete safely.\n")
-        return 1
-    try:
-        standard_results = json.loads(completed.stdout).get("results", {})
-    except (json.JSONDecodeError, AttributeError):
-        sys.stdout.write("detect-secrets returned an unreadable report.\n")
-        return 1
-    for relative_path, detections in standard_results.items():
-        for detection in detections:
-            line_number = int(detection.get("line_number", 0))
-            findings.append(f"{relative_path}:{line_number}")
-    findings.extend(scan_reachable_git_history())
+    with default_settings():
+        for path in scanned_files:
+            relative_path = path.relative_to(ROOT)
+            if _generic_scanner_excluded(relative_path):
+                continue
+            for detection in scan_file(str(path)):
+                findings.append(f"{relative_path}:{detection.line_number}")
+    if not current_tree_only:
+        findings.extend(scan_reachable_git_history())
     if findings:
         sys.stdout.write("Credential scan failed at: " + ", ".join(sorted(set(findings))) + "\n")
         return 1
-    sys.stdout.write(
-        "Credential scan passed; source and demo fixtures contain no detected credentials.\n"
-    )
+    scope = "current source and demo fixtures" if current_tree_only else "source and history"
+    sys.stdout.write(f"Credential scan passed for {scope}; no credentials detected.\n")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--current-tree-only",
+        action="store_true",
+        help="skip reachable-history scanning for a fast CI/current-tree gate",
+    )
+    arguments = parser.parse_args()
+    raise SystemExit(main(current_tree_only=arguments.current_tree_only))

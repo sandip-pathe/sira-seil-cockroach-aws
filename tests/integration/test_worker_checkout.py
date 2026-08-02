@@ -692,9 +692,7 @@ async def test_worker_rechecks_expiry_before_provider_dispatch(
         ).scalar_one()
         approval = (
             await session.execute(
-                select(ApprovalRequest).where(
-                    ApprovalRequest.purchase_intent_id == intent_id
-                )
+                select(ApprovalRequest).where(ApprovalRequest.purchase_intent_id == intent_id)
             )
         ).scalar_one()
         attempt_count = (

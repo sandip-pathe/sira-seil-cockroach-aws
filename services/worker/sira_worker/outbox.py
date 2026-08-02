@@ -76,9 +76,7 @@ class CheckoutOutboxDispatcher:
                     select(OutboxEvent)
                     .where(
                         OutboxEvent.organization_id == organization_id,
-                        OutboxEvent.event_type.in_(
-                            [CHECKOUT_EVENT_TYPE, REVERSAL_EVENT_TYPE]
-                        ),
+                        OutboxEvent.event_type.in_([CHECKOUT_EVENT_TYPE, REVERSAL_EVENT_TYPE]),
                         OutboxEvent.published_at.is_(None),
                     )
                     .order_by(OutboxEvent.occurred_at, OutboxEvent.id)
@@ -93,9 +91,7 @@ class CheckoutOutboxDispatcher:
 
         try:
             if event_type == CHECKOUT_EVENT_TYPE:
-                workflow_id, checkout_request = self._workflow_request(
-                    organization_id, payload
-                )
+                workflow_id, checkout_request = self._workflow_request(organization_id, payload)
                 reversal_request = None
             else:
                 workflow_id, reversal_request = self._reversal_workflow_request(

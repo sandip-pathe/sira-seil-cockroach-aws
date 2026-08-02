@@ -38,9 +38,7 @@ def _adapter(
         client_secret=CLIENT_SECRET,
         expected_issuer="https://identity.example.test/",
         expected_audience="sira-api",
-        allowed_roles=frozenset(
-            {"can_view_context", "can_submit_request", "can_approve_purchase"}
-        ),
+        allowed_roles=frozenset({"can_view_context", "can_submit_request", "can_approve_purchase"}),
         step_up_acr_values=frozenset({"urn:example:mfa"}),
         client=httpx.AsyncClient(transport=handler),
         now=lambda: NOW,

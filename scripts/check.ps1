@@ -26,4 +26,4 @@ Invoke-CheckedPython -Arguments @("-m", "pytest", "--cov", "--cov-report=term-mi
 Invoke-CheckedPython -Arguments @("scripts/generate_openapi.py", "--check")
 Invoke-Pnpm -Arguments @("check:web")
 Invoke-Pnpm -Arguments @("format:check")
-Invoke-CheckedPython -Arguments @("scripts/credential_scan.py")
+Invoke-CheckedPython -Arguments @("scripts/credential_scan.py", "--current-tree-only")

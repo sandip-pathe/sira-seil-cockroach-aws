@@ -32,9 +32,7 @@ def _source_with_conflict(
             "fact_id": "bf_training_allowed_requester",
             "value": True,
             "kind": kind,
-            "stakeholder_role": "requester"
-            if kind == "context"
-            else "security_privacy_owner",
+            "stakeholder_role": "requester" if kind == "context" else "security_privacy_owner",
         }
     )
     passport["facts"].append(competing)
@@ -55,9 +53,7 @@ def test_unique_higher_authority_fact_controls_conflict_and_is_hash_bound() -> N
     graph_input = compile_decision_graph_input(_source_with_conflict(kind="context"))
 
     facts = [
-        fact
-        for fact in graph_input.buyer_facts
-        if fact.field == "product.trains_on_customer_data"
+        fact for fact in graph_input.buyer_facts if fact.field == "product.trains_on_customer_data"
     ]
     assert [fact.fact_id for fact in facts] == ["bf_no_customer_training"]
     assert facts[0].authority_level == "POLICY_OWNER"

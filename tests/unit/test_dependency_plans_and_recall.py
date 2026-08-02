@@ -18,11 +18,7 @@ from domain.enums import CandidateStatus
 
 
 def _plan_for_product(evaluation, product_id: str):
-    return next(
-        plan
-        for plan in evaluation.plans
-        if plan.components[-1].component_id == product_id
-    )
+    return next(plan for plan in evaluation.plans if plan.components[-1].component_id == product_id)
 
 
 def test_required_components_are_closed_in_dependency_order_and_costed_together() -> None:
@@ -121,14 +117,10 @@ def test_bundle_hard_gates_use_weakest_component_without_calling_it_evidence_con
         candidates.append(candidate)
 
     plan = _plan_for_product(
-        evaluate_decision_graph_once(
-            replace(graph_input, candidates=tuple(candidates))
-        ),
+        evaluate_decision_graph_once(replace(graph_input, candidates=tuple(candidates))),
         "product_fixture_d",
     )
-    gate = next(
-        item for item in plan.gate_results if item.gate_id == "gate_no_customer_training"
-    )
+    gate = next(item for item in plan.gate_results if item.gate_id == "gate_no_customer_training")
     assert gate.truth.value == "FALSE"
     assert plan.status is CandidateStatus.SIRA_INELIGIBLE
     assert all(reason.reason_code != "CONFLICTING_EVIDENCE" for reason in gate.reasons)

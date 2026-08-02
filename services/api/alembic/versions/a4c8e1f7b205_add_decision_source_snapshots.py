@@ -47,18 +47,14 @@ def upgrade() -> None:
             "source_kind IN ('DEVELOPMENT_FIXTURE','PROVIDER_COMPILED','MANUAL_VERIFIED')",
             name="ck_decision_source_snapshot_kind",
         ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["purchase_request_id"], ["purchase_requests.id"], ondelete="RESTRICT"
         ),
         sa.ForeignKeyConstraint(
             ["purchase_brief_id"], ["purchase_brief_versions.id"], ondelete="RESTRICT"
         ),
-        sa.ForeignKeyConstraint(
-            ["stack_snapshot_id"], ["stack_snapshots.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["stack_snapshot_id"], ["stack_snapshots.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "organization_id",

@@ -188,12 +188,7 @@ class ActorConflictResolution:
     reason: str
 
     def __post_init__(self) -> None:
-        if (
-            not self.field
-            or not self.selected_role
-            or not self.decided_by_role
-            or not self.reason
-        ):
+        if not self.field or not self.selected_role or not self.decided_by_role or not self.reason:
             raise DomainValidationError("actor conflict resolution fields are required")
         if self.strategy not in {"AUTHORITY_PRECEDENCE", "EXPLICIT_OWNER_DECISION"}:
             raise DomainValidationError("unsupported actor conflict resolution strategy")

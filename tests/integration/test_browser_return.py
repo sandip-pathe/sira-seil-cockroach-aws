@@ -84,9 +84,7 @@ async def seed_callback(
                 required_roles=["budget_owner"],
                 approved_roles=["budget_owner"],
                 expires_at=(
-                    now - timedelta(seconds=1)
-                    if expired_approval
-                    else now + timedelta(hours=1)
+                    now - timedelta(seconds=1) if expired_approval else now + timedelta(hours=1)
                 ),
             )
         )
@@ -214,9 +212,7 @@ async def test_browser_return_rejects_expiry_and_provider_binding_mismatch(
 async def test_browser_return_expires_stale_exact_hash_approval(
     callback_database: Database,
 ) -> None:
-    service, state, intent_id = await seed_callback(
-        callback_database, expired_approval=True
-    )
+    service, state, intent_id = await seed_callback(callback_database, expired_approval=True)
 
     with pytest.raises(ApiProblem) as captured:
         await service.accept_prava_browser_return(

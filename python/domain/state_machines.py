@@ -27,9 +27,7 @@ class ApprovalTransitionService:
                 ApprovalStatus.SUPERSEDED,
             }
         ),
-        ApprovalStatus.APPROVED: frozenset(
-            {ApprovalStatus.REVOKED, ApprovalStatus.SUPERSEDED}
-        ),
+        ApprovalStatus.APPROVED: frozenset({ApprovalStatus.REVOKED, ApprovalStatus.SUPERSEDED}),
         ApprovalStatus.REJECTED: frozenset(),
         ApprovalStatus.REVOKED: frozenset(),
         ApprovalStatus.EXPIRED: frozenset(),
@@ -226,9 +224,7 @@ class ReversalTransitionService:
                 ReversalStatus.COMPENSATION_REQUIRED,
             }
         ),
-        ReversalStatus.COMPENSATION_REQUIRED: frozenset(
-            {ReversalStatus.COMPENSATED}
-        ),
+        ReversalStatus.COMPENSATION_REQUIRED: frozenset({ReversalStatus.COMPENSATED}),
         ReversalStatus.REFUNDED: frozenset(),
         ReversalStatus.REJECTED: frozenset(),
         ReversalStatus.COMPENSATED: frozenset(),
@@ -236,9 +232,7 @@ class ReversalTransitionService:
     }
 
     @classmethod
-    def transition(
-        cls, current: ReversalStatus, target: ReversalStatus
-    ) -> ReversalStatus:
+    def transition(cls, current: ReversalStatus, target: ReversalStatus) -> ReversalStatus:
         if target not in cls._allowed[current]:
             raise InvalidTransitionError(f"reversal cannot transition {current} -> {target}")
         return target

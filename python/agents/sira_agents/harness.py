@@ -30,9 +30,9 @@ class SiraSeilHarness:
                     "provenance only. "
                     "Do not evaluate eligibility, "
                     "rank plans, approve purchases, or initiate payment. Return JSON only as "
-                    "{\"facts\":[{\"proposal_id\":str,\"field\":str,\"operator\":str,"
-                    "\"value\":scalar_or_string_array,\"content_id\":str,"
-                    "\"source_version\":int,\"supporting_text\":exact_source_span}]}. "
+                    '{"facts":[{"proposal_id":str,"field":str,"operator":str,'
+                    '"value":scalar_or_string_array,"content_id":str,'
+                    '"source_version":int,"supporting_text":exact_source_span}]}. '
                     "Do not add confidence, verification, authority, status, score, or rank."
                 ),
                 prompt=prompt,
