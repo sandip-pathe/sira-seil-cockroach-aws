@@ -1399,6 +1399,7 @@ class WorkflowService:
                             version=1,
                         )
                     )
+                    await session.flush()
                 engagement_id = new_id("eng")
                 seller_visible_brief = self._requirement_brief_view(requirement_brief.payload)
                 granted_at = datetime.now(UTC)

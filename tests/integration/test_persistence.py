@@ -13,6 +13,7 @@ import pytest
 from psycopg import sql
 from psycopg.types.json import Jsonb
 from sira_api.fixtures import DemoFixtureBundle
+from sira_api.marketplace import SellerPrincipalBinding, StaticSellerOrganizationDirectory
 from sira_api.service import WorkflowService
 from sqlalchemy import select
 from sqlalchemy.engine import URL, make_url
@@ -186,11 +187,10 @@ async def test_postgres_migrations_rls_and_demo_seed() -> None:
                 SELECT tablename, policyname, permissive, cmd, qual, with_check
                 FROM pg_policies
                 WHERE schemaname = current_schema()
-                  AND policyname IN ('tenant_access', 'tenant_isolation')
                 """
             ).fetchall()
             policies = {(row[0], row[1]): row for row in policy_rows}
-            for table_name in tenant_tables:
+            for table_name in tenant_tables - {"engagements"}:
                 access = policies[(table_name, "tenant_access")]
                 isolation = policies[(table_name, "tenant_isolation")]
                 assert access[2] == "PERMISSIVE"
@@ -200,6 +200,177 @@ async def test_postgres_migrations_rls_and_demo_seed() -> None:
                 assert "app.organization_id" in str(access[5])
                 assert "app.organization_id" in str(isolation[4])
                 assert "app.organization_id" in str(isolation[5])
+
+            engagement_policies = {
+                name: policies[("engagements", name)]
+                for name in (
+                    "engagement_party_select",
+                    "engagement_owner_insert",
+                    "engagement_party_update",
+                    "engagement_owner_delete",
+                )
+            }
+            assert engagement_policies["engagement_party_select"][3] == "SELECT"
+            assert engagement_policies["engagement_owner_insert"][3] == "INSERT"
+            assert engagement_policies["engagement_party_update"][3] == "UPDATE"
+            assert engagement_policies["engagement_owner_delete"][3] == "DELETE"
+            for policy in engagement_policies.values():
+                assert policy[2] == "PERMISSIVE"
+                assert "app.organization_id" in str(policy[4] or policy[5])
+            assert "seller_organization_id" in str(
+                engagement_policies["engagement_party_select"][4]
+            )
+            assert "seller_organization_id" in str(
+                engagement_policies["engagement_party_update"][4]
+            )
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_postgres_engagement_is_visible_only_to_bound_parties() -> None:
+    with postgres_test_database() as database_url:
+        upgrade_database_to_head(database_url)
+        fixtures = DemoFixtureBundle.load()
+        seller_directory = StaticSellerOrganizationDirectory(
+            tuple(
+                SellerPrincipalBinding(
+                    candidate_id=candidate_id,
+                    seller_actor_id=str(pack["seller_id"]),
+                    seller_organization_id=f"org_{pack['seller_id']}",
+                )
+                for candidate_id, pack in sorted(fixtures.packs.items())
+            )
+        )
+        async_url = database_url_with_driver(database_url, "postgresql+asyncpg")
+        database = Database(DatabaseSettings(database_url=async_url))
+        try:
+            service = WorkflowService(
+                database,
+                fixtures,
+                allow_development_tenant_bootstrap=True,
+                seller_directory=seller_directory,
+            )
+            await service.reset_demo("org_consultco")
+            _, response = await service.candidate_action(
+                organization_id="org_consultco",
+                actor_id="usr_demo_requester",
+                actor_party="BUYER",
+                request_id="req_demo",
+                candidate_id="fixture_selected_fit",
+                idempotency_key=f"postgres-engagement-{uuid.uuid4().hex}",
+                body={"action": "REQUEST_OFFER", "reason": "PostgreSQL RLS proof"},
+            )
+            engagement_id = str(response["engagement_id"])
+        finally:
+            await database.close()
+
+        plain_url = database_url_with_driver(database_url, "postgresql")
+        runtime_role = f"sira_engagement_test_{uuid.uuid4().hex[:12]}"
+        with psycopg.connect(plain_url, autocommit=True) as connection:
+            current_user = str(connection.info.user)
+            connection.execute(
+                sql.SQL(
+                    "CREATE ROLE {} LOGIN PASSWORD NULL NOSUPERUSER NOCREATEDB "
+                    "NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+                ).format(sql.Identifier(runtime_role))
+            )
+            try:
+                connection.execute(
+                    sql.SQL("GRANT {} TO {}").format(
+                        sql.Identifier(runtime_role), sql.Identifier(current_user)
+                    )
+                )
+                connection.execute(
+                    sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(
+                        sql.Identifier(runtime_role)
+                    )
+                )
+                connection.execute(
+                    sql.SQL(
+                        "GRANT SELECT ON engagements, purchase_requests, "
+                        "purchase_brief_versions, requirement_brief_versions, "
+                        "stack_snapshots TO {}"
+                    ).format(sql.Identifier(runtime_role))
+                )
+                connection.execute(
+                    sql.SQL("GRANT UPDATE ON engagements TO {}").format(
+                        sql.Identifier(runtime_role)
+                    )
+                )
+
+                for organization_id in ("org_consultco", "org_seller_fixture_d"):
+                    with connection.transaction():
+                        connection.execute(
+                            sql.SQL("SET LOCAL ROLE {}").format(sql.Identifier(runtime_role))
+                        )
+                        connection.execute(
+                            "SELECT set_config('app.organization_id', %s, true)",
+                            (organization_id,),
+                        )
+                        visible = connection.execute(
+                            "SELECT id FROM engagements WHERE id = %s", (engagement_id,)
+                        ).fetchall()
+                        assert visible == [(engagement_id,)]
+
+                with connection.transaction():
+                    connection.execute(
+                        sql.SQL("SET LOCAL ROLE {}").format(sql.Identifier(runtime_role))
+                    )
+                    connection.execute(
+                        "SELECT set_config('app.organization_id', %s, true)",
+                        ("org_seller_fixture_d",),
+                    )
+                    for table_name in (
+                        "purchase_requests",
+                        "purchase_brief_versions",
+                        "requirement_brief_versions",
+                        "stack_snapshots",
+                    ):
+                        private_count = connection.execute(
+                            sql.SQL("SELECT count(*) FROM {} WHERE organization_id = %s").format(
+                                sql.Identifier(table_name)
+                            ),
+                            ("org_consultco",),
+                        ).fetchone()
+                        assert private_count == (0,)
+                    assert (
+                        connection.execute(
+                            "UPDATE engagements SET status = status WHERE id = %s",
+                            (engagement_id,),
+                        ).rowcount
+                        == 1
+                    )
+
+                with connection.transaction():
+                    connection.execute(
+                        sql.SQL("SET LOCAL ROLE {}").format(sql.Identifier(runtime_role))
+                    )
+                    connection.execute(
+                        "SELECT set_config('app.organization_id', %s, true)",
+                        ("org_unrelated",),
+                    )
+                    assert (
+                        connection.execute(
+                            "SELECT id FROM engagements WHERE id = %s", (engagement_id,)
+                        ).fetchall()
+                        == []
+                    )
+                    assert (
+                        connection.execute(
+                            "UPDATE engagements SET status = status WHERE id = %s",
+                            (engagement_id,),
+                        ).rowcount
+                        == 0
+                    )
+            finally:
+                connection.execute("RESET ROLE")
+                connection.execute(
+                    sql.SQL("REVOKE {} FROM {}").format(
+                        sql.Identifier(runtime_role), sql.Identifier(current_user)
+                    )
+                )
+                connection.execute(sql.SQL("DROP OWNED BY {}").format(sql.Identifier(runtime_role)))
+                connection.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(runtime_role)))
 
 
 @pytest.mark.postgres
