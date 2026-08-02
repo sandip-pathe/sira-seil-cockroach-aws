@@ -365,7 +365,28 @@ class WorkflowRepository:
             if not Fraction(0) <= conservative <= optimistic <= Fraction(1):
                 raise PersistenceConflict("Score satisfaction bounds must be ordered within [0,1]")
 
-        self.session.add_all(records)
+        # Persist the aggregate in explicit foreign-key layers. SQLAlchemy does
+        # not have ORM relationships for these immutable records, so a single
+        # add_all() may order independent mappers incorrectly on PostgreSQL.
+        self.session.add(evaluation)
+        await self.session.flush()
+
+        self.session.add_all((graph.discovery_run, *graph.solution_plans))
+        await self.session.flush()
+
+        self.session.add_all((*graph.candidate_set_members, *graph.identity_merges))
+        await self.session.flush()
+
+        self.session.add_all(
+            (
+                *graph.decision_gate_results,
+                *graph.evidence_assessments,
+                *graph.solution_plan_components,
+                *graph.score_components,
+                *graph.score_bounds,
+                *graph.robustness_frontiers,
+            )
+        )
         await self.add_outbox(
             aggregate_type="evaluation_run",
             aggregate_id=evaluation.id,
