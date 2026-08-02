@@ -31,7 +31,12 @@ from .graph_v1 import (
     evaluation_canonical_payload,
     search_private_fact_counterfactuals,
 )
-from .graph_v1_fixtures import load_demo_decision_graph_input
+from .graph_v1_fixtures import (
+    DecisionSourceBundle,
+    compile_decision_graph_input,
+    load_demo_decision_graph_input,
+    load_demo_decision_source,
+)
 from .graph_v1_models import (
     CounterfactualOutcome,
     CounterfactualRecord,
@@ -72,6 +77,7 @@ __all__ = [
     "DecisionGraphDecision",
     "DecisionGraphEvaluation",
     "DecisionGraphInput",
+    "DecisionSourceBundle",
     "DemoDecision",
     "EvaluatedPlan",
     "EvidenceAgeBounds",
@@ -99,6 +105,7 @@ __all__ = [
     "authoritative_ordering_key",
     "build_counterfactual",
     "build_solution_plans",
+    "compile_decision_graph_input",
     "evaluate_candidate",
     "evaluate_candidate_set",
     "evaluate_decision_graph",
@@ -108,6 +115,7 @@ __all__ = [
     "evaluation_canonical_payload",
     "evidence_age_bounds",
     "load_demo_decision_graph_input",
+    "load_demo_decision_source",
     "rank_solution_plans",
     "ranking_key",
     "recall_and_deduplicate",

@@ -139,6 +139,49 @@ class RequirementBriefVersion(Base, TenantOwned, Timestamped):
     )
 
 
+class DecisionSourceSnapshot(Base, TenantOwned, Timestamped):
+    """Immutable, private source bundle accepted for deterministic compilation."""
+
+    __tablename__ = "decision_source_snapshots"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    purchase_request_id: Mapped[str] = mapped_column(
+        ForeignKey("purchase_requests.id", ondelete="RESTRICT"), nullable=False
+    )
+    purchase_brief_id: Mapped[str] = mapped_column(
+        ForeignKey("purchase_brief_versions.id", ondelete="RESTRICT"), nullable=False
+    )
+    stack_snapshot_id: Mapped[str] = mapped_column(
+        ForeignKey("stack_snapshots.id", ondelete="RESTRICT"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    accepted_by_actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("version >= 1", name="ck_decision_source_snapshot_version"),
+        CheckConstraint(
+            "source_kind IN ('DEVELOPMENT_FIXTURE','PROVIDER_COMPILED','MANUAL_VERIFIED')",
+            name="ck_decision_source_snapshot_kind",
+        ),
+        UniqueConstraint(
+            "organization_id",
+            "purchase_request_id",
+            "version",
+            name="uq_decision_source_snapshot_version",
+        ),
+        UniqueConstraint(
+            "organization_id",
+            "purchase_request_id",
+            "content_hash",
+            name="uq_decision_source_snapshot_hash",
+        ),
+    )
+
+
 class DecisionRecord(Base, TenantOwned, Timestamped):
     __tablename__ = "decision_records"
 

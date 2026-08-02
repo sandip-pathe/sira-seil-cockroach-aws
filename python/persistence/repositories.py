@@ -27,6 +27,7 @@ from .models import (
     CounterfactualRecordModel,
     DecisionGateResult,
     DecisionRecord,
+    DecisionSourceSnapshot,
     DiscoveryRun,
     Engagement,
     Entitlement,
@@ -166,6 +167,31 @@ class WorkflowRepository:
                 DecisionRecord.organization_id == self.organization_id,
             ),
         )
+
+    async def add_decision_source_snapshot(
+        self, record: DecisionSourceSnapshot
+    ) -> DecisionSourceSnapshot:
+        self._assert_tenant(record.organization_id)
+        self._assert_payload_hash(record.payload, record.content_hash, "decision source")
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
+    async def get_decision_source_snapshot(
+        self, purchase_request_id: str, *, purchase_brief_id: str | None = None
+    ) -> DecisionSourceSnapshot:
+        statement = select(DecisionSourceSnapshot).where(
+            DecisionSourceSnapshot.organization_id == self.organization_id,
+            DecisionSourceSnapshot.purchase_request_id == purchase_request_id,
+        )
+        if purchase_brief_id is not None:
+            statement = statement.where(
+                DecisionSourceSnapshot.purchase_brief_id == purchase_brief_id
+            )
+        statement = statement.order_by(DecisionSourceSnapshot.version.desc()).limit(1)
+        record = await _one_or_missing(self.session, statement)
+        self._assert_payload_hash(record.payload, record.content_hash, "decision source")
+        return record
 
     async def get_evaluation_run(self, reference_id: str) -> EvaluationRun:
         """Resolve the canonical base run by its own ID or its bound decision ID."""

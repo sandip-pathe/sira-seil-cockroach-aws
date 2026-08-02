@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from copy import deepcopy
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -40,6 +42,109 @@ def _json(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"fixture must be a JSON object: {path}")
     return value
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionSourceBundle:
+    """Credential-free, immutable source documents for one deterministic compilation."""
+
+    buyer_passport: dict[str, Any]
+    purchase_brief: dict[str, Any]
+    requirement_brief: dict[str, Any]
+    stack_lock: dict[str, Any]
+    packs: tuple[dict[str, Any], ...]
+    offers: dict[str, Any]
+    evidence: dict[str, Any]
+    transaction_fee_policy: dict[str, Any]
+    contract: dict[str, Any]
+    renewal_event: dict[str, Any]
+    usage_outcomes: dict[str, Any]
+    category_taxonomy: dict[str, Any]
+    identity_normalization: dict[str, Any]
+    versions: dict[str, str]
+
+    @classmethod
+    def from_directory(cls, root: Path) -> DecisionSourceBundle:
+        return cls(
+            buyer_passport=_json(root / "buyer_passport.json"),
+            purchase_brief=_json(root / "purchase_brief.json"),
+            requirement_brief=_json(root / "requirement_brief.json"),
+            stack_lock=_json(root / "stackfile.lock.json"),
+            packs=tuple(_json(path) for path in sorted((root / "packs").glob("*.json"))),
+            offers=_json(root / "offers.json"),
+            evidence=_json(root / "evidence.json"),
+            transaction_fee_policy=_json(root / "transaction_fee_policy.json"),
+            contract=_json(root / "contract.json"),
+            renewal_event=_json(root / "renewal_event.json"),
+            usage_outcomes=_json(root / "usage_outcomes.json"),
+            category_taxonomy=_json(root / "category_taxonomy.json"),
+            identity_normalization=_json(root / "identity_normalization.json"),
+            versions={
+                "registry": "demo_registry_v1",
+                "pack_set": "demo_pack_set_v1",
+                "offer_set": "demo_offer_set_v1_buyer_txn_demo_v1",
+                "fx": "usd_identity_fx_v1",
+                "pipeline": "decision_graph_v1",
+                "engine": "engine_v1",
+            },
+        )
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, Any]) -> DecisionSourceBundle:
+        required_documents = (
+            "buyer_passport",
+            "purchase_brief",
+            "requirement_brief",
+            "stack_lock",
+            "offers",
+            "evidence",
+            "transaction_fee_policy",
+            "contract",
+            "renewal_event",
+            "usage_outcomes",
+            "category_taxonomy",
+            "identity_normalization",
+        )
+        documents: dict[str, dict[str, Any]] = {}
+        for name in required_documents:
+            value = payload.get(name)
+            if not isinstance(value, dict):
+                raise ValueError(f"decision source {name} must be an object")
+            documents[name] = deepcopy(value)
+        raw_packs = payload.get("packs")
+        if not isinstance(raw_packs, list) or not raw_packs or any(
+            not isinstance(item, dict) for item in raw_packs
+        ):
+            raise ValueError("decision source packs must be a non-empty array of objects")
+        raw_versions = payload.get("versions")
+        if not isinstance(raw_versions, dict) or any(
+            not isinstance(key, str) or not isinstance(value, str)
+            for key, value in raw_versions.items()
+        ):
+            raise ValueError("decision source versions must be a string map")
+        return cls(
+            **documents,
+            packs=tuple(deepcopy(item) for item in raw_packs),
+            versions=deepcopy(raw_versions),
+        )
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "buyer_passport": deepcopy(self.buyer_passport),
+            "purchase_brief": deepcopy(self.purchase_brief),
+            "requirement_brief": deepcopy(self.requirement_brief),
+            "stack_lock": deepcopy(self.stack_lock),
+            "packs": [deepcopy(item) for item in self.packs],
+            "offers": deepcopy(self.offers),
+            "evidence": deepcopy(self.evidence),
+            "transaction_fee_policy": deepcopy(self.transaction_fee_policy),
+            "contract": deepcopy(self.contract),
+            "renewal_event": deepcopy(self.renewal_event),
+            "usage_outcomes": deepcopy(self.usage_outcomes),
+            "category_taxonomy": deepcopy(self.category_taxonomy),
+            "identity_normalization": deepcopy(self.identity_normalization),
+            "versions": deepcopy(self.versions),
+        }
 
 
 def _time(value: str) -> datetime:
@@ -85,8 +190,10 @@ def _money_bounds(
     )
 
 
-def _buyer_facts(root: Path, requirement: Mapping[str, Any]) -> tuple[FrozenFact, ...]:
-    passport = _json(root / "buyer_passport.json")
+def _buyer_facts(
+    source: DecisionSourceBundle, requirement: Mapping[str, Any]
+) -> tuple[FrozenFact, ...]:
+    passport = source.buyer_passport
     facts = [
         FrozenFact(
             fact_id=str(item["fact_id"]),
@@ -99,7 +206,7 @@ def _buyer_facts(root: Path, requirement: Mapping[str, Any]) -> tuple[FrozenFact
     ]
     data_profile = requirement["data_profile"]
     team = requirement["team"]
-    usage = _json(root / "usage_outcomes.json")
+    usage = source.usage_outcomes
     facts.extend(
         (
             FrozenFact(
@@ -129,10 +236,10 @@ def _buyer_facts(root: Path, requirement: Mapping[str, Any]) -> tuple[FrozenFact
 
 
 def _fee_adjusted_offers(
-    root: Path,
+    source: DecisionSourceBundle,
 ) -> tuple[tuple[OfferCost, ...], dict[str, str], dict[str, str]]:
-    raw_offers = _json(root / "offers.json")["offers"]
-    fee = _json(root / "transaction_fee_policy.json")
+    raw_offers = source.offers["offers"]
+    fee = source.transaction_fee_policy
     amount = str(fee["amount"])
     currency = str(fee["currency"])
     schedule = str(fee["schedule_version"])
@@ -186,13 +293,12 @@ def _fee_adjusted_offers(
 
 
 def _pack_records(
-    root: Path,
+    source: DecisionSourceBundle,
     candidate_offer: Mapping[str, str],
     offer_evidence: Mapping[str, str],
 ) -> tuple[RawCandidateRecord, ...]:
     records: list[RawCandidateRecord] = []
-    for path in sorted((root / "packs").glob("*.json")):
-        pack = _json(path)
+    for pack in sorted(source.packs, key=lambda item: str(item["pack_id"])):
         pack_id = str(pack["pack_id"])
         claims = {
             str(item["claim_id"]): tuple(str(value) for value in item["evidence_ids"])
@@ -214,7 +320,7 @@ def _pack_records(
             )
         offer_id = candidate_offer[pack_id]
         offer = next(
-            item for item in _json(root / "offers.json")["offers"] if item["offer_id"] == offer_id
+            item for item in source.offers["offers"] if item["offer_id"] == offer_id
         )
         facts.append(
             ProductFact("offer.landed_total", str(offer["amount"]), (offer_evidence[offer_id],))
@@ -239,7 +345,7 @@ def _pack_records(
     return tuple(records)
 
 
-def _evidence(root: Path) -> tuple[EvidenceRecord, ...]:
+def _evidence(source: DecisionSourceBundle) -> tuple[EvidenceRecord, ...]:
     records = [
         EvidenceRecord(
             evidence_id=str(item["evidence_id"]),
@@ -253,11 +359,11 @@ def _evidence(root: Path) -> tuple[EvidenceRecord, ...]:
             disputed=str(item["verification_state"]) == "disputed",
             revoked=str(item["verification_state"]) == "revoked",
         )
-        for item in _json(root / "evidence.json")["evidence"]
+        for item in source.evidence["evidence"]
     ]
-    contract = _json(root / "contract.json")
-    renewal = _json(root / "renewal_event.json")
-    usage = _json(root / "usage_outcomes.json")
+    contract = source.contract
+    renewal = source.renewal_event
+    usage = source.usage_outcomes
     records.extend(
         (
             EvidenceRecord(
@@ -326,8 +432,10 @@ def _gate_actions() -> tuple[SolutionAction, ...]:
     )
 
 
-def _gates(root: Path, buyer_facts: tuple[FrozenFact, ...]) -> tuple[GateRule, ...]:
-    purchase = _json(root / "purchase_brief.json")
+def _gates(
+    source: DecisionSourceBundle, buyer_facts: tuple[FrozenFact, ...]
+) -> tuple[GateRule, ...]:
+    purchase = source.purchase_brief
     source_by_field = {fact.field: fact.fact_id for fact in buyer_facts}
     gates = [
         GateRule(
@@ -345,8 +453,7 @@ def _gates(root: Path, buyer_facts: tuple[FrozenFact, ...]) -> tuple[GateRule, .
         )
         for item in purchase["hard_gates"]
     ]
-    for path in sorted((root / "packs").glob("*.json")):
-        pack = _json(path)
+    for pack in sorted(source.packs, key=lambda item: str(item["pack_id"])):
         claim_evidence = {
             str(claim["claim_id"]): tuple(str(value) for value in claim["evidence_ids"])
             for claim in pack["claims"]
@@ -435,15 +542,15 @@ def _cost_line(item_type: str, cost: OfferCost) -> tuple[CostLineItem, ...]:
 
 
 def _current_actions(
-    root: Path,
+    source: DecisionSourceBundle,
     candidates: tuple[RawCandidateRecord, ...],
 ) -> tuple[CurrentActionRecord, ...]:
-    contract = _json(root / "contract.json")
-    renewal = _json(root / "renewal_event.json")
+    contract = source.contract
+    renewal = source.renewal_event
     incumbent = next(item for item in candidates if item.pack_id == contract["pack_id"])
     currency = str(contract["currency"])
     horizon_days = int(
-        _json(root / "requirement_brief.json")["team"]["comparison_horizon_days"]
+        source.requirement_brief["team"]["comparison_horizon_days"]
     )
     contract_evidence = str(contract["evidence_id"])
     renewal_evidence = str(renewal["evidence_id"])
@@ -523,18 +630,17 @@ def _current_actions(
     return tuple(actions)
 
 
-def load_demo_decision_graph_input(root: Path | None = None) -> DecisionGraphInput:
-    """Load the frozen demo from raw Packs, evidence, policy, contract, and usage."""
+def compile_decision_graph_input(source: DecisionSourceBundle) -> DecisionGraphInput:
+    """Compile typed deterministic input from a complete credential-free source bundle."""
 
-    fixture_root = root or Path(__file__).resolve().parents[2] / "fixtures" / "demo"
-    requirement = _json(fixture_root / "requirement_brief.json")
-    taxonomy = _json(fixture_root / "category_taxonomy.json")
-    buyer_facts = _buyer_facts(fixture_root, requirement)
-    offers, candidate_offer, offer_evidence = _fee_adjusted_offers(fixture_root)
-    candidates = _pack_records(fixture_root, candidate_offer, offer_evidence)
-    current_actions = _current_actions(fixture_root, candidates)
-    normalization = _json(fixture_root / "identity_normalization.json")
-    usage = _json(fixture_root / "usage_outcomes.json")
+    requirement = source.requirement_brief
+    taxonomy = source.category_taxonomy
+    buyer_facts = _buyer_facts(source, requirement)
+    offers, candidate_offer, offer_evidence = _fee_adjusted_offers(source)
+    candidates = _pack_records(source, candidate_offer, offer_evidence)
+    current_actions = _current_actions(source, candidates)
+    normalization = source.identity_normalization
+    usage = source.usage_outcomes
     outcome_values = tuple(
         OutcomeObservation(
             subject_id=str(usage["instance_id"]),
@@ -547,26 +653,26 @@ def load_demo_decision_graph_input(root: Path | None = None) -> DecisionGraphInp
     )
     return DecisionGraphInput(
         versions=FrozenVersions(
-            request_version="purchase_brief_v1",
-            company_profile_version="buyer_passport_v1",
-            stackfile_version="stackfile_snapshot_v1",
-            registry_version="demo_registry_v1",
-            pack_set_version="demo_pack_set_v1",
-            offer_set_version="demo_offer_set_v1_buyer_txn_demo_v1",
+            request_version=f"purchase_brief_v{source.purchase_brief['version']}",
+            company_profile_version=f"buyer_passport_v{source.buyer_passport['version']}",
+            stackfile_version=f"stackfile_snapshot_v{source.stack_lock['snapshot']}",
+            registry_version=source.versions["registry"],
+            pack_set_version=source.versions["pack_set"],
+            offer_set_version=source.versions["offer_set"],
             taxonomy_version=str(taxonomy["taxonomy_version"]),
             normalization_version=str(taxonomy["normalization_version"]),
             policy_version="consultco_policy_v1",
-            fx_version="usd_identity_fx_v1",
-            pipeline_version="decision_graph_v1",
-            engine_version="engine_v1",
+            fx_version=source.versions["fx"],
+            pipeline_version=source.versions["pipeline"],
+            engine_version=source.versions["engine"],
         ),
         evaluated_at=_time(str(taxonomy["evaluated_at"])),
         buyer_facts=buyer_facts,
         candidates=candidates,
         offers=offers,
-        evidence=_evidence(fixture_root),
+        evidence=_evidence(source),
         evidence_policies=_evidence_policies(taxonomy, candidates),
-        gates=_gates(fixture_root, buyer_facts),
+        gates=_gates(source, buyer_facts),
         preferences=_preferences(taxonomy),
         risk_rules=_risk_rules(taxonomy),
         risk_rule_set_complete=bool(taxonomy["risk_rule_set_complete"]),
@@ -579,4 +685,20 @@ def load_demo_decision_graph_input(root: Path | None = None) -> DecisionGraphInp
     )
 
 
-__all__ = ["load_demo_decision_graph_input"]
+def load_demo_decision_source(root: Path | None = None) -> DecisionSourceBundle:
+    fixture_root = root or Path(__file__).resolve().parents[2] / "fixtures" / "demo"
+    return DecisionSourceBundle.from_directory(fixture_root)
+
+
+def load_demo_decision_graph_input(root: Path | None = None) -> DecisionGraphInput:
+    """Load the checked-in demo through the same compiler used by persisted sources."""
+
+    return compile_decision_graph_input(load_demo_decision_source(root))
+
+
+__all__ = [
+    "DecisionSourceBundle",
+    "compile_decision_graph_input",
+    "load_demo_decision_graph_input",
+    "load_demo_decision_source",
+]

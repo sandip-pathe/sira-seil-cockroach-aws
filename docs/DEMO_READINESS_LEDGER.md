@@ -4,7 +4,7 @@ Updated: 2026-08-02
 
 Branch reviewed: `core-backend`
 
-Implementation reviewed through: `9a1e2ef` plus the current replay-fidelity batch
+Implementation reviewed through: `dc4fbdd` plus the current persisted-input-compiler batch
 
 This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes that followed it. It is the short, current checklist for the demo; the earlier audit remains useful background but its original P0 verdict is stale.
 
@@ -24,6 +24,7 @@ This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes t
 | CORE-03 | **FIXED:** Strict typed comparisons, exact evidence scope, comparable currency/horizon, assessed-evidence risk rules, and coherent deduplication are enforced. | `a1f22bb`. |
 | DEMO-01 | **FIXED:** Arbitrary request text can be saved only as an explicitly unevaluated draft. Discovery requires the declared `consultco_meeting_intelligence_v1` scenario, and every request/decision projection carries the non-production fixture mode and label. | Primary and compatibility API tests; frozen Decision View and generated client contracts. |
 | CORE-04 | **FIXED FOR THE DEMO:** Replay, simulation, and counterfactual execution resolve the canonical persisted Evaluation Run and verify its input hash, versions, evaluation time, frozen artifact hashes, evaluation hash, and aggregate bindings. If the exact fixture source no longer matches, the operation fails with `REPLAY_INPUT_UNAVAILABLE` instead of substituting current data. | Replay-fidelity unit tests and the combined counterfactual/simulation/replay API regression. |
+| CORE-05 | **FOUNDATION COMPLETE:** The deterministic engine now compiles from a complete credential-free `DecisionSourceBundle`, not a filesystem-only loader. Accepted Buyer Passport, Purchase/Requirement Brief, Stackfile, Pack, evidence, offer, contract, usage, taxonomy, and normalization documents are stored as one immutable tenant-scoped source snapshot; discovery, calibration, and accepted rule changes use that exact hash-bound snapshot. The demo snapshot remains explicitly `DEVELOPMENT_FIXTURE`; provider/manual ingestion is the next composition layer. | Compiler divergence tests, source-snapshot repository tests, API discovery/calibration regressions, and migration `a4c8e1f7b205`. |
 | PAY-01 | **FIXED:** Approval expiry is rechecked at hosted-session creation, browser return, and final dispatch; stale authority becomes `EXPIRED` before side effects. | `47db419`. |
 | PAY-02 | **FIXED:** Provider uncertainty and hosted-session failures are recoverable; malformed outbox events no longer starve later work. | `70dc0a3`. |
 | PAY-03 | **FIXED:** Fulfillment retries separately from checkout, so paid-but-unfulfilled recovery does not repeat the charge. | `d6ee047`. |

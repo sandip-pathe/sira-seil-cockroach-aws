@@ -13,8 +13,10 @@ from sqlalchemy import delete, func, select, text
 from decision_engine import (
     DecisionGraphDecision,
     DecisionGraphInput,
+    DecisionSourceBundle,
+    compile_decision_graph_input,
     evaluate_decision_graph,
-    load_demo_decision_graph_input,
+    load_demo_decision_source,
 )
 from integrations.errors import ProviderError, ProviderErrorCode
 from integrations.prava.models import (
@@ -35,6 +37,7 @@ from persistence.models import (
     DecisionGateResult,
     DecisionRecord,
     DecisionSimulation,
+    DecisionSourceSnapshot,
     DiscoveryRun,
     Engagement,
     Entitlement,
@@ -160,13 +163,13 @@ class WorkflowService:
         }
 
     @staticmethod
-    def _demo_graph_input(
+    def _bind_graph_input(
+        graph_input: DecisionGraphInput,
         *,
         purchase_brief_id: str,
         purchase_brief_version: int,
         preference_weights: dict[str, int] | None = None,
     ) -> DecisionGraphInput:
-        graph_input = load_demo_decision_graph_input(DEMO)
         return replace(
             graph_input,
             versions=replace(
@@ -181,6 +184,21 @@ class WorkflowService:
                 )
                 for item in graph_input.preferences
             ),
+        )
+
+    @classmethod
+    def _demo_graph_input(
+        cls,
+        *,
+        purchase_brief_id: str,
+        purchase_brief_version: int,
+        preference_weights: dict[str, int] | None = None,
+    ) -> DecisionGraphInput:
+        return cls._bind_graph_input(
+            compile_decision_graph_input(load_demo_decision_source(DEMO)),
+            purchase_brief_id=purchase_brief_id,
+            purchase_brief_version=purchase_brief_version,
+            preference_weights=preference_weights,
         )
 
     @staticmethod
@@ -293,6 +311,7 @@ class WorkflowService:
         stack_patch_id: str,
         preference_weights: dict[str, int] | None = None,
         created_at: datetime | None = None,
+        source_input: DecisionGraphInput | None = None,
     ) -> tuple[
         DecisionGraphInput,
         DecisionGraphDecision,
@@ -303,10 +322,19 @@ class WorkflowService:
         """Run the deterministic graph and bind DB-owned artifact identifiers."""
 
         fixtures = self._fixture_bundle()
-        graph_input = self._demo_graph_input(
-            purchase_brief_id=purchase_brief_id,
-            purchase_brief_version=purchase_brief_version,
-            preference_weights=preference_weights,
+        graph_input = (
+            self._demo_graph_input(
+                purchase_brief_id=purchase_brief_id,
+                purchase_brief_version=purchase_brief_version,
+                preference_weights=preference_weights,
+            )
+            if source_input is None
+            else self._bind_graph_input(
+                source_input,
+                purchase_brief_id=purchase_brief_id,
+                purchase_brief_version=purchase_brief_version,
+                preference_weights=preference_weights,
+            )
         )
         artifact_created_at = created_at or graph_input.evaluated_at
         graph_decision = evaluate_decision_graph(
@@ -455,6 +483,7 @@ class WorkflowService:
                 CalibrationRun,
                 DecisionSimulation,
                 DecisionRecord,
+                DecisionSourceSnapshot,
                 RequirementBriefVersion,
                 PurchaseBriefVersion,
                 StackPatch,
@@ -509,29 +538,26 @@ class WorkflowService:
                 updated_at=graph_input.evaluated_at,
             )
             session.add(request)
-            session.add(
-                PurchaseBriefVersion(
-                    id=brief["purchase_brief_id"],
-                    organization_id=organization_id,
-                    purchase_request_id=request.id,
-                    version=brief["version"],
-                    status=brief["status"],
-                    payload=brief,
-                    content_hash=brief["content_hash"],
-                    supersedes_id=None,
-                )
+            brief_record = PurchaseBriefVersion(
+                id=brief["purchase_brief_id"],
+                organization_id=organization_id,
+                purchase_request_id=request.id,
+                version=brief["version"],
+                status=brief["status"],
+                payload=brief,
+                content_hash=brief["content_hash"],
+                supersedes_id=None,
             )
-            session.add(
-                RequirementBriefVersion(
-                    id=requirement["requirement_brief_id"],
-                    organization_id=organization_id,
-                    purchase_request_id=request.id,
-                    purchase_brief_id=brief["purchase_brief_id"],
-                    version=requirement["version"],
-                    payload=requirement,
-                    content_hash=requirement["content_hash"],
-                )
+            requirement_record = RequirementBriefVersion(
+                id=requirement["requirement_brief_id"],
+                organization_id=organization_id,
+                purchase_request_id=request.id,
+                purchase_brief_id=brief["purchase_brief_id"],
+                version=requirement["version"],
+                payload=requirement,
+                content_hash=requirement["content_hash"],
             )
+            session.add_all((brief_record, requirement_record))
             decision_record = DecisionRecord(
                 id=ledger["decision_id"],
                 organization_id=organization_id,
@@ -587,15 +613,24 @@ class WorkflowService:
                     "evaluation_run_id": evaluation_run_id,
                 },
             }
-            session.add(
-                StackSnapshot(
-                    id="stack_consultco_v1",
-                    organization_id=organization_id,
-                    version=1,
-                    manifest=fixtures.stack_manifest,
-                    lock=fixtures.stack_lock,
-                    lock_hash=fixtures.stack_lock["content_hash"],
-                )
+            stack_snapshot = StackSnapshot(
+                id="stack_consultco_v1",
+                organization_id=organization_id,
+                version=1,
+                manifest=fixtures.stack_manifest,
+                lock=fixtures.stack_lock,
+                lock_hash=fixtures.stack_lock["content_hash"],
+            )
+            session.add(stack_snapshot)
+            await session.flush()
+            await self._add_demo_decision_source(
+                repository=repository,
+                organization_id=organization_id,
+                actor_id=DEMO_ACTOR_ID,
+                request=request,
+                brief=brief_record,
+                requirement=requirement_record,
+                stack_snapshot=stack_snapshot,
             )
             session.add(
                 StackPatch(
@@ -686,7 +721,21 @@ class WorkflowService:
             )
             await repository.add_purchase_request(record)
             if self.fixtures is not None and scenario_id == DEMO_SCENARIO_ID:
-                await self._add_request_briefs(session, organization_id, record)
+                brief, requirement = await self._add_request_briefs(
+                    session, organization_id, record
+                )
+                stack_snapshot = await self._ensure_demo_stack_snapshot(
+                    session, organization_id
+                )
+                await self._add_demo_decision_source(
+                    repository=repository,
+                    organization_id=organization_id,
+                    actor_id=actor_id,
+                    request=record,
+                    brief=brief,
+                    requirement=requirement,
+                    stack_snapshot=stack_snapshot,
+                )
             response = self._request_view(record)
             await repository.complete_idempotency(
                 claim.record,
@@ -787,6 +836,23 @@ class WorkflowService:
                     .limit(1)
                 )
             ).scalar_one()
+            try:
+                source_snapshot = await repository.get_decision_source_snapshot(
+                    request_id, purchase_brief_id=brief.id
+                )
+                source_input = compile_decision_graph_input(
+                    DecisionSourceBundle.from_payload(source_snapshot.payload)
+                )
+            except (PersistenceConflict, RecordNotFound, ValueError) as exc:
+                raise ApiProblem(
+                    code="DECISION_SOURCE_UNAVAILABLE",
+                    message=(
+                        "The accepted Buyer Passport, Stackfile, brief, Pack, evidence, and "
+                        "offer bundle is missing or invalid."
+                    ),
+                    status_code=409,
+                    next_action="compile_decision_source",
+                ) from exc
             previous_decision = (
                 await session.execute(
                     select(DecisionRecord)
@@ -816,6 +882,7 @@ class WorkflowService:
                     requirement_brief_id=requirement.id,
                     requirement_brief_version=requirement.version,
                     stack_patch_id=stack_patch_id,
+                    source_input=source_input,
                 )
             )
             decision_record = DecisionRecord(
@@ -858,22 +925,19 @@ class WorkflowService:
             snapshot = (
                 await session.execute(
                     select(StackSnapshot)
-                    .where(StackSnapshot.organization_id == organization_id)
-                    .order_by(StackSnapshot.version.desc())
-                    .limit(1)
+                    .where(
+                        StackSnapshot.organization_id == organization_id,
+                        StackSnapshot.id == source_snapshot.stack_snapshot_id,
+                    )
                 )
             ).scalar_one_or_none()
             if snapshot is None:
-                snapshot = StackSnapshot(
-                    id=f"stack_{organization_id}_v1",
-                    organization_id=organization_id,
-                    version=1,
-                    manifest=fixtures.stack_manifest,
-                    lock=fixtures.stack_lock,
-                    lock_hash=fixtures.stack_lock["content_hash"],
+                raise ApiProblem(
+                    code="DECISION_SOURCE_UNAVAILABLE",
+                    message="The exact Stackfile snapshot bound to the decision source is absent.",
+                    status_code=409,
+                    next_action="compile_decision_source",
                 )
-                session.add(snapshot)
-                await session.flush()
             session.add(
                 StackPatch(
                     id=stack_patch_id,
@@ -1084,7 +1148,24 @@ class WorkflowService:
                 )
             ).scalar_one()
             run_id = new_id("cal")
-            graph_input = load_demo_decision_graph_input(DEMO)
+            try:
+                source_snapshot = await repository.get_decision_source_snapshot(
+                    request_id, purchase_brief_id=brief.id
+                )
+                graph_input = self._bind_graph_input(
+                    compile_decision_graph_input(
+                        DecisionSourceBundle.from_payload(source_snapshot.payload)
+                    ),
+                    purchase_brief_id=brief.id,
+                    purchase_brief_version=brief.version,
+                )
+            except (PersistenceConflict, RecordNotFound, ValueError) as exc:
+                raise ApiProblem(
+                    code="DECISION_SOURCE_UNAVAILABLE",
+                    message="Calibration requires the exact accepted decision source bundle.",
+                    status_code=409,
+                    next_action="compile_decision_source",
+                ) from exc
             graph = evaluate_decision_graph(
                 graph_input,
                 evaluation_id=f"calibration_{run_id}",
@@ -1783,18 +1864,17 @@ class WorkflowService:
                 payload["content_hash"] = content_hash(
                     {key: value for key, value in payload.items() if key != "content_hash"}
                 )
-                session.add(
-                    PurchaseBriefVersion(
-                        id=resulting_id,
-                        organization_id=organization_id,
-                        purchase_request_id=base.purchase_request_id,
-                        version=resulting_version,
-                        status="APPROVED",
-                        payload=payload,
-                        content_hash=payload["content_hash"],
-                        supersedes_id=base.id,
-                    )
+                resulting_brief_record = PurchaseBriefVersion(
+                    id=resulting_id,
+                    organization_id=organization_id,
+                    purchase_request_id=base.purchase_request_id,
+                    version=resulting_version,
+                    status="APPROVED",
+                    payload=payload,
+                    content_hash=payload["content_hash"],
+                    supersedes_id=base.id,
                 )
+                session.add(resulting_brief_record)
 
                 base_requirement = (
                     await session.execute(
@@ -1842,17 +1922,16 @@ class WorkflowService:
                         if key != "content_hash"
                     }
                 )
-                session.add(
-                    RequirementBriefVersion(
-                        id=requirement_id,
-                        organization_id=organization_id,
-                        purchase_request_id=base.purchase_request_id,
-                        purchase_brief_id=resulting_id,
-                        version=requirement_payload["version"],
-                        payload=requirement_payload,
-                        content_hash=requirement_payload["content_hash"],
-                    )
+                resulting_requirement_record = RequirementBriefVersion(
+                    id=requirement_id,
+                    organization_id=organization_id,
+                    purchase_request_id=base.purchase_request_id,
+                    purchase_brief_id=resulting_id,
+                    version=requirement_payload["version"],
+                    payload=requirement_payload,
+                    content_hash=requirement_payload["content_hash"],
                 )
+                session.add(resulting_requirement_record)
 
                 previous_decision = (
                     await session.execute(
@@ -1875,6 +1954,42 @@ class WorkflowService:
                     str(item["criterion_id"]): int(item["weight"])
                     for item in payload["preferences"]
                 }
+                try:
+                    base_source = await repository.get_decision_source_snapshot(
+                        base.purchase_request_id, purchase_brief_id=base.id
+                    )
+                    source_payload = deepcopy(base_source.payload)
+                    source_payload["purchase_brief"] = deepcopy(payload)
+                    source_payload["requirement_brief"] = deepcopy(requirement_payload)
+                    source_hash = content_hash(source_payload)
+                    source_snapshot = await repository.add_decision_source_snapshot(
+                        DecisionSourceSnapshot(
+                            id=f"dss_{base.purchase_request_id}_v{resulting_version}",
+                            organization_id=organization_id,
+                            purchase_request_id=base.purchase_request_id,
+                            purchase_brief_id=resulting_id,
+                            stack_snapshot_id=base_source.stack_snapshot_id,
+                            version=resulting_version,
+                            source_kind=base_source.source_kind,
+                            payload=source_payload,
+                            content_hash=source_hash,
+                            accepted_by_actor_id=actor_id,
+                            accepted_at=now,
+                        )
+                    )
+                    source_input = compile_decision_graph_input(
+                        DecisionSourceBundle.from_payload(source_snapshot.payload)
+                    )
+                except (PersistenceConflict, RecordNotFound, ValueError) as exc:
+                    raise ApiProblem(
+                        code="DECISION_SOURCE_UNAVAILABLE",
+                        message=(
+                            "The accepted rule change could not be bound to its prior frozen "
+                            "decision source."
+                        ),
+                        status_code=409,
+                        next_action="compile_decision_source",
+                    ) from exc
                 (
                     graph_input,
                     graph_decision,
@@ -1896,6 +2011,7 @@ class WorkflowService:
                     stack_patch_id=stack_patch_id,
                     preference_weights=preference_weights,
                     created_at=now,
+                    source_input=source_input,
                 )
                 fixtures = self._fixture_bundle()
                 request_record = await self._not_found(
@@ -1907,7 +2023,7 @@ class WorkflowService:
                     await session.execute(
                         select(StackSnapshot).where(
                             StackSnapshot.organization_id == organization_id,
-                            StackSnapshot.version == graph_patch["base_snapshot"],
+                            StackSnapshot.id == source_snapshot.stack_snapshot_id,
                         )
                     )
                 ).scalar_one_or_none()
@@ -3445,7 +3561,7 @@ class WorkflowService:
 
     async def _add_request_briefs(
         self, session: Any, organization_id: str, request: PurchaseRequest
-    ) -> None:
+    ) -> tuple[PurchaseBriefVersion, RequirementBriefVersion]:
         fixtures = self._fixture_bundle()
         brief = deepcopy(fixtures.purchase_brief)
         brief_id = f"pb_{request.id}"
@@ -3464,27 +3580,90 @@ class WorkflowService:
         requirement["content_hash"] = content_hash(
             {key: value for key, value in requirement.items() if key != "content_hash"}
         )
-        session.add(
-            PurchaseBriefVersion(
-                id=brief_id,
-                organization_id=organization_id,
-                purchase_request_id=request.id,
-                version=1,
-                status="APPROVED",
-                payload=brief,
-                content_hash=brief["content_hash"],
-                supersedes_id=None,
-            )
+        brief_record = PurchaseBriefVersion(
+            id=brief_id,
+            organization_id=organization_id,
+            purchase_request_id=request.id,
+            version=1,
+            status="APPROVED",
+            payload=brief,
+            content_hash=brief["content_hash"],
+            supersedes_id=None,
         )
-        session.add(
-            RequirementBriefVersion(
-                id=requirement_id,
+        requirement_record = RequirementBriefVersion(
+            id=requirement_id,
+            organization_id=organization_id,
+            purchase_request_id=request.id,
+            purchase_brief_id=brief_id,
+            version=1,
+            payload=requirement,
+            content_hash=requirement["content_hash"],
+        )
+        session.add_all((brief_record, requirement_record))
+        return brief_record, requirement_record
+
+    async def _ensure_demo_stack_snapshot(
+        self, session: Any, organization_id: str
+    ) -> StackSnapshot:
+        fixtures = self._fixture_bundle()
+        snapshot = (
+            await session.execute(
+                select(StackSnapshot)
+                .where(StackSnapshot.organization_id == organization_id)
+                .order_by(StackSnapshot.version.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if snapshot is None:
+            snapshot = StackSnapshot(
+                id=f"stack_{organization_id}_v1",
+                organization_id=organization_id,
+                version=1,
+                manifest=fixtures.stack_manifest,
+                lock=fixtures.stack_lock,
+                lock_hash=fixtures.stack_lock["content_hash"],
+            )
+            session.add(snapshot)
+            await session.flush()
+        return cast(StackSnapshot, snapshot)
+
+    async def _add_demo_decision_source(
+        self,
+        *,
+        repository: WorkflowRepository,
+        organization_id: str,
+        actor_id: str,
+        request: PurchaseRequest,
+        brief: PurchaseBriefVersion,
+        requirement: RequirementBriefVersion,
+        stack_snapshot: StackSnapshot,
+    ) -> DecisionSourceSnapshot:
+        source = load_demo_decision_source(DEMO)
+        payload = source.to_payload()
+        buyer_passport = payload["buyer_passport"]
+        buyer_passport["organization_id"] = organization_id
+        for fact in buyer_passport["facts"]:
+            fact["organization_id"] = organization_id
+        payload["purchase_brief"] = deepcopy(brief.payload)
+        payload["requirement_brief"] = deepcopy(requirement.payload)
+        payload["stack_lock"] = deepcopy(stack_snapshot.lock)
+        source_hash = content_hash(payload)
+        accepted_at = datetime.fromisoformat(
+            str(payload["category_taxonomy"]["evaluated_at"]).replace("Z", "+00:00")
+        )
+        return await repository.add_decision_source_snapshot(
+            DecisionSourceSnapshot(
+                id=f"dss_{request.id}_v{brief.version}",
                 organization_id=organization_id,
                 purchase_request_id=request.id,
-                purchase_brief_id=brief_id,
-                version=1,
-                payload=requirement,
-                content_hash=requirement["content_hash"],
+                purchase_brief_id=brief.id,
+                stack_snapshot_id=stack_snapshot.id,
+                version=brief.version,
+                source_kind="DEVELOPMENT_FIXTURE",
+                payload=payload,
+                content_hash=source_hash,
+                accepted_by_actor_id=actor_id,
+                accepted_at=accepted_at,
             )
         )
 
