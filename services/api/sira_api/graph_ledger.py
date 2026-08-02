@@ -411,5 +411,18 @@ def build_decision_ledger(
         ],
         "created_at": _timestamp(metadata.created_at),
     }
+    if decision_input.actor_conflict_resolutions:
+        payload["actor_conflict_resolutions"] = [
+            {
+                "field": item.field,
+                "fact_ids": list(item.fact_ids),
+                "selected_fact_id": item.selected_fact_id,
+                "selected_role": item.selected_role,
+                "decided_by_role": item.decided_by_role,
+                "strategy": item.strategy,
+                "reason": item.reason,
+            }
+            for item in decision_input.actor_conflict_resolutions
+        ]
     payload["decision_hash"] = content_hash(payload)
     return payload

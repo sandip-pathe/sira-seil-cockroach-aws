@@ -83,10 +83,26 @@
         }
       }
     },
+    "actor_conflict_resolutions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ActorConflictResolution" }
+    },
     "created_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
     "content_hash": { "$ref": "common.schema.json#/$defs/Sha256" }
   },
   "$defs": {
+    "ActorConflictResolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "selected_fact_id", "decided_by_role", "reason"],
+      "properties": {
+        "field": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{2,127}$" },
+        "selected_fact_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "decided_by_role": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
     "HardGate": {
       "type": "object",
       "additionalProperties": false,

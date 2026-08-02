@@ -1226,6 +1226,13 @@ def _frozen_input_hashes(decision_input: DecisionGraphInput) -> tuple[tuple[str,
             )
         ),
     }
+    if decision_input.actor_conflict_resolutions:
+        artifacts["actor_conflict_resolutions"] = tuple(
+            sorted(
+                decision_input.actor_conflict_resolutions,
+                key=lambda item: item.field,
+            )
+        )
     return tuple((name, content_hash(value)) for name, value in sorted(artifacts.items()))
 
 

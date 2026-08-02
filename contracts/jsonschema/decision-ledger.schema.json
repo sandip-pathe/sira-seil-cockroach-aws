@@ -27,6 +27,7 @@
     "selected_solution_plan_id": { "$ref": "#/$defs/NullableIdentifier" },
     "rank_stability": { "$ref": "decision-view.schema.json#/$defs/RankStabilityView" },
     "counterfactuals": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/CounterfactualRecord" } },
+    "actor_conflict_resolutions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ActorConflictResolution" } },
     "decision_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
     "created_at": { "$ref": "common.schema.json#/$defs/Timestamp" }
   },
@@ -60,6 +61,20 @@
     }
   ],
   "$defs": {
+    "ActorConflictResolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "fact_ids", "selected_fact_id", "selected_role", "decided_by_role", "strategy", "reason"],
+      "properties": {
+        "field": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{2,127}$" },
+        "fact_ids": { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "selected_fact_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "selected_role": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "decided_by_role": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "strategy": { "type": "string", "enum": ["AUTHORITY_PRECEDENCE", "EXPLICIT_OWNER_DECISION"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
     "NullableIdentifier": {
       "oneOf": [
         { "$ref": "common.schema.json#/$defs/Identifier" },

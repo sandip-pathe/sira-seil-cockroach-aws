@@ -111,11 +111,68 @@ class FrozenFact:
     value: FactValue
     private: bool
     version: str
+    asserted_by_role: str = "unknown"
+    authority_level: str = "UNKNOWN"
+    authority_rank: int = 0
 
     def __post_init__(self) -> None:
         require_id(self.fact_id, "fact_id")
-        if not self.field or not self.version:
+        if not self.field or not self.version or not self.asserted_by_role:
             raise DomainValidationError("a frozen fact requires field and version")
+        if self.authority_rank < 0 or not self.authority_level:
+            raise DomainValidationError("a frozen fact requires non-negative actor authority")
+
+    def to_hash_payload(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "fact_id": self.fact_id,
+            "field": self.field,
+            "value": self.value,
+            "private": self.private,
+            "version": self.version,
+        }
+        # Preserve the frozen v1 demo hashes until actor authority actually affects
+        # an input. New compiled inputs bind the authority metadata explicitly.
+        if (
+            self.asserted_by_role != "unknown"
+            or self.authority_level != "UNKNOWN"
+            or self.authority_rank != 0
+        ):
+            payload.update(
+                {
+                    "asserted_by_role": self.asserted_by_role,
+                    "authority_level": self.authority_level,
+                    "authority_rank": self.authority_rank,
+                }
+            )
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class ActorConflictResolution:
+    field: str
+    fact_ids: tuple[str, ...]
+    selected_fact_id: str
+    selected_role: str
+    decided_by_role: str
+    strategy: str
+    reason: str
+
+    def __post_init__(self) -> None:
+        if (
+            not self.field
+            or not self.selected_role
+            or not self.decided_by_role
+            or not self.reason
+        ):
+            raise DomainValidationError("actor conflict resolution fields are required")
+        if self.strategy not in {"AUTHORITY_PRECEDENCE", "EXPLICIT_OWNER_DECISION"}:
+            raise DomainValidationError("unsupported actor conflict resolution strategy")
+        normalized = tuple(sorted(set(self.fact_ids)))
+        if len(normalized) < 2 or self.selected_fact_id not in normalized:
+            raise DomainValidationError("actor conflict resolution must select a conflicting fact")
+        object.__setattr__(self, "fact_ids", normalized)
+        for fact_id in normalized:
+            require_id(fact_id, "conflicting_fact_id")
 
 
 @dataclass(frozen=True, slots=True)
@@ -586,6 +643,7 @@ class DecisionGraphInput:
     identity_normalization: IdentityNormalization
     outcome_values: tuple[OutcomeObservation, ...] = ()
     removed_private_fact_ids: frozenset[str] = field(default_factory=frozenset)
+    actor_conflict_resolutions: tuple[ActorConflictResolution, ...] = ()
 
     def __post_init__(self) -> None:
         if self.evaluated_at.tzinfo is None:
@@ -600,6 +658,11 @@ class DecisionGraphInput:
         object.__setattr__(self, "risk_rules", tuple(self.risk_rules))
         object.__setattr__(self, "current_actions", tuple(self.current_actions))
         object.__setattr__(self, "outcome_values", tuple(self.outcome_values))
+        object.__setattr__(
+            self,
+            "actor_conflict_resolutions",
+            tuple(self.actor_conflict_resolutions),
+        )
         object.__setattr__(
             self, "removed_private_fact_ids", frozenset(self.removed_private_fact_ids)
         )

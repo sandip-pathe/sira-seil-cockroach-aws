@@ -10,11 +10,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from domain import DomainValidationError, content_hash
 from domain.enums import CandidateStatus, PackAuthority, SolutionAction, StackRisk
 from domain.money import Money
 
 from .bounds import ExactRatio
 from .graph_v1_models import (
+    ActorConflictResolution,
     CostLineItem,
     CurrentActionRecord,
     DecisionGraphInput,
@@ -35,6 +37,17 @@ from .graph_v1_models import (
     RawCandidateRecord,
     RiskRule,
 )
+
+
+def _actor_authority(role: str, kind: str) -> tuple[str, int]:
+    if role == "requester":
+        return "REQUESTER", 100
+    if role == "cardholder":
+        return "TRANSACTION_AUTHORITY", 200
+    if role.endswith("_owner"):
+        level = "POLICY_OWNER" if kind in {"hard_constraint", "authority"} else "DOMAIN_OWNER"
+        return level, 300
+    return "UNKNOWN", 0
 
 
 def _json(path: Path) -> dict[str, Any]:
@@ -194,16 +207,28 @@ def _buyer_facts(
     source: DecisionSourceBundle, requirement: Mapping[str, Any]
 ) -> tuple[FrozenFact, ...]:
     passport = source.buyer_passport
-    facts = [
-        FrozenFact(
-            fact_id=str(item["fact_id"]),
-            field=str(item["field"]),
-            value=_value(item["value"]),
-            private=str(item["sensitivity"]) != "public",
-            version=f"buyer_passport_v{passport['version']}",
+    allowed_roles = {
+        str(item["role"])
+        for item in passport["stakeholders"]
+    } | set(_field_owner_roles(source.purchase_brief).values())
+    facts: list[FrozenFact] = []
+    for item in passport["facts"]:
+        role = str(item["stakeholder_role"])
+        if role not in allowed_roles:
+            raise DomainValidationError(f"buyer fact uses undeclared actor role {role}")
+        authority_level, authority_rank = _actor_authority(role, str(item["kind"]))
+        facts.append(
+            FrozenFact(
+                fact_id=str(item["fact_id"]),
+                field=str(item["field"]),
+                value=_value(item["value"]),
+                private=str(item["sensitivity"]) != "public",
+                version=f"buyer_passport_v{passport['version']}",
+                asserted_by_role=role,
+                authority_level=authority_level,
+                authority_rank=authority_rank,
+            )
         )
-        for item in passport["facts"]
-    ]
     data_profile = requirement["data_profile"]
     team = requirement["team"]
     usage = source.usage_outcomes
@@ -215,6 +240,9 @@ def _buyer_facts(
                 bool(data_profile["shared_client_workspace_required"]),
                 True,
                 f"requirement_brief_v{requirement['version']}",
+                "requester",
+                "REQUESTER",
+                100,
             ),
             FrozenFact(
                 "rf_seat_count",
@@ -222,6 +250,9 @@ def _buyer_facts(
                 int(team["seat_count"]),
                 False,
                 f"requirement_brief_v{requirement['version']}",
+                "requester",
+                "REQUESTER",
+                100,
             ),
             FrozenFact(
                 "bf_incumbent_outcome",
@@ -229,10 +260,127 @@ def _buyer_facts(
                 True,
                 True,
                 f"usage_outcomes_v{usage['version']}",
+                "system_observation",
+                "OBSERVATION",
+                50,
             ),
         )
     )
     return tuple(sorted(facts, key=lambda item: item.fact_id))
+
+
+def _field_owner_roles(purchase_brief: Mapping[str, Any]) -> dict[str, str]:
+    owners: dict[str, str] = {}
+    for item in (*purchase_brief["hard_gates"], *purchase_brief["preferences"]):
+        field = str(item["field"])
+        role = str(item["owner_role"])
+        previous = owners.get(field)
+        if previous is not None and previous != role:
+            raise DomainValidationError(f"purchase brief has conflicting owners for {field}")
+        owners[field] = role
+    return owners
+
+
+def _resolve_actor_conflicts(
+    facts: tuple[FrozenFact, ...], purchase_brief: Mapping[str, Any]
+) -> tuple[tuple[FrozenFact, ...], tuple[ActorConflictResolution, ...]]:
+    by_field: dict[str, list[FrozenFact]] = {}
+    for fact in facts:
+        by_field.setdefault(fact.field, []).append(fact)
+
+    raw_resolutions = purchase_brief.get("actor_conflict_resolutions", [])
+    if not isinstance(raw_resolutions, list):
+        raise DomainValidationError("actor_conflict_resolutions must be an array")
+    explicit_by_field: dict[str, Mapping[str, Any]] = {}
+    for item in raw_resolutions:
+        if not isinstance(item, Mapping):
+            raise DomainValidationError("actor conflict resolution must be an object")
+        field = str(item.get("field", ""))
+        if not field or field in explicit_by_field:
+            raise DomainValidationError("actor conflict resolutions require unique fields")
+        explicit_by_field[field] = item
+
+    owner_roles = _field_owner_roles(purchase_brief)
+    selected: list[FrozenFact] = []
+    resolutions: list[ActorConflictResolution] = []
+    conflicted_fields: set[str] = set()
+    for field, field_facts in sorted(by_field.items()):
+        value_groups = {
+            content_hash(fact.value): fact.value
+            for fact in field_facts
+        }
+        if len(value_groups) == 1:
+            selected.extend(field_facts)
+            continue
+
+        conflicted_fields.add(field)
+        ranked = sorted(
+            field_facts,
+            key=lambda item: (-item.authority_rank, item.fact_id),
+        )
+        highest_rank = ranked[0].authority_rank
+        highest = [fact for fact in ranked if fact.authority_rank == highest_rank]
+        chosen: FrozenFact
+        strategy: str
+        decided_by_role: str
+        reason: str
+        if len({content_hash(fact.value) for fact in highest}) == 1:
+            chosen = highest[0]
+            strategy = "AUTHORITY_PRECEDENCE"
+            decided_by_role = chosen.asserted_by_role
+            reason = "Unique highest-authority assertion controls this field."
+        else:
+            explicit = explicit_by_field.get(field)
+            if explicit is None:
+                raise DomainValidationError(
+                    f"unresolved equal-authority actor conflict for {field}"
+                )
+            decided_by_role = str(explicit.get("decided_by_role", ""))
+            required_owner = owner_roles.get(field)
+            if required_owner is None or decided_by_role != required_owner:
+                owner_label = required_owner or "declared field owner"
+                raise DomainValidationError(
+                    f"actor conflict for {field} requires decision by {owner_label}"
+                )
+            selected_fact_id = str(explicit.get("selected_fact_id", ""))
+            matched = next(
+                (fact for fact in field_facts if fact.fact_id == selected_fact_id),
+                None,
+            )
+            if matched is None:
+                raise DomainValidationError(
+                    f"actor conflict for {field} selected an unknown fact"
+                )
+            chosen = matched
+            strategy = "EXPLICIT_OWNER_DECISION"
+            reason = str(explicit.get("reason", "")).strip()
+            if not reason:
+                raise DomainValidationError(
+                    f"actor conflict for {field} requires a decision reason"
+                )
+        selected.append(chosen)
+        resolutions.append(
+            ActorConflictResolution(
+                field=field,
+                fact_ids=tuple(fact.fact_id for fact in field_facts),
+                selected_fact_id=chosen.fact_id,
+                selected_role=chosen.asserted_by_role,
+                decided_by_role=decided_by_role,
+                strategy=strategy,
+                reason=reason,
+            )
+        )
+
+    unexpected = set(explicit_by_field) - conflicted_fields
+    if unexpected:
+        raise DomainValidationError(
+            "actor conflict resolutions reference non-conflicting fields: "
+            + ", ".join(sorted(unexpected))
+        )
+    return (
+        tuple(sorted(selected, key=lambda item: item.fact_id)),
+        tuple(sorted(resolutions, key=lambda item: item.field)),
+    )
 
 
 def _fee_adjusted_offers(
@@ -433,20 +581,46 @@ def _gate_actions() -> tuple[SolutionAction, ...]:
 
 
 def _gates(
-    source: DecisionSourceBundle, buyer_facts: tuple[FrozenFact, ...]
+    source: DecisionSourceBundle,
+    buyer_facts: tuple[FrozenFact, ...],
+    actor_conflicts: tuple[ActorConflictResolution, ...],
 ) -> tuple[GateRule, ...]:
     purchase = source.purchase_brief
     source_by_field = {fact.field: fact.fact_id for fact in buyer_facts}
+    selected_conflict_fields = {item.field for item in actor_conflicts}
+    fact_by_field = {fact.field: fact for fact in buyer_facts}
+    fact_by_id = {fact.fact_id: fact for fact in buyer_facts}
+    for item in purchase["hard_gates"]:
+        field = str(item["field"])
+        if field in selected_conflict_fields:
+            continue
+        source_ids = tuple(str(value) for value in item["source_fact_ids"])
+        source_facts = [fact_by_id.get(fact_id) for fact_id in source_ids]
+        if any(fact is None or fact.field != field for fact in source_facts):
+            raise DomainValidationError(f"hard gate {item['gate_id']} has invalid fact lineage")
+        expected_hash = content_hash(_value(item["value"]))
+        if any(content_hash(fact.value) != expected_hash for fact in source_facts if fact):
+            raise DomainValidationError(
+                f"hard gate {item['gate_id']} disagrees with its source facts"
+            )
     gates = [
         GateRule(
             gate_id=str(item["gate_id"]),
             predicates=(
-                Predicate(str(item["field"]), str(item["operator"]), _value(item["value"])),
+                Predicate(
+                    str(item["field"]),
+                    str(item["operator"]),
+                    fact_by_field[str(item["field"])].value
+                    if str(item["field"]) in selected_conflict_fields
+                    else _value(item["value"]),
+                ),
             ),
             mode=GateMode.REQUIRE_MATCH,
             blocked_status=CandidateStatus.SIRA_INELIGIBLE,
             reason_code=f"BUYER_POLICY_{str(item['gate_id']).upper()}",
-            source_fact_ids=tuple(str(value) for value in item["source_fact_ids"]),
+            source_fact_ids=(source_by_field[str(item["field"])],)
+            if str(item["field"]) in selected_conflict_fields
+            else tuple(str(value) for value in item["source_fact_ids"]),
             applies_to_actions=_gate_actions(),
             permitted_resolution="PROCUREMENT_GATE" if bool(item["overridable"]) else None,
             overridable=bool(item["overridable"]),
@@ -635,7 +809,9 @@ def compile_decision_graph_input(source: DecisionSourceBundle) -> DecisionGraphI
 
     requirement = source.requirement_brief
     taxonomy = source.category_taxonomy
-    buyer_facts = _buyer_facts(source, requirement)
+    buyer_facts, actor_conflicts = _resolve_actor_conflicts(
+        _buyer_facts(source, requirement), source.purchase_brief
+    )
     offers, candidate_offer, offer_evidence = _fee_adjusted_offers(source)
     candidates = _pack_records(source, candidate_offer, offer_evidence)
     current_actions = _current_actions(source, candidates)
@@ -672,7 +848,7 @@ def compile_decision_graph_input(source: DecisionSourceBundle) -> DecisionGraphI
         offers=offers,
         evidence=_evidence(source),
         evidence_policies=_evidence_policies(taxonomy, candidates),
-        gates=_gates(source, buyer_facts),
+        gates=_gates(source, buyer_facts, actor_conflicts),
         preferences=_preferences(taxonomy),
         risk_rules=_risk_rules(taxonomy),
         risk_rule_set_complete=bool(taxonomy["risk_rule_set_complete"]),
@@ -682,6 +858,7 @@ def compile_decision_graph_input(source: DecisionSourceBundle) -> DecisionGraphI
             tuple((str(item["source"]), str(item["target"])) for item in normalization["aliases"]),
         ),
         outcome_values=outcome_values,
+        actor_conflict_resolutions=actor_conflicts,
     )
 
 

@@ -38,6 +38,7 @@ from .graph_v1_fixtures import (
     load_demo_decision_source,
 )
 from .graph_v1_models import (
+    ActorConflictResolution,
     CounterfactualOutcome,
     CounterfactualRecord,
     DecisionGraphDecision,
@@ -64,6 +65,7 @@ from .models import (
 from .ranking import rank_solution_plans, ranking_key, select_winner
 
 __all__ = [
+    "ActorConflictResolution",
     "BoundedPlan",
     "BuyerConstraint",
     "CandidateDefinition",
