@@ -83,17 +83,15 @@
 }
 
 .wordmark {
-  color: var(--ink);
-  font-size: 19px;
-  font-weight: 750;
-  letter-spacing: 0.08em;
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
 }
 
-.wordmark span {
-  margin-inline: 6px;
-  color: var(--muted);
-  font-weight: 450;
+.combinedLogo {
+  display: block;
+  width: 78px;
+  height: auto;
 }
 
 .accountSummary {

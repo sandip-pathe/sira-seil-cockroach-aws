@@ -55,6 +55,7 @@ const fixtureIndex: DecisionIndexView = {
       intent: "Find meeting intelligence for ten consultants",
       status: "DECISION_READY",
       visibility: "SELECTIVE",
+      evaluation_mode: "DEVELOPMENT_FIXTURE_NON_PRODUCTION",
       current_stage: "OPTIONS",
       current_decision_version: 1,
       deadline: "2026-08-19T17:00:00Z",
@@ -64,21 +65,7 @@ const fixtureIndex: DecisionIndexView = {
       blocker: null,
     },
   ],
-  history: [
-    {
-      id: "req_crm_history",
-      intent: "Review CRM renewal and seat count",
-      status: "COMPLETED",
-      visibility: "PRIVATE",
-      current_stage: "RESULT",
-      current_decision_version: 3,
-      deadline: "2026-07-31T17:00:00Z",
-      href: "/decisions/req_demo/versions/1/result",
-      last_checkpoint: "Result recorded 31 Jul",
-      owner_role: "DECISION_MAKER",
-      blocker: null,
-    },
-  ],
+  history: [],
   available_actions: [],
 };
 
@@ -148,7 +135,7 @@ function RouteMismatchBanner({ message }: { message: string }) {
     <div className={styles.versionBanner} role="alert">
       <CircleAlert aria-hidden="true" />
       <span><strong>Decision version unavailable.</strong> {message}</span>
-      <Link href="/decisions">Back to decisions</Link>
+      <Link href="/sira/decisions">Back to decisions</Link>
     </div>
   );
 }
@@ -157,19 +144,18 @@ function WorkspaceRail({ active = "decisions" }: { active?: "decisions" | "inbox
   return (
     <aside className={styles.rail} aria-label="SIRA navigation">
       <div className={styles.railTop}>
-        <Link className={styles.workspaceMark} href="/home" aria-label="Switch workspace">
-          <span className={styles.siraGlyph}>S</span>
+        <Link className={styles.workspaceMark} href="/sira" aria-label="SIRA workspace home">
           <span><strong>SIRA</strong><small>Northstar Advisory</small></span>
         </Link>
         <Link className={styles.newDecisionButton} href="/decisions/new">
           <Plus aria-hidden="true" /> New decision
         </Link>
         <nav className={styles.primaryNav} aria-label="Primary">
-          <Link className={active === "decisions" ? styles.activeNav : ""} href="/decisions">
+          <Link className={active === "decisions" ? styles.activeNav : ""} href="/sira/decisions">
             <Layers3 aria-hidden="true" /> Decisions
           </Link>
-          <Link className={active === "inbox" ? styles.activeNav : ""} href="/inbox">
-            <Inbox aria-hidden="true" /> Inbox <span>3</span>
+          <Link className={active === "inbox" ? styles.activeNav : ""} href="/sira/inbox">
+            <Inbox aria-hidden="true" /> Inbox <span>2</span>
           </Link>
         </nav>
         <div className={styles.railDivider} />
@@ -180,12 +166,12 @@ function WorkspaceRail({ active = "decisions" }: { active?: "decisions" | "inbox
         </Link>
       </div>
       <div className={styles.railFooter}>
-        <Link href="/home"><LockKeyhole aria-hidden="true" /> Private company workspace</Link>
-        <button type="button" aria-label="Open account menu">
+        <Link href="/sira"><LockKeyhole aria-hidden="true" /> Private company workspace</Link>
+        <Link className={styles.accountLink} href="/sira/settings/profile" aria-label="Open SIRA profile settings">
           <span className={styles.avatar}>AS</span>
           <span><strong>Asha Singh</strong><small>Decision maker</small></span>
           <MoreHorizontal aria-hidden="true" />
-        </button>
+        </Link>
       </div>
     </aside>
   );
@@ -201,10 +187,11 @@ function MobileRailDialog({ open, close }: { open: boolean; close: () => void })
         <button type="button" aria-label="Close navigation" onClick={close}><X aria-hidden="true" /></button>
       </div>
       <nav>
-        <Link href="/home" onClick={close}>Workspace home</Link>
-        <Link href="/decisions" onClick={close}>Decisions</Link>
+        <Link href="/sira" onClick={close}>Workspace home</Link>
+        <Link href="/sira/decisions" onClick={close}>Decisions</Link>
         <Link href="/decisions/new" onClick={close}>New decision</Link>
-        <Link href="/inbox" onClick={close}>Inbox</Link>
+        <Link href="/sira/inbox" onClick={close}>Inbox</Link>
+        <Link href="/sira/settings/profile" onClick={close}>Profile</Link>
       </nav>
     </dialog>
   );
@@ -247,11 +234,11 @@ export function DecisionIndex() {
         <section className={styles.indexSection} aria-labelledby="active-heading">
           <div className={styles.sectionTitle}><div><p>Active</p><h2 id="active-heading">Needs your attention</h2></div><span>{data?.active.length ?? 0}</span></div>
           {query.isPending && WEB_DATA_MODE === "api" ? <div className={styles.skeletonList} aria-label="Loading decisions"><i /><i /></div> : null}
-          {data?.active.length ? data.active.map((item) => <DecisionRow item={item} key={item.id} />) : !query.isPending ? <div className={styles.emptyState}><FileText aria-hidden="true" /><h3>No active decisions</h3><p>Start with the software outcome you need. SIRA will keep the private company context and decision record separate.</p><Link href="/decisions/new">Create a decision</Link></div> : null}
+          {data?.active.length ? data.active.map((item) => <DecisionRow item={item} key={item.id} />) : WEB_DATA_MODE === "fixture" || !query.isPending ? <div className={styles.emptyState}><FileText aria-hidden="true" /><h3>No active decisions</h3><p>Start with the software outcome you need. SIRA will keep the private company context and decision record separate.</p><Link href="/decisions/new">Create a decision</Link></div> : null}
         </section>
         <section className={styles.indexSection} aria-labelledby="history-heading">
           <div className={styles.sectionTitle}><div><p>History</p><h2 id="history-heading">Recorded outcomes</h2></div><History aria-hidden="true" /></div>
-          {data?.history.map((item) => <DecisionRow item={item} key={item.id} />)}
+          {data?.history.length ? data.history.map((item) => <DecisionRow item={item} key={item.id} />) : WEB_DATA_MODE === "fixture" || !query.isPending ? <div className={styles.emptyState}><History aria-hidden="true" /><h3>No recorded outcomes yet</h3><p>Completed decisions will appear here with their immutable result versions.</p></div> : null}
         </section>
       </main>
     </div>
@@ -261,10 +248,10 @@ export function DecisionIndex() {
 export function NewDecision() {
   const router = useRouter();
   const [mobileRail, setMobileRail] = useState(false);
-  const [intent, setIntent] = useState("Review our meeting-intelligence renewal and decide whether to renew, resize, or replace it.");
-  const [outcome, setOutcome] = useState("Keep client conversations private and give consultants reliable source-linked answers with low administration effort.");
-  const [deadline, setDeadline] = useState("2026-08-19T17:00");
-  const [visibility, setVisibility] = useState<"PRIVATE" | "SELECTIVE" | "OPEN_RFP">("SELECTIVE");
+  const [intent, setIntent] = useState(() => WEB_DATA_MODE === "fixture" ? "Review our meeting-intelligence renewal and decide whether to renew, resize, or replace it." : "");
+  const [outcome, setOutcome] = useState(() => WEB_DATA_MODE === "fixture" ? "Keep client conversations private and give consultants reliable source-linked answers with low administration effort." : "");
+  const [deadline, setDeadline] = useState(() => WEB_DATA_MODE === "fixture" ? "2026-08-19T17:00" : "");
+  const [visibility, setVisibility] = useState<"PRIVATE" | "SELECTIVE">(WEB_DATA_MODE === "fixture" ? "SELECTIVE" : "PRIVATE");
   const [safeError, setSafeError] = useState("");
 
   const createMutation = useMutation({
@@ -314,10 +301,10 @@ export function NewDecision() {
             <label><span>Desired outcome</span><small>What must improve for the company?</small><textarea value={outcome} onChange={(event) => setOutcome(event.target.value)} rows={4} /></label>
             <div className={styles.formRow}>
               <label><span>Decision deadline</span><input type="datetime-local" value={deadline} onChange={(event) => setDeadline(event.target.value)} /></label>
-              <fieldset><legend>Visibility</legend>{(["PRIVATE", "SELECTIVE", "OPEN_RFP"] as const).map((item) => <label key={item}><input type="radio" name="visibility" value={item} checked={visibility === item} onChange={() => setVisibility(item)} /> {item === "OPEN_RFP" ? "Open RFP" : item.charAt(0) + item.slice(1).toLowerCase()}</label>)}</fieldset>
+              <fieldset><legend>Visibility</legend>{(["PRIVATE", "SELECTIVE"] as const).map((item) => <label key={item}><input type="radio" name="visibility" value={item} checked={visibility === item} onChange={() => setVisibility(item)} /> {item.charAt(0) + item.slice(1).toLowerCase()}</label>)}</fieldset>
             </div>
             {safeError ? <p className={styles.inlineError} role="alert">{safeError}</p> : null}
-            <div className={styles.formActions}><Link href="/decisions">Cancel</Link><button className={styles.primaryButton} type="submit" disabled={!intent.trim() || createMutation.isPending}>{WEB_DATA_MODE === "fixture" ? "Open deterministic demo" : createMutation.isPending ? "Creating…" : "Create decision"}<ArrowRight aria-hidden="true" /></button></div>
+            <div className={styles.formActions}><Link href="/sira">Cancel</Link><button className={styles.primaryButton} type="submit" disabled={!intent.trim() || createMutation.isPending}>{WEB_DATA_MODE === "fixture" ? "Open deterministic demo" : createMutation.isPending ? "Creating…" : "Create decision"}<ArrowRight aria-hidden="true" /></button></div>
           </form>
           <aside className={styles.briefPreview} aria-label="Purchase brief preview">
             <p>Live Purchase Brief</p>
@@ -325,7 +312,7 @@ export function NewDecision() {
             <dl>
               <div><dt>Outcome</dt><dd>{outcome || "Not supplied"}</dd></div>
               <div><dt>Deadline</dt><dd>{deadline ? formatDeadline(new Date(deadline).toISOString()) : "Not supplied"}</dd></div>
-              <div><dt>Visibility</dt><dd>{visibility === "OPEN_RFP" ? "Open RFP" : visibility.charAt(0) + visibility.slice(1).toLowerCase()}</dd></div>
+              <div><dt>Visibility</dt><dd>{visibility.charAt(0) + visibility.slice(1).toLowerCase()}</dd></div>
               <div><dt>Authority</dt><dd>Decision maker selects; budget owner approves; cardholder authorizes a charge.</dd></div>
             </dl>
             <div className={styles.boundaryNote}><ShieldCheck aria-hidden="true" /><p><strong>Nothing is sent to a seller yet.</strong> Selective outreach requires a separate sanitized Requirement Brief preview and confirmation.</p></div>
@@ -354,13 +341,13 @@ function DecisionPath({ view, requestId, version, currentSlug }: { view: Decisio
   );
 }
 
-function ConversationPanel({ compact = false }: { compact?: boolean }) {
+function ConversationPanel({ compact = false, onReviewSources }: { compact?: boolean; onReviewSources?: () => void }) {
   return (
     <section className={compact ? styles.conversationCompact : styles.conversationPanel} aria-label="Decision conversation preview">
       <header><div><p>Decision context</p><h2>Conversation</h2></div><span><LockKeyhole aria-hidden="true" /> Private</span></header>
       <div className={styles.conversationMessages}>
         <article><strong>You</strong><p>Should we renew Cairn Notes for ten consultants, resize it, or replace it?</p></article>
-        <article className={styles.siraMessage}><strong>SIRA</strong><p>I found the current contract and the company rules that change this decision. Client privacy and source-linked answers are decisive.</p><div><span>3 confirmed facts used</span><button type="button">Review sources</button></div></article>
+        <article className={styles.siraMessage}><strong>SIRA</strong><p>I found the current contract and the company rules that change this decision. Client privacy and source-linked answers are decisive.</p><div><span>3 confirmed facts used</span><button type="button" disabled={!onReviewSources} onClick={onReviewSources}>Review sources</button></div></article>
         <article><strong>You</strong><p>Keep the change easy for a small operations team.</p></article>
         <article className={styles.siraMessage}><strong>SIRA</strong><p>That is reflected in the current Purchase Brief. The structured result remains authoritative.</p></article>
       </div>
@@ -394,7 +381,7 @@ function CompanyFitStage({ view }: { view: DecisionView }) {
           <ul className={styles.companyFacts}>{view.company_context.facts_used.map((fact) => <li key={fact.fact_id}><span className={styles.factIcon}><Check aria-hidden="true" /></span><span><strong>{fact.display_name.replaceAll(".", " · ")}</strong><small>{fact.provenance_label} · {fact.sensitivity}</small></span><b>{fact.display_value}</b></li>)}</ul>
         </div>
         <aside className={styles.sideStack}>
-          <div className={styles.boundaryCard}><LockKeyhole aria-hidden="true" /><p>Disclosure preview</p><h3>Only the minimum Requirement Brief crosses sides</h3><span>Company identity, hidden budget, employee names, competing offers, and unrestricted Stack data remain absent.</span><button type="button">Preview sanitized brief</button></div>
+          <div className={styles.boundaryCard}><LockKeyhole aria-hidden="true" /><p>Disclosure preview</p><h3>Only the minimum Requirement Brief crosses sides</h3><span>Company identity, hidden budget, employee names, competing offers, and unrestricted Stack data remain absent.</span><button type="button" disabled title="Disclosure preview needs its server contract">Preview unavailable in this build</button></div>
           <div className={styles.calibrationCard}><p>Calibration check</p><h3>Known examples behave as expected</h3><ul><li><Check aria-hidden="true" /> Known failure is blocked</li><li><Check aria-hidden="true" /> Incumbent remains eligible</li><li><Check aria-hidden="true" /> Expected qualifier passes</li></ul><button type="button" disabled>Run requires API contract</button></div>
         </aside>
       </div>
@@ -434,11 +421,11 @@ function OptionsStage({
             <caption className="sr-only">Evaluated software actions</caption>
             <thead><tr><th>Action</th><th>Support status</th><th>Comparable cost</th><th>Company-stack change</th><th>Next action</th></tr></thead>
             <tbody>{visible.map((option, index) => <tr key={option.id} className={index === 0 ? styles.recommendedRow : ""}>
-              <td><span className={styles.rank}>{index + 1}</span><div><strong>{option.label}</strong><small>{option.action_type.replaceAll("_", " ").toLowerCase()}{index === 0 ? " · Recommended" : ""}</small></div></td>
-              <td><OptionStatus status={option.status} /><small>{option.reason}</small></td>
-              <td><strong>{option.default_comparison.cost.currency} {option.default_comparison.cost.amount}</strong><small>{option.default_comparison.cost.horizon_days}-day horizon</small></td>
-              <td><span>{option.default_comparison.stack_change}</span></td>
-              <td><div className={styles.rowActions}>{index === 0 && option.status === "SUPPORTED" ? <button type="button" className={styles.selectButton} onClick={() => onSelect(option)}>Select plan</button> : <button type="button" onClick={() => onLedger()}>Review</button>}<details><summary aria-label={`More actions for ${option.label}`}><MoreHorizontal aria-hidden="true" /></summary><div><button type="button" disabled={pendingFeedback || WEB_DATA_MODE === "fixture"} onClick={() => onFeedback(option, "KEEP_FOR_COMPARISON")}>Keep for comparison</button><button type="button" disabled={pendingFeedback || WEB_DATA_MODE === "fixture"} onClick={() => onFeedback(option, "NEED_EVIDENCE")}>Need evidence</button><button type="button" disabled={pendingFeedback || WEB_DATA_MODE === "fixture"} onClick={() => onFeedback(option, "ELIMINATE")}>Eliminate</button></div></details></div></td>
+              <td data-label="Action"><span className={styles.rank}>{index + 1}</span><div><strong>{option.label}</strong><small>{option.action_type.replaceAll("_", " ").toLowerCase()}{index === 0 ? " · Recommended" : ""}</small></div></td>
+              <td data-label="Support"><OptionStatus status={option.status} /><small>{option.reason}</small></td>
+              <td data-label="Comparable cost"><strong>{option.default_comparison.cost.currency} {option.default_comparison.cost.amount}</strong><small>{option.default_comparison.cost.horizon_days}-day horizon</small></td>
+              <td data-label="Stack change"><span>{option.default_comparison.stack_change}</span></td>
+              <td data-label="Next action"><div className={styles.rowActions}>{index === 0 && option.status === "SUPPORTED" ? <button type="button" className={styles.selectButton} onClick={() => onSelect(option)}>Select plan</button> : <button type="button" onClick={() => onLedger()}>Review</button>}<details><summary aria-label={`More actions for ${option.label}`}><MoreHorizontal aria-hidden="true" /></summary><div><button type="button" disabled={pendingFeedback || WEB_DATA_MODE === "fixture"} onClick={() => onFeedback(option, "KEEP_FOR_COMPARISON")}>Keep for comparison</button><button type="button" disabled={pendingFeedback || WEB_DATA_MODE === "fixture"} onClick={() => onFeedback(option, "NEED_EVIDENCE")}>Need evidence</button><button type="button" disabled={pendingFeedback || WEB_DATA_MODE === "fixture"} onClick={() => onFeedback(option, "ELIMINATE")}>Eliminate</button></div></details></div></td>
             </tr>)}</tbody>
           </table>
         </div>
@@ -448,13 +435,13 @@ function OptionsStage({
   );
 }
 
-function ActionStage({ view }: { view: DecisionView }) {
+function ActionStage({ view, optionsHref }: { view: DecisionView; optionsHref: string }) {
   const plan = view.selected_action_plan;
   const steps = plan?.execution_steps ?? [];
   return (
     <section className={styles.stageSection}>
       <div className={styles.stageIntro}><p>04 · Action</p><h2>{plan ? "Execute the selected action safely" : "Select an action plan first"}</h2><span>Review, required authority, execution or assignment, and verification remain separate.</span></div>
-      {!plan ? <div className={styles.emptyStage}><FileCheck2 aria-hidden="true" /><h3>No plan is selected in this version</h3><p>Return to Options and select the exact plan/version/hash. A fixture preview never creates approval or payment authority.</p><Link className={styles.primaryButton} href="/decisions/req_demo/versions/1/options">Review options</Link></div> : <div className={styles.executionGrid}><ol className={styles.executionTimeline}>{steps.map((step, index) => <li key={step.id} data-status={step.status.toLowerCase()}><span>{step.status === "COMPLETED" ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{step.type.replaceAll("_", " ").toLowerCase()}</strong><small>{step.owner_role.replaceAll("_", " ")} · {step.status.replaceAll("_", " ")}</small>{step.blocker ? <p>{step.blocker}</p> : null}</div>{step.available_action ? <button type="button">{step.available_action.label}</button> : null}</li>)}</ol><aside className={styles.authorityPanel}><p>Authority</p><dl><div><dt>Plan selection</dt><dd>{plan.selected_by_role.replaceAll("_", " ")}</dd></div><div><dt>Approval</dt><dd>{view.approval?.status ?? "Not requested"}</dd></div><div><dt>Payment</dt><dd>{view.payment?.status ?? "Not required"}</dd></div><div><dt>Fulfillment</dt><dd>{view.fulfillment?.status ?? "Not started"}</dd></div></dl></aside></div>}
+      {!plan ? <div className={styles.emptyStage}><FileCheck2 aria-hidden="true" /><h3>No plan is selected in this version</h3><p>Return to Options and select the exact plan/version/hash. A fixture preview never creates approval or payment authority.</p><Link className={styles.primaryButton} href={optionsHref}>Review options</Link></div> : <div className={styles.executionGrid}><ol className={styles.executionTimeline}>{steps.map((step, index) => <li key={step.id} data-status={step.status.toLowerCase()}><span>{step.status === "COMPLETED" ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{step.type.replaceAll("_", " ").toLowerCase()}</strong><small>{step.owner_role.replaceAll("_", " ")} · {step.status.replaceAll("_", " ")}</small>{step.blocker ? <p>{step.blocker}</p> : null}</div>{step.available_action ? <button type="button" disabled title="Execution needs the connected action contract">{step.available_action.label}</button> : null}</li>)}</ol><aside className={styles.authorityPanel}><p>Authority</p><dl><div><dt>Plan selection</dt><dd>{plan.selected_by_role.replaceAll("_", " ")}</dd></div><div><dt>Approval</dt><dd>{view.approval?.status ?? "Not requested"}</dd></div><div><dt>Payment</dt><dd>{view.payment?.status ?? "Not required"}</dd></div><div><dt>Fulfillment</dt><dd>{view.fulfillment?.status ?? "Not started"}</dd></div></dl></aside></div>}
     </section>
   );
 }
@@ -471,6 +458,7 @@ function ResultStage({ view }: { view: DecisionView }) {
 
 function StageCanvas(props: {
   stage: string;
+  optionsHref: string;
   view: DecisionView;
   onLedger: () => void;
   onSelect: (option: SolutionOption) => void;
@@ -479,7 +467,7 @@ function StageCanvas(props: {
 }) {
   if (props.stage === "need") return <NeedStage view={props.view} />;
   if (props.stage === "company-fit") return <CompanyFitStage view={props.view} />;
-  if (props.stage === "action") return <ActionStage view={props.view} />;
+  if (props.stage === "action") return <ActionStage view={props.view} optionsHref={props.optionsHref} />;
   if (props.stage === "result") return <ResultStage view={props.view} />;
   return <OptionsStage view={props.view} onLedger={props.onLedger} onSelect={props.onSelect} onFeedback={props.onFeedback} pendingFeedback={props.pendingFeedback} />;
 }
@@ -586,7 +574,7 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
       <MobileRailDialog open={mobileRail} close={() => setMobileRail(false)} />
       {view ? <LedgerDialog open={ledgerOpen} close={() => setLedgerOpen(false)} view={view} /> : null}
       <SelectPlanDialog option={selectedOption} close={() => setSelectedOption(null)} confirm={() => selectedOption && selectMutation.mutate(selectedOption)} pending={selectMutation.isPending} />
-      <dialog className={styles.chatDialog} ref={mobileChatRef} onClose={() => setMobileChat(false)}><div className={styles.mobileDialogHead}><strong>Decision conversation</strong><button type="button" aria-label="Close conversation" onClick={() => setMobileChat(false)}><X aria-hidden="true" /></button></div><ConversationPanel compact /></dialog>
+      <dialog className={styles.chatDialog} ref={mobileChatRef} onClose={() => setMobileChat(false)}><div className={styles.mobileDialogHead}><strong>Decision conversation</strong><button type="button" aria-label="Close conversation" onClick={() => setMobileChat(false)}><X aria-hidden="true" /></button></div><ConversationPanel compact onReviewSources={() => setLedgerOpen(true)} /></dialog>
       <main className={styles.roomMain}>
         {WEB_DATA_MODE === "fixture" ? <FixtureBanner /> : null}
         {query.isError ? <ApiErrorBanner retry={() => void query.refetch()} /> : null}
@@ -599,10 +587,10 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
         </header>
         {view ? <DecisionPath view={view} requestId={requestId} version={String(view.request.decision_version)} currentSlug={activeStage} /> : <div className={styles.pathSkeleton} />}
         <div className={styles.roomBody}>
-          <ConversationPanel />
+          <ConversationPanel onReviewSources={() => setLedgerOpen(true)} />
           <div className={styles.structuredCanvas} id="main-content">
             {query.isPending && WEB_DATA_MODE === "api" ? <div className={styles.canvasLoading}><i /><i /><i /></div> : null}
-            {view ? <StageCanvas stage={activeStage} view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>The last verified state cannot be loaded. Retry after the local API is available.</p></div> : versionMismatch || fixtureRequestMissing ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Nothing was substituted</h2><p>The requested immutable decision record is not available in this data mode.</p></div> : null}
+            {view ? <StageCanvas stage={activeStage} optionsHref={`/decisions/${requestId}/versions/${version}/options`} view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>The last verified state cannot be loaded. Retry after the local API is available.</p></div> : versionMismatch || fixtureRequestMissing ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Nothing was substituted</h2><p>The requested immutable decision record is not available in this data mode.</p></div> : null}
           </div>
         </div>
       </main>

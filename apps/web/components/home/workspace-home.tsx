@@ -16,6 +16,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, type RefObject } from "react";
 import { layout, prepare, type PreparedText } from "@chenglou/pretext";
 
+import { CombinedBrandLogo } from "@/components/brand/combined-brand-logo";
+
 import styles from "./workspace-home.module.css";
 
 export type WorkspaceKind = "sira" | "seil";
@@ -205,7 +207,7 @@ export function WorkspaceHome({
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <Link className={styles.wordmark} href="/home" aria-label="SIRA and SEIL home">
-            SIRA <span aria-hidden="true">+</span> SEIL
+            <CombinedBrandLogo className={styles.combinedLogo} />
           </Link>
           <div className={styles.accountSummary}>
             <span>{displayName ? `Signed in as ${displayName}` : "Signed in"}</span>

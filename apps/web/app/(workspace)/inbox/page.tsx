@@ -1,9 +1,5 @@
-import type { Metadata } from "next";
-
-import { InboxPage } from "@/components/home/inbox-page";
-
-export const metadata: Metadata = { title: "Inbox" };
+import { redirect } from "next/navigation";
 
 export default function SharedInboxPage() {
-  return <InboxPage />;
+  redirect("/");
 }
