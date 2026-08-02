@@ -503,6 +503,9 @@ class WorkflowService:
                         id=organization_id, name="ConsultCo (fictional fixture)", version=1
                     )
                 )
+                # PostgreSQL enforces the tenant-root foreign key during the
+                # autoflushes performed while building the evaluation graph.
+                await session.flush()
 
             brief = deepcopy(fixtures.purchase_brief)
             requirement = deepcopy(fixtures.requirement_brief)
@@ -539,6 +542,7 @@ class WorkflowService:
                 updated_at=graph_input.evaluated_at,
             )
             session.add(request)
+            await session.flush()
             brief_record = PurchaseBriefVersion(
                 id=brief["purchase_brief_id"],
                 organization_id=organization_id,
@@ -549,6 +553,8 @@ class WorkflowService:
                 content_hash=brief["content_hash"],
                 supersedes_id=None,
             )
+            session.add(brief_record)
+            await session.flush()
             requirement_record = RequirementBriefVersion(
                 id=requirement["requirement_brief_id"],
                 organization_id=organization_id,
@@ -558,7 +564,8 @@ class WorkflowService:
                 payload=requirement,
                 content_hash=requirement["content_hash"],
             )
-            session.add_all((brief_record, requirement_record))
+            session.add(requirement_record)
+            await session.flush()
             decision_record = DecisionRecord(
                 id=ledger["decision_id"],
                 organization_id=organization_id,
@@ -596,6 +603,7 @@ class WorkflowService:
                 ),
             }
             session.add(decision_record)
+            await session.flush()
             evaluation_run_id = await self._persist_base_graph(
                 repository=repository,
                 organization_id=organization_id,

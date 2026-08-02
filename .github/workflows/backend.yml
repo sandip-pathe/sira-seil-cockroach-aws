@@ -38,7 +38,6 @@ jobs:
       APP_ENV: test
       DEVELOPMENT_FIXTURE_MODE: "true"
       DEMO_RESET_ENABLED: "true"
-      DATABASE_URL: "sqlite+aiosqlite:///:memory:"
       SIRA_TEST_DATABASE_ADMIN_URL: "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/sira_test" # pragma: allowlist secret
 
     steps:
