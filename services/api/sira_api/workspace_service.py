@@ -180,5 +180,6 @@ class WorkspaceService:
             "follow_up_required": answer.follow_up_required,
             "panel": panel,
             "products": self.catalog() if answer.show_catalog else [],
+            "tool_calls": list(dict.fromkeys(result.tool_calls)),
             "advisory_only": True,
         }

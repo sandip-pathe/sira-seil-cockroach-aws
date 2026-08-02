@@ -8607,6 +8607,13 @@
             },
             "title": "Products",
             "type": "array"
+          },
+          "tool_calls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tool Calls",
+            "type": "array"
           }
         },
         "required": [

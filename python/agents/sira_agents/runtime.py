@@ -50,6 +50,7 @@ class AgentRunRequest:
 @dataclass(frozen=True, slots=True)
 class AgentRunResult:
     output: object
+    tool_calls: tuple[str, ...] = ()
     runtime: str = "openai-agents"
     advisory_only: bool = True
     ranking_effect: bool = False
@@ -65,6 +66,12 @@ class _SdkFacade(Protocol):
         tools: list[object],
         output_type: type[Any] | None,
     ) -> object: ...
+
+
+@dataclass(frozen=True, slots=True)
+class _SdkRunOutcome:
+    output: object
+    tool_calls: tuple[str, ...]
 
     async def run(
         self,
@@ -110,7 +117,7 @@ class _OpenAISdkFacade:
         max_turns: int,
         workflow_name: str,
     ) -> object:
-        from agents import RunConfig, Runner
+        from agents import RunConfig, Runner, ToolCallItem
 
         sdk_runner: Any = Runner
         result: Any = await sdk_runner.run(
@@ -125,7 +132,12 @@ class _OpenAISdkFacade:
             ),
         )
         output: object = result.final_output
-        return output
+        tool_calls = tuple(
+            item.tool_name
+            for item in result.new_items
+            if isinstance(item, ToolCallItem) and item.tool_name is not None
+        )
+        return _SdkRunOutcome(output=output, tool_calls=tool_calls)
 
 
 @dataclass(slots=True)
@@ -159,11 +171,13 @@ class OpenAIAgentsRuntime:
             tools=resolved_tools,
             output_type=request.output_type,
         )
-        output = await self._sdk.run(
+        outcome = await self._sdk.run(
             agent,
             json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str),
             context=request.run_context,
             max_turns=self.max_turns,
             workflow_name=f"sira-seil-{request.role.value.lower()}",
         )
-        return AgentRunResult(output=output)
+        if isinstance(outcome, _SdkRunOutcome):
+            return AgentRunResult(output=outcome.output, tool_calls=outcome.tool_calls)
+        return AgentRunResult(output=outcome)

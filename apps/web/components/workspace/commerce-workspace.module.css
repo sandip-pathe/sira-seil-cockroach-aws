@@ -3,7 +3,7 @@
   --workspace-accent-soft: #e4f2ef;
   --workspace-accent-dark: #005348;
   display: grid;
-  grid-template-columns: clamp(220px, 20vw, 256px) minmax(0, 1fr) 50%;
+  grid-template-columns: clamp(190px, 18vw, 220px) minmax(0, 1fr) 50%;
   width: 100%;
   height: 100dvh;
   min-width: 320px;
@@ -25,7 +25,7 @@
 }
 
 .workspace.contextClosed {
-  grid-template-columns: clamp(220px, 20vw, 256px) minmax(0, 1fr) 0;
+  grid-template-columns: clamp(190px, 18vw, 220px) minmax(0, 1fr) 0;
 }
 
 .workspace.sidebarClosed.contextClosed {
@@ -105,12 +105,12 @@
 
 .sidebarHeader {
   flex: 0 0 auto;
-  padding: 14px 14px 10px;
+  padding: 10px 11px 7px;
 }
 
 .brandRow {
   display: flex;
-  min-height: 42px;
+  min-height: 36px;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -135,7 +135,7 @@
 .brand strong {
   color: var(--brand-ink);
   font-family: var(--font-brand);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.1;
@@ -144,7 +144,7 @@
 .brand small {
   margin-top: 2px;
   color: #777269;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .sidebarHeaderActions {
@@ -248,16 +248,16 @@
 .newChatButton {
   display: flex;
   width: 100%;
-  min-height: 42px;
+  min-height: 38px;
   align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-  padding: 0 12px;
+  gap: 8px;
+  margin-top: 9px;
+  padding: 0 10px;
   border: 1px solid #dcd8cd;
   border-radius: 11px;
   background: #f9f7f1;
   color: #33322e;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 580;
   cursor: pointer;
 }
@@ -278,21 +278,21 @@
   display: grid;
   flex: 0 0 auto;
   gap: 2px;
-  padding: 2px 10px 10px;
+  padding: 2px 8px 8px;
 }
 
 .sidebarNav button,
 .sidebarNav a {
   display: flex;
-  min-height: 42px;
+  min-height: 36px;
   align-items: center;
-  gap: 11px;
-  padding: 0 10px;
+  gap: 9px;
+  padding: 0 9px;
   border: 0;
   border-radius: 9px;
   background: transparent;
   color: #4d4a44;
-  font-size: 14px;
+  font-size: 12px;
   text-decoration: none;
   cursor: pointer;
 }
@@ -324,7 +324,7 @@
 
 .sidebarDivider {
   height: 1px;
-  margin: 0 14px 12px;
+  margin: 0 11px 9px;
   background: #dfdcd3;
 }
 
@@ -333,9 +333,9 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px 7px;
+  padding: 0 12px 6px;
   color: #8a867d;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 620;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -358,11 +358,11 @@
 .recentList button {
   display: flex;
   width: 100%;
-  min-height: 48px;
+  min-height: 42px;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 7px 9px;
+  padding: 5px 8px;
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -385,7 +385,7 @@
 
 .recentList strong {
   overflow: hidden;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 540;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -395,7 +395,7 @@
 .recentList small {
   margin-top: 2px;
   color: #8c877d;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .recentList svg {
@@ -420,7 +420,7 @@
 
 .sidebarFooter {
   flex: 0 0 auto;
-  padding: 10px;
+  padding: 7px 8px;
   border-top: 1px solid #dfdcd3;
 }
 
@@ -428,11 +428,11 @@
 .sidebarFooter > button {
   display: grid;
   width: 100%;
-  min-height: 52px;
-  grid-template-columns: 34px minmax(0, 1fr) 18px;
-  gap: 9px;
+  min-height: 44px;
+  grid-template-columns: 30px minmax(0, 1fr) 16px;
+  gap: 8px;
   align-items: center;
-  padding: 7px 8px;
+  padding: 5px 6px;
   border: 0;
   border-radius: 11px;
   background: transparent;
@@ -449,14 +449,14 @@
 
 .avatar {
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   background: #2f2f2d;
   color: #f5f3ee;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 650;
 }
 
@@ -467,13 +467,13 @@
 }
 
 .sidebarFooter strong {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 620;
 }
 
 .sidebarFooter small {
   color: #858077;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .sidebarFooter svg {
@@ -542,24 +542,6 @@
   height: 6px;
   border-radius: 999px;
   background: var(--workspace-accent);
-}
-
-.privacyHeader {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  gap: 6px;
-  padding: 0 9px;
-  border: 1px solid #dfdbd0;
-  border-radius: 999px;
-  background: #f7f5ee;
-  color: #706b62;
-  font-size: 10px;
-}
-
-.privacyHeader svg {
-  width: 13px;
-  height: 13px;
 }
 
 .messageViewport {
@@ -763,9 +745,37 @@
   display: inline-flex;
   min-height: 34px;
   align-items: center;
-  gap: 9px;
-  color: #777168;
-  font-size: 13px;
+  gap: 10px;
+  color: #68635b;
+  font-size: 12px;
+}
+
+.thinkingMark {
+  display: inline-flex;
+  width: 28px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid #ded9cf;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.thinkingMark span {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--workspace-accent);
+  animation: thinkingPulse 1.2s ease-in-out infinite;
+}
+
+.thinkingMark span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.thinkingMark span:nth-child(3) {
+  animation-delay: 0.3s;
 }
 
 .spin {
@@ -806,6 +816,15 @@
 
 .composer textarea::placeholder {
   color: #9a958c;
+}
+
+.workspace .composer textarea:focus-visible {
+  outline: none;
+}
+
+.composer:focus-within {
+  border-color: #bcb6aa;
+  box-shadow: 0 4px 18px rgb(55 46 28 / 5%), 0 0 0 2px rgb(82 78 70 / 7%);
 }
 
 .composerToolbar {
@@ -887,10 +906,19 @@
 }
 
 .composerBoundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   margin: 6px 0 0;
   color: #8c877e;
   font-size: 9px;
   text-align: center;
+}
+
+.composerBoundary svg {
+  width: 9px;
+  height: 9px;
 }
 
 .hiddenFileInput {
@@ -1464,7 +1492,7 @@
   line-height: 1.45;
 }
 
-.fullViewLink {
+.workspace .fullViewLink {
   display: flex;
   min-height: 42px;
   align-items: center;
@@ -1480,8 +1508,9 @@
   text-decoration: none;
 }
 
-.fullViewLink:hover {
+.workspace .fullViewLink:hover {
   background: var(--workspace-accent-dark);
+  color: #ffffff;
 }
 
 .fullViewLink svg {
@@ -1637,6 +1666,11 @@
   to { transform: rotate(360deg); }
 }
 
+@keyframes thinkingPulse {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+
 @media (max-width: 839px) {
   .workspace,
   .workspace.contextExpanded:not(.sidebarClosed) {
@@ -1718,10 +1752,6 @@
     border: 0;
     background: rgb(39 35 28 / 16%);
     backdrop-filter: blur(1px);
-  }
-
-  .privacyHeader {
-    display: none;
   }
 
   .messageColumn {
