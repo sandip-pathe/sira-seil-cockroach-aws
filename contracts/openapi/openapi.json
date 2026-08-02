@@ -4388,6 +4388,10 @@
             "title": "Decision Id",
             "type": "string"
           },
+          "decision_version": {
+            "title": "Decision Version",
+            "type": "integer"
+          },
           "expected_fulfillments": {
             "items": {
               "additionalProperties": true,
@@ -4399,6 +4403,13 @@
           "fee_amount": {
             "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
             "title": "Fee Amount",
+            "type": "string"
+          },
+          "fee_schedule_version": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Fee Schedule Version",
             "type": "string"
           },
           "fulfillment_completion_policy": {
@@ -4437,6 +4448,11 @@
             },
             "title": "Merchant",
             "type": "object"
+          },
+          "merchant_subtotal": {
+            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
+            "title": "Merchant Subtotal",
+            "type": "string"
           },
           "offer_id": {
             "maxLength": 128,
@@ -4534,6 +4550,13 @@
             "title": "Schema Version",
             "type": "string"
           },
+          "selection_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Selection Id",
+            "type": "string"
+          },
           "seller_contracting_entity_id": {
             "maxLength": 128,
             "minLength": 3,
@@ -4548,6 +4571,13 @@
             "title": "Solution Plan Id",
             "type": "string"
           },
+          "stack_patch_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Stack Patch Id",
+            "type": "string"
+          },
           "tax_amount": {
             "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
             "title": "Tax Amount",
@@ -4559,8 +4589,11 @@
           "purchase_intent_id",
           "organization_id",
           "decision_id",
+          "decision_version",
           "decision_hash",
+          "selection_id",
           "solution_plan_id",
+          "stack_patch_id",
           "procurement_plan_id",
           "procurement_gate_result_hash",
           "pack_id",
@@ -4581,8 +4614,10 @@
           "seller_contracting_entity_id",
           "billing_identity_id",
           "cost_center_id",
+          "merchant_subtotal",
           "tax_amount",
           "fee_amount",
+          "fee_schedule_version",
           "contract_version_id",
           "landed_total",
           "approval_policy_version",

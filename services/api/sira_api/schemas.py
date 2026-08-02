@@ -462,8 +462,11 @@ class PurchaseIntentView(StrictModel):
     purchase_intent_id: Identifier
     organization_id: Identifier
     decision_id: Identifier
+    decision_version: int
     decision_hash: HashValue
+    selection_id: Identifier
     solution_plan_id: Identifier
+    stack_patch_id: Identifier
     purchase_intent_group_id: Identifier | None = None
     procurement_plan_id: Identifier
     procurement_gate_result_hash: HashValue
@@ -486,8 +489,10 @@ class PurchaseIntentView(StrictModel):
     billing_identity_id: Identifier
     cost_center_id: Identifier
     purchase_order_ref: str | None = None
+    merchant_subtotal: MoneyAmount
     tax_amount: MoneyAmount
     fee_amount: MoneyAmount
+    fee_schedule_version: Identifier
     contract_version_id: Identifier
     landed_total: MoneyAmount
     approval_policy_version: int

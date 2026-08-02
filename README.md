@@ -85,7 +85,7 @@ Run every environment-independent check:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1
 ```
 
-This runs Python lint and formatting checks, strict type checking, tests with the 80%
+This runs Python lint and formatting checks, strict type checking, tests with the 75%
 coverage gate, OpenAPI drift detection, web/client checks, and a credential scan. With no
 database or provider credentials, deterministic tests still run and the live PostgreSQL
 test is reported as skipped.

@@ -207,10 +207,12 @@ class EvaluationPipelineVersion(Base, TenantOwned, Timestamped):
 
     __table_args__ = (
         UniqueConstraint(
-            "organization_id", "pipeline_version", name="uq_evaluation_pipeline_version"
-        ),
-        UniqueConstraint(
             "organization_id", "content_hash", name="uq_evaluation_pipeline_content_hash"
+        ),
+        Index(
+            "ix_evaluation_pipeline_version_lookup",
+            "organization_id",
+            "pipeline_version",
         ),
     )
 

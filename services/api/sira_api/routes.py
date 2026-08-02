@@ -37,7 +37,6 @@ from .schemas import (
     EngagementView,
     EvaluationReplayView,
     HealthResponse,
-    LegacyDecisionView,
     PravaBrowserReturnCreate,
     PravaSessionCreate,
     PravaSessionView,
@@ -55,6 +54,7 @@ from .schemas import (
     WorkflowAccepted,
     WorkflowView,
 )
+from .schemas_v2 import DecisionView as CurrentDecisionView
 from .service import WorkflowService
 
 public_router = APIRouter()
@@ -156,7 +156,7 @@ async def discover(
 
 @router.get(
     "/v1/purchase-requests/{request_id}/decision-view",
-    response_model=LegacyDecisionView,
+    response_model=CurrentDecisionView,
     include_in_schema=False,
     tags=["decisions"],
 )

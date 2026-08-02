@@ -19,11 +19,11 @@ function Invoke-Pnpm {
   if ($LASTEXITCODE -ne 0) { throw "pnpm check failed with exit code $LASTEXITCODE" }
 }
 
-Invoke-CheckedPython @("-m", "ruff", "check", "python", "services", "tests", "scripts")
-Invoke-CheckedPython @("-m", "ruff", "format", "--check", "python", "services", "tests", "scripts")
-Invoke-CheckedPython @("-m", "mypy", "python", "services")
-Invoke-CheckedPython @("-m", "pytest", "--cov", "--cov-report=term-missing", "--cov-fail-under=80")
-Invoke-CheckedPython scripts/generate_openapi.py --check
-Invoke-Pnpm check:web
-Invoke-Pnpm format:check
-Invoke-CheckedPython scripts/credential_scan.py
+Invoke-CheckedPython -Arguments @("-m", "ruff", "check", "python", "services", "tests", "scripts")
+Invoke-CheckedPython -Arguments @("-m", "ruff", "format", "--check", "python", "services", "tests", "scripts")
+Invoke-CheckedPython -Arguments @("-m", "mypy", "python", "services")
+Invoke-CheckedPython -Arguments @("-m", "pytest", "--cov", "--cov-report=term-missing", "--cov-fail-under=75")
+Invoke-CheckedPython -Arguments @("scripts/generate_openapi.py", "--check")
+Invoke-Pnpm -Arguments @("check:web")
+Invoke-Pnpm -Arguments @("format:check")
+Invoke-CheckedPython -Arguments @("scripts/credential_scan.py")

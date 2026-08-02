@@ -707,8 +707,10 @@ export interface PurchaseIntentView {
   currency: string;
   decision_hash: string;
   decision_id: string;
+  decision_version: number;
   expected_fulfillments: { [key: string]: unknown; }[];
   fee_amount: string;
+  fee_schedule_version: string;
   fulfillment_completion_policy: string;
   fulfillment_status: FulfillmentStatus;
   intent_hash: string;
@@ -716,6 +718,7 @@ export interface PurchaseIntentView {
   line_items: { [key: string]: unknown; }[];
   locked_at: string;
   merchant: { [key: string]: string; };
+  merchant_subtotal: string;
   offer_id: string;
   offer_version: number;
   organization_id: string;
@@ -731,8 +734,10 @@ export interface PurchaseIntentView {
   quote_id: string;
   quote_version: number;
   schema_version: string;
+  selection_id: string;
   seller_contracting_entity_id: string;
   solution_plan_id: string;
+  stack_patch_id: string;
   tax_amount: string;
 }
 

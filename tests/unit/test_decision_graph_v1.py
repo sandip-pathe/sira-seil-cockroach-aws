@@ -73,7 +73,7 @@ def test_demo_retains_buyer_and_seller_provenance_and_orders_runner_up() -> None
     assert plans_by_component["product_fixture_a"].status is CandidateStatus.SIRA_INELIGIBLE
     assert plans_by_component["product_fixture_a"].primary_reason is not None
     assert plans_by_component["product_fixture_a"].primary_reason.reason_code.startswith(
-        "BUYER_POLICY:"
+        "BUYER_POLICY_"
     )
     assert plans_by_component["product_fixture_b"].status is CandidateStatus.SEIL_PASS
     assert plans_by_component["product_fixture_b"].primary_reason is not None

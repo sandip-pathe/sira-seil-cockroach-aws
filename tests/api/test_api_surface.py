@@ -33,22 +33,18 @@ async def test_health_and_frozen_demo_projection(api_client: httpx.AsyncClient) 
     decision = await api_client.get("/v1/purchase-requests/req_demo/decision-view")
     assert decision.status_code == 200, decision.text
     payload = decision.json()
-    assert [candidate["status"] for candidate in payload["candidates"]] == [
-        "SIRA_INELIGIBLE",
-        "SEIL_PASS",
-        "ELIGIBLE",
-        "ELIGIBLE",
-    ]
-    assert payload["selected_solution_plan"]["solution_plan_id"] == "sol_buy_fixture_d"
-    assert payload["selected_solution_plan"]["preference_score"] == 86
-    assert payload["stack_patch"]["status"] == "PROPOSED"
-    assert payload["stack_patch"]["operations"][0]["instance"]["lifecycle"] == "staged"
-    assert payload["counterfactual"]["generic_selected_candidate_id"] == (
-        "fixture_low_price_policy_fail"
+    assert len(payload["solution_options"]) == 10
+    assert payload["solution_options"][0]["action_type"] == "REPLACE"
+    assert payload["solution_options"][0]["status"] == "SUPPORTED"
+    assert payload["solution_options"][0]["preference_score"]["conservative"]["display"] == (
+        "87.50"
     )
-    assert payload["counterfactual"]["company_aware_selected_candidate_id"] == (
-        "fixture_selected_fit"
-    )
+    assert {option["status"] for option in payload["solution_options"]} >= {
+        "BLOCKED_BY_COMPANY_REQUIREMENT",
+        "VENDOR_NOT_SUPPORTED",
+    }
+    assert payload["selected_action_plan"] is None
+    assert payload["stack_change"] is None
 
 
 @pytest.mark.asyncio
@@ -119,8 +115,9 @@ async def test_brief_privacy_and_ledger(api_client: httpx.AsyncClient) -> None:
     assert ledger.status_code == 200, ledger.text
     body = ledger.json()
     assert body["decision_hash"].startswith("sha256:")
-    assert body["selected_solution_plan_id"] == "sol_buy_fixture_d"
-    assert body["evaluated_universe"]["registry_candidates_considered"] == 4
+    assert body["selected_solution_plan_id"] == "plan_5a682ec42084ae355a2d"
+    assert body["evaluated_universe"]["canonical_product_count"] == 4
+    assert body["evaluated_universe"]["evaluated_solution_plan_count"] == 10
 
 
 @pytest.mark.asyncio
@@ -172,7 +169,12 @@ async def test_create_discover_workflow_and_idempotent_replay(
     ledger = await api_client.get(f"/v1/decisions/{decision_id}")
     assert ledger.json()["purchase_brief_id"] == f"pb_{request_id}"
     assert ledger.json()["requirement_brief_id"] == f"rb_{request_id}"
-    assert view.json()["stack_patch"]["decision_id"] == decision_id
+    selected_plan = next(
+        plan
+        for plan in ledger.json()["solution_plans"]
+        if plan["solution_plan_id"] == ledger.json()["selected_solution_plan_id"]
+    )
+    assert selected_plan["stack_patch_id"] == f"patch_{decision_id}"
 
 
 @pytest.mark.asyncio
@@ -190,7 +192,10 @@ async def test_calibration_proposal_has_no_ranking_effect(api_client: httpx.Asyn
     assert [result["matches"] for result in body["results"]] == [True, True, True]
 
     unchanged = await api_client.get("/v1/purchase-requests/req_demo/decision-view")
-    assert unchanged.json()["selected_solution_plan"]["preference_score"] == 86
+    assert (
+        unchanged.json()["solution_options"][0]["preference_score"]["conservative"]["display"]
+        == "87.50"
+    )
 
     dye_failure = await api_client.post(
         "/v1/purchase-requests/req_demo/calibration-runs",
@@ -276,7 +281,7 @@ async def test_counterfactual_simulation_replay_and_proposal_decision(
         for plan in latest_ledger["solution_plans"]
         if plan["solution_plan_id"] == latest_ledger["selected_solution_plan_id"]
     )
-    assert selected_plan["preference_score"] == 80
+    assert selected_plan["dimensions"]["preference"]["conservative"]["display"]
 
     replayed = await api_client.post(
         f"/v1/purchase-briefs/pb_consultco_v1/proposals/{proposal_id}/accept",
