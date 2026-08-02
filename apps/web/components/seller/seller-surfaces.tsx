@@ -20,12 +20,14 @@ import {
   FileSearch,
   FlaskConical,
   Home,
+  Inbox,
   Info,
   Package,
   RefreshCw,
   Search,
   Send,
   ShieldCheck,
+  UserRound,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -54,7 +56,7 @@ const FIXTURE_SEARCH: SellerProductSearchView = {
   results: [
     {
       category: "Meeting intelligence",
-      href: "/seller/product-evidence/product_fixture_d",
+      href: "/seil/product-evidence/product_fixture_d",
       id: "product_fixture_d",
       name: "Northstar Meeting Notes",
       public_summary:
@@ -64,7 +66,7 @@ const FIXTURE_SEARCH: SellerProductSearchView = {
     },
     {
       category: "Meeting intelligence",
-      href: "/seller/product-evidence/product_fixture_c",
+      href: "/seil/product-evidence/product_fixture_c",
       id: "product_fixture_c",
       name: "CurrentCall Workspace",
       public_summary:
@@ -74,7 +76,7 @@ const FIXTURE_SEARCH: SellerProductSearchView = {
     },
     {
       category: "Meeting intelligence",
-      href: "/seller/product-evidence/product_fixture_b",
+      href: "/seil/product-evidence/product_fixture_b",
       id: "product_fixture_b",
       name: "Briefly Capture",
       public_summary:
@@ -134,7 +136,7 @@ const FIXTURE_DRAFT: SellerPackDraftView = {
     gaps: [
       {
         field: "data_retention_days",
-        href: "/seller/product-evidence/product_fixture_d?field=data_retention_days",
+        href: "/seil/product-evidence/product_fixture_d?field=data_retention_days",
         id: "gap_retention",
         safe_message:
           "Confirm the current retention value with non-expired supporting evidence.",
@@ -300,7 +302,7 @@ function fixtureViewFor(productId: string): SellerEvidenceView {
           },
     product: {
       current_version: isPublished ? 4 : 3,
-      href: `/seller/product-evidence/${searchItem.id}`,
+      href: `/seil/product-evidence/${searchItem.id}`,
       id: searchItem.id,
       name: searchItem.name,
       seller_state: searchItem.state,
@@ -330,7 +332,7 @@ function fixtureViewFor(productId: string): SellerEvidenceView {
           gaps: [
             {
               field: "data_retention_days",
-              href: `/seller/product-evidence/${searchItem.id}?field=data_retention_days`,
+              href: `/seil/product-evidence/${searchItem.id}?field=data_retention_days`,
               id: "gap_retention",
               safe_message:
                 "Add a current retention value and supporting evidence.",
@@ -339,8 +341,8 @@ function fixtureViewFor(productId: string): SellerEvidenceView {
           status: "HAS_GAPS",
         },
     version_links: {
-      current: `/seller/product-evidence/${searchItem.id}/versions/${isPublished ? 4 : 3}`,
-      previous: `/seller/product-evidence/${searchItem.id}/versions/${isPublished ? 3 : 2}`,
+      current: `/seil/product-evidence/${searchItem.id}/versions/${isPublished ? 4 : 3}`,
+      previous: `/seil/product-evidence/${searchItem.id}/versions/${isPublished ? 3 : 2}`,
     },
   };
 }
@@ -354,7 +356,7 @@ function fixtureDraftFor(productId: string, draftId: string): SellerPackDraftVie
       ...FIXTURE_DRAFT.validation,
       gaps: FIXTURE_DRAFT.validation.gaps.map((gap) => ({
         ...gap,
-        href: `/seller/product-evidence/${productId}?field=${gap.field}`,
+        href: `/seil/product-evidence/${productId}?field=${gap.field}`,
       })),
     },
   };
@@ -445,6 +447,14 @@ function toneClass(tone: Tone): string {
   return styles.toneNeutral;
 }
 
+function canonicalSeilHref(href: string): string {
+  if (href === "/seller/products/search") return "/seil/products/search";
+  if (href.startsWith("/seller/product-evidence/")) {
+    return href.replace("/seller/product-evidence/", "/seil/product-evidence/");
+  }
+  return href;
+}
+
 function SellerShell({
   active,
   children,
@@ -456,7 +466,7 @@ function SellerShell({
     <div className={styles.shell}>
       <aside className={styles.rail} aria-label="SEIL workspace navigation">
         <div>
-          <Link className={styles.wordmark} href="/seller" aria-label="SEIL home">
+          <Link className={styles.wordmark} href="/seil" aria-label="SEIL home">
             SEIL
           </Link>
           <p className={styles.railDescriptor}>Product Evidence</p>
@@ -465,14 +475,14 @@ function SellerShell({
         <nav className={styles.nav} aria-label="Seller">
           <Link
             className={active === "home" ? styles.navActive : styles.navItem}
-            href="/seller"
+            href="/seil"
           >
             <Home aria-hidden="true" />
             Overview
           </Link>
           <Link
             className={active === "search" ? styles.navActive : styles.navItem}
-            href="/seller/products/search"
+            href="/seil/products/search"
           >
             <Search aria-hidden="true" />
             Find a product
@@ -483,6 +493,14 @@ function SellerShell({
               Product workspace
             </span>
           ) : null}
+          <Link className={styles.navItem} href="/seil/inbox">
+            <Inbox aria-hidden="true" />
+            Inbox
+          </Link>
+          <Link className={styles.navItem} href="/seil/settings/profile">
+            <UserRound aria-hidden="true" />
+            Profile
+          </Link>
         </nav>
 
         <div className={styles.boundaryNote}>
@@ -558,10 +576,13 @@ function SafeError({ retry }: { retry: () => void }) {
           No fixture data was substituted. The last confirmed server state, if
           any, remains unchanged.
         </p>
-        <button type="button" onClick={retry}>
-          <RefreshCw aria-hidden="true" />
-          Try again
-        </button>
+        <div className={styles.safeErrorActions}>
+          <button type="button" onClick={retry}>
+            <RefreshCw aria-hidden="true" />
+            Try again
+          </button>
+          <Link href="/seil/products/search">Back to product search</Link>
+        </div>
       </div>
     </section>
   );
@@ -599,7 +620,7 @@ function ProductCard({ item }: { item: SellerProductSearchItem }) {
         <StatusPill tone={guidance.tone}>{formatState(item.state)}</StatusPill>
         <span>{authorityLabel}</span>
       </div>
-      <Link className={styles.cardLink} href={item.href}>
+      <Link className={styles.cardLink} href={canonicalSeilHref(item.href)}>
         Open Product Evidence
         <ArrowRight aria-hidden="true" />
       </Link>
@@ -621,7 +642,7 @@ export function SellerHome() {
         title="Product Evidence"
         description="Maintain accurate product truth, resolve evidence gaps, and submit an exact revision for review."
         action={
-          <Link className={styles.primaryLink} href="/seller/products/search">
+          <Link className={styles.primaryLink} href="/seil/products/search">
             <Search aria-hidden="true" />
             Find a product
           </Link>
@@ -660,7 +681,7 @@ export function SellerHome() {
               <CheckCircle2 aria-hidden="true" />
               <h2>No product currently needs attention</h2>
               <p>Search for a provisional product or return when a review task is assigned.</p>
-              <Link href="/seller/products/search">Search products</Link>
+              <Link href="/seil/products/search">Search products</Link>
             </section>
           )}
         </>
@@ -692,7 +713,7 @@ export function SellerProductSearch() {
       />
 
       <label className={styles.searchField}>
-        <span className="visually-hidden">Search products</span>
+        <span className="sr-only">Search products</span>
         <Search aria-hidden="true" />
         <input
           type="search"
@@ -776,7 +797,7 @@ function HealthPanel({ view }: { view: SellerEvidenceView }) {
   );
 }
 
-function ValidationPanel({ view }: { view: SellerEvidenceView }) {
+function ValidationPanel({ view, highlightField }: { view: SellerEvidenceView; highlightField?: string }) {
   const validation = view.validation;
   return (
     <section className={styles.recordPanel} aria-labelledby="validation-heading">
@@ -803,13 +824,13 @@ function ValidationPanel({ view }: { view: SellerEvidenceView }) {
       {validation.gaps.length ? (
         <ul className={styles.gapList}>
           {validation.gaps.map((gap) => (
-            <li key={gap.id}>
+            <li id={`field-${gap.field}`} data-highlighted={highlightField === gap.field || undefined} key={gap.id}>
               <AlertTriangle aria-hidden="true" />
               <div>
                 <code>{gap.field}</code>
                 <p>{gap.safe_message}</p>
               </div>
-              <Link href={gap.href}>Open field</Link>
+              <Link href={canonicalSeilHref(gap.href)}>Open field</Link>
             </li>
           ))}
         </ul>
@@ -849,7 +870,7 @@ function ClaimRows({
   );
 }
 
-function PackTab({ view }: { view: SellerEvidenceView }) {
+function PackTab({ view, highlightField }: { view: SellerEvidenceView; highlightField?: string }) {
   return (
     <div className={styles.twoColumn}>
       <HealthPanel view={view} />
@@ -879,7 +900,7 @@ function PackTab({ view }: { view: SellerEvidenceView }) {
           </div>
         </dl>
       </section>
-      <ValidationPanel view={view} />
+      <ValidationPanel view={view} highlightField={highlightField} />
     </div>
   );
 }
@@ -1058,10 +1079,7 @@ function ExportsPanel({ view }: { view: SellerEvidenceView }) {
             ))}
           </div>
           {view.reusable_answers.href ? (
-            <Link className={styles.secondaryLink} href={view.reusable_answers.href}>
-              Review hash-bound exports
-              <ArrowRight aria-hidden="true" />
-            </Link>
+            <p className={styles.panelNote}>Hash-bound export review becomes available here after the authenticated browser export route is connected.</p>
           ) : null}
           <p className={styles.panelNote}>
             Exports contain published fields only. Generated reusable answers
@@ -1251,12 +1269,20 @@ function SubmitReviewDialog({
   );
 }
 
-export function SellerProductWorkspace({ productId }: { productId: string }) {
+export function SellerProductWorkspace({ productId, initialField }: { productId: string; initialField?: string }) {
   const [activeTab, setActiveTab] = useState<ProductTab>("pack");
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [submitAcknowledged, setSubmitAcknowledged] = useState(false);
   const queryClient = useQueryClient();
   const product = useSellerProduct(productId);
+
+  useEffect(() => {
+    if (!initialField || !product.data) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`field-${initialField}`)?.scrollIntoView({ block: "center" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialField, product.data]);
 
   const submitAction = product.data?.available_actions.find(
     (action) => action.id === "SUBMIT_REVIEW" && action.method === "POST",
@@ -1407,11 +1433,9 @@ export function SellerProductWorkspace({ productId }: { productId: string }) {
           <span>{view.publisher_authority.label}</span>
           <code>{view.product.id}</code>
         </div>
-        <div className={styles.versionLinks}>
-          {view.version_links.previous ? (
-            <Link href={view.version_links.previous}>Previous version</Link>
-          ) : null}
-          <Link href={view.version_links.current}>Current version</Link>
+        <div className={styles.versionLinks} aria-label="Version status">
+          <span>Revision v{view.product.current_version}</span>
+          <strong>Current</strong>
         </div>
       </div>
 
@@ -1440,7 +1464,7 @@ export function SellerProductWorkspace({ productId }: { productId: string }) {
         aria-labelledby={`seller-tab-${activeTab}`}
         tabIndex={0}
       >
-        {activeTab === "pack" ? <PackTab view={view} /> : null}
+        {activeTab === "pack" ? <PackTab view={view} highlightField={initialField} /> : null}
         {activeTab === "evidence" ? <EvidenceTab view={view} /> : null}
         {activeTab === "fit" ? (
           <FitTab

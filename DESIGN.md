@@ -79,7 +79,8 @@ SIRA and SEIL accents identify workspace ownership. They never encode evidence q
 
 - **UI and headings:** self-hosted Geist Sans, with `Segoe UI, sans-serif` fallback.
 - **Versions, hashes, timestamps, evidence metadata:** Geist Mono, with `Consolas, monospace` fallback.
-- **Shared landing display:** Instrument Serif may be used for one short hero line or paired wordmark only. Never use it in application controls or dense records.
+- **Individual product wordmarks:** Montserrat Bold (`700`) in black. Do not synthesize bold from the regular face.
+- **Shared landing display:** Instrument Serif may be used for one short hero line only. Never use it in application controls, dense records, or product wordmarks.
 - **Scale:** hero 56/60, page title 32/38, section 22/28, body 15/22, comparison 14/20, metadata 12/16.
 - **Spacing:** 4-pixel base; use 4, 8, 12, 16, 24, 32, and 48 pixels.
 - **Controls:** 36 pixels compact, 44 pixels default; all touch targets are at least 44 by 44 pixels.
@@ -90,9 +91,10 @@ SIRA and SEIL accents identify workspace ownership. They never encode evidence q
 
 ### 3.3 Brand treatment
 
-- The shared public wordmark is **SIRA + SEIL**. Use **Seilnsara** only for legal, billing, and corporate attribution.
-- The workspace wordmark is only **SIRA** or **SEIL**.
-- Use identical typography and geometry for both. Accent color and nouns change; quality and prominence do not.
+- Shared/public surfaces use the supplied black stacked SIRA/SEIL lockup. Use **Seilnsara** only for legal, billing, and corporate attribution.
+- The browser favicon uses the supplied standalone black **S** mark.
+- The workspace wordmark is only **SIRA** or **SEIL**, set in black Montserrat Bold (`700`). Do not place a boxed letter, glyph tile, or decorative product icon before it.
+- Use identical typography and geometry for the two individual wordmarks. Accent color and nouns change elsewhere in the interface; quality and prominence do not.
 - Buyer screens call a SEIL Pack **Product Evidence** unless provenance detail is open.
 - Seller screens may use **Private Product Passport**, **Product Evidence**, and **SEIL Pack** because those distinctions control publication.
 

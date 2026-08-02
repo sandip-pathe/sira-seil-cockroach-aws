@@ -1,12 +1,29 @@
 # SIRA + SEIL
 
-SIRA + SEIL is a company-aware decision and procurement control plane. This monorepo
-contains the deterministic `consultco_v1` demo, exact-hash approval, constrained checkout,
-entitlement verification, receipts, and staged Stackfile changes. PostgreSQL is canonical;
-development fixtures are explicitly non-production.
+SIRA + SEIL is a pair of B2B commerce agents that help companies buy and sell.
+
+- **SIRA is the buying agent.** It helps a company describe what it needs, compare the
+  available options for that company, choose an action, get the right approvals, and
+  complete the purchase or other next step.
+- **SEIL is the selling agent.** It helps a B2B company present what it sells, answer buyer
+  questions, prove where the product fits, and move qualified buyers toward a sale.
+
+The product vision covers B2B products and services. This repository currently implements
+the first software-commerce demo: buyer decisions, seller product evidence, approval,
+controlled checkout, fulfillment verification, receipts, and company software-stack updates.
+The `consultco_v1` development data is deterministic and explicitly non-production.
 
 `docs/BUILD_SPEC.md` controls this build sequence. `docs/PRD.md` controls product meaning
 and security boundaries.
+
+## Product and implementation documents
+
+- [UI redesign and outsourcing specification](docs/UI_OUTSOURCING_SPEC.md) — page inventory,
+  target user flows, endpoint reference, frontend requirements, and acceptance criteria.
+- [Build specification](docs/BUILD_SPEC.md) — first-build execution contract.
+- [Product requirements](docs/PRD.md) — product meaning, authority, and privacy boundaries.
+- [Design background](DESIGN.md) — semantic and interaction background; the current visual
+  treatment is not the required reference for the UI redesign.
 
 ## Prerequisites on Windows
 

@@ -1,13 +1,13 @@
 .page {
-  --canvas: #f3f6f5;
+  --canvas: #faf9f5;
   --surface: #ffffff;
-  --surface-subdued: #e9efec;
-  --ink: #13201c;
-  --text: #2b3833;
-  --muted: #52615b;
-  --border: #cbd6d1;
-  --border-strong: #97a7a0;
-  --control-border: #64736c;
+  --surface-subdued: #f3f1ea;
+  --ink: #1f1f1c;
+  --text: #2d2c29;
+  --muted: #6f6a61;
+  --border: #e3e0d6;
+  --border-strong: #c8c2b5;
+  --control-border: #a59e92;
   --sira: #006b5f;
   --sira-soft: #e4f2ef;
   --seil: #8a4b16;
@@ -20,7 +20,7 @@
   background: var(--canvas);
   color: var(--text);
   color-scheme: light;
-  font-family: "Geist Sans", "Segoe UI", sans-serif;
+  font-family: var(--font-ui);
   font-size: 15px;
   line-height: 1.5;
 }
@@ -97,19 +97,23 @@
   gap: 32px;
 }
 
-.wordmark,
-.footerInner > div > a {
-  color: var(--ink);
-  font-size: 20px;
-  font-weight: 750;
-  letter-spacing: 0.08em;
+.wordmark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
   text-decoration: none;
 }
 
-.wordmark span {
-  margin-inline: 6px;
-  color: var(--muted);
-  font-weight: 450;
+.combinedLogo {
+  display: block;
+  width: 78px;
+  height: auto;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .header nav {
@@ -148,9 +152,14 @@
   color: var(--ink);
 }
 
-.headerAction:hover {
+.headerAction[data-workspace="sira"]:hover {
   border-color: var(--sira);
   color: var(--sira);
+}
+
+.headerAction[data-workspace="seil"]:hover {
+  border-color: var(--seil);
+  color: var(--seil);
 }
 
 .headerAction svg,
@@ -263,6 +272,10 @@
   gap: 16px;
 }
 
+.previewChoices[data-single="true"] {
+  grid-template-columns: minmax(0, 560px);
+}
+
 .previewChoice {
   display: flex;
   min-width: 0;
@@ -321,8 +334,10 @@
 
 .previewChoice h2 {
   margin: 30px 0 12px;
-  color: var(--ink);
+  color: var(--brand-ink);
+  font-family: var(--font-brand);
   font-size: 32px;
+  font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1;
 }
@@ -542,6 +557,29 @@
   text-underline-offset: 4px;
 }
 
+.pricingCtas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.pricingCtas a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--sira);
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.pricingCtas a + a {
+  color: var(--seil);
+}
+
 .pricingRules {
   display: grid;
   grid-template-columns: minmax(180px, 0.3fr) minmax(0, 0.7fr);
@@ -646,7 +684,7 @@
 
 .controlTimeline li > span {
   color: var(--muted);
-  font-family: "Geist Mono", Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
 }
 
@@ -824,7 +862,7 @@
 
 .legalBody article > span {
   color: var(--muted);
-  font-family: "Geist Mono", Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
 }
 
@@ -887,8 +925,19 @@
   align-items: end;
 }
 
-.footerInner > div > a {
-  color: #ffffff;
+.footerWordmark {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 9px;
+  border-radius: 5px;
+  background: #ffffff;
+  text-decoration: none;
+}
+
+.footerLogo {
+  display: block;
+  width: 88px;
+  height: auto;
 }
 
 .footer p {
@@ -965,11 +1014,21 @@
   }
 
   .wordmark {
-    font-size: 17px;
+    min-width: 62px;
+  }
+
+  .combinedLogo {
+    width: 68px;
+  }
+
+  .headerActions {
+    gap: 5px;
   }
 
   .headerAction {
-    padding-inline: 12px;
+    min-height: 40px;
+    padding-inline: 8px;
+    font-size: 11px;
   }
 
   .signInSection,

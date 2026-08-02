@@ -1,6 +1,32 @@
 .page {
+  --workspace-accent: var(--sira);
+  --workspace-soft: var(--sira-soft);
   min-height: 100dvh;
   background: var(--canvas);
+}
+
+.page[data-workspace="seil"] {
+  --workspace-accent: var(--seil);
+  --workspace-soft: var(--seil-soft);
+}
+
+.skipLink {
+  position: fixed;
+  z-index: 100;
+  top: 12px;
+  left: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+  transform: translateY(-160%);
+}
+
+.skipLink:focus {
+  transform: translateY(0);
 }
 
 .header {
@@ -15,16 +41,12 @@
 }
 
 .wordmark {
-  color: var(--ink);
+  color: var(--brand-ink);
+  font-family: var(--font-brand);
   font-size: 17px;
-  font-weight: 760;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   text-decoration: none;
-}
-
-.wordmark span {
-  color: var(--muted);
-  font-weight: 450;
 }
 
 .header nav {
@@ -41,6 +63,10 @@
 
 .header nav a:hover {
   color: var(--ink);
+}
+
+.header nav a[aria-current="page"] {
+  color: var(--workspace-accent);
 }
 
 .fixture {
@@ -82,7 +108,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
-  color: var(--sira);
+  color: var(--workspace-accent);
 }
 
 .inboxIcon svg {
@@ -93,7 +119,7 @@
 .sectionHead p,
 .boundary > p {
   margin: 0 0 4px;
-  color: var(--sira);
+  color: var(--workspace-accent);
   font-size: 10px;
   font-weight: 760;
   letter-spacing: 0.08em;
@@ -187,8 +213,8 @@
   display: grid;
   place-items: center;
   border-radius: 5px;
-  background: var(--sira-soft);
-  color: var(--sira);
+  background: var(--workspace-soft);
+  color: var(--workspace-accent);
   font-size: 9px;
   font-weight: 760;
 }
@@ -205,12 +231,12 @@
 
 .task strong {
   color: var(--ink);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .task small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .task > svg {
@@ -225,7 +251,7 @@
 .boundary > svg {
   width: 24px;
   margin-bottom: 14px;
-  color: var(--sira);
+  color: var(--workspace-accent);
 }
 
 .boundary ul {
@@ -240,7 +266,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .boundary li svg {
@@ -253,8 +279,37 @@
   padding-top: 14px;
   border-top: 1px solid var(--border);
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.55;
+}
+
+.emptyQueue {
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 28px;
+  color: var(--muted);
+}
+
+.emptyQueue > svg {
+  width: 22px;
+  color: var(--success);
+}
+
+.emptyQueue strong,
+.emptyQueue span {
+  display: block;
+}
+
+.emptyQueue strong {
+  color: var(--ink);
+}
+
+.emptyQueue span {
+  margin-top: 4px;
+  font-size: 12px;
 }
 
 @media (max-width: 820px) {

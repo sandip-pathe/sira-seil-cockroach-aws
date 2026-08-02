@@ -1,13 +1,13 @@
 .page {
-  --canvas: #f3f6f5;
+  --canvas: #faf9f5;
   --surface: #ffffff;
-  --surface-subdued: #e9efec;
-  --ink: #13201c;
-  --text: #2b3833;
-  --muted: #52615b;
-  --border: #cbd6d1;
-  --border-strong: #97a7a0;
-  --control-border: #64736c;
+  --surface-subdued: #f3f1ea;
+  --ink: #1f1f1c;
+  --text: #2d2c29;
+  --muted: #6f6a61;
+  --border: #e3e0d6;
+  --border-strong: #c8c2b5;
+  --control-border: #a59e92;
   --sira: #006b5f;
   --sira-soft: #e4f2ef;
   --seil: #8a4b16;
@@ -18,7 +18,7 @@
   background: var(--canvas);
   color: var(--text);
   color-scheme: light;
-  font-family: "Geist Sans", "Segoe UI", sans-serif;
+  font-family: var(--font-ui);
   font-size: 15px;
   line-height: 1.5;
 }
@@ -85,24 +85,17 @@
   gap: 32px;
 }
 
-.wordmark,
-.footerWordmark {
-  color: var(--ink);
-  font-size: 20px;
-  font-weight: 750;
-  letter-spacing: 0.08em;
+.wordmark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
   text-decoration: none;
 }
 
-.wordmark {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.wordmark span:nth-child(2) {
-  color: var(--muted);
-  font-weight: 450;
+.combinedLogo {
+  display: block;
+  width: 78px;
+  height: auto;
 }
 
 .primaryNav {
@@ -110,6 +103,12 @@
   align-items: center;
   justify-content: center;
   gap: 28px;
+}
+
+.signInGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .primaryNav a,
@@ -134,16 +133,21 @@
 .signInLink {
   justify-content: center;
   gap: 8px;
-  padding-inline: 14px;
+  padding-inline: 12px;
   border: 1px solid var(--control-border);
   border-radius: 6px;
   background: var(--surface);
   color: var(--ink);
 }
 
-.signInLink:hover {
+.signInLink[data-workspace="sira"]:hover {
   border-color: var(--sira);
   color: var(--sira);
+}
+
+.signInLink[data-workspace="seil"]:hover {
+  border-color: var(--seil);
+  color: var(--seil);
 }
 
 .signInLink svg,
@@ -331,8 +335,10 @@
 
 .productDoor h3 {
   margin: 28px 0 12px;
-  color: var(--ink);
+  color: var(--brand-ink);
+  font-family: var(--font-brand);
   font-size: 36px;
+  font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1;
 }
@@ -616,7 +622,18 @@
 }
 
 .footerWordmark {
-  color: #ffffff !important;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 9px;
+  border-radius: 5px;
+  background: #ffffff;
+  text-decoration: none;
+}
+
+.footerLogo {
+  display: block;
+  width: 88px;
+  height: auto;
 }
 
 .footer p {
@@ -698,12 +715,21 @@
   }
 
   .wordmark {
-    font-size: 17px;
+    min-width: 62px;
+  }
+
+  .combinedLogo {
+    width: 68px;
+  }
+
+  .signInGroup {
     gap: 5px;
   }
 
   .signInLink {
-    padding-inline: 12px;
+    min-height: 40px;
+    padding-inline: 8px;
+    font-size: 11px;
   }
 
   .hero {

@@ -21,6 +21,8 @@ import Link from "next/link";
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { layout, prepare, type PreparedText } from "@chenglou/pretext";
 
+import { CombinedBrandLogo } from "@/components/brand/combined-brand-logo";
+
 import styles from "./public-secondary-pages.module.css";
 
 type PreferredWorkspace = "sira" | "seil";
@@ -90,16 +92,17 @@ function PublicHeader({ compact = false }: { compact?: boolean }) {
     <header className={styles.header} data-compact={compact || undefined}>
       <div className={styles.headerInner}>
         <Link className={styles.wordmark} href="/" aria-label="SIRA and SEIL home">
-          SIRA <span aria-hidden="true">+</span> SEIL
+          <CombinedBrandLogo className={styles.combinedLogo} priority />
         </Link>
         <nav aria-label="Public navigation">
           <Link href="/pricing">Pricing</Link>
           <Link href="/security">Security</Link>
           <Link href="/privacy">Privacy</Link>
         </nav>
-        <Link className={styles.headerAction} href="/sign-in">
-          Sign in <ArrowRight aria-hidden="true" />
-        </Link>
+        <div className={styles.headerActions} aria-label="Sign in">
+          <Link className={styles.headerAction} data-workspace="sira" href="/sira/sign-in">SIRA sign in</Link>
+          <Link className={styles.headerAction} data-workspace="seil" href="/seil/sign-in">SEIL sign in</Link>
+        </div>
       </div>
     </header>
   );
@@ -110,7 +113,9 @@ function PublicFooter() {
     <footer className={styles.footer}>
       <div className={styles.footerInner}>
         <div>
-          <Link href="/">SIRA + SEIL</Link>
+          <Link className={styles.footerWordmark} href="/" aria-label="SIRA and SEIL home">
+            <CombinedBrandLogo className={styles.footerLogo} />
+          </Link>
           <p>Company-aware decisions and reusable product truth.</p>
         </div>
         <nav aria-label="Footer navigation">
@@ -150,9 +155,11 @@ export function SignInPreview({
 }: {
   preferredWorkspace?: PreferredWorkspace;
 }) {
-  const workspaceOrder: PreferredWorkspace[] = preferredWorkspace === "seil"
-    ? ["seil", "sira"]
+  const workspaceOrder: PreferredWorkspace[] = preferredWorkspace
+    ? [preferredWorkspace]
     : ["sira", "seil"];
+  const scoped = Boolean(preferredWorkspace);
+  const scopedName = preferredWorkspace?.toUpperCase();
 
   return (
     <PageFrame version={`sign-in:${preferredWorkspace ?? "none"}`}>
@@ -174,16 +181,16 @@ export function SignInPreview({
             <Link className={styles.backLink} href="/">
               <ArrowLeft aria-hidden="true" /> Back to SIRA + SEIL
             </Link>
-            <p className={styles.eyebrow}>Sign-in handoff</p>
-            <h1 id="sign-in-title" data-pretext>Choose the workspace you want to preview.</h1>
+            <p className={styles.eyebrow}>{scopedName ? `${scopedName} sign-in handoff` : "Choose a product"}</p>
+            <h1 id="sign-in-title" data-pretext>{scopedName ? `Sign in to ${scopedName}.` : "Choose the product you use."}</h1>
             <p data-pretext>
-              Production sign-in will accept a work email or configured SSO, then
-              return only organizations and roles authorized by the server. This page
-              deliberately does not imitate that success state.
+              {scopedName
+                ? `${scopedName} has its own audience, private workspace, and sign-in boundary. This development page opens only that product preview.`
+                : "SIRA is for buying teams. SEIL is for B2B sellers. Choose the product that matches your work; this is not a workspace switch inside one shared account."}
             </p>
           </div>
 
-          <div className={styles.previewChoices}>
+          <div className={styles.previewChoices} data-single={scoped || undefined}>
             {workspaceOrder.map((workspace) => {
               const sira = workspace === "sira";
               const Icon = sira ? Building2 : PackageCheck;
@@ -207,8 +214,8 @@ export function SignInPreview({
                       ? "Preview the deterministic buyer decision flow and its versioned Decision Path."
                       : "Preview the seller Product Evidence workflow and publication states."}
                   </p>
-                  <Link href={sira ? "/decisions" : "/seller"}>
-                    Preview {workspace.toUpperCase()} <ArrowRight aria-hidden="true" />
+                  <Link href={sira ? "/sira" : "/seil"}>
+                    Continue to {workspace.toUpperCase()} <ArrowRight aria-hidden="true" />
                   </Link>
                 </article>
               );
@@ -220,9 +227,9 @@ export function SignInPreview({
             <div>
               <strong>Production behavior</strong>
               <p>
-                A valid sign-in will not grant a role from a URL or workspace choice.
-                Users with one authorized workspace enter it directly; users with more
-                than one choose from the server-filtered workspace home.
+                A valid sign-in never grants a role from a URL or product choice. The
+                server returns only the organization, role, and product access already
+                authorized for that user.
               </p>
             </div>
           </aside>
@@ -312,7 +319,10 @@ export function PricingPage() {
                 preview. Production pricing must show included roles, limits, connectors,
                 billing cadence, and cancellation terms before commitment.
               </p>
-              <Link href="/sign-in">Open the development preview <ArrowRight aria-hidden="true" /></Link>
+              <div className={styles.pricingCtas}>
+                <Link href="/sira/sign-in">SIRA sign in <ArrowRight aria-hidden="true" /></Link>
+                <Link href="/seil/sign-in">SEIL sign in <ArrowRight aria-hidden="true" /></Link>
+              </div>
             </article>
           </div>
 

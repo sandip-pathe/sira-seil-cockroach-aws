@@ -5,16 +5,15 @@
 }
 
 .wordmark {
-  color: var(--ink);
-  font-size: 17px;
-  font-weight: 780;
-  letter-spacing: -0.03em;
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
 }
 
-.wordmark span {
-  color: var(--muted);
-  font-weight: 450;
+.combinedLogo {
+  display: block;
+  width: 82px;
+  height: auto;
 }
 
 .page section {
@@ -56,19 +55,26 @@
   color: var(--muted);
 }
 
-.page section > a {
+.page section > a,
+.page section > button {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
   gap: 8px;
   margin-top: 26px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--sira);
+  font: inherit;
   font-size: 13px;
   font-weight: 740;
   text-decoration: underline;
   text-underline-offset: 4px;
+  cursor: pointer;
 }
 
-.page section > a svg {
+.page section > a svg,
+.page section > button svg {
   width: 16px;
 }
