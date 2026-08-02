@@ -494,6 +494,7 @@ async def test_prava_create_session_uses_hosted_full_checkout_and_omits_token() 
     sent = json.loads(route.calls[0].request.content)
     assert sent["integration_type"] == "full_checkout"
     assert sent["total_amount"] == "89.00"
+    assert sent["currency"] == "USD"
     assert len(sent["purchase_context"]) == 1
     assert session.session_id == "ses_demo"
     assert session.hosted_url.startswith("https://sandbox.collect.prava.space")
@@ -567,6 +568,7 @@ async def test_prava_credential_is_consumed_only_inside_isolated_checkout(
     assert merchant_route.call_count == 1
     assert report_route.call_count == 1
     merchant_payload = json.loads(merchant_route.calls[0].request.content)
+    assert merchant_payload["currency"] == "USD"
     assert merchant_payload["payment_method"]["token"] == SENSITIVE_CARD_TOKEN
     assert merchant_payload["payment_method"]["dynamic_cvv"] == SENSITIVE_CVV
     report_payload = json.loads(report_route.calls[0].request.content)

@@ -378,6 +378,10 @@ class PravaHostedRestAdapter:
                 code=ProviderErrorCode.INVALID_STATE,
                 retryable=False,
             ) from None
+        # Prava's documented payment-result response does not repeat currency.
+        # Currency is bound when the session is created and remains on the
+        # canonical Purchase Intent/merchant request; exact session and order
+        # checks here prevent a credential from being substituted across them.
         if (
             payload.get("session_id") != session_id
             or payload.get("order_id") != request.prava_order_id
