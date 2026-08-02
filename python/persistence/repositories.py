@@ -13,6 +13,7 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import Select, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain import content_hash
@@ -964,8 +965,21 @@ class WorkflowRepository:
             response_payload=None,
             response_reference=None,
         )
-        self.session.add(record)
-        await self.session.flush()
+        try:
+            async with self.session.begin_nested():
+                self.session.add(record)
+                await self.session.flush()
+        except IntegrityError:
+            existing = (await self.session.execute(statement)).scalar_one_or_none()
+            if existing is None:
+                raise PersistenceConflict(
+                    "An idempotency claim raced and must be retried"
+                ) from None
+            if existing.request_hash != request_hash:
+                raise IdempotencyConflict(
+                    "Idempotency key was already used with a different request body"
+                ) from None
+            return IdempotencyClaim(existing, replay=existing.state == "COMPLETED")
         return IdempotencyClaim(record, replay=False)
 
     async def complete_idempotency(
