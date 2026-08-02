@@ -1,9 +1,5 @@
-import type { Metadata } from "next";
-
-import { NewDecision } from "@/components/decisions/decision-surfaces";
-
-export const metadata: Metadata = { title: "New decision" };
+import { redirect } from "next/navigation";
 
 export default function NewDecisionPage() {
-  return <NewDecision />;
+  redirect("/sira");
 }

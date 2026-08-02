@@ -57,6 +57,8 @@ class ApiSettings(BaseSettings):
         le=3600,
         validation_alias="IDENTITY_STEP_UP_MAX_AGE_SECONDS",
     )
+    openai_api_key: SecretStr = Field(default=SecretStr(""), validation_alias="OPENAI_API_KEY")
+    openai_model: str = Field(default="gpt-5-mini", validation_alias="OPENAI_MODEL")
 
     @property
     def is_development(self) -> bool:

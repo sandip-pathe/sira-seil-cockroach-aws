@@ -3,7 +3,7 @@
   --workspace-accent-soft: #e4f2ef;
   --workspace-accent-dark: #005348;
   display: grid;
-  grid-template-columns: 256px minmax(440px, 1fr) minmax(380px, 430px);
+  grid-template-columns: clamp(220px, 20vw, 256px) minmax(0, 1fr) 50%;
   width: 100%;
   height: 100dvh;
   min-width: 320px;
@@ -11,6 +11,7 @@
   background: #faf9f5;
   color: #2d2c29;
   font-family: var(--font-geist-sans), "Segoe UI", system-ui, sans-serif;
+  transition: grid-template-columns 180ms ease;
 }
 
 .workspace[data-mode="seil"] {
@@ -20,11 +21,11 @@
 }
 
 .workspace.sidebarClosed {
-  grid-template-columns: 0 minmax(440px, 1fr) minmax(380px, 430px);
+  grid-template-columns: 0 minmax(0, 1fr) 50%;
 }
 
 .workspace.contextClosed {
-  grid-template-columns: 256px minmax(440px, 1fr) 0;
+  grid-template-columns: clamp(220px, 20vw, 256px) minmax(0, 1fr) 0;
 }
 
 .workspace.sidebarClosed.contextClosed {
@@ -423,7 +424,8 @@
   border-top: 1px solid #dfdcd3;
 }
 
-.sidebarFooter > a {
+.sidebarFooter > a,
+.sidebarFooter > button {
   display: grid;
   width: 100%;
   min-height: 52px;
@@ -440,7 +442,8 @@
   cursor: pointer;
 }
 
-.sidebarFooter > a:hover {
+.sidebarFooter > a:hover,
+.sidebarFooter > button:hover {
   background: #e9e6de;
 }
 
@@ -457,7 +460,8 @@
   font-weight: 650;
 }
 
-.sidebarFooter > a > span:nth-child(2) {
+.sidebarFooter > a > span:nth-child(2),
+.sidebarFooter > button > span:nth-child(2) {
   display: grid;
   min-width: 0;
 }
@@ -1633,7 +1637,7 @@
   to { transform: rotate(360deg); }
 }
 
-@media (max-width: 1199px) {
+@media (max-width: 839px) {
   .workspace,
   .workspace.contextExpanded:not(.sidebarClosed) {
     grid-template-columns: 248px minmax(0, 1fr);

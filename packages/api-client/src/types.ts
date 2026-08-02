@@ -132,6 +132,19 @@ export interface CalibrationRunView {
   results: { [key: string]: unknown; }[];
 }
 
+export interface CatalogProductView {
+  billing_unit: string;
+  claims: string[];
+  edition: string;
+  id: string;
+  integrations: string[];
+  name: string;
+  price: string;
+  seller: string;
+  status: string;
+  summary: string;
+}
+
 export interface CompanyContextProjection {
   company_profile_version: number;
   company_stack_snapshot: number;
@@ -148,6 +161,14 @@ export interface CompanyFactProjection {
 }
 
 export type ComponentStatus = "ELIGIBLE" | "ELIGIBLE_WITH_EXCEPTION" | "CONDITIONAL" | "SIRA_INELIGIBLE" | "SEIL_PASS" | "UNAVAILABLE" | "STALE_EVIDENCE" | "INSUFFICIENT_EVIDENCE" | "CONFLICTING_EVIDENCE" | "AUTHORITY_REQUIRED" | "ADVISORY_ONLY";
+
+export interface ConnectorView {
+  id: string;
+  meta: string;
+  name: string;
+  purpose: string;
+  status: "Healthy" | "Needs setup" | "Not connected";
+}
 
 export interface ConsentCreate {
   consent: boolean;
@@ -1354,6 +1375,25 @@ export interface WorkflowView {
   workflow_id: string;
 }
 
+export interface WorkspaceChatCreate {
+  history?: WorkspaceMessage[];
+  message: string;
+  mode?: "sira" | "seil";
+}
+
+export interface WorkspaceChatView {
+  advisory_only?: boolean;
+  follow_up_required?: boolean;
+  message: string;
+  panel?: "run" | "catalog" | "connectors" | "decisions" | "inbox";
+  products?: CatalogProductView[];
+}
+
+export interface WorkspaceMessage {
+  content: string;
+  role: "user" | "assistant";
+}
+
 export interface Operations {
   accept_prava_browser_return_v2: { method: "GET"; path: "/v1/prava/browser-return"; pathParams: Record<never, never>; body: never; response: WorkflowAccepted; requiresIdempotency: false; };
   accept_rule_proposal: { method: "POST"; path: "/v1/decision-rules/{rules_id}/proposals/{proposal_id}/accept"; pathParams: { rules_id: string; proposal_id: string; }; body: ProposalDecisionCreate; response: ProposalDecisionView; requiresIdempotency: true; };
@@ -1402,6 +1442,10 @@ export interface Operations {
   seller_evidence_suspend: { method: "POST"; path: "/v1/seller/pack-versions/{version_id}/suspend"; pathParams: { version_id: string; }; body: SellerSuspendCreate; response: SellerPackVersionView; requiresIdempotency: true; };
   simulate_decision: { method: "POST"; path: "/v1/decisions/{decision_id}/simulations"; pathParams: { decision_id: string; }; body: DecisionSimulationCreate; response: DecisionSimulationView; requiresIdempotency: true; };
   start_action_run: { method: "POST"; path: "/v1/decisions/{decision_id}/action-runs"; pathParams: { decision_id: string; }; body: ActionRunCreate; response: ActionRunView; requiresIdempotency: true; };
+  workspace_catalog: { method: "GET"; path: "/v1/workspace/catalog"; pathParams: Record<never, never>; body: never; response: CatalogProductView[]; requiresIdempotency: false; };
+  workspace_chat: { method: "POST"; path: "/v1/workspace/chat"; pathParams: Record<never, never>; body: WorkspaceChatCreate; response: WorkspaceChatView; requiresIdempotency: false; };
+  workspace_connectors: { method: "GET"; path: "/v1/workspace/connectors"; pathParams: Record<never, never>; body: never; response: ConnectorView[]; requiresIdempotency: false; };
+  workspace_product: { method: "GET"; path: "/v1/workspace/catalog/{product_id}"; pathParams: { product_id: string; }; body: never; response: CatalogProductView; requiresIdempotency: false; };
 }
 
 export type OperationId = keyof Operations;

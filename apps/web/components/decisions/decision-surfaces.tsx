@@ -10,7 +10,6 @@ import type {
 } from "@sira/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowRight,
   BadgeCheck,
   BookOpenText,
   Check,
@@ -27,14 +26,13 @@ import {
   MessageSquareText,
   MoreHorizontal,
   PanelRightOpen,
-  Plus,
   ShieldCheck,
   Sparkles,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import rawDecisionFixture from "../../../../fixtures/demo/expected_decision_view.json";
 import {
@@ -147,8 +145,8 @@ function WorkspaceRail({ active = "decisions" }: { active?: "decisions" | "inbox
         <Link className={styles.workspaceMark} href="/sira" aria-label="SIRA workspace home">
           <span><strong>SIRA</strong><small>Northstar Advisory</small></span>
         </Link>
-        <Link className={styles.newDecisionButton} href="/decisions/new">
-          <Plus aria-hidden="true" /> New decision
+        <Link className={styles.newDecisionButton} href="/sira">
+          <MessageSquareText aria-hidden="true" /> Talk to SIRA
         </Link>
         <nav className={styles.primaryNav} aria-label="Primary">
           <Link className={active === "decisions" ? styles.activeNav : ""} href="/sira/decisions">
@@ -189,7 +187,7 @@ function MobileRailDialog({ open, close }: { open: boolean; close: () => void })
       <nav>
         <Link href="/sira" onClick={close}>Workspace home</Link>
         <Link href="/sira/decisions" onClick={close}>Decisions</Link>
-        <Link href="/decisions/new" onClick={close}>New decision</Link>
+        <Link href="/sira" onClick={close}>Talk to SIRA</Link>
         <Link href="/sira/inbox" onClick={close}>Inbox</Link>
         <Link href="/sira/settings/profile" onClick={close}>Profile</Link>
       </nav>
@@ -229,12 +227,12 @@ export function DecisionIndex() {
         <header className={styles.indexHeader}>
           <button className={styles.mobileMenuButton} type="button" aria-label="Open navigation" onClick={() => setMobileRail(true)}><Menu aria-hidden="true" /></button>
           <div><p>SIRA workspace</p><h1>Decisions</h1><span>Active work first, with every previous version kept for audit.</span></div>
-          <Link className={styles.primaryButton} href="/decisions/new"><Plus aria-hidden="true" /> New decision</Link>
+          <Link className={styles.primaryButton} href="/sira"><MessageSquareText aria-hidden="true" /> Talk to SIRA</Link>
         </header>
         <section className={styles.indexSection} aria-labelledby="active-heading">
           <div className={styles.sectionTitle}><div><p>Active</p><h2 id="active-heading">Needs your attention</h2></div><span>{data?.active.length ?? 0}</span></div>
           {query.isPending && WEB_DATA_MODE === "api" ? <div className={styles.skeletonList} aria-label="Loading decisions"><i /><i /></div> : null}
-          {data?.active.length ? data.active.map((item) => <DecisionRow item={item} key={item.id} />) : WEB_DATA_MODE === "fixture" || !query.isPending ? <div className={styles.emptyState}><FileText aria-hidden="true" /><h3>No active decisions</h3><p>Start with the software outcome you need. SIRA will keep the private company context and decision record separate.</p><Link href="/decisions/new">Create a decision</Link></div> : null}
+          {data?.active.length ? data.active.map((item) => <DecisionRow item={item} key={item.id} />) : WEB_DATA_MODE === "fixture" || !query.isPending ? <div className={styles.emptyState}><FileText aria-hidden="true" /><h3>No active decisions</h3><p>Tell SIRA what you are trying to buy. The agent will ask for missing context in chat and create a decision when it has enough information.</p><Link href="/sira">Ask SIRA</Link></div> : null}
         </section>
         <section className={styles.indexSection} aria-labelledby="history-heading">
           <div className={styles.sectionTitle}><div><p>History</p><h2 id="history-heading">Recorded outcomes</h2></div><History aria-hidden="true" /></div>
@@ -245,83 +243,6 @@ export function DecisionIndex() {
   );
 }
 
-export function NewDecision() {
-  const router = useRouter();
-  const [mobileRail, setMobileRail] = useState(false);
-  const [intent, setIntent] = useState(() => WEB_DATA_MODE === "fixture" ? "Review our meeting-intelligence renewal and decide whether to renew, resize, or replace it." : "");
-  const [outcome, setOutcome] = useState(() => WEB_DATA_MODE === "fixture" ? "Keep client conversations private and give consultants reliable source-linked answers with low administration effort." : "");
-  const [deadline, setDeadline] = useState(() => WEB_DATA_MODE === "fixture" ? "2026-08-19T17:00" : "");
-  const [visibility, setVisibility] = useState<"PRIVATE" | "SELECTIVE">(WEB_DATA_MODE === "fixture" ? "SELECTIVE" : "PRIVATE");
-  const [safeError, setSafeError] = useState("");
-
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const client = getBrowserApiClient();
-      const created = await client.request("create_decision_request", {
-        body: { intent, desired_outcome: outcome || null, deadline: deadline ? new Date(deadline).toISOString() : null, visibility },
-        idempotencyKey: createIdempotencyKey("create-decision"),
-        headers: buyerDevelopmentHeaders,
-      });
-      await client.request("discover_decision_request", {
-        pathParams: { request_id: created.id },
-        idempotencyKey: createIdempotencyKey(`discover-${created.id}`),
-        headers: buyerDevelopmentHeaders,
-      });
-      return created;
-    },
-    onSuccess: (created) => router.push(`/decisions/${created.id}/versions/1/need`),
-    onError: () => setSafeError("The decision was not created. Check the local API and try again; no partial request is being shown as saved."),
-  });
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    setSafeError("");
-    if (WEB_DATA_MODE === "fixture") {
-      router.push("/decisions/req_demo/versions/1/options");
-      return;
-    }
-    createMutation.mutate();
-  };
-
-  return (
-    <div className={styles.appShell}>
-      <WorkspaceRail />
-      <MobileRailDialog open={mobileRail} close={() => setMobileRail(false)} />
-      <main className={styles.newMain}>
-        {WEB_DATA_MODE === "fixture" ? <FixtureBanner /> : null}
-        <header className={styles.objectHeader}>
-          <button className={styles.mobileMenuButton} type="button" aria-label="Open navigation" onClick={() => setMobileRail(true)}><Menu aria-hidden="true" /></button>
-          <div><p>Private decision</p><h1>What decision are you working through?</h1><span>Only ask for context that can change eligibility, ranking, disclosure, or execution.</span></div>
-          <span className={styles.privacyBadge}><LockKeyhole aria-hidden="true" /> Private to your company</span>
-        </header>
-        <div className={styles.newGrid}>
-          <form className={styles.briefForm} onSubmit={submit}>
-            <div className={styles.formIntro}><MessageSquareText aria-hidden="true" /><div><strong>Guided intake</strong><p>The connected first build uses a short structured brief. Conversation capture will feed these same versioned fields when its API contract is enabled.</p></div></div>
-            <label><span>Decision</span><small>What are you deciding?</small><textarea value={intent} onChange={(event) => setIntent(event.target.value)} required rows={4} /></label>
-            <label><span>Desired outcome</span><small>What must improve for the company?</small><textarea value={outcome} onChange={(event) => setOutcome(event.target.value)} rows={4} /></label>
-            <div className={styles.formRow}>
-              <label><span>Decision deadline</span><input type="datetime-local" value={deadline} onChange={(event) => setDeadline(event.target.value)} /></label>
-              <fieldset><legend>Visibility</legend>{(["PRIVATE", "SELECTIVE"] as const).map((item) => <label key={item}><input type="radio" name="visibility" value={item} checked={visibility === item} onChange={() => setVisibility(item)} /> {item.charAt(0) + item.slice(1).toLowerCase()}</label>)}</fieldset>
-            </div>
-            {safeError ? <p className={styles.inlineError} role="alert">{safeError}</p> : null}
-            <div className={styles.formActions}><Link href="/sira">Cancel</Link><button className={styles.primaryButton} type="submit" disabled={!intent.trim() || createMutation.isPending}>{WEB_DATA_MODE === "fixture" ? "Open deterministic demo" : createMutation.isPending ? "Creating…" : "Create decision"}<ArrowRight aria-hidden="true" /></button></div>
-          </form>
-          <aside className={styles.briefPreview} aria-label="Purchase brief preview">
-            <p>Live Purchase Brief</p>
-            <h2>{intent || "Untitled decision"}</h2>
-            <dl>
-              <div><dt>Outcome</dt><dd>{outcome || "Not supplied"}</dd></div>
-              <div><dt>Deadline</dt><dd>{deadline ? formatDeadline(new Date(deadline).toISOString()) : "Not supplied"}</dd></div>
-              <div><dt>Visibility</dt><dd>{visibility.charAt(0) + visibility.slice(1).toLowerCase()}</dd></div>
-              <div><dt>Authority</dt><dd>Decision maker selects; budget owner approves; cardholder authorizes a charge.</dd></div>
-            </dl>
-            <div className={styles.boundaryNote}><ShieldCheck aria-hidden="true" /><p><strong>Nothing is sent to a seller yet.</strong> Selective outreach requires a separate sanitized Requirement Brief preview and confirmation.</p></div>
-          </aside>
-        </div>
-      </main>
-    </div>
-  );
-}
 
 function DecisionPath({ view, requestId, version, currentSlug }: { view: DecisionView; requestId: string; version: string; currentSlug: string }) {
   const stateByStage = new Map(view.workflow.stage_history.map((item) => [item.stage, item.status]));

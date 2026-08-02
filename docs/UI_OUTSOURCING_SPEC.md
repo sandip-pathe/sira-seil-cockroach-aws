@@ -158,7 +158,7 @@ The current application uses Next.js 16, React 19, and TypeScript. It has 15 rou
 | `/inbox` | Three hard-coded assignments, including in API mode. | B | No inbox API exists. Exclude from functional acceptance. |
 | `/settings/profile` | Hard-coded read-only profile. | B | No profile/settings API exists. |
 | `/decisions` | Decision index using API or fixtures. | A | Rebuild completely and retain typed integration. |
-| `/decisions/new` | Decision request creation using API or fixtures. | A | Rebuild; correct async and error behavior is required. |
+| `/decisions/new` | Compatibility redirect to the SIRA chat. | A | Do not build a separate intake page. Decision context is collected through the main SIRA conversation. |
 | `/decisions/{requestId}/versions/{version}/{stage}` | Five-stage Decision Room shell. | Mixed A/B | Keep the route concept; rebuild each stage based on actual available data and gaps below. |
 | `/seller` | Seller landing/dashboard using seller product data. | Mixed A/B | Rebuild around actionable products, reviews, and evidence health. |
 | `/seller/products/search` | Loads products and filters mostly in the browser. | A | Send the supported `q` query to the API. |
@@ -208,7 +208,6 @@ These are the recommended functional delivery scope because public API contracts
 
 ```text
 /decisions
-/decisions/new
 /decisions/{requestId}/versions/{version}/need
 /decisions/{requestId}/versions/{version}/company-fit
 /decisions/{requestId}/versions/{version}/options
@@ -331,31 +330,35 @@ The switcher may be designed now, but it cannot assert a workspace or identity t
 - Modest client-side filtering may be added for the loaded list, but must be labeled and must not imply a complete server search at scale.
 - Do not invent task counts or recent work.
 
-### 9.2 New decision — `/decisions/new` — A
+### 9.2 Chat-led decision creation — `/sira` — A
 
-**Purpose:** Capture a clear need and create a durable Decision Request.
+**Purpose:** Let the user describe what they want to buy in the main SIRA chat. The agent keeps asking only material follow-up questions until it has enough context to create a durable Decision Request.
+
+`/decisions/new` is redirect-only. Do not introduce a separate form, wizard, or intake screen.
 
 **Primary API:** `POST /v1/decision-requests`
 
-**Fields:**
+**Conversation capture:**
 
 | Field | Contract | UX requirement |
 |---|---|---|
-| `intent` | Required, 10–2000 characters | Plain-language need; show remaining/valid range without noisy counters. |
-| `desired_outcome` | Optional, up to 1000 characters | Describe success, not a preferred vendor. |
-| `deadline` | Optional | Use a clear date control and timezone-safe serialization. |
+| `intent` | Required, 10–2000 characters | Start with a natural question such as “What do you want to buy today?” |
+| `desired_outcome` | Optional, up to 1000 characters | Ask only when the desired result is not already clear from the conversation. |
+| `deadline` | Optional | Ask conversationally; an inline date component may be shown inside chat when useful. |
 | `incumbent_instance_id` | Optional | Do not show until an instance selector/data source exists. |
 | `visibility` | `PRIVATE`, `SELECTIVE`, `OPEN_RFP` | Offer Private and Selective. Hide `OPEN_RFP` until marketplace/moderation support exists. |
 
 **Submission flow:**
 
-1. Create one idempotency key for the click.
-2. Submit the typed body.
-3. Retain that key and identical body if retrying a retryable failure.
-4. Use the returned request ID/href instead of constructing assumptions.
-5. If discovery is an authorized next action, start it separately.
-6. For a `202 WorkflowAccepted`, use `status_url` and `events_url` to show durable progress.
-7. Navigate to the current server-reported stage only when the resource is ready.
+1. Keep gathering context in the existing conversation until required fields are satisfied.
+2. Show a concise confirmation component in chat before creating the durable request.
+3. Create one idempotency key for that confirmed action.
+4. Submit the typed body assembled from conversation state.
+5. Retain that key and identical body if retrying a retryable failure.
+6. Use the returned request ID/href instead of constructing assumptions.
+7. If discovery is an authorized next action, start it separately.
+8. For a `202 WorkflowAccepted`, use `status_url` and `events_url` to show durable progress.
+9. Navigate to the current server-reported stage only when the resource is ready.
 
 **Do not:** fake a live assistant, treat an optimistic animation as successful persistence, or silently create an open seller request.
 

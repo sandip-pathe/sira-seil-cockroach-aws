@@ -1914,39 +1914,22 @@ Use OpenAI Agents SDK tracing for workflow shape only with `RunConfig.trace_incl
 
 ## 20. User Experience and Information Architecture
 
-The interface is a procurement product, not an agent chat demo. Conversation is one input method; every important state has a structured screen.
+The interface is a procurement product with a chat-first workspace. Conversation is the primary context-collection surface; important state remains structured and server-owned, but it renders as inline chat components and a collapsible contextual pane in the main layout instead of separate buyer pages.
 
 ### 20.1 Buyer application
 
 ```text
-Home
-|-- Inbox / assigned tasks
-|-- Requests
-|   |-- New request
-|   |-- Requirements
-|   |-- Candidates, ineligibility, and SEIL PASS
-|   |-- Decision Ledger / coverage
-|   |-- Solution and Procurement Plans
-|   |-- Stack impact
-|   |-- Approvals and Prava
-|   `-- Receipt / entitlement / deployment
-|-- Stack
-|   |-- Observed inventory / reconciliation
-|   |-- Current lock / desired manifest / proposals
-|   |-- Jobs, capabilities, and coverage
-|   |-- Costs, contracts, risks, and dependencies
-|   `-- Optimizer proposals
-|-- Renewals / cancellations
-|-- Deployments / entitlements / seats
-|-- Outcomes
-|-- Context
-|   |-- Buyer Passport
-|   |-- Sources and sync
-|   |-- Conflicts / stale facts
-|   `-- Sharing controls
-|-- Approvals and mandates
-`-- Audit / settings
+SIRA workspace (persistent sidebar + chat + collapsible contextual pane)
+|-- Chat / new chat: primary intent and missing-context collection
+|-- Decisions pane: requests, requirements, candidates, plans, approvals, and results
+|-- Catalogue: product cards inline in chat; selected Product Evidence in the pane
+|-- Connectors pane: Business Context, Senso, DataHub, and other scoped sources
+|-- Inbox pane: assigned tasks and approvals
+|-- Stack, renewal, deployment, outcome, and audit details: contextual pane states
+`-- Profile and settings: modal over the workspace
 ```
+
+Standalone buyer URLs may exist only as compatibility redirects to `/sira`. Sidebar actions never replace the workspace route. Structured decision, authority, execution, and audit state remains canonical in backend workflows; the chat agent collects and explains context but cannot rank, approve, pay, or activate.
 
 ### 20.2 Seller application
 
@@ -2309,6 +2292,10 @@ Sensitive provider payloads and secrets never appear in errors.
 | `GET` | `/v1/buyer-passports/{id}/versions/{version}` | Read exact Passport version |
 | `GET` | `/v1/agent-runs/{id}` | Read redacted run state/config/version references |
 | `GET` | `/v1/agent-runs/{id}/events` | Stream authorized run progress |
+| `POST` | `/v1/workspace/chat` | Collect buyer or seller context conversationally; advisory response only |
+| `GET` | `/v1/workspace/catalog` | Read published Product Evidence for inline catalogue cards |
+| `GET` | `/v1/workspace/catalog/{product_id}` | Read one product for the contextual detail pane |
+| `GET` | `/v1/workspace/connectors` | Read context-source setup states for the connectors pane |
 
 Create request example:
 

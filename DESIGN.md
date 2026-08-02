@@ -132,7 +132,7 @@ Home, index, and settings pages may use a two-pane rail plus canvas layout. Do n
 
 - **Wide desktop, `>=1440px`:** rail, optional conversation, and structured canvas may show together; the canvas receives the most space.
 - **Desktop, `1024-1439px`:** persistent 216-pixel rail and dominant canvas. Conversation and details open as mutually exclusive 420-pixel overlay drawers.
-- **Tablet, `640-1023px`:** rail collapses; one canvas fills the viewport; rail, conversation, and details use full-height sheets.
+- **Tablet, `840-1023px`:** sidebar, conversation, and collapsible detail pane remain in the main grid with compact widths. Below `840px`, details use a full-height overlay.
 - **Mobile, `<=639px`:** one primary pane. Rail, conversation, and details are full-height sheets. Object pages provide sticky **Chat** and **Details** controls where available; the composer/action bar stays reachable above the keyboard.
 - **Narrow mobile, 320 px:** no page-level horizontal scroll. Comparison becomes a vertical view with a sticky option switcher.
 - Browser Back closes the topmost drawer/sheet before navigating stage or page history.
@@ -219,8 +219,8 @@ Landing sections use generous whitespace and strong type. Application screenshot
 | Page | Route | Phase | Main content and actions |
 |---|---|---|---|
 | Buyer setup | `/onboarding/sira` | Foundation | Organization/admin, data policy, manual or connected context, Company Profile review, lightweight Stack, approval and transaction readiness; always allow a manually confirmed first decision |
-| Decisions | `/decisions` | First build | New decision, Active by nearest deadline, History by current/superseded version, owner/blocker/checkpoint |
-| New decision | `/decisions/new` | First build | Outcome, deadline, incumbent, users/owner/payer, visibility, material intake, live Purchase Brief |
+| Decisions | `/decisions` | First build | Active by nearest deadline, History by current/superseded version, owner/blocker/checkpoint; starting new work returns to SIRA chat |
+| Decision intake | `/sira` | First build | Main chat gathers outcome, deadline, incumbent, users/owner/payer, visibility, and other material context through agent follow-up questions; inline components may assist, but there is no standalone intake page |
 | Need | `/decisions/{id}/versions/{v}/need` | First build | Desired outcome, contract/deadline, stakeholders, only material clarifications |
 | Company fit | `/decisions/{id}/versions/{v}/company-fit` | First build | Confirmed company facts, current stack, provenance/freshness, Decision rules, sharing preview, calibration |
 | Options | `/decisions/{id}/versions/{v}/options` | First build | Recommendation, stability, aligned Option Matrix, feedback, Ask vendor, evidence frontier |

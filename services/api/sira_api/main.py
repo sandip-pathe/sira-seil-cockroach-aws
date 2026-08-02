@@ -33,6 +33,8 @@ from .schemas import ErrorEnvelope
 from .seller_routes import seller_router
 from .seller_service import SellerEvidenceService
 from .service import WorkflowService, translate_persistence_conflict
+from .workspace_routes import workspace_router
+from .workspace_service import WorkspaceService
 
 
 def operation_id(route: APIRoute) -> str:
@@ -115,6 +117,11 @@ def create_app(
             resolved_database,
             development_fixture_mode=resolved_settings.development_fixture_mode,
         )
+        application.state.workspace_service = WorkspaceService(
+            fixtures,
+            api_key=resolved_settings.openai_api_key.get_secret_value(),
+            model=resolved_settings.openai_model,
+        )
         yield
         close_identity = getattr(resolved_identity_adapter, "aclose", None)
         if close_identity is not None:
@@ -153,6 +160,7 @@ def create_app(
             {"name": "commerce"},
             {"name": "stackfile"},
             {"name": "workflows"},
+            {"name": "workspace"},
         ],
     )
 
@@ -227,6 +235,7 @@ def create_app(
     application.include_router(public_router)
     application.include_router(seller_router)
     application.include_router(router_v2)
+    application.include_router(workspace_router)
     application.include_router(router)
     return application
 

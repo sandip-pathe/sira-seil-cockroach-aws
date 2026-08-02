@@ -1,0 +1,102 @@
+"""Routes for the single-screen commerce workspace."""
+
+from typing import Annotated, cast
+
+from fastapi import APIRouter, Depends, Request
+
+from .dependencies import (
+    RequestContext,
+    enforce_api_security,
+    get_request_context,
+    require_permission,
+)
+from .errors import ApiProblem
+from .workspace_schemas import (
+    CatalogProductView,
+    ConnectorView,
+    WorkspaceChatCreate,
+    WorkspaceChatView,
+)
+from .workspace_service import WorkspaceService
+
+workspace_router = APIRouter(dependencies=[Depends(enforce_api_security)])
+ContextDependency = Annotated[RequestContext, Depends(get_request_context)]
+
+
+def get_workspace_service(request: Request) -> WorkspaceService:
+    return cast(WorkspaceService, request.app.state.workspace_service)
+
+
+ServiceDependency = Annotated[WorkspaceService, Depends(get_workspace_service)]
+
+
+@workspace_router.post("/v1/workspace/chat", response_model=WorkspaceChatView, tags=["workspace"])
+async def workspace_chat(
+    body: WorkspaceChatCreate, context: ContextDependency, service: ServiceDependency
+) -> dict[str, object]:
+    require_permission(context, "can_view_context")
+    return await service.chat(body)
+
+
+@workspace_router.get(
+    "/v1/workspace/catalog", response_model=list[CatalogProductView], tags=["workspace"]
+)
+async def workspace_catalog(
+    context: ContextDependency, service: ServiceDependency
+) -> list[dict[str, object]]:
+    require_permission(context, "can_view_context")
+    return service.catalog()
+
+
+@workspace_router.get(
+    "/v1/workspace/catalog/{product_id}", response_model=CatalogProductView, tags=["workspace"]
+)
+async def workspace_product(
+    product_id: str, context: ContextDependency, service: ServiceDependency
+) -> dict[str, object]:
+    require_permission(context, "can_view_context")
+    product = service.product(product_id)
+    if product is None:
+        raise ApiProblem(
+            code="PRODUCT_NOT_FOUND",
+            message="That catalogue product is unavailable.",
+            status_code=404,
+        )
+    return product
+
+
+@workspace_router.get(
+    "/v1/workspace/connectors", response_model=list[ConnectorView], tags=["workspace"]
+)
+async def workspace_connectors(context: ContextDependency) -> list[dict[str, str]]:
+    require_permission(context, "can_view_context")
+    return [
+        {
+            "id": "business-context",
+            "name": "Business Context",
+            "purpose": "Company rules, goals, and buying preferences",
+            "status": "Needs setup",
+            "meta": "Add company documents or confirm details in chat",
+        },
+        {
+            "id": "senso",
+            "name": "Senso",
+            "purpose": "Company files and decision evidence",
+            "status": "Needs setup",
+            "meta": "Server connection required",
+        },
+        {
+            "id": "datahub",
+            "name": "DataHub",
+            "purpose": "Structured company and product context",
+            "status": "Not connected",
+            "meta": "Optional",
+        },
+        {
+            "id": "google-workspace",
+            "name": "Google Workspace",
+            "purpose": "Inventory and team context",
+            "status": "Not connected",
+            "meta": "Optional read-only connection",
+        },
+    ]
