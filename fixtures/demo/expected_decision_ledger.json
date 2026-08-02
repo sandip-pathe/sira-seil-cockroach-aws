@@ -15,7 +15,7 @@
   "evaluation": {
     "evaluation_id": "eval_dec_consultco_v1",
     "evaluated_at": "2026-08-02T12:00:00Z",
-    "evaluation_payload_hash": "sha256:020121dbc4c71d5052fa75271c3f3b79d66c65addf63d502dd0e94ca0401d113",
+    "evaluation_payload_hash": "sha256:f74110af11e08a2034dc3916efa9bf4c996fdfdf5b1649dd7027167f4de3f26a",
     "frozen_versions": {
       "request": "pb_consultco_v1:v1",
       "company_profile": "buyer_passport_v1",
@@ -4163,18 +4163,18 @@
         ]
       ],
       "tested_limit": 3,
-      "before_evaluation_payload_hash": "sha256:020121dbc4c71d5052fa75271c3f3b79d66c65addf63d502dd0e94ca0401d113",
-      "after_evaluation_payload_hash": "sha256:e340a15d50bef50e759ed14b495310997d6c9d16dd65be80bd621327c18b36e8",
-      "generic_evaluation_payload_hash": "sha256:65a35e36ec20ba1feb1f1df00c305e1bc5dd3ca57345f81393981674bad7b1d5",
+      "before_evaluation_payload_hash": "sha256:f74110af11e08a2034dc3916efa9bf4c996fdfdf5b1649dd7027167f4de3f26a",
+      "after_evaluation_payload_hash": "sha256:bfe1f055c3267d95a7e03a07011624330f949b35d04bace563a41487d15674bf",
+      "generic_evaluation_payload_hash": "sha256:281374d462b7bc9e62fd83f0a4b46dd6849599137510a5fadd54385a0bf7a5c0",
       "before_selected_plan_id": "plan_5a682ec42084ae355a2d",
       "after_selected_plan_id": "plan_3bf2f83ab61e5f63ae7c",
       "generic_selected_plan_id": "plan_15ed07224364e2feeb56",
       "changed_gate_ids": [
         "af_fixture_b_shared_client_data"
       ],
-      "record_hash": "sha256:7b02fc60f62a8424989cf87f1108eb53c7c7daccac2852c8f56cbbc68f133aea"
+      "record_hash": "sha256:c08d74199a5494d001bcbad43d5d682245ce94425e3078edbd4736677ddd4c12"
     }
   ],
   "created_at": "2026-08-02T12:00:00Z",
-  "decision_hash": "sha256:84337d2a6ff04c8b95b58a174e3df014114c5154cff177087ff20d8969d49f9c"
+  "decision_hash": "sha256:6ccfcb60b9689833a12860f1881fa98310939739be8528f3904d2559483c46da"
 }

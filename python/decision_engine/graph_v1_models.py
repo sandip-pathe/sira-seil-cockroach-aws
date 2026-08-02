@@ -105,6 +105,33 @@ class FrozenVersions:
 
 
 @dataclass(frozen=True, slots=True)
+class FactProvenance:
+    provider: str
+    content_id: str
+    source_version_id: str
+    chunk_index: int
+    retrieved_at: datetime
+    source_mode: str
+    evidence_hash: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.provider or not self.content_id or not self.source_version_id:
+            raise DomainValidationError("fact provenance requires provider content and version")
+        if self.chunk_index < 0 or self.retrieved_at.tzinfo is None:
+            raise DomainValidationError("fact provenance requires chunk index and timestamp")
+        if self.source_mode not in {
+            "PRODUCTION_PROVIDER",
+            "DEVELOPMENT_FIXTURE",
+            "MANUAL_INPUT",
+            "CANONICAL_STACKFILE",
+            "SYSTEM_OBSERVATION",
+        }:
+            raise DomainValidationError("unsupported fact provenance mode")
+        if self.evidence_hash is not None and not self.evidence_hash.startswith("sha256:"):
+            raise DomainValidationError("fact provenance evidence hash must be SHA-256")
+
+
+@dataclass(frozen=True, slots=True)
 class FrozenFact:
     fact_id: str
     field: str
@@ -114,6 +141,7 @@ class FrozenFact:
     asserted_by_role: str = "unknown"
     authority_level: str = "UNKNOWN"
     authority_rank: int = 0
+    provenance: FactProvenance | None = None
 
     def __post_init__(self) -> None:
         require_id(self.fact_id, "fact_id")
@@ -136,12 +164,14 @@ class FrozenFact:
             self.asserted_by_role != "unknown"
             or self.authority_level != "UNKNOWN"
             or self.authority_rank != 0
+            or self.provenance is not None
         ):
             payload.update(
                 {
                     "asserted_by_role": self.asserted_by_role,
                     "authority_level": self.authority_level,
                     "authority_rank": self.authority_rank,
+                    "provenance": self.provenance,
                 }
             )
         return payload

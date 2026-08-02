@@ -22,6 +22,7 @@ from .graph_v1_models import (
     DecisionGraphInput,
     EvidencePolicy,
     EvidenceRecord,
+    FactProvenance,
     FactValue,
     FrozenFact,
     FrozenVersions,
@@ -218,6 +219,8 @@ def _buyer_facts(
         if role not in allowed_roles:
             raise DomainValidationError(f"buyer fact uses undeclared actor role {role}")
         authority_level, authority_rank = _actor_authority(role, str(item["kind"]))
+        source_ref = item["source"]
+        source_mode = str(source_ref.get("adapter_mode", "DEVELOPMENT_FIXTURE"))
         facts.append(
             FrozenFact(
                 fact_id=str(item["fact_id"]),
@@ -228,6 +231,23 @@ def _buyer_facts(
                 asserted_by_role=role,
                 authority_level=authority_level,
                 authority_rank=authority_rank,
+                provenance=FactProvenance(
+                    provider=str(source_ref["provider"]),
+                    content_id=str(source_ref["content_id"]),
+                    source_version_id=str(source_ref["version_id"]),
+                    chunk_index=int(source_ref["chunk_index"]),
+                    retrieved_at=_time(str(source_ref["retrieved_at"])),
+                    source_mode=source_mode,
+                    evidence_hash=str(source_ref["evidence_hash"])
+                    if source_ref.get("evidence_hash") is not None
+                    else content_hash(
+                        {
+                            "source": source_ref,
+                            "field": item["field"],
+                            "value": item["value"],
+                        }
+                    ),
+                ),
             )
         )
     data_profile = requirement["data_profile"]
@@ -244,6 +264,15 @@ def _buyer_facts(
                 "requester",
                 "REQUESTER",
                 100,
+                FactProvenance(
+                    "request_brief",
+                    str(requirement["requirement_brief_id"]),
+                    f"requirement_brief_v{requirement['version']}",
+                    0,
+                    _time(str(source.category_taxonomy["evaluated_at"])),
+                    "MANUAL_INPUT",
+                    content_hash(data_profile),
+                ),
             ),
             FrozenFact(
                 "rf_seat_count",
@@ -254,6 +283,15 @@ def _buyer_facts(
                 "requester",
                 "REQUESTER",
                 100,
+                FactProvenance(
+                    "request_brief",
+                    str(requirement["requirement_brief_id"]),
+                    f"requirement_brief_v{requirement['version']}",
+                    1,
+                    _time(str(source.category_taxonomy["evaluated_at"])),
+                    "MANUAL_INPUT",
+                    content_hash(team),
+                ),
             ),
             FrozenFact(
                 "bf_required_integrations",
@@ -264,6 +302,15 @@ def _buyer_facts(
                 "stack_owner",
                 "DOMAIN_OWNER",
                 300,
+                FactProvenance(
+                    "buyer_passport",
+                    str(passport["passport_id"]),
+                    f"buyer_passport_v{passport['version']}",
+                    0,
+                    _time(str(passport["created_at"])),
+                    "CANONICAL_STACKFILE",
+                    content_hash(passport["operational_preferences"]),
+                ),
             ),
             FrozenFact(
                 "bf_incumbent_outcome",
@@ -274,6 +321,15 @@ def _buyer_facts(
                 "system_observation",
                 "OBSERVATION",
                 50,
+                FactProvenance(
+                    "usage_outcome",
+                    str(usage["evidence_id"]),
+                    f"usage_outcomes_v{usage['version']}",
+                    0,
+                    _time(str(source.category_taxonomy["evaluated_at"])),
+                    "SYSTEM_OBSERVATION",
+                    content_hash(usage["safe_outcomes"]),
+                ),
             ),
         )
     )
