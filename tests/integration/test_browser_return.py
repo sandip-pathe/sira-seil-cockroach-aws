@@ -15,10 +15,12 @@ from sqlalchemy import select
 
 from persistence.database import Database, DatabaseSettings
 from persistence.models import (
+    ApprovalRequest,
     Base,
     BrowserReturnBinding,
     OutboxEvent,
     PaymentSession,
+    PurchaseIntent,
     WorkflowRun,
 )
 from persistence.repositories import WorkflowRepository
@@ -41,6 +43,7 @@ async def seed_callback(
     database: Database,
     *,
     expired: bool = False,
+    expired_approval: bool = False,
     mismatched_provider: bool = False,
 ) -> tuple[WorkflowService, str, str]:
     signer = BrowserReturnStateSigner(
@@ -70,6 +73,23 @@ async def seed_callback(
         intent.approval_status = "APPROVED"
         intent.payment_status = "SESSION_CREATED"
         intent.quote_expires_at = now + timedelta(hours=2)
+        session.add(
+            ApprovalRequest(
+                id="apr_browser_return_test",
+                organization_id="org_consultco",
+                purchase_intent_id=intent_id,
+                intent_hash=intent.intent_hash,
+                policy_version=1,
+                status="APPROVED",
+                required_roles=["budget_owner"],
+                approved_roles=["budget_owner"],
+                expires_at=(
+                    now - timedelta(seconds=1)
+                    if expired_approval
+                    else now + timedelta(hours=1)
+                ),
+            )
+        )
         payment = PaymentSession(
             id="pays_browser_return_test",
             organization_id="org_consultco",
@@ -187,4 +207,35 @@ async def test_browser_return_rejects_expiry_and_provider_binding_mismatch(
             )
         ).scalars()
         assert binding.consumed_at is None
+        assert list(checkout_events) == []
+
+
+@pytest.mark.asyncio
+async def test_browser_return_expires_stale_exact_hash_approval(
+    callback_database: Database,
+) -> None:
+    service, state, intent_id = await seed_callback(
+        callback_database, expired_approval=True
+    )
+
+    with pytest.raises(ApiProblem) as captured:
+        await service.accept_prava_browser_return(
+            organization_id="org_consultco",
+            actor_id="usr_cardholder",
+            body={"state": state, "return_url": RETURN_URL},
+        )
+
+    assert captured.value.code == "APPROVAL_EXPIRED"
+    async with callback_database.transaction("org_consultco") as session:
+        approval = (await session.execute(select(ApprovalRequest))).scalar_one()
+        intent = (
+            await session.execute(select(PurchaseIntent).where(PurchaseIntent.id == intent_id))
+        ).scalar_one()
+        checkout_events = (
+            await session.execute(
+                select(OutboxEvent).where(OutboxEvent.event_type == "purchase_checkout.requested")
+            )
+        ).scalars()
+        assert approval.status == "EXPIRED"
+        assert intent.approval_status == "EXPIRED"
         assert list(checkout_events) == []

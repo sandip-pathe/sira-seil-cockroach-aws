@@ -36,6 +36,7 @@ from integrations.prava.models import (
 )
 from persistence.database import Database, DatabaseSettings
 from persistence.models import (
+    ApprovalRequest,
     Base,
     BrowserReturnBinding,
     PaymentAttempt,
@@ -353,6 +354,7 @@ async def test_worker_persists_payment_fulfillment_receipt_and_staged_patch(
     ("expired_boundary", "expected_reason"),
     [
         ("quote", "QUOTE_EXPIRED_BEFORE_CHECKOUT"),
+        ("approval", "APPROVAL_EXPIRED_BEFORE_CHECKOUT"),
         ("session", "PAYMENT_SESSION_EXPIRED_BEFORE_CHECKOUT"),
     ],
 )
@@ -372,8 +374,18 @@ async def test_worker_rechecks_expiry_before_provider_dispatch(
                 select(PaymentSession).where(PaymentSession.id == "pays_worker_contract")
             )
         ).scalar_one()
+        approval = (
+            await session.execute(
+                select(ApprovalRequest).where(
+                    ApprovalRequest.purchase_intent_id == intent_id,
+                    ApprovalRequest.status == "APPROVED",
+                )
+            )
+        ).scalar_one()
         if expired_boundary == "quote":
             canonical_intent.quote_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        elif expired_boundary == "approval":
+            approval.expires_at = datetime.now(UTC) - timedelta(seconds=1)
         else:
             payment_session.expires_at = datetime.now(UTC) - timedelta(seconds=1)
 
@@ -407,6 +419,13 @@ async def test_worker_rechecks_expiry_before_provider_dispatch(
                 select(PaymentSession).where(PaymentSession.id == "pays_worker_contract")
             )
         ).scalar_one()
+        approval = (
+            await session.execute(
+                select(ApprovalRequest).where(
+                    ApprovalRequest.purchase_intent_id == intent_id
+                )
+            )
+        ).scalar_one()
         attempt_count = (
             await session.execute(
                 select(func.count())
@@ -423,6 +442,9 @@ async def test_worker_rechecks_expiry_before_provider_dispatch(
             )
         ).scalar_one()
         assert canonical_intent.payment_status == "EXPIRED"
-        assert payment_session.status == "EXPIRED"
-        assert attempt_count == 0
-        assert transition.reason_code == expected_reason
+    assert payment_session.status == "EXPIRED"
+    if expired_boundary == "approval":
+        assert approval.status == "EXPIRED"
+        assert canonical_intent.approval_status == "EXPIRED"
+    assert attempt_count == 0
+    assert transition.reason_code == expected_reason

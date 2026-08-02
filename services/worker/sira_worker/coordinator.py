@@ -188,6 +188,27 @@ class PersistentCheckoutCoordinator:
                     code=ProviderErrorCode.INVALID_STATE,
                     retryable=False,
                 ) from None
+            approval = (
+                await session.execute(
+                    select(ApprovalRequest)
+                    .where(
+                        ApprovalRequest.organization_id == request.organization_id,
+                        ApprovalRequest.purchase_intent_id == intent.id,
+                        ApprovalRequest.intent_hash == intent.intent_hash,
+                        ApprovalRequest.status == "APPROVED",
+                    )
+                    .order_by(ApprovalRequest.created_at.desc())
+                    .limit(1)
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if approval is None:
+                raise ProviderError(
+                    provider="prava",
+                    operation="prepare_checkout",
+                    code=ProviderErrorCode.INVALID_STATE,
+                    retryable=False,
+                ) from None
             if intent.payment_status != "CARDHOLDER_PENDING":
                 raise ProviderError(
                     provider="prava",
@@ -242,10 +263,15 @@ class PersistentCheckoutCoordinator:
             expiry_reason: str | None = None
             if self._as_utc(intent.quote_expires_at) <= now:
                 expiry_reason = "QUOTE_EXPIRED_BEFORE_CHECKOUT"
+            elif self._as_utc(approval.expires_at) <= now:
+                expiry_reason = "APPROVAL_EXPIRED_BEFORE_CHECKOUT"
             elif self._as_utc(payment_session.expires_at) <= now:
                 expiry_reason = "PAYMENT_SESSION_EXPIRED_BEFORE_CHECKOUT"
 
             if expiry_reason is not None:
+                if expiry_reason == "APPROVAL_EXPIRED_BEFORE_CHECKOUT":
+                    approval.status = "EXPIRED"
+                    intent.approval_status = "EXPIRED"
                 payment_session.status = "EXPIRED"
                 await repository.transition_purchase_intent(
                     intent_id=intent.id,
@@ -259,6 +285,9 @@ class PersistentCheckoutCoordinator:
                     payload_hash=content_hash(
                         {
                             "payment_session_id": payment_session.id,
+                            "approval_expires_at": self._as_utc(
+                                approval.expires_at
+                            ).isoformat(),
                             "quote_expires_at": self._as_utc(intent.quote_expires_at).isoformat(),
                             "session_expires_at": self._as_utc(
                                 payment_session.expires_at

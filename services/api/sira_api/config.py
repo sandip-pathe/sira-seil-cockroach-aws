@@ -13,7 +13,7 @@ from sqlalchemy.engine import make_url
 class ApiSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 
-    app_env: str = Field(default="development", validation_alias="APP_ENV")
+    app_env: str = Field(default="unset", validation_alias="APP_ENV")
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
     development_fixture_mode: bool = Field(
         default=True, validation_alias="DEVELOPMENT_FIXTURE_MODE"
@@ -42,6 +42,10 @@ class ApiSettings(BaseSettings):
         return self.app_env.lower() in {"development", "test"}
 
     def assert_safe_runtime(self) -> None:
+        if self.app_env.lower() not in {"development", "test", "production"}:
+            raise ValueError(
+                "APP_ENV must be explicitly set to development, test, or production"
+            )
         if self.is_development:
             return
         if self.development_fixture_mode or self.demo_reset_enabled:

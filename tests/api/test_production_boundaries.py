@@ -65,6 +65,11 @@ def production_settings() -> ApiSettings:
     )
 
 
+def test_configuration_requires_an_explicit_environment() -> None:
+    with pytest.raises(ValidationError, match="APP_ENV must be explicitly set"):
+        ApiSettings(app_env="unset")
+
+
 def test_production_configuration_rejects_development_modes_including_defaults() -> None:
     with pytest.raises(ValidationError, match="DEVELOPMENT_FIXTURE_MODE=false"):
         ApiSettings(app_env="production")

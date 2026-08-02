@@ -2315,6 +2315,38 @@ class WorkflowService:
             )
         return None
 
+    async def _expire_purchase_approval_if_needed(
+        self, organization_id: str, intent_id: str
+    ) -> ApiProblem | None:
+        problem: ApiProblem | None = None
+        async with self.database.transaction(organization_id) as session:
+            repository = WorkflowRepository(session, organization_id)
+            intent = await repository.get_purchase_intent(intent_id, lock=True)
+            approval = (
+                await session.execute(
+                    select(ApprovalRequest)
+                    .where(
+                        ApprovalRequest.organization_id == organization_id,
+                        ApprovalRequest.purchase_intent_id == intent.id,
+                        ApprovalRequest.intent_hash == intent.intent_hash,
+                    )
+                    .order_by(ApprovalRequest.created_at.desc())
+                    .limit(1)
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if (
+                approval is None
+                or approval.status != "APPROVED"
+                or intent.approval_status != "APPROVED"
+            ):
+                return None
+            problem = self._approval_expiry_problem(approval, intent, datetime.now(UTC))
+            if problem is not None:
+                approval.status = "EXPIRED"
+                intent.approval_status = "EXPIRED"
+        return problem
+
     @staticmethod
     def _require_approval_role(
         approval: ApprovalRequest, actor_roles: frozenset[str], role: str
@@ -2367,6 +2399,12 @@ class WorkflowService:
         idempotency_record_id: str
         session_request: PravaSessionRequest
 
+        approval_expiry = await self._expire_purchase_approval_if_needed(
+            organization_id, intent_id
+        )
+        if approval_expiry is not None:
+            raise approval_expiry
+
         async with self.database.transaction(organization_id) as session:
             repository = WorkflowRepository(session, organization_id)
             claim = await repository.claim_idempotency(
@@ -2390,6 +2428,34 @@ class WorkflowService:
                     message="Every required role must approve the exact current intent hash first.",
                     status_code=409,
                     next_action="complete_approval",
+                )
+            approval = (
+                await session.execute(
+                    select(ApprovalRequest)
+                    .where(
+                        ApprovalRequest.organization_id == organization_id,
+                        ApprovalRequest.purchase_intent_id == intent.id,
+                        ApprovalRequest.intent_hash == intent.intent_hash,
+                        ApprovalRequest.status == "APPROVED",
+                    )
+                    .order_by(ApprovalRequest.created_at.desc())
+                    .limit(1)
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if approval is None:
+                raise ApiProblem(
+                    code="APPROVAL_REQUIRED",
+                    message="The canonical exact-hash approval is unavailable.",
+                    status_code=409,
+                    next_action="complete_approval",
+                )
+            if self._as_utc(approval.expires_at) <= datetime.now(UTC):
+                raise ApiProblem(
+                    code="APPROVAL_EXPIRED",
+                    message="The exact-hash approval expired before Prava session creation.",
+                    status_code=409,
+                    next_action="create_approval_request",
                 )
             if self._as_utc(intent.quote_expires_at) <= datetime.now(UTC):
                 raise ApiProblem(
@@ -2600,6 +2666,25 @@ class WorkflowService:
             )
         state_hash = self.browser_return_signer.digest(state)
         return_url_hash = self.browser_return_signer.digest(return_url)
+        preflight_intent_id: str | None = None
+        async with self.database.transaction(organization_id) as session:
+            preflight_binding = (
+                await session.execute(
+                    select(BrowserReturnBinding).where(
+                        BrowserReturnBinding.organization_id == organization_id,
+                        BrowserReturnBinding.state_hash == state_hash,
+                        BrowserReturnBinding.actor_id == actor_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if preflight_binding is not None:
+                preflight_intent_id = preflight_binding.purchase_intent_id
+        if preflight_intent_id is not None:
+            approval_expiry = await self._expire_purchase_approval_if_needed(
+                organization_id, preflight_intent_id
+            )
+            if approval_expiry is not None:
+                raise approval_expiry
         now = datetime.now(UTC)
         async with self.database.transaction(organization_id) as session:
             repository = WorkflowRepository(session, organization_id)
@@ -2652,6 +2737,20 @@ class WorkflowService:
                     next_action="restart_hosted_checkout",
                 )
             intent = await repository.get_purchase_intent(binding.purchase_intent_id, lock=True)
+            approval = (
+                await session.execute(
+                    select(ApprovalRequest)
+                    .where(
+                        ApprovalRequest.organization_id == organization_id,
+                        ApprovalRequest.purchase_intent_id == intent.id,
+                        ApprovalRequest.intent_hash == intent.intent_hash,
+                        ApprovalRequest.status == "APPROVED",
+                    )
+                    .order_by(ApprovalRequest.created_at.desc())
+                    .limit(1)
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
             if (
                 payment_session.purchase_intent_id != intent.id
                 or binding.provider_session_hash
@@ -2667,6 +2766,8 @@ class WorkflowService:
                 self._as_utc(binding.expires_at) <= now
                 or self._as_utc(payment_session.expires_at) <= now
                 or self._as_utc(intent.quote_expires_at) <= now
+                or approval is None
+                or self._as_utc(approval.expires_at) <= now
             ):
                 raise ApiProblem(
                     code="CALLBACK_STATE_EXPIRED",
