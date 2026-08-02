@@ -99,17 +99,25 @@ class WorkspaceService:
                         "recent_history": [item.model_dump() for item in body.history[-12:]],
                         "available_catalog": catalog,
                     },
+                    output_type=_AgentAnswer,
                 )
             )
             raw = result.output
-            parsed = json.loads(raw) if isinstance(raw, str) else raw
+            if isinstance(raw, str):
+                cleaned = raw.strip()
+                if cleaned.startswith("```"):
+                    cleaned = cleaned.removeprefix("```json").removeprefix("```")
+                    cleaned = cleaned.removesuffix("```").strip()
+                parsed = json.loads(cleaned)
+            else:
+                parsed = raw
             answer = _AgentAnswer.model_validate(parsed)
         except AuthenticationError as error:
             raise ApiProblem(
                 code="AGENT_PROVIDER_AUTHENTICATION_FAILED",
                 message=(
-                    "The server's OpenAI API key is invalid. Replace OPENAI_API_KEY "
-                    "and restart the API."
+                    "The server's OpenAI API key is invalid. Replace "
+                    "SIRA_OPENAI_API_KEY and restart the API."
                 ),
                 status_code=503,
                 retryable=False,

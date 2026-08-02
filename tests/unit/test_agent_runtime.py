@@ -18,8 +18,15 @@ class FakeSdk:
         instructions: str,
         model: str,
         tools: list[object],
+        output_type: type[object] | None,
     ) -> object:
-        agent = {"name": name, "instructions": instructions, "model": model, "tools": tools}
+        agent = {
+            "name": name,
+            "instructions": instructions,
+            "model": model,
+            "tools": tools,
+            "output_type": output_type,
+        }
         self.calls.append(("create", agent))
         return agent
 

@@ -36,7 +36,7 @@ Catalogue facts come from server-side Product Evidence fixtures in development. 
 
 ## Failure states
 
-- Missing `OPENAI_API_KEY`: composer remains usable and shows the server's configuration error in the transcript.
+- Missing `SIRA_OPENAI_API_KEY`: composer remains usable and shows the server's configuration error in the transcript. Docker maps this project-scoped variable to the provider SDK's internal `OPENAI_API_KEY`; a global Windows/Codex key is intentionally ignored.
 - Provider failure or invalid model response: show a retryable assistant error; never substitute invented catalogue output.
 - Missing connector: lower confidence or block only the dependent action; allow chat/manual context when policy permits.
 - No inbox assignments: show an honest empty state, never a fake badge.

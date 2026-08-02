@@ -111,7 +111,9 @@ services:
       CONTROLLED_MERCHANT_BASE_URL: ${CONTROLLED_MERCHANT_BASE_URL:-}
       CONTROLLED_MERCHANT_API_KEY: ${CONTROLLED_MERCHANT_API_KEY:-}
       CONTROLLED_MERCHANT_ID: ${CONTROLLED_MERCHANT_ID:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Deliberately use a project-scoped host variable. A globally inherited
+      # OPENAI_API_KEY must never override this project's credential.
+      OPENAI_API_KEY: ${SIRA_OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
     command:
       [
