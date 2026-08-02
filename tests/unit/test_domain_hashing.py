@@ -22,9 +22,53 @@ def test_canonical_hash_ignores_mapping_insertion_order() -> None:
     left = {"schema_version": "1.0.0", "nested": {"b": 2, "a": Decimal("89.00")}}
     right = {"nested": {"a": Decimal("89"), "b": 2}, "schema_version": "1.0.0"}
 
-    assert canonical_json(left) == canonical_json(right)
+    expected_json = '{"nested":{"a":"89","b":2},"schema_version":"1.0.0"}'
+    expected_hash = "sha256:2ac7787ea6246913337cb2aa4c376732ecde605a8d8f5d1ce86487cbb637b0b4"
+    assert canonical_json(left) == canonical_json(right) == expected_json
     assert content_hash(left) == content_hash(right)
-    assert content_hash(left).startswith("sha256:")
+    assert content_hash(left) == expected_hash
+
+
+def test_canonical_json_matches_rfc_8785_property_sorting_vector() -> None:
+    value = {
+        "\u20ac": "Euro Sign",
+        "\r": "Carriage Return",
+        "\ufb33": "Hebrew Letter Dalet With Dagesh",
+        "1": "One",
+        "\U0001f600": "Emoji: Grinning Face",
+        "\u0080": "Control",
+        "\u00f6": "Latin Small Letter O With Diaeresis",
+    }
+
+    assert canonical_json(value) == (
+        '{"\\r":"Carriage Return","1":"One","\u0080":"Control",'
+        '"\u00f6":"Latin Small Letter O With Diaeresis","\u20ac":"Euro Sign",'
+        '"\U0001f600":"Emoji: Grinning Face","\ufb33":"Hebrew Letter Dalet With Dagesh"}'
+    )
+
+
+def test_canonical_json_orders_astral_key_before_later_bmp_key() -> None:
+    astral = "\U00010000"
+    later_bmp = "\ue000"
+
+    assert canonical_json({later_bmp: "bmp", astral: "astral"}) == (
+        f'{{"{astral}":"astral","{later_bmp}":"bmp"}}'
+    )
+
+
+def test_canonical_json_uses_rfc_8785_string_escaping() -> None:
+    value = {"string": '\u20ac$\u000f\nA\'B"\\\\"/'}
+
+    assert canonical_json(value) == '{"string":"\u20ac$\\u000f\\nA\'B\\"\\\\\\\\\\"/"}'
+
+
+def test_canonical_json_rejects_values_outside_the_i_json_domain() -> None:
+    with pytest.raises(DomainValidationError, match="RFC 8785"):
+        canonical_json({"too_large": 2**53})
+    with pytest.raises(DomainValidationError, match="RFC 8785"):
+        canonical_json({"bad_unicode": "\ud800"})
+    with pytest.raises(DomainValidationError, match="RFC 8785"):
+        canonical_json({"\ud800": "bad key"})
 
 
 def test_canonical_hash_rejects_binary_float_and_naive_time() -> None:

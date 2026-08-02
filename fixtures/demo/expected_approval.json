@@ -2,20 +2,77 @@
   "schema_version": "1.0.0",
   "approval_request_id": "apr_consultco_fixture_d",
   "purchase_intent_id": "pi_consultco_fixture_d",
-  "intent_hash": "sha256:eccfb244cf3b9c80839a3c5f983e0ca5387ed322ce45ae616a2058865a3ba3ab",
+  "intent_hash": "sha256:40331dae94cb968c73705fbca8a44af937dfe2ec7b9747115023e342ad21315a",
   "status": "APPROVED",
   "policy_version": 1,
   "requirement_set_id": "aprs_consultco_v1",
   "stages": [
-    { "stage": 1, "role": "operations_owner", "status": "APPROVED", "actor_ref": "usr_operations_owner", "approved_intent_hash": "sha256:eccfb244cf3b9c80839a3c5f983e0ca5387ed322ce45ae616a2058865a3ba3ab", "recorded_at": "2026-08-02T01:15:00Z" },
-    { "stage": 2, "role": "security_privacy_owner", "status": "APPROVED", "actor_ref": "usr_security_owner", "approved_intent_hash": "sha256:eccfb244cf3b9c80839a3c5f983e0ca5387ed322ce45ae616a2058865a3ba3ab", "recorded_at": "2026-08-02T01:16:00Z" },
-    { "stage": 3, "role": "legal_owner", "status": "APPROVED", "actor_ref": "usr_legal_owner", "approved_intent_hash": "sha256:eccfb244cf3b9c80839a3c5f983e0ca5387ed322ce45ae616a2058865a3ba3ab", "recorded_at": "2026-08-02T01:17:00Z" },
-    { "stage": 4, "role": "budget_owner", "status": "APPROVED", "actor_ref": "usr_budget_owner", "approved_intent_hash": "sha256:eccfb244cf3b9c80839a3c5f983e0ca5387ed322ce45ae616a2058865a3ba3ab", "recorded_at": "2026-08-02T01:18:00Z" }
+    {
+      "stage": 1,
+      "role": "operations_owner",
+      "status": "APPROVED",
+      "actor_ref": "usr_operations_owner",
+      "approved_intent_hash": "sha256:40331dae94cb968c73705fbca8a44af937dfe2ec7b9747115023e342ad21315a",
+      "recorded_at": "2026-08-02T01:15:00Z"
+    },
+    {
+      "stage": 2,
+      "role": "security_privacy_owner",
+      "status": "APPROVED",
+      "actor_ref": "usr_security_owner",
+      "approved_intent_hash": "sha256:40331dae94cb968c73705fbca8a44af937dfe2ec7b9747115023e342ad21315a",
+      "recorded_at": "2026-08-02T01:16:00Z"
+    },
+    {
+      "stage": 3,
+      "role": "legal_owner",
+      "status": "APPROVED",
+      "actor_ref": "usr_legal_owner",
+      "approved_intent_hash": "sha256:40331dae94cb968c73705fbca8a44af937dfe2ec7b9747115023e342ad21315a",
+      "recorded_at": "2026-08-02T01:17:00Z"
+    },
+    {
+      "stage": 4,
+      "role": "budget_owner",
+      "status": "APPROVED",
+      "actor_ref": "usr_budget_owner",
+      "approved_intent_hash": "sha256:40331dae94cb968c73705fbca8a44af937dfe2ec7b9747115023e342ad21315a",
+      "recorded_at": "2026-08-02T01:18:00Z"
+    }
   ],
   "exact_summary": {
-    "decision_hash": "sha256:3291feb78df86b34f87b7a8220b71e9d24ef5fcb831474ff926314bd12918a34",
+    "decision_version": 1,
+    "decision_hash": "sha256:312889ff066eb5cb472bafc5dad4a303ed7f81fa737bcc18ab8e86f48fab841d",
+    "selection_id": "selection_consultco_fixture_d",
+    "solution_plan_id": "plan_5a682ec42084ae355a2d",
     "merchant_id": "merchant_fixture_d",
-    "amount": "89.00",
+    "line_items": [
+      {
+        "line_item_id": "li_fixture_d_team",
+        "type": "MERCHANT_SUBTOTAL",
+        "description": "Fixture D Team workspace with ten seats for one month",
+        "quantity": 1,
+        "unit_amount": "87.00",
+        "total_amount": "87.00",
+        "schedule_version": null,
+        "demo_policy_label": null
+      },
+      {
+        "line_item_id": "li_sira_transaction_fee",
+        "type": "SIRA_TRANSACTION_FEE",
+        "description": "SIRA buyer transaction fee under the sandbox demo policy",
+        "quantity": 1,
+        "unit_amount": "2.00",
+        "total_amount": "2.00",
+        "schedule_version": "buyer_txn_demo_v1",
+        "demo_policy_label": "DEMO_ONLY"
+      }
+    ],
+    "merchant_subtotal": "87.00",
+    "buyer_transaction_fee": "2.00",
+    "fee_schedule_version": "buyer_txn_demo_v1",
+    "tax_amount": "0.00",
+    "landed_total": "89.00",
     "currency": "USD",
     "quote_id": "quote_fixture_d_v1",
     "quote_version": 1,
@@ -23,7 +80,10 @@
     "pack_version": 1,
     "offer_id": "offer_fixture_d_monthly",
     "offer_version": 1,
-    "expected_fulfillment_ids": ["fi_fixture_d_workspace", "fi_fixture_d_seats"]
+    "expected_fulfillment_ids": [
+      "fi_fixture_d_workspace",
+      "fi_fixture_d_seats"
+    ]
   },
   "created_at": "2026-08-02T01:11:00Z",
   "expires_at": "2026-08-02T12:00:00Z"

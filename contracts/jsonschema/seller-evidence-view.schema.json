@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/seller-evidence-view.schema.json",
+  "title": "Role-filtered seller Product Evidence view",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["product", "actor", "publisher_authority", "pack_health", "validation", "review", "reusable_answers", "activity_metrics", "available_actions", "version_links"],
+  "properties": {
+    "product": { "$ref": "#/$defs/ProductView" },
+    "actor": { "$ref": "#/$defs/SellerActor" },
+    "publisher_authority": { "$ref": "#/$defs/PublisherAuthorityView" },
+    "pack_health": { "$ref": "#/$defs/PackHealth" },
+    "validation": { "$ref": "#/$defs/ValidationView" },
+    "review": {
+      "oneOf": [
+        { "$ref": "#/$defs/ReviewView" },
+        { "type": "null" }
+      ]
+    },
+    "reusable_answers": { "$ref": "#/$defs/ReusableAnswersView" },
+    "activity_metrics": { "$ref": "#/$defs/ActivityMetricsView" },
+    "available_actions": { "type": "array", "items": { "$ref": "#/$defs/SellerAction" } },
+    "version_links": { "$ref": "#/$defs/VersionLinks" }
+  },
+  "$defs": {
+    "ProductView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "seller_state", "current_version", "href"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "seller_state": { "$ref": "enums.schema.json#/$defs/SellerEvidenceState" },
+        "current_version": { "type": "integer", "minimum": 1 },
+        "href": { "$ref": "common.schema.json#/$defs/Href" }
+      }
+    },
+    "SellerActor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "capabilities"],
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["SELLER_EDITOR", "SELLER_REVIEWER", "PLATFORM_OPERATOR"]
+        },
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["CLAIM_PRODUCT", "VIEW_OWN_DRAFT", "EDIT_CLAIMS", "ADD_EVIDENCE", "SUBMIT_REVIEW", "REQUEST_CHANGES", "APPROVE_REVIEW", "REJECT_REVIEW", "PUBLISH", "SUSPEND", "EXPORT", "VIEW_ACTIVITY_METRICS", "RETRY_PUBLICATION"]
+          }
+        }
+      }
+    },
+    "PublisherAuthorityView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "label", "supporting_copy"],
+      "properties": {
+        "value": { "$ref": "enums.schema.json#/$defs/PackAuthority" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "supporting_copy": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "PackHealth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "required_claim_count", "complete_claim_count", "stale_claim_count", "conflict_count"],
+      "properties": {
+        "status": { "type": "string", "enum": ["HEALTHY", "NEEDS_ATTENTION", "BLOCKED"] },
+        "required_claim_count": { "type": "integer", "minimum": 0 },
+        "complete_claim_count": { "type": "integer", "minimum": 0 },
+        "stale_claim_count": { "type": "integer", "minimum": 0 },
+        "conflict_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ValidationGap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "field", "safe_message", "href"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "field": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{2,127}$" },
+        "safe_message": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "href": { "$ref": "common.schema.json#/$defs/Href" }
+      }
+    },
+    "ValidationView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "gaps"],
+      "properties": {
+        "status": { "type": "string", "enum": ["NOT_RUN", "VALID", "HAS_GAPS", "CONFLICT"] },
+        "gaps": { "type": "array", "items": { "$ref": "#/$defs/ValidationGap" } }
+      }
+    },
+    "ReviewView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_id", "revision_hash", "status", "decision", "reviewer_role", "reason", "recorded_at"],
+      "properties": {
+        "review_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "revision_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+        "status": { "type": "string", "enum": ["PENDING", "COMPLETED"] },
+        "decision": {
+          "oneOf": [
+            { "$ref": "enums.schema.json#/$defs/SellerReviewDecision" },
+            { "type": "null" }
+          ]
+        },
+        "reviewer_role": { "type": "string", "enum": ["SELLER_REVIEWER", "PLATFORM_OPERATOR"] },
+        "reason": { "type": ["string", "null"], "maxLength": 500 },
+        "recorded_at": {
+          "oneOf": [
+            { "$ref": "common.schema.json#/$defs/Timestamp" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "ReusableAnswersView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["published_version", "published_answer_count", "formats", "href"],
+      "properties": {
+        "published_version": { "type": ["integer", "null"], "minimum": 1 },
+        "published_answer_count": { "type": "integer", "minimum": 0 },
+        "formats": { "type": "array", "uniqueItems": true, "items": { "$ref": "enums.schema.json#/$defs/SellerExportFormat" } },
+        "href": {
+          "oneOf": [
+            { "$ref": "common.schema.json#/$defs/Href" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "ActivityMetricsView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window_start", "window_end", "answer_rendered_count", "seller_handoff_requested_count", "observed_self_service_count", "measurement_label", "href"],
+      "properties": {
+        "window_start": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "window_end": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "answer_rendered_count": { "type": "integer", "minimum": 0 },
+        "seller_handoff_requested_count": { "type": "integer", "minimum": 0 },
+        "observed_self_service_count": { "type": "integer", "minimum": 0 },
+        "measurement_label": { "const": "OBSERVATIONAL_NOT_CAUSAL" },
+        "href": { "$ref": "common.schema.json#/$defs/Href" }
+      }
+    },
+    "SellerAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "method", "href", "requires_confirmation"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "method": { "type": "string", "enum": ["GET", "POST", "PATCH"] },
+        "href": { "$ref": "common.schema.json#/$defs/Href" },
+        "requires_confirmation": { "type": "boolean" }
+      }
+    },
+    "VersionLinks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "previous"],
+      "properties": {
+        "current": { "$ref": "common.schema.json#/$defs/Href" },
+        "previous": {
+          "oneOf": [
+            { "$ref": "common.schema.json#/$defs/Href" },
+            { "type": "null" }
+          ]
+        }
+      }
+    }
+  }
+}

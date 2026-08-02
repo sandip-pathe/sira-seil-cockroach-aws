@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Literal
 
 from hypothesis import given
 from hypothesis import strategies as st
@@ -8,8 +9,16 @@ from domain import RuleCondition, RuleExpression, content_hash
 from domain.enums import CandidateStatus, RuleOperator, SolutionAction, StackRisk, TruthValue
 from domain.money import Money
 
+_SURROGATE_CATEGORIES: tuple[Literal["Cs"], ...] = ("Cs",)
 
-@given(st.dictionaries(st.text(min_size=1), st.integers(), max_size=20))
+
+@given(
+    st.dictionaries(
+        st.text(min_size=1, alphabet=st.characters(exclude_categories=_SURROGATE_CATEGORIES)),
+        st.integers(min_value=-(2**53) + 1, max_value=2**53 - 1),
+        max_size=20,
+    )
+)
 def test_canonical_hash_is_independent_of_key_insertion_order(values: dict[str, int]) -> None:
     reversed_values = dict(reversed(tuple(values.items())))
     assert content_hash(values) == content_hash(reversed_values)

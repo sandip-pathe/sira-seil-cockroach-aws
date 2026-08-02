@@ -1,159 +1,4144 @@
 {
   "schema_version": "1.0.0",
   "decision_id": "dec_consultco_v1",
+  "decision_version": 1,
+  "decision_state": "CURRENT",
+  "supersedes_decision_id": null,
   "request_id": "req_demo",
   "purchase_brief_id": "pb_consultco_v1",
   "purchase_brief_version": 1,
   "requirement_brief_id": "rb_consultco_v1",
   "requirement_brief_version": 1,
-  "buyer_passport_version": 1,
+  "company_profile_version": 1,
   "stack_snapshot": 1,
   "policy_version": 1,
-  "evaluated_universe": {
-    "category_schema_version": 1,
-    "registry_candidates_considered": 4,
-    "known_external_candidates_not_normalized": 0,
-    "evaluated_candidate_ids": [
-      "fixture_low_price_policy_fail",
-      "fixture_honest_anti_fit",
-      "fixture_eligible_runner_up",
-      "fixture_selected_fit"
+  "evaluation": {
+    "evaluation_id": "eval_dec_consultco_v1",
+    "evaluated_at": "2026-08-02T12:00:00Z",
+    "evaluation_payload_hash": "sha256:e4a4f2ec6e10173f32a3e81b726d16103ec627f2688aedfe843e0379cc0611a4",
+    "frozen_versions": {
+      "request": "pb_consultco_v1:v1",
+      "company_profile": "buyer_passport_v1",
+      "stackfile": "stackfile_snapshot_v1",
+      "registry": "demo_registry_v1",
+      "pack_set": "demo_pack_set_v1",
+      "offer_set": "demo_offer_set_v1_buyer_txn_demo_v1",
+      "taxonomy": "meeting_intelligence_taxonomy_v1",
+      "normalization": "meeting_intelligence_normalization_v1",
+      "policy": "consultco_policy_v1",
+      "fx": "usd_identity_fx_v1",
+      "pipeline": "decision_graph_v1",
+      "engine": "engine_v1"
+    },
+    "ranked_solution_plan_ids": [
+      "plan_5a682ec42084ae355a2d",
+      "plan_c92be8bb233f6afdfdb8",
+      "plan_85c84ba1ca0ef55c0659",
+      "plan_4dbe680e86cfb408b97e",
+      "plan_93ec4b3649280de531a5",
+      "plan_f2835ba980ee39e9c11d",
+      "plan_187dcea7fd15fb084a88"
     ],
-    "coverage_statement": "Best supported action among four executable Packs"
+    "ordering_frontier_plan_ids": [
+      "plan_5a682ec42084ae355a2d"
+    ],
+    "bound_unavailable_plan_ids": []
   },
-  "candidate_results": [
+  "evaluated_universe": {
+    "raw_record_count": 4,
+    "product_evidence_option_count": 4,
+    "canonical_product_count": 4,
+    "duplicate_count": 0,
+    "generated_solution_plan_count": 10,
+    "evaluated_solution_plan_count": 10,
+    "excluded_count": 0,
+    "included_record_ids": [
+      "record_fixture_eligible_runner_up",
+      "record_fixture_honest_anti_fit",
+      "record_fixture_low_price_policy_fail",
+      "record_fixture_selected_fit"
+    ],
+    "excluded_record_ids": [],
+    "identity_merges": [],
+    "coverage_statement": "Best supported action among 4 canonical products and 6 current-stack/contract actions"
+  },
+  "component_results": [
     {
-      "candidate_id": "fixture_low_price_policy_fail",
-      "name": "Fixture A",
-      "pack_id": "fixture_low_price_policy_fail",
-      "pack_version": 1,
-      "status": "SIRA_INELIGIBLE",
-      "reason_code": "BUYER_POLICY_DATA_USE",
-      "reason": "Fails the buyer's confirmed no-customer-training and approved-residency rules",
-      "hard_constraints": [
-        { "id": "gate_no_customer_training", "source": "buyer", "result": "fail", "reason_code": "CUSTOMER_TRAINING_PROHIBITED", "evidence_ids": ["ev_fixture_a_product"] },
-        { "id": "gate_residency", "source": "buyer", "result": "fail", "reason_code": "RESIDENCY_NOT_APPROVED", "evidence_ids": ["ev_fixture_a_product"] }
-      ],
-      "preference_scores": [],
-      "preference_score": null,
-      "dependency_impact": { "risk": "MEDIUM", "affected_nodes": ["google_workspace", "slack", "zoom"] },
-      "total_cost": { "amount": "49.00", "currency": "USD" },
-      "evidence_ids": ["ev_fixture_a_product"],
-      "seller_positioning": null
-    },
-    {
-      "candidate_id": "fixture_honest_anti_fit",
-      "name": "Fixture B",
-      "pack_id": "fixture_honest_anti_fit",
-      "pack_version": 1,
-      "status": "SEIL_PASS",
-      "reason_code": "SHARED_CLIENT_WORKSPACE_UNSUPPORTED",
-      "reason": "The seller's published anti-fit rule excludes restricted conversations in shared external-client workspaces",
-      "hard_constraints": [
-        { "id": "gate_no_customer_training", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_b_product"] },
-        { "id": "af_fixture_b_shared_client_data", "source": "seller", "result": "fail", "reason_code": "SHARED_CLIENT_WORKSPACE_UNSUPPORTED", "evidence_ids": ["ev_fixture_b_product"] }
-      ],
-      "preference_scores": [],
-      "preference_score": null,
-      "dependency_impact": { "risk": "LOW", "affected_nodes": ["google_workspace", "slack", "zoom"] },
-      "total_cost": { "amount": "79.00", "currency": "USD" },
-      "evidence_ids": ["ev_fixture_b_product"],
-      "seller_positioning": null
-    },
-    {
-      "candidate_id": "fixture_eligible_runner_up",
+      "component_id": "product_fixture_c",
       "name": "Fixture C",
       "pack_id": "fixture_eligible_runner_up",
       "pack_version": 1,
+      "current_instance_id": null,
+      "publisher_authority": "SELLER_SEALED",
       "status": "ELIGIBLE",
-      "reason_code": null,
-      "reason": "Meets hard gates but requires more administration and migration work",
-      "hard_constraints": [
-        { "id": "gate_no_customer_training", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_c_product"] },
-        { "id": "gate_residency", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_c_product"] },
-        { "id": "gate_source_links", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_c_product"] },
-        { "id": "gate_guest_notice", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_c_product"] }
+      "primary_reason": null,
+      "gate_results": [
+        {
+          "gate_id": "availability_canonical_7f082862a367a9550e4f",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
       ],
-      "preference_scores": [
-        { "id": "pref_admin_hours", "weight": 5, "satisfaction": "0.5", "contribution": "2.50", "evidence_ids": ["ev_fixture_c_product"] },
-        { "id": "pref_deployment_days", "weight": 4, "satisfaction": "0.5", "contribution": "2.00", "evidence_ids": ["ev_fixture_c_product"] },
-        { "id": "pref_native_integrations", "weight": 4, "satisfaction": "1", "contribution": "4.00", "evidence_ids": ["ev_fixture_c_product"] },
-        { "id": "pref_native_crm_sync", "weight": 1, "satisfaction": "0", "contribution": "0", "evidence_ids": [] }
-      ],
-      "preference_score": 61,
-      "dependency_impact": { "risk": "MEDIUM", "affected_nodes": ["google_workspace", "slack", "zoom", "team_operations"] },
-      "total_cost": { "amount": "99.00", "currency": "USD" },
-      "evidence_ids": ["ev_fixture_c_product"],
-      "seller_positioning": "Seller positioning: Structured controls for teams willing to invest in administration."
+      "evidence_assessments": [
+        {
+          "evidence_id": "ev_fixture_c_merchant",
+          "record_id": "fixture_eligible_runner_up",
+          "field": "offer.landed_total",
+          "source_class": "platform",
+          "verification_method": "merchant_order_probe",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_c_product",
+          "record_id": "fixture_eligible_runner_up",
+          "field": "product.admin_hours_per_month",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_c_product",
+          "record_id": "fixture_eligible_runner_up",
+          "field": "product.data_residency",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_c_product",
+          "record_id": "fixture_eligible_runner_up",
+          "field": "product.deployment_days",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_c_product",
+          "record_id": "fixture_eligible_runner_up",
+          "field": "product.guest_recording_notice",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_c_product",
+          "record_id": "fixture_eligible_runner_up",
+          "field": "product.native_integrations",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_c_product",
+          "record_id": "fixture_eligible_runner_up",
+          "field": "product.source_linked_answers",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_c_product",
+          "record_id": "fixture_eligible_runner_up",
+          "field": "product.trains_on_customer_data",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        }
+      ]
     },
     {
-      "candidate_id": "fixture_selected_fit",
+      "component_id": "product_fixture_b",
+      "name": "Fixture B",
+      "pack_id": "fixture_honest_anti_fit",
+      "pack_version": 1,
+      "current_instance_id": null,
+      "publisher_authority": "SELLER_SEALED",
+      "status": "SEIL_PASS",
+      "primary_reason": {
+        "reason_code": "SHARED_CLIENT_WORKSPACE_UNSUPPORTED",
+        "status": "SEIL_PASS",
+        "detail": "Blocking predicate matched"
+      },
+      "gate_results": [
+        {
+          "gate_id": "availability_canonical_0a0d672085d785dba9b1",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "af_fixture_b_shared_client_data",
+          "truth": "FALSE",
+          "reasons": [
+            {
+              "reason_code": "SHARED_CLIENT_WORKSPACE_UNSUPPORTED",
+              "status": "SEIL_PASS",
+              "detail": "Blocking predicate matched"
+            }
+          ],
+          "evaluated_predicates": [
+            "buyer.shared_client_workspace_required",
+            "buyer.client_conversations_restricted"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
+      ],
+      "evidence_assessments": [
+        {
+          "evidence_id": "ev_fixture_b_merchant",
+          "record_id": "fixture_honest_anti_fit",
+          "field": "offer.landed_total",
+          "source_class": "platform",
+          "verification_method": "merchant_order_probe",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_b_product",
+          "record_id": "fixture_honest_anti_fit",
+          "field": "product.admin_hours_per_month",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_b_product",
+          "record_id": "fixture_honest_anti_fit",
+          "field": "product.data_residency",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_b_product",
+          "record_id": "fixture_honest_anti_fit",
+          "field": "product.deployment_days",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_b_product",
+          "record_id": "fixture_honest_anti_fit",
+          "field": "product.guest_recording_notice",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_b_product",
+          "record_id": "fixture_honest_anti_fit",
+          "field": "product.native_integrations",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_b_product",
+          "record_id": "fixture_honest_anti_fit",
+          "field": "product.source_linked_answers",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_b_product",
+          "record_id": "fixture_honest_anti_fit",
+          "field": "product.supports_shared_client_workspace",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_b_product",
+          "record_id": "fixture_honest_anti_fit",
+          "field": "product.trains_on_customer_data",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        }
+      ]
+    },
+    {
+      "component_id": "product_fixture_a",
+      "name": "Fixture A",
+      "pack_id": "fixture_low_price_policy_fail",
+      "pack_version": 1,
+      "current_instance_id": null,
+      "publisher_authority": "SELLER_SEALED",
+      "status": "SIRA_INELIGIBLE",
+      "primary_reason": {
+        "reason_code": "BUYER_POLICY_GATE_NO_CUSTOMER_TRAINING",
+        "status": "SIRA_INELIGIBLE",
+        "detail": "Required predicate failed"
+      },
+      "gate_results": [
+        {
+          "gate_id": "availability_canonical_67b0d38908178b67c89b",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "FALSE",
+          "reasons": [
+            {
+              "reason_code": "BUYER_POLICY_GATE_NO_CUSTOMER_TRAINING",
+              "status": "SIRA_INELIGIBLE",
+              "detail": "Required predicate failed"
+            }
+          ],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "FALSE",
+          "reasons": [
+            {
+              "reason_code": "BUYER_POLICY_GATE_RESIDENCY",
+              "status": "SIRA_INELIGIBLE",
+              "detail": "Required predicate failed"
+            }
+          ],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
+      ],
+      "evidence_assessments": [
+        {
+          "evidence_id": "ev_fixture_a_merchant",
+          "record_id": "fixture_low_price_policy_fail",
+          "field": "offer.landed_total",
+          "source_class": "platform",
+          "verification_method": "merchant_order_probe",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_a_product",
+          "record_id": "fixture_low_price_policy_fail",
+          "field": "product.admin_hours_per_month",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_a_product",
+          "record_id": "fixture_low_price_policy_fail",
+          "field": "product.data_residency",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_a_product",
+          "record_id": "fixture_low_price_policy_fail",
+          "field": "product.deployment_days",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_a_product",
+          "record_id": "fixture_low_price_policy_fail",
+          "field": "product.guest_recording_notice",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_a_product",
+          "record_id": "fixture_low_price_policy_fail",
+          "field": "product.native_integrations",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_a_product",
+          "record_id": "fixture_low_price_policy_fail",
+          "field": "product.source_linked_answers",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_a_product",
+          "record_id": "fixture_low_price_policy_fail",
+          "field": "product.trains_on_customer_data",
+          "source_class": "seller",
+          "verification_method": "source_document_review",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        }
+      ]
+    },
+    {
+      "component_id": "product_fixture_d",
       "name": "Fixture D",
       "pack_id": "fixture_selected_fit",
       "pack_version": 1,
+      "current_instance_id": null,
+      "publisher_authority": "SELLER_SEALED",
       "status": "ELIGIBLE",
-      "reason_code": null,
-      "reason": "Meets required privacy, identity, and integration rules",
-      "hard_constraints": [
-        { "id": "gate_no_customer_training", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_d_product"] },
-        { "id": "gate_residency", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_d_product"] },
-        { "id": "gate_source_links", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_d_product"] },
-        { "id": "gate_guest_notice", "source": "buyer", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_d_product"] },
-        { "id": "dep_fixture_d_stack", "source": "dependency", "result": "pass", "reason_code": null, "evidence_ids": ["ev_fixture_d_product"] }
+      "primary_reason": null,
+      "gate_results": [
+        {
+          "gate_id": "availability_canonical_d69d7a962e7f3b936bab",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
       ],
-      "preference_scores": [
-        { "id": "pref_admin_hours", "weight": 5, "satisfaction": "1", "contribution": "5.00", "evidence_ids": ["ev_fixture_d_product"] },
-        { "id": "pref_deployment_days", "weight": 4, "satisfaction": "0.75", "contribution": "3.00", "evidence_ids": ["ev_fixture_d_product"] },
-        { "id": "pref_native_integrations", "weight": 4, "satisfaction": "1", "contribution": "4.00", "evidence_ids": ["ev_fixture_d_product"] },
-        { "id": "pref_native_crm_sync", "weight": 1, "satisfaction": "0", "contribution": "0", "evidence_ids": [] }
-      ],
-      "preference_score": 86,
-      "dependency_impact": { "risk": "LOW", "affected_nodes": ["google_workspace", "slack", "zoom"] },
-      "total_cost": { "amount": "89.00", "currency": "USD" },
-      "evidence_ids": ["ev_fixture_d_product"],
-      "seller_positioning": "Seller positioning: Native workflow integrations reduce deployment and administration work."
+      "evidence_assessments": [
+        {
+          "evidence_id": "ev_fixture_d_merchant",
+          "record_id": "fixture_selected_fit",
+          "field": "offer.landed_total",
+          "source_class": "platform",
+          "verification_method": "merchant_order_probe",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_d_product",
+          "record_id": "fixture_selected_fit",
+          "field": "product.admin_hours_per_month",
+          "source_class": "seller",
+          "verification_method": "api_probe",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_d_product",
+          "record_id": "fixture_selected_fit",
+          "field": "product.data_residency",
+          "source_class": "seller",
+          "verification_method": "api_probe",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_d_product",
+          "record_id": "fixture_selected_fit",
+          "field": "product.deployment_days",
+          "source_class": "seller",
+          "verification_method": "api_probe",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_d_product",
+          "record_id": "fixture_selected_fit",
+          "field": "product.guest_recording_notice",
+          "source_class": "seller",
+          "verification_method": "api_probe",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_d_product",
+          "record_id": "fixture_selected_fit",
+          "field": "product.native_integrations",
+          "source_class": "seller",
+          "verification_method": "api_probe",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_d_product",
+          "record_id": "fixture_selected_fit",
+          "field": "product.source_linked_answers",
+          "source_class": "seller",
+          "verification_method": "api_probe",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        },
+        {
+          "evidence_id": "ev_fixture_d_product",
+          "record_id": "fixture_selected_fit",
+          "field": "product.trains_on_customer_data",
+          "source_class": "seller",
+          "verification_method": "api_probe",
+          "scope_match": true,
+          "reconstructable": true,
+          "freshness_current": true,
+          "disputed": false,
+          "revoked": false,
+          "state": "ACCEPTABLE",
+          "reasons": [],
+          "age_bounds": {
+            "lower": {
+              "numerator": 1,
+              "denominator": 60
+            },
+            "upper": {
+              "numerator": 1,
+              "denominator": 60
+            }
+          }
+        }
+      ]
     }
   ],
   "solution_plans": [
     {
-      "solution_plan_id": "sol_buy_fixture_d",
-      "action": "BUY",
-      "component_candidate_ids": ["fixture_selected_fit"],
+      "solution_plan_id": "plan_187dcea7fd15fb084a88",
+      "action_type": "CANCEL",
+      "components": [
+        {
+          "component_id": "inst_meeting_intelligence_incumbent",
+          "source_type": "CURRENT_INSTANCE",
+          "source_id": "inst_meeting_intelligence_incumbent",
+          "action_type": "CANCEL"
+        }
+      ],
+      "component_hash": "sha256:1ae0dd769a91177e10b929e96b4a8863245f0c774bbab7a57a1bc76d4dfc89ef",
+      "construction_lifecycle": "CANDIDATE",
+      "lifecycle": "EXECUTABLE",
       "status": "ELIGIBLE",
-      "preference_score": 86,
-      "stack_risk": "LOW",
-      "total_cost": { "amount": "89.00", "currency": "USD" },
-      "required_evidence_coverage_percent": 100,
-      "maximum_evidence_age_days": 1,
-      "stable_action_ids": ["buy_fixture_selected_fit"],
+      "primary_reason": null,
+      "gate_results": [
+        {
+          "gate_id": "availability_current_cancel",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        }
+      ],
+      "score_components": [
+        {
+          "criterion_id": "pref_outcome_adoption",
+          "weight": 2,
+          "coverage_weight": 2,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": "category prior—not observed outcome"
+        }
+      ],
+      "dimensions": {
+        "preference": {
+          "conservative": {
+            "numerator": 50,
+            "denominator": 1,
+            "display": "50.00"
+          },
+          "optimistic": {
+            "numerator": 50,
+            "denominator": 1,
+            "display": "50.00"
+          }
+        },
+        "stack_risk": {
+          "lower": "MEDIUM",
+          "base": "HIGH",
+          "upper": "HIGH"
+        },
+        "total_cost": {
+          "low": {
+            "amount": "0.00",
+            "currency": "USD"
+          },
+          "base": {
+            "amount": "0.00",
+            "currency": "USD"
+          },
+          "high": {
+            "amount": "25.00",
+            "currency": "USD"
+          }
+        },
+        "cost_line_items": [
+          {
+            "type": "CONTRACT_COST",
+            "low": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "25.00",
+              "currency": "USD"
+            },
+            "schedule_version": null
+          }
+        ],
+        "payment_required": false,
+        "hard_coverage": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "decision_material_coverage": {
+          "conservative": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic": {
+            "numerator": 0,
+            "denominator": 1
+          }
+        },
+        "maximum_evidence_age_ratio": {
+          "lower": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "upper": {
+            "numerator": 0,
+            "denominator": 1
+          }
+        },
+        "universe_coverage": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "unresolved_count": 0,
+        "conflicting_count": 0,
+        "bound_unavailable_reasons": []
+      },
+      "stable_action_ids": [
+        "cancel",
+        "inst_meeting_intelligence_incumbent"
+      ],
+      "rank": 7,
+      "ordering_frontier_member": false,
+      "resolution_frontier_member": false,
+      "quote_required": false,
+      "quote_policy_reason": "NONE",
+      "permitted_resolution": null,
+      "autonomous_execution_allowed": false,
+      "stack_patch_id": null
+    },
+    {
+      "solution_plan_id": "plan_4dbe680e86cfb408b97e",
+      "action_type": "CONFIGURE_EXISTING",
+      "components": [
+        {
+          "component_id": "inst_meeting_intelligence_incumbent",
+          "source_type": "CURRENT_INSTANCE",
+          "source_id": "inst_meeting_intelligence_incumbent",
+          "action_type": "CONFIGURE_EXISTING"
+        }
+      ],
+      "component_hash": "sha256:184d22a8bbb6a0092aa4d5a5ca74e493afa221cb8515c1fb41abc9df7b3acd99",
+      "construction_lifecycle": "CANDIDATE",
+      "lifecycle": "EXECUTABLE",
+      "status": "ELIGIBLE",
+      "primary_reason": null,
+      "gate_results": [
+        {
+          "gate_id": "availability_current_configure_existing",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
+      ],
+      "score_components": [
+        {
+          "criterion_id": "pref_admin_hours",
+          "weight": 5,
+          "coverage_weight": 5,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 5,
+            "denominator": 2
+          },
+          "optimistic_contribution": {
+            "numerator": 5,
+            "denominator": 2
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_deployment_days",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 2,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 2,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_crm_sync",
+          "weight": 1,
+          "coverage_weight": 1,
+          "conservative_satisfaction": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_integrations",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_outcome_adoption",
+          "weight": 2,
+          "coverage_weight": 2,
+          "conservative_satisfaction": {
+            "numerator": 3,
+            "denominator": 4
+          },
+          "optimistic_satisfaction": {
+            "numerator": 3,
+            "denominator": 4
+          },
+          "conservative_contribution": {
+            "numerator": 3,
+            "denominator": 2
+          },
+          "optimistic_contribution": {
+            "numerator": 3,
+            "denominator": 2
+          },
+          "evidence_ids": [
+            "ev_incumbent_usage_outcome"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        }
+      ],
+      "dimensions": {
+        "preference": {
+          "conservative": {
+            "numerator": 125,
+            "denominator": 2,
+            "display": "62.50"
+          },
+          "optimistic": {
+            "numerator": 275,
+            "denominator": 4,
+            "display": "68.75"
+          }
+        },
+        "stack_risk": {
+          "lower": "LOW",
+          "base": "MEDIUM",
+          "upper": "MEDIUM"
+        },
+        "total_cost": {
+          "low": {
+            "amount": "8.00",
+            "currency": "USD"
+          },
+          "base": {
+            "amount": "12.00",
+            "currency": "USD"
+          },
+          "high": {
+            "amount": "18.00",
+            "currency": "USD"
+          }
+        },
+        "cost_line_items": [
+          {
+            "type": "CONTRACT_COST",
+            "low": {
+              "amount": "8.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "12.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "18.00",
+              "currency": "USD"
+            },
+            "schedule_version": null
+          }
+        ],
+        "payment_required": false,
+        "hard_coverage": {
+          "numerator": 5,
+          "denominator": 5
+        },
+        "decision_material_coverage": {
+          "conservative": {
+            "numerator": 15,
+            "denominator": 16
+          },
+          "optimistic": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "maximum_evidence_age_ratio": {
+          "lower": {
+            "numerator": 129601,
+            "denominator": 7776000
+          },
+          "upper": {
+            "numerator": 13,
+            "denominator": 36
+          }
+        },
+        "universe_coverage": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "unresolved_count": 0,
+        "conflicting_count": 0,
+        "bound_unavailable_reasons": []
+      },
+      "stable_action_ids": [
+        "configure_existing",
+        "inst_meeting_intelligence_incumbent"
+      ],
+      "rank": 4,
+      "ordering_frontier_member": false,
+      "resolution_frontier_member": false,
+      "quote_required": false,
+      "quote_policy_reason": "NONE",
+      "permitted_resolution": null,
+      "autonomous_execution_allowed": false,
+      "stack_patch_id": null
+    },
+    {
+      "solution_plan_id": "plan_3d8c48b47bb94a9d13a3",
+      "action_type": "NO_ACTION",
+      "components": [
+        {
+          "component_id": "inst_meeting_intelligence_incumbent",
+          "source_type": "CURRENT_INSTANCE",
+          "source_id": "inst_meeting_intelligence_incumbent",
+          "action_type": "NO_ACTION"
+        }
+      ],
+      "component_hash": "sha256:46b8b688cd55e69ca49b214027490fb04408ad7163ed881807d7aebc74bd70bc",
+      "construction_lifecycle": "CANDIDATE",
+      "lifecycle": "BLOCKED",
+      "status": "SIRA_INELIGIBLE",
+      "primary_reason": {
+        "reason_code": "BUYER_POLICY_GATE_BUDGET",
+        "status": "SIRA_INELIGIBLE",
+        "detail": "Required predicate failed"
+      },
+      "gate_results": [
+        {
+          "gate_id": "availability_current_no_action",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "FALSE",
+          "reasons": [
+            {
+              "reason_code": "BUYER_POLICY_GATE_BUDGET",
+              "status": "SIRA_INELIGIBLE",
+              "detail": "Required predicate failed"
+            }
+          ],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
+      ],
+      "score_components": [
+        {
+          "criterion_id": "pref_admin_hours",
+          "weight": 5,
+          "coverage_weight": 5,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 5,
+            "denominator": 2
+          },
+          "optimistic_contribution": {
+            "numerator": 5,
+            "denominator": 2
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_deployment_days",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 2,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 2,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_crm_sync",
+          "weight": 1,
+          "coverage_weight": 1,
+          "conservative_satisfaction": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_integrations",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_outcome_adoption",
+          "weight": 2,
+          "coverage_weight": 2,
+          "conservative_satisfaction": {
+            "numerator": 3,
+            "denominator": 4
+          },
+          "optimistic_satisfaction": {
+            "numerator": 3,
+            "denominator": 4
+          },
+          "conservative_contribution": {
+            "numerator": 3,
+            "denominator": 2
+          },
+          "optimistic_contribution": {
+            "numerator": 3,
+            "denominator": 2
+          },
+          "evidence_ids": [
+            "ev_incumbent_usage_outcome"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        }
+      ],
+      "dimensions": {
+        "preference": {
+          "conservative": {
+            "numerator": 125,
+            "denominator": 2,
+            "display": "62.50"
+          },
+          "optimistic": {
+            "numerator": 275,
+            "denominator": 4,
+            "display": "68.75"
+          }
+        },
+        "stack_risk": {
+          "lower": "LOW",
+          "base": "LOW",
+          "upper": "LOW"
+        },
+        "total_cost": {
+          "low": {
+            "amount": "99.00",
+            "currency": "USD"
+          },
+          "base": {
+            "amount": "104.00",
+            "currency": "USD"
+          },
+          "high": {
+            "amount": "119.00",
+            "currency": "USD"
+          }
+        },
+        "cost_line_items": [
+          {
+            "type": "CONTRACT_COST",
+            "low": {
+              "amount": "99.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "104.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "119.00",
+              "currency": "USD"
+            },
+            "schedule_version": null
+          }
+        ],
+        "payment_required": false,
+        "hard_coverage": {
+          "numerator": 4,
+          "denominator": 5
+        },
+        "decision_material_coverage": {
+          "conservative": {
+            "numerator": 15,
+            "denominator": 16
+          },
+          "optimistic": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "maximum_evidence_age_ratio": {
+          "lower": {
+            "numerator": 129601,
+            "denominator": 7776000
+          },
+          "upper": {
+            "numerator": 13,
+            "denominator": 36
+          }
+        },
+        "universe_coverage": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "unresolved_count": 0,
+        "conflicting_count": 0,
+        "bound_unavailable_reasons": []
+      },
+      "stable_action_ids": [
+        "no_action",
+        "inst_meeting_intelligence_incumbent"
+      ],
+      "rank": null,
+      "ordering_frontier_member": false,
+      "resolution_frontier_member": false,
+      "quote_required": false,
+      "quote_policy_reason": "NONE",
+      "permitted_resolution": "PROCUREMENT_GATE",
+      "autonomous_execution_allowed": false,
+      "stack_patch_id": null
+    },
+    {
+      "solution_plan_id": "plan_c92be8bb233f6afdfdb8",
+      "action_type": "RENEW",
+      "components": [
+        {
+          "component_id": "inst_meeting_intelligence_incumbent",
+          "source_type": "CURRENT_INSTANCE",
+          "source_id": "inst_meeting_intelligence_incumbent",
+          "action_type": "RENEW"
+        }
+      ],
+      "component_hash": "sha256:b50f465e9b8f36e169a29eddc86559fa3cc7a483311d5e11a61fdaf563627b4c",
+      "construction_lifecycle": "CANDIDATE",
+      "lifecycle": "EXECUTABLE",
+      "status": "ELIGIBLE",
+      "primary_reason": null,
+      "gate_results": [
+        {
+          "gate_id": "availability_current_renew",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
+      ],
+      "score_components": [
+        {
+          "criterion_id": "pref_admin_hours",
+          "weight": 5,
+          "coverage_weight": 5,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 5,
+            "denominator": 2
+          },
+          "optimistic_contribution": {
+            "numerator": 5,
+            "denominator": 2
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_deployment_days",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 2,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 2,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_crm_sync",
+          "weight": 1,
+          "coverage_weight": 1,
+          "conservative_satisfaction": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_integrations",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_outcome_adoption",
+          "weight": 2,
+          "coverage_weight": 2,
+          "conservative_satisfaction": {
+            "numerator": 3,
+            "denominator": 4
+          },
+          "optimistic_satisfaction": {
+            "numerator": 3,
+            "denominator": 4
+          },
+          "conservative_contribution": {
+            "numerator": 3,
+            "denominator": 2
+          },
+          "optimistic_contribution": {
+            "numerator": 3,
+            "denominator": 2
+          },
+          "evidence_ids": [
+            "ev_incumbent_usage_outcome"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        }
+      ],
+      "dimensions": {
+        "preference": {
+          "conservative": {
+            "numerator": 125,
+            "denominator": 2,
+            "display": "62.50"
+          },
+          "optimistic": {
+            "numerator": 275,
+            "denominator": 4,
+            "display": "68.75"
+          }
+        },
+        "stack_risk": {
+          "lower": "LOW",
+          "base": "LOW",
+          "upper": "LOW"
+        },
+        "total_cost": {
+          "low": {
+            "amount": "94.00",
+            "currency": "USD"
+          },
+          "base": {
+            "amount": "99.00",
+            "currency": "USD"
+          },
+          "high": {
+            "amount": "109.00",
+            "currency": "USD"
+          }
+        },
+        "cost_line_items": [
+          {
+            "type": "CONTRACT_COST",
+            "low": {
+              "amount": "94.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "99.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "109.00",
+              "currency": "USD"
+            },
+            "schedule_version": null
+          }
+        ],
+        "payment_required": false,
+        "hard_coverage": {
+          "numerator": 5,
+          "denominator": 5
+        },
+        "decision_material_coverage": {
+          "conservative": {
+            "numerator": 15,
+            "denominator": 16
+          },
+          "optimistic": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "maximum_evidence_age_ratio": {
+          "lower": {
+            "numerator": 129601,
+            "denominator": 7776000
+          },
+          "upper": {
+            "numerator": 13,
+            "denominator": 36
+          }
+        },
+        "universe_coverage": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "unresolved_count": 0,
+        "conflicting_count": 0,
+        "bound_unavailable_reasons": []
+      },
+      "stable_action_ids": [
+        "renew",
+        "inst_meeting_intelligence_incumbent"
+      ],
+      "rank": 2,
+      "ordering_frontier_member": false,
+      "resolution_frontier_member": false,
+      "quote_required": true,
+      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
+      "permitted_resolution": null,
+      "autonomous_execution_allowed": false,
+      "stack_patch_id": null
+    },
+    {
+      "solution_plan_id": "plan_15ed07224364e2feeb56",
+      "action_type": "REPLACE",
+      "components": [
+        {
+          "component_id": "product_fixture_a",
+          "source_type": "PRODUCT_EVIDENCE",
+          "source_id": "record_fixture_low_price_policy_fail",
+          "action_type": "REPLACE"
+        }
+      ],
+      "component_hash": "sha256:00a40d363963a8f95e016698826ab5f8e2e24970f9460c1b266511f0074aa49d",
+      "construction_lifecycle": "CANDIDATE",
+      "lifecycle": "BLOCKED",
+      "status": "SIRA_INELIGIBLE",
+      "primary_reason": {
+        "reason_code": "BUYER_POLICY_GATE_NO_CUSTOMER_TRAINING",
+        "status": "SIRA_INELIGIBLE",
+        "detail": "Required predicate failed"
+      },
+      "gate_results": [
+        {
+          "gate_id": "availability_canonical_67b0d38908178b67c89b",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "FALSE",
+          "reasons": [
+            {
+              "reason_code": "BUYER_POLICY_GATE_NO_CUSTOMER_TRAINING",
+              "status": "SIRA_INELIGIBLE",
+              "detail": "Required predicate failed"
+            }
+          ],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "FALSE",
+          "reasons": [
+            {
+              "reason_code": "BUYER_POLICY_GATE_RESIDENCY",
+              "status": "SIRA_INELIGIBLE",
+              "detail": "Required predicate failed"
+            }
+          ],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
+      ],
+      "score_components": [
+        {
+          "criterion_id": "pref_admin_hours",
+          "weight": 5,
+          "coverage_weight": 5,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 5,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 5,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_a_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_deployment_days",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_a_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_crm_sync",
+          "weight": 1,
+          "coverage_weight": 1,
+          "conservative_satisfaction": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_integrations",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_a_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_outcome_adoption",
+          "weight": 2,
+          "coverage_weight": 2,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": "category prior—not observed outcome"
+        }
+      ],
+      "dimensions": {
+        "preference": {
+          "conservative": {
+            "numerator": 175,
+            "denominator": 2,
+            "display": "87.50"
+          },
+          "optimistic": {
+            "numerator": 375,
+            "denominator": 4,
+            "display": "93.75"
+          }
+        },
+        "stack_risk": {
+          "lower": "LOW",
+          "base": "LOW",
+          "upper": "MEDIUM"
+        },
+        "total_cost": {
+          "low": {
+            "amount": "49.00",
+            "currency": "USD"
+          },
+          "base": {
+            "amount": "49.00",
+            "currency": "USD"
+          },
+          "high": {
+            "amount": "69.00",
+            "currency": "USD"
+          }
+        },
+        "cost_line_items": [
+          {
+            "type": "MERCHANT_SUBTOTAL",
+            "low": {
+              "amount": "47.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "47.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "67.00",
+              "currency": "USD"
+            },
+            "schedule_version": null
+          },
+          {
+            "type": "SIRA_TRANSACTION_FEE",
+            "low": {
+              "amount": "2.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "2.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "2.00",
+              "currency": "USD"
+            },
+            "schedule_version": "buyer_txn_demo_v1"
+          }
+        ],
+        "payment_required": true,
+        "hard_coverage": {
+          "numerator": 3,
+          "denominator": 5
+        },
+        "decision_material_coverage": {
+          "conservative": {
+            "numerator": 13,
+            "denominator": 16
+          },
+          "optimistic": {
+            "numerator": 7,
+            "denominator": 8
+          }
+        },
+        "maximum_evidence_age_ratio": {
+          "lower": {
+            "numerator": 1,
+            "denominator": 60
+          },
+          "upper": {
+            "numerator": 1,
+            "denominator": 60
+          }
+        },
+        "universe_coverage": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "unresolved_count": 0,
+        "conflicting_count": 0,
+        "bound_unavailable_reasons": []
+      },
+      "stable_action_ids": [
+        "replace",
+        "product_fixture_a"
+      ],
+      "rank": null,
+      "ordering_frontier_member": false,
+      "resolution_frontier_member": false,
+      "quote_required": false,
+      "quote_policy_reason": "NONE",
+      "permitted_resolution": null,
+      "autonomous_execution_allowed": false,
+      "stack_patch_id": null
+    },
+    {
+      "solution_plan_id": "plan_3bf2f83ab61e5f63ae7c",
+      "action_type": "REPLACE",
+      "components": [
+        {
+          "component_id": "product_fixture_b",
+          "source_type": "PRODUCT_EVIDENCE",
+          "source_id": "record_fixture_honest_anti_fit",
+          "action_type": "REPLACE"
+        }
+      ],
+      "component_hash": "sha256:3a988ffebfa84d37cc540a3fad4d72afdfabaf6b97f0be5b969380f72574467c",
+      "construction_lifecycle": "CANDIDATE",
+      "lifecycle": "BLOCKED",
+      "status": "SEIL_PASS",
+      "primary_reason": {
+        "reason_code": "SHARED_CLIENT_WORKSPACE_UNSUPPORTED",
+        "status": "SEIL_PASS",
+        "detail": "Blocking predicate matched"
+      },
+      "gate_results": [
+        {
+          "gate_id": "availability_canonical_0a0d672085d785dba9b1",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "af_fixture_b_shared_client_data",
+          "truth": "FALSE",
+          "reasons": [
+            {
+              "reason_code": "SHARED_CLIENT_WORKSPACE_UNSUPPORTED",
+              "status": "SEIL_PASS",
+              "detail": "Blocking predicate matched"
+            }
+          ],
+          "evaluated_predicates": [
+            "buyer.shared_client_workspace_required",
+            "buyer.client_conversations_restricted"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
+      ],
+      "score_components": [
+        {
+          "criterion_id": "pref_admin_hours",
+          "weight": 5,
+          "coverage_weight": 5,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 5,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 5,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_b_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_deployment_days",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_b_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_crm_sync",
+          "weight": 1,
+          "coverage_weight": 1,
+          "conservative_satisfaction": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_integrations",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_b_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_outcome_adoption",
+          "weight": 2,
+          "coverage_weight": 2,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": "category prior—not observed outcome"
+        }
+      ],
+      "dimensions": {
+        "preference": {
+          "conservative": {
+            "numerator": 175,
+            "denominator": 2,
+            "display": "87.50"
+          },
+          "optimistic": {
+            "numerator": 375,
+            "denominator": 4,
+            "display": "93.75"
+          }
+        },
+        "stack_risk": {
+          "lower": "LOW",
+          "base": "LOW",
+          "upper": "MEDIUM"
+        },
+        "total_cost": {
+          "low": {
+            "amount": "79.00",
+            "currency": "USD"
+          },
+          "base": {
+            "amount": "79.00",
+            "currency": "USD"
+          },
+          "high": {
+            "amount": "99.00",
+            "currency": "USD"
+          }
+        },
+        "cost_line_items": [
+          {
+            "type": "MERCHANT_SUBTOTAL",
+            "low": {
+              "amount": "77.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "77.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "97.00",
+              "currency": "USD"
+            },
+            "schedule_version": null
+          },
+          {
+            "type": "SIRA_TRANSACTION_FEE",
+            "low": {
+              "amount": "2.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "2.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "2.00",
+              "currency": "USD"
+            },
+            "schedule_version": "buyer_txn_demo_v1"
+          }
+        ],
+        "payment_required": true,
+        "hard_coverage": {
+          "numerator": 5,
+          "denominator": 5
+        },
+        "decision_material_coverage": {
+          "conservative": {
+            "numerator": 13,
+            "denominator": 16
+          },
+          "optimistic": {
+            "numerator": 7,
+            "denominator": 8
+          }
+        },
+        "maximum_evidence_age_ratio": {
+          "lower": {
+            "numerator": 1,
+            "denominator": 60
+          },
+          "upper": {
+            "numerator": 1,
+            "denominator": 60
+          }
+        },
+        "universe_coverage": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "unresolved_count": 0,
+        "conflicting_count": 0,
+        "bound_unavailable_reasons": []
+      },
+      "stable_action_ids": [
+        "replace",
+        "product_fixture_b"
+      ],
+      "rank": null,
+      "ordering_frontier_member": false,
+      "resolution_frontier_member": false,
+      "quote_required": false,
+      "quote_policy_reason": "NONE",
+      "permitted_resolution": null,
+      "autonomous_execution_allowed": false,
+      "stack_patch_id": null
+    },
+    {
+      "solution_plan_id": "plan_f2835ba980ee39e9c11d",
+      "action_type": "REPLACE",
+      "components": [
+        {
+          "component_id": "product_fixture_c",
+          "source_type": "PRODUCT_EVIDENCE",
+          "source_id": "record_fixture_eligible_runner_up",
+          "action_type": "REPLACE"
+        }
+      ],
+      "component_hash": "sha256:769150ec00078eb07932565e567477c916d8413c7a11602709a27d21f2d6ca03",
+      "construction_lifecycle": "CANDIDATE",
+      "lifecycle": "EXECUTABLE",
+      "status": "ELIGIBLE",
+      "primary_reason": null,
+      "gate_results": [
+        {
+          "gate_id": "availability_canonical_7f082862a367a9550e4f",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
+      ],
+      "score_components": [
+        {
+          "criterion_id": "pref_admin_hours",
+          "weight": 5,
+          "coverage_weight": 5,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 5,
+            "denominator": 2
+          },
+          "optimistic_contribution": {
+            "numerator": 5,
+            "denominator": 2
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_deployment_days",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 2,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 2,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_crm_sync",
+          "weight": 1,
+          "coverage_weight": 1,
+          "conservative_satisfaction": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_integrations",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_outcome_adoption",
+          "weight": 2,
+          "coverage_weight": 2,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": "category prior—not observed outcome"
+        }
+      ],
+      "dimensions": {
+        "preference": {
+          "conservative": {
+            "numerator": 475,
+            "denominator": 8,
+            "display": "59.38"
+          },
+          "optimistic": {
+            "numerator": 525,
+            "denominator": 8,
+            "display": "65.62"
+          }
+        },
+        "stack_risk": {
+          "lower": "LOW",
+          "base": "LOW",
+          "upper": "MEDIUM"
+        },
+        "total_cost": {
+          "low": {
+            "amount": "99.00",
+            "currency": "USD"
+          },
+          "base": {
+            "amount": "99.00",
+            "currency": "USD"
+          },
+          "high": {
+            "amount": "119.00",
+            "currency": "USD"
+          }
+        },
+        "cost_line_items": [
+          {
+            "type": "MERCHANT_SUBTOTAL",
+            "low": {
+              "amount": "97.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "97.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "117.00",
+              "currency": "USD"
+            },
+            "schedule_version": null
+          },
+          {
+            "type": "SIRA_TRANSACTION_FEE",
+            "low": {
+              "amount": "2.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "2.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "2.00",
+              "currency": "USD"
+            },
+            "schedule_version": "buyer_txn_demo_v1"
+          }
+        ],
+        "payment_required": true,
+        "hard_coverage": {
+          "numerator": 5,
+          "denominator": 5
+        },
+        "decision_material_coverage": {
+          "conservative": {
+            "numerator": 13,
+            "denominator": 16
+          },
+          "optimistic": {
+            "numerator": 7,
+            "denominator": 8
+          }
+        },
+        "maximum_evidence_age_ratio": {
+          "lower": {
+            "numerator": 1,
+            "denominator": 60
+          },
+          "upper": {
+            "numerator": 1,
+            "denominator": 60
+          }
+        },
+        "universe_coverage": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "unresolved_count": 0,
+        "conflicting_count": 0,
+        "bound_unavailable_reasons": []
+      },
+      "stable_action_ids": [
+        "replace",
+        "product_fixture_c"
+      ],
+      "rank": 6,
+      "ordering_frontier_member": false,
+      "resolution_frontier_member": false,
+      "quote_required": false,
+      "quote_policy_reason": "NONE",
+      "permitted_resolution": null,
+      "autonomous_execution_allowed": false,
+      "stack_patch_id": null
+    },
+    {
+      "solution_plan_id": "plan_5a682ec42084ae355a2d",
+      "action_type": "REPLACE",
+      "components": [
+        {
+          "component_id": "product_fixture_d",
+          "source_type": "PRODUCT_EVIDENCE",
+          "source_id": "record_fixture_selected_fit",
+          "action_type": "REPLACE"
+        }
+      ],
+      "component_hash": "sha256:2b650e49987101d700e871c3d3962e7cdf34085bf0da71f74da502afbfcfcb6d",
+      "construction_lifecycle": "CANDIDATE",
+      "lifecycle": "EXECUTABLE",
+      "status": "ELIGIBLE",
+      "primary_reason": null,
+      "gate_results": [
+        {
+          "gate_id": "availability_canonical_d69d7a962e7f3b936bab",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
+      ],
+      "score_components": [
+        {
+          "criterion_id": "pref_admin_hours",
+          "weight": 5,
+          "coverage_weight": 5,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 5,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 5,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_d_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_deployment_days",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_d_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_crm_sync",
+          "weight": 1,
+          "coverage_weight": 1,
+          "conservative_satisfaction": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_integrations",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_d_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_outcome_adoption",
+          "weight": 2,
+          "coverage_weight": 2,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": "category prior—not observed outcome"
+        }
+      ],
+      "dimensions": {
+        "preference": {
+          "conservative": {
+            "numerator": 175,
+            "denominator": 2,
+            "display": "87.50"
+          },
+          "optimistic": {
+            "numerator": 375,
+            "denominator": 4,
+            "display": "93.75"
+          }
+        },
+        "stack_risk": {
+          "lower": "LOW",
+          "base": "LOW",
+          "upper": "MEDIUM"
+        },
+        "total_cost": {
+          "low": {
+            "amount": "89.00",
+            "currency": "USD"
+          },
+          "base": {
+            "amount": "89.00",
+            "currency": "USD"
+          },
+          "high": {
+            "amount": "109.00",
+            "currency": "USD"
+          }
+        },
+        "cost_line_items": [
+          {
+            "type": "MERCHANT_SUBTOTAL",
+            "low": {
+              "amount": "87.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "87.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "107.00",
+              "currency": "USD"
+            },
+            "schedule_version": null
+          },
+          {
+            "type": "SIRA_TRANSACTION_FEE",
+            "low": {
+              "amount": "2.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "2.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "2.00",
+              "currency": "USD"
+            },
+            "schedule_version": "buyer_txn_demo_v1"
+          }
+        ],
+        "payment_required": true,
+        "hard_coverage": {
+          "numerator": 5,
+          "denominator": 5
+        },
+        "decision_material_coverage": {
+          "conservative": {
+            "numerator": 13,
+            "denominator": 16
+          },
+          "optimistic": {
+            "numerator": 7,
+            "denominator": 8
+          }
+        },
+        "maximum_evidence_age_ratio": {
+          "lower": {
+            "numerator": 1,
+            "denominator": 60
+          },
+          "upper": {
+            "numerator": 1,
+            "denominator": 60
+          }
+        },
+        "universe_coverage": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "unresolved_count": 0,
+        "conflicting_count": 0,
+        "bound_unavailable_reasons": []
+      },
+      "stable_action_ids": [
+        "replace",
+        "product_fixture_d"
+      ],
       "rank": 1,
+      "ordering_frontier_member": true,
+      "resolution_frontier_member": false,
+      "quote_required": true,
+      "quote_policy_reason": "SELECTED_PLAN",
+      "permitted_resolution": null,
+      "autonomous_execution_allowed": false,
       "stack_patch_id": "patch_consultco_fixture_d"
     },
     {
-      "solution_plan_id": "sol_buy_fixture_c",
-      "action": "BUY",
-      "component_candidate_ids": ["fixture_eligible_runner_up"],
+      "solution_plan_id": "plan_93ec4b3649280de531a5",
+      "action_type": "RESIZE",
+      "components": [
+        {
+          "component_id": "inst_meeting_intelligence_incumbent",
+          "source_type": "CURRENT_INSTANCE",
+          "source_id": "inst_meeting_intelligence_incumbent",
+          "action_type": "RESIZE"
+        }
+      ],
+      "component_hash": "sha256:55fbf2c10a2c6859a2dd50b0be18952ec7fe9a939ff264071b94531da9732403",
+      "construction_lifecycle": "CANDIDATE",
+      "lifecycle": "EXECUTABLE",
       "status": "ELIGIBLE",
-      "preference_score": 61,
-      "stack_risk": "MEDIUM",
-      "total_cost": { "amount": "99.00", "currency": "USD" },
-      "required_evidence_coverage_percent": 100,
-      "maximum_evidence_age_days": 1,
-      "stable_action_ids": ["buy_fixture_eligible_runner_up"],
-      "rank": 2,
-      "stack_patch_id": "patch_consultco_fixture_c"
+      "primary_reason": null,
+      "gate_results": [
+        {
+          "gate_id": "availability_current_resize",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
+      ],
+      "score_components": [
+        {
+          "criterion_id": "pref_admin_hours",
+          "weight": 5,
+          "coverage_weight": 5,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 5,
+            "denominator": 2
+          },
+          "optimistic_contribution": {
+            "numerator": 5,
+            "denominator": 2
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_deployment_days",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 2,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 2,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_crm_sync",
+          "weight": 1,
+          "coverage_weight": 1,
+          "conservative_satisfaction": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_integrations",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_outcome_adoption",
+          "weight": 2,
+          "coverage_weight": 2,
+          "conservative_satisfaction": {
+            "numerator": 3,
+            "denominator": 4
+          },
+          "optimistic_satisfaction": {
+            "numerator": 3,
+            "denominator": 4
+          },
+          "conservative_contribution": {
+            "numerator": 3,
+            "denominator": 2
+          },
+          "optimistic_contribution": {
+            "numerator": 3,
+            "denominator": 2
+          },
+          "evidence_ids": [
+            "ev_incumbent_usage_outcome"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        }
+      ],
+      "dimensions": {
+        "preference": {
+          "conservative": {
+            "numerator": 125,
+            "denominator": 2,
+            "display": "62.50"
+          },
+          "optimistic": {
+            "numerator": 275,
+            "denominator": 4,
+            "display": "68.75"
+          }
+        },
+        "stack_risk": {
+          "lower": "LOW",
+          "base": "MEDIUM",
+          "upper": "MEDIUM"
+        },
+        "total_cost": {
+          "low": {
+            "amount": "76.00",
+            "currency": "USD"
+          },
+          "base": {
+            "amount": "82.00",
+            "currency": "USD"
+          },
+          "high": {
+            "amount": "92.00",
+            "currency": "USD"
+          }
+        },
+        "cost_line_items": [
+          {
+            "type": "CONTRACT_COST",
+            "low": {
+              "amount": "76.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "82.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "92.00",
+              "currency": "USD"
+            },
+            "schedule_version": null
+          }
+        ],
+        "payment_required": false,
+        "hard_coverage": {
+          "numerator": 5,
+          "denominator": 5
+        },
+        "decision_material_coverage": {
+          "conservative": {
+            "numerator": 15,
+            "denominator": 16
+          },
+          "optimistic": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "maximum_evidence_age_ratio": {
+          "lower": {
+            "numerator": 129601,
+            "denominator": 7776000
+          },
+          "upper": {
+            "numerator": 13,
+            "denominator": 36
+          }
+        },
+        "universe_coverage": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "unresolved_count": 0,
+        "conflicting_count": 0,
+        "bound_unavailable_reasons": []
+      },
+      "stable_action_ids": [
+        "resize",
+        "inst_meeting_intelligence_incumbent"
+      ],
+      "rank": 5,
+      "ordering_frontier_member": false,
+      "resolution_frontier_member": false,
+      "quote_required": false,
+      "quote_policy_reason": "NONE",
+      "permitted_resolution": null,
+      "autonomous_execution_allowed": false,
+      "stack_patch_id": null
+    },
+    {
+      "solution_plan_id": "plan_85c84ba1ca0ef55c0659",
+      "action_type": "REUSE_EXISTING",
+      "components": [
+        {
+          "component_id": "inst_meeting_intelligence_incumbent",
+          "source_type": "CURRENT_INSTANCE",
+          "source_id": "inst_meeting_intelligence_incumbent",
+          "action_type": "REUSE_EXISTING"
+        }
+      ],
+      "component_hash": "sha256:3641fe926f24fb377cb7b137fac33481b2a20a9c1264d4732df69f3515471359",
+      "construction_lifecycle": "CANDIDATE",
+      "lifecycle": "EXECUTABLE",
+      "status": "ELIGIBLE",
+      "primary_reason": null,
+      "gate_results": [
+        {
+          "gate_id": "availability_current_reuse_existing",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_budget",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "offer.landed_total"
+          ],
+          "permitted_resolution": "PROCUREMENT_GATE"
+        },
+        {
+          "gate_id": "gate_guest_notice",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.guest_recording_notice"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_no_customer_training",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.trains_on_customer_data"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_residency",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.data_residency"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "gate_source_links",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "product.source_linked_answers"
+          ],
+          "permitted_resolution": null
+        }
+      ],
+      "score_components": [
+        {
+          "criterion_id": "pref_admin_hours",
+          "weight": 5,
+          "coverage_weight": 5,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 5,
+            "denominator": 2
+          },
+          "optimistic_contribution": {
+            "numerator": 5,
+            "denominator": 2
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_deployment_days",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "conservative_contribution": {
+            "numerator": 2,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 2,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_crm_sync",
+          "weight": 1,
+          "coverage_weight": 1,
+          "conservative_satisfaction": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "evidence_ids": [],
+          "evidence_state": "UNKNOWN",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_native_integrations",
+          "weight": 4,
+          "coverage_weight": 4,
+          "conservative_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "optimistic_satisfaction": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "conservative_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "optimistic_contribution": {
+            "numerator": 4,
+            "denominator": 1
+          },
+          "evidence_ids": [
+            "ev_fixture_c_product"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        },
+        {
+          "criterion_id": "pref_outcome_adoption",
+          "weight": 2,
+          "coverage_weight": 2,
+          "conservative_satisfaction": {
+            "numerator": 3,
+            "denominator": 4
+          },
+          "optimistic_satisfaction": {
+            "numerator": 3,
+            "denominator": 4
+          },
+          "conservative_contribution": {
+            "numerator": 3,
+            "denominator": 2
+          },
+          "optimistic_contribution": {
+            "numerator": 3,
+            "denominator": 2
+          },
+          "evidence_ids": [
+            "ev_incumbent_usage_outcome"
+          ],
+          "evidence_state": "ACCEPTABLE",
+          "prior_label": null
+        }
+      ],
+      "dimensions": {
+        "preference": {
+          "conservative": {
+            "numerator": 125,
+            "denominator": 2,
+            "display": "62.50"
+          },
+          "optimistic": {
+            "numerator": 275,
+            "denominator": 4,
+            "display": "68.75"
+          }
+        },
+        "stack_risk": {
+          "lower": "LOW",
+          "base": "LOW",
+          "upper": "LOW"
+        },
+        "total_cost": {
+          "low": {
+            "amount": "99.00",
+            "currency": "USD"
+          },
+          "base": {
+            "amount": "99.00",
+            "currency": "USD"
+          },
+          "high": {
+            "amount": "109.00",
+            "currency": "USD"
+          }
+        },
+        "cost_line_items": [
+          {
+            "type": "CONTRACT_COST",
+            "low": {
+              "amount": "99.00",
+              "currency": "USD"
+            },
+            "base": {
+              "amount": "99.00",
+              "currency": "USD"
+            },
+            "high": {
+              "amount": "109.00",
+              "currency": "USD"
+            },
+            "schedule_version": null
+          }
+        ],
+        "payment_required": false,
+        "hard_coverage": {
+          "numerator": 5,
+          "denominator": 5
+        },
+        "decision_material_coverage": {
+          "conservative": {
+            "numerator": 15,
+            "denominator": 16
+          },
+          "optimistic": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "maximum_evidence_age_ratio": {
+          "lower": {
+            "numerator": 129601,
+            "denominator": 7776000
+          },
+          "upper": {
+            "numerator": 13,
+            "denominator": 36
+          }
+        },
+        "universe_coverage": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "unresolved_count": 0,
+        "conflicting_count": 0,
+        "bound_unavailable_reasons": []
+      },
+      "stable_action_ids": [
+        "reuse_existing",
+        "inst_meeting_intelligence_incumbent"
+      ],
+      "rank": 3,
+      "ordering_frontier_member": false,
+      "resolution_frontier_member": false,
+      "quote_required": false,
+      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
+      "permitted_resolution": null,
+      "autonomous_execution_allowed": true,
+      "stack_patch_id": null
     }
   ],
-  "selected_solution_plan_id": "sol_buy_fixture_d",
-  "counterfactual": {
-    "generic_selected_candidate_id": "fixture_low_price_policy_fail",
-    "company_aware_selected_candidate_id": "fixture_selected_fit",
-    "private_fact_ids_that_changed_result": ["bf_no_customer_training", "bf_residency_us", "bf_low_admin_capacity", "bf_stack_integrations"],
-    "explanation": "A generic price-only shopper selects Fixture A at USD 49.00. ConsultCo policy excludes it because customer training is prohibited and US residency is required; low administration capacity and current-stack compatibility then make Fixture D the best supported eligible plan.",
-    "rejected_candidate_id": "fixture_low_price_policy_fail",
-    "seller_pass_candidate_id": "fixture_honest_anti_fit",
-    "remaining_uncertainties": ["A real Prava sandbox authorization and controlled-merchant entitlement remain external validation gates."]
+  "decision_outcome": "SELECTED_SOLUTION_PLAN",
+  "selected_solution_plan_id": "plan_5a682ec42084ae355a2d",
+  "rank_stability": {
+    "status": "STABLE",
+    "summary": "The selected plan remains first across the supported uncertainty bounds.",
+    "evidence_frontier": [
+      {
+        "criterion_id": "ordering_frontier",
+        "reason_code": "ORDERING_OVERLAP",
+        "option_ids": [
+          "plan_5a682ec42084ae355a2d"
+        ],
+        "permitted_resolution": "Collect fresher decision-material evidence."
+      }
+    ]
   },
-  "decision_hash": "sha256:3291feb78df86b34f87b7a8220b71e9d24ef5fcb831474ff926314bd12918a34",
-  "created_at": "2026-08-02T01:05:00Z"
+  "counterfactuals": [
+    {
+      "outcome": "WINNER_CHANGED",
+      "removed_fact_ids": [
+        "bf_restricted_client_conversations"
+      ],
+      "alternative_fact_id_sets": [
+        [
+          "rf_shared_client_workspace"
+        ]
+      ],
+      "tested_limit": 3,
+      "before_evaluation_payload_hash": "sha256:e4a4f2ec6e10173f32a3e81b726d16103ec627f2688aedfe843e0379cc0611a4",
+      "after_evaluation_payload_hash": "sha256:29dcfba8c9628c39346a316bc073fcbcf6e9d42f6601fd2096bd90ae1abe9f32",
+      "generic_evaluation_payload_hash": "sha256:5d7b0e0e7fe73e8f99b4d1f210ed2cd323f2c3b857fe1497538589b2ae2a5b97",
+      "before_selected_plan_id": "plan_5a682ec42084ae355a2d",
+      "after_selected_plan_id": "plan_3bf2f83ab61e5f63ae7c",
+      "generic_selected_plan_id": "plan_15ed07224364e2feeb56",
+      "changed_gate_ids": [
+        "af_fixture_b_shared_client_data"
+      ],
+      "record_hash": "sha256:28c97465d39889827935c9a816683e5fd9072a4ff1895b908778c9cc2bcd2317"
+    }
+  ],
+  "created_at": "2026-08-02T12:00:00Z",
+  "decision_hash": "sha256:312889ff066eb5cb472bafc5dad4a303ed7f81fa737bcc18ab8e86f48fab841d"
 }

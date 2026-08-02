@@ -3,8 +3,11 @@
   "purchase_intent_id": "pi_consultco_fixture_d",
   "organization_id": "org_consultco",
   "decision_id": "dec_consultco_v1",
-  "decision_hash": "sha256:3291feb78df86b34f87b7a8220b71e9d24ef5fcb831474ff926314bd12918a34",
-  "solution_plan_id": "sol_buy_fixture_d",
+  "decision_version": 1,
+  "decision_hash": "sha256:312889ff066eb5cb472bafc5dad4a303ed7f81fa737bcc18ab8e86f48fab841d",
+  "selection_id": "selection_consultco_fixture_d",
+  "solution_plan_id": "plan_5a682ec42084ae355a2d",
+  "stack_patch_id": "patch_consultco_fixture_d",
   "purchase_intent_group_id": null,
   "procurement_plan_id": "pproc_consultco_v1",
   "procurement_gate_result_hash": "sha256:2553b3d2be3b1a3066e4a5ebfe0772ee80c821c6fa04b56517ae21fadcd01acc",
@@ -15,16 +18,60 @@
   "quote_id": "quote_fixture_d_v1",
   "quote_version": 1,
   "quote_expires_at": "2026-08-02T12:00:00Z",
-  "merchant": { "merchant_id": "merchant_fixture_d", "name": "Fixture Merchant D", "url": "https://merchant-d.example.test", "country": "US" },
+  "merchant": {
+    "merchant_id": "merchant_fixture_d",
+    "name": "Fixture Merchant D",
+    "url": "https://merchant-d.example.test",
+    "country": "US"
+  },
   "approved_merchant_chain_id": "smc_fixture_d",
   "amount": "89.00",
   "currency": "USD",
   "line_items": [
-    { "line_item_id": "li_fixture_d_team", "description": "Fixture D Team workspace with ten seats for one month", "quantity": 1, "unit_amount": "89.00", "total_amount": "89.00" }
+    {
+      "line_item_id": "li_fixture_d_team",
+      "type": "MERCHANT_SUBTOTAL",
+      "description": "Fixture D Team workspace with ten seats for one month",
+      "quantity": 1,
+      "unit_amount": "87.00",
+      "total_amount": "87.00",
+      "schedule_version": null,
+      "demo_policy_label": null
+    },
+    {
+      "line_item_id": "li_sira_transaction_fee",
+      "type": "SIRA_TRANSACTION_FEE",
+      "description": "SIRA buyer transaction fee under the sandbox demo policy",
+      "quantity": 1,
+      "unit_amount": "2.00",
+      "total_amount": "2.00",
+      "schedule_version": "buyer_txn_demo_v1",
+      "demo_policy_label": "DEMO_ONLY"
+    }
   ],
   "expected_fulfillments": [
-    { "fulfillment_item_id": "fi_fixture_d_workspace", "line_item_id": "li_fixture_d_team", "type": "workspace_entitlement", "subject_type": "organization", "required": true, "minimum_quantity": 1, "expected_quantity": 1, "partial_delivery_useful": false, "verification_method": "merchant_api_plus_access_probe" },
-    { "fulfillment_item_id": "fi_fixture_d_seats", "line_item_id": "li_fixture_d_team", "type": "seat_entitlement", "subject_type": "user_or_team", "required": true, "minimum_quantity": 10, "expected_quantity": 10, "partial_delivery_useful": true, "verification_method": "merchant_api" }
+    {
+      "fulfillment_item_id": "fi_fixture_d_workspace",
+      "line_item_id": "li_fixture_d_team",
+      "type": "workspace_entitlement",
+      "subject_type": "organization",
+      "required": true,
+      "minimum_quantity": 1,
+      "expected_quantity": 1,
+      "partial_delivery_useful": false,
+      "verification_method": "merchant_api_plus_access_probe"
+    },
+    {
+      "fulfillment_item_id": "fi_fixture_d_seats",
+      "line_item_id": "li_fixture_d_team",
+      "type": "seat_entitlement",
+      "subject_type": "user_or_team",
+      "required": true,
+      "minimum_quantity": 10,
+      "expected_quantity": 10,
+      "partial_delivery_useful": true,
+      "verification_method": "merchant_api"
+    }
   ],
   "fulfillment_completion_policy": "all_required_minimums_verified",
   "buyer_legal_entity_id": "entity_consultco",
@@ -32,13 +79,15 @@
   "billing_identity_id": "billing_consultco",
   "cost_center_id": "cc_client_delivery",
   "purchase_order_ref": null,
+  "merchant_subtotal": "87.00",
   "tax_amount": "0.00",
-  "fee_amount": "0.00",
+  "fee_amount": "2.00",
+  "fee_schedule_version": "buyer_txn_demo_v1",
   "contract_version_id": "contract_fixture_d_v1",
   "landed_total": "89.00",
   "approval_policy_version": 1,
   "approval_requirement_set_id": "aprs_consultco_v1",
   "approval_plan_hash": "sha256:674fd172cfafb42bbf8c31b0272d8e9c34b53cb191ac739784362034dde89cfe",
-  "intent_hash": "sha256:eccfb244cf3b9c80839a3c5f983e0ca5387ed322ce45ae616a2058865a3ba3ab",
+  "intent_hash": "sha256:40331dae94cb968c73705fbca8a44af937dfe2ec7b9747115023e342ad21315a",
   "locked_at": "2026-08-02T01:10:00Z"
 }

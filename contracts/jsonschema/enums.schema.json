@@ -3,37 +3,117 @@
   "$id": "https://schemas.sira.local/v1/enums.schema.json",
   "title": "SIRA shared enums",
   "$defs": {
-    "CandidateStatus": {
+    "ComponentStatus": {
       "type": "string",
-      "enum": ["ELIGIBLE", "ELIGIBLE_WITH_EXCEPTION", "CONDITIONAL", "SIRA_INELIGIBLE", "SEIL_PASS", "UNAVAILABLE", "STALE_EVIDENCE", "INSUFFICIENT_EVIDENCE", "CONFLICTING_EVIDENCE", "AUTHORITY_REQUIRED"]
+      "enum": ["ELIGIBLE", "ELIGIBLE_WITH_EXCEPTION", "CONDITIONAL", "SIRA_INELIGIBLE", "SEIL_PASS", "UNAVAILABLE", "STALE_EVIDENCE", "INSUFFICIENT_EVIDENCE", "CONFLICTING_EVIDENCE", "AUTHORITY_REQUIRED", "ADVISORY_ONLY"]
+    },
+    "SolutionOptionStatus": {
+      "type": "string",
+      "enum": ["SUPPORTED", "SUPPORTED_WITH_EXCEPTION", "NEEDS_CONDITION", "BLOCKED_BY_COMPANY_REQUIREMENT", "VENDOR_NOT_SUPPORTED", "UNAVAILABLE", "NEEDS_EVIDENCE", "EVIDENCE_CONFLICT", "AUTHORITY_REQUIRED", "RESEARCH_ONLY"]
+    },
+    "DecisionOutcome": {
+      "type": "string",
+      "enum": ["SELECTED_SOLUTION_PLAN", "NO_ELIGIBLE_SUPPORTED_ACTION"]
+    },
+    "RankStability": {
+      "type": "string",
+      "enum": ["STABLE", "UNSTABLE", "UNDETERMINED"]
+    },
+    "PackAuthority": {
+      "type": "string",
+      "enum": ["SELLER_SEALED", "PLATFORM_COMPILED", "EXTERNAL_UNSEALED"]
+    },
+    "SolutionActionType": {
+      "type": "string",
+      "enum": ["REUSE_EXISTING", "CONFIGURE_EXISTING", "NO_ACTION", "BUY", "RENEW", "RESIZE", "REPLACE", "CONSOLIDATE", "CANCEL"]
+    },
+    "SolutionPlanLifecycle": {
+      "type": "string",
+      "enum": ["CANDIDATE", "RESOLUTION_PENDING", "EXECUTABLE", "BLOCKED"]
+    },
+    "PlanSelectionState": {
+      "type": "string",
+      "enum": ["SELECTED", "SUPERSEDED", "CANCELLED"]
+    },
+    "DecisionStage": {
+      "type": "string",
+      "enum": ["NEED", "COMPANY_FIT", "OPTIONS", "ACTION", "RESULT"]
+    },
+    "StageStatus": {
+      "type": "string",
+      "enum": ["NOT_STARTED", "READY", "CURRENT", "WAITING", "BLOCKED", "COMPLETED", "SUPERSEDED"]
+    },
+    "DecisionVersionState": {
+      "type": "string",
+      "enum": ["CURRENT", "SUPERSEDED"]
+    },
+    "OperationStatus": {
+      "type": "string",
+      "enum": ["QUEUED", "RUNNING", "WAITING_FOR_HUMAN", "RETRYABLE_ERROR", "UNCERTAIN", "COMPLETED", "FAILED_FINAL"]
+    },
+    "ExecutionStepType": {
+      "type": "string",
+      "enum": ["REVIEW", "REQUIRED_AUTHORITY", "EXECUTE_OR_ASSIGN", "VERIFY"]
+    },
+    "ExecutionStepStatus": {
+      "type": "string",
+      "enum": ["NOT_REACHED", "AVAILABLE", "CURRENT", "BLOCKED", "COMPLETED", "SKIPPED", "FAILED_RETRYABLE", "FAILED_FINAL"]
     },
     "ApprovalStatus": {
       "type": "string",
-      "enum": ["NOT_REQUESTED", "PENDING", "APPROVED", "REJECTED", "EXPIRED", "SUPERSEDED"]
+      "enum": ["NOT_REQUIRED", "NOT_REQUESTED", "PENDING", "APPROVED", "REJECTED", "EXPIRED", "SUPERSEDED"]
     },
     "PaymentStatus": {
       "type": "string",
-      "enum": ["NOT_STARTED", "SESSION_CREATED", "CARDHOLDER_PENDING", "CHECKOUT_PENDING", "MERCHANT_APPROVED", "REPORTING", "PRAVA_COMPLETED", "DECLINED", "EXPIRED", "UNCERTAIN", "FAILED"]
+      "enum": ["NOT_REQUIRED", "NOT_STARTED", "SESSION_CREATED", "CARDHOLDER_PENDING", "CHECKOUT_PENDING", "MERCHANT_APPROVED", "REPORTING", "PRAVA_COMPLETED", "DECLINED", "EXPIRED", "UNCERTAIN", "FAILED"]
     },
     "FulfillmentStatus": {
       "type": "string",
-      "enum": ["NOT_STARTED", "PENDING", "PARTIAL", "VERIFIED", "FAILED_RETRYABLE", "FAILED_FINAL", "REVOKED"]
+      "enum": ["NOT_REQUIRED", "NOT_STARTED", "PENDING", "PARTIAL", "VERIFIED", "FAILED_RETRYABLE", "FAILED_FINAL", "REVOKED"]
     },
     "RequestVisibility": {
       "type": "string",
       "enum": ["PRIVATE", "SELECTIVE", "OPEN_RFP"]
     },
-    "CandidateAction": {
+    "ActorRole": {
       "type": "string",
-      "enum": ["SHORTLIST", "PASS", "REQUEST_OFFER", "SAVE_FOR_LATER", "NOT_ENOUGH_EVIDENCE"]
+      "enum": ["REQUESTER", "DECISION_MAKER", "POLICY_REVIEWER", "BUDGET_OWNER", "PROCUREMENT", "CARDHOLDER", "IT_OPERATIONS", "AUDITOR", "SELLER_EDITOR", "SELLER_REVIEWER", "PLATFORM_OPERATOR"]
+    },
+    "UIActionCapability": {
+      "type": "string",
+      "enum": ["VIEW_DECISION", "EDIT_REQUEST", "ANSWER_TASK", "VIEW_PRIVATE_COMPANY_FACTS", "KEEP_OPTION", "ELIMINATE_OPTION", "ASK_VENDOR", "SAVE_OPTION", "REQUEST_EVIDENCE", "SELECT_PLAN", "ACCEPT_EXCEPTION", "APPROVE_POLICY", "APPROVE_BUDGET", "AUTHORIZE_PAYMENT", "EXECUTE_CONFIGURATION", "VERIFY_FULFILLMENT", "PROVIDE_OUTCOME", "EXPORT_AUDIT", "EDIT_PRODUCT_EVIDENCE", "REVIEW_PRODUCT_EVIDENCE", "PUBLISH_PRODUCT_EVIDENCE", "SUSPEND_PRODUCT_EVIDENCE"]
+    },
+    "OptionFeedbackAction": {
+      "type": "string",
+      "enum": ["KEEP_FOR_COMPARISON", "ELIMINATE", "ASK_VENDOR", "SAVE", "NEED_EVIDENCE"]
     },
     "EngagementStatus": {
       "type": "string",
       "enum": ["NOT_STARTED", "SELLER_REVIEWING", "SELLER_PASSED", "OFFER_AVAILABLE", "BUYER_CONSENT_PENDING", "SELLER_CONSENT_PENDING", "INTRODUCTION_READY", "DECLINED", "EXPIRED"]
     },
+    "SellerEvidenceState": {
+      "type": "string",
+      "enum": ["UNCLAIMED", "CLAIM_PENDING", "CLAIM_DENIED", "SELLER_DRAFT", "VALIDATION_CONFLICT", "IN_REVIEW", "CHANGES_REQUESTED", "PUBLISH_READY", "PUBLISHED", "SUPERSEDED", "PUBLICATION_FAILED"]
+    },
+    "SellerReviewDecision": {
+      "type": "string",
+      "enum": ["REQUEST_CHANGES", "APPROVE", "REJECT"]
+    },
+    "SellerExportFormat": {
+      "type": "string",
+      "enum": ["JSON", "HTML", "REUSABLE_ANSWER"]
+    },
+    "ResultArtifactType": {
+      "type": "string",
+      "enum": ["DECISION_RECORD", "CONFIGURATION_CHANGE", "CONTRACT_CONFIRMATION", "CANCELLATION_CONFIRMATION", "ORDER", "ENTITLEMENT", "MIGRATION_RECORD", "STACK_PATCH", "OUTCOME_CHECKPOINT"]
+    },
     "StackRisk": {
       "type": "string",
       "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    },
+    "TruthValue": {
+      "type": "string",
+      "enum": ["TRUE", "FALSE", "UNKNOWN", "CONFLICT"]
     }
   }
 }

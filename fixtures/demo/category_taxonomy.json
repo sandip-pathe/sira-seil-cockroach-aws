@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0.0",
+  "category_id": "meeting_intelligence_client_services_v1",
+  "taxonomy_version": "meeting_intelligence_taxonomy_v1",
+  "normalization_version": "meeting_intelligence_normalization_v1",
+  "risk_rule_set_version": "meeting_intelligence_risk_v1",
+  "risk_rule_set_complete": true,
+  "evaluated_at": "2026-08-02T12:00:00Z",
+  "evidence_defaults": {
+    "allowed_source_classes": ["seller", "platform", "contract", "usage_outcome"],
+    "allowed_verification_methods": ["source_document_review", "api_probe", "merchant_order_probe", "contract_review", "usage_aggregation"],
+    "required_scope": "*",
+    "freshness_sla_seconds": 7776000
+  },
+  "preference_contracts": [
+    {
+      "criterion_id": "pref_admin_hours",
+      "field": "product.admin_hours_per_month",
+      "weight": 5,
+      "coverage_weight": 5,
+      "normalization": "LOWER_IS_BETTER",
+      "points": [{"maximum": 2, "satisfaction": [1, 1]}, {"maximum": 6, "satisfaction": [1, 2]}],
+      "unknown_upper": [1, 1],
+      "source_fact_ids": ["bf_low_admin_capacity"],
+      "permitted_evidence_resolution": "NEW_PACK_VERSION"
+    },
+    {
+      "criterion_id": "pref_deployment_days",
+      "field": "product.deployment_days",
+      "weight": 4,
+      "coverage_weight": 4,
+      "normalization": "LOWER_IS_BETTER",
+      "points": [{"maximum": 1, "satisfaction": [1, 1]}, {"maximum": 3, "satisfaction": [1, 2]}],
+      "unknown_upper": [1, 1],
+      "source_fact_ids": [],
+      "permitted_evidence_resolution": "NEW_PACK_VERSION"
+    },
+    {
+      "criterion_id": "pref_native_integrations",
+      "field": "product.native_integrations",
+      "weight": 4,
+      "coverage_weight": 4,
+      "normalization": "SET_CONTAINS_ALL",
+      "expected": ["google_workspace", "slack", "zoom"],
+      "unknown_upper": [1, 1],
+      "source_fact_ids": ["bf_stack_integrations"],
+      "permitted_evidence_resolution": "NEW_PACK_VERSION"
+    },
+    {
+      "criterion_id": "pref_native_crm_sync",
+      "field": "product.native_crm_sync",
+      "weight": 1,
+      "coverage_weight": 1,
+      "normalization": "BOOLEAN_EQUALS",
+      "expected": true,
+      "unknown_upper": [1, 1],
+      "source_fact_ids": [],
+      "permitted_evidence_resolution": "NEW_PACK_VERSION"
+    },
+    {
+      "criterion_id": "pref_outcome_adoption",
+      "field": "outcome.adoption",
+      "weight": 2,
+      "coverage_weight": 2,
+      "normalization": "OUTCOME_RATE",
+      "neutral_prior": [1, 2],
+      "unknown_upper": [1, 2],
+      "source_fact_ids": [],
+      "permitted_evidence_resolution": null
+    }
+  ],
+  "risk_rules": [
+    {"rule_id": "risk_replace_v1", "actions": ["REPLACE", "BUY"], "lower": "LOW", "base": "LOW", "upper": "MEDIUM"},
+    {"rule_id": "risk_reuse_v1", "actions": ["REUSE_EXISTING", "NO_ACTION", "RENEW"], "lower": "LOW", "base": "LOW", "upper": "LOW"},
+    {"rule_id": "risk_configure_v1", "actions": ["CONFIGURE_EXISTING", "RESIZE"], "lower": "LOW", "base": "MEDIUM", "upper": "MEDIUM"},
+    {"rule_id": "risk_cancel_v1", "actions": ["CANCEL"], "lower": "MEDIUM", "base": "HIGH", "upper": "HIGH"},
+    {"rule_id": "risk_consolidate_v1", "actions": ["CONSOLIDATE"], "lower": "MEDIUM", "base": "HIGH", "upper": "CRITICAL"}
+  ]
+}

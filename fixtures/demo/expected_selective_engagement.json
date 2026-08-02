@@ -1,10 +1,8 @@
 {
   "schema_version": "1.0.0",
   "engagement_id": "eng_consultco_fixture_d",
-  "request_id": "req_demo",
-  "candidate_id": "fixture_selected_fit",
   "visibility": "SELECTIVE",
-  "action": "REQUEST_OFFER",
+  "action": "ASK_VENDOR",
   "status": "BUYER_CONSENT_PENDING",
   "requirement_brief_id": "rb_consultco_v1",
   "buyer_identity_disclosed": false,
@@ -13,5 +11,9 @@
   "seller_contact": null,
   "buyer_consent": "PENDING",
   "seller_consent": "PENDING",
-  "created_at": "2026-08-02T01:07:00Z"
+  "created_at": "2026-08-02T01:07:00Z",
+  "decision_request_id": "req_demo",
+  "decision_version": 1,
+  "solution_plan_id": "plan_5a682ec42084ae355a2d",
+  "requirement_brief_version": 1
 }

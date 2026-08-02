@@ -250,12 +250,30 @@ def _generic_plan(plan: SolutionPlan) -> SolutionPlan:
     )
 
 
-def evaluate_demo(fixtures_directory: str | Path) -> DemoDecision:
-    """Replay the frozen four-Pack narrative from checked-in JSON files."""
+def evaluate_demo(
+    fixtures_directory: str | Path,
+    *,
+    purchase_brief_override: Mapping[str, Any] | None = None,
+    requirement_brief_override: Mapping[str, Any] | None = None,
+) -> DemoDecision:
+    """Replay the four-Pack narrative against a supplied or checked-in buyer rubric.
+
+    The override keeps policy-version evaluation inside the pure decision layer.  It is
+    an already-validated Purchase Brief mapping; provider, persistence, and API objects
+    remain outside this module.
+    """
 
     root = Path(fixtures_directory)
-    purchase_brief = _load_object(root / "purchase_brief.json")
-    requirement_brief = _load_object(root / "requirement_brief.json")
+    purchase_brief = (
+        purchase_brief_override
+        if purchase_brief_override is not None
+        else _load_object(root / "purchase_brief.json")
+    )
+    requirement_brief = (
+        requirement_brief_override
+        if requirement_brief_override is not None
+        else _load_object(root / "requirement_brief.json")
+    )
     assert_public_payload(requirement_brief)
     offers_document = _load_object(root / "offers.json")
     offers = {str(offer["candidate_id"]): offer for offer in offers_document.get("offers", ())}

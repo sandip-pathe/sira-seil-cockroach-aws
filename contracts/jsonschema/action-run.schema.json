@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sira.local/v1/action-run.schema.json",
+  "title": "Action-neutral execution run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "action_run_id", "workflow_id", "decision_id", "decision_version", "decision_hash", "selection_id", "solution_plan_id", "action_type", "status", "current_step_id", "last_successful_checkpoint_id", "owner_role", "blocking_task", "recovery_action", "execution_steps", "payment", "fulfillment", "result_artifacts", "created_at", "updated_at", "completed_at"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
+    "action_run_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "workflow_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "decision_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "decision_version": { "type": "integer", "minimum": 1 },
+    "decision_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+    "selection_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "solution_plan_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "action_type": {
+      "type": "string",
+      "enum": ["REUSE_EXISTING", "CONFIGURE_EXISTING", "NO_ACTION", "BUY", "RENEW", "RESIZE", "REPLACE", "CANCEL"]
+    },
+    "status": { "$ref": "enums.schema.json#/$defs/OperationStatus" },
+    "current_step_id": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/Identifier" },
+        { "type": "null" }
+      ]
+    },
+    "last_successful_checkpoint_id": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/Identifier" },
+        { "type": "null" }
+      ]
+    },
+    "owner_role": { "$ref": "enums.schema.json#/$defs/ActorRole" },
+    "blocking_task": {
+      "oneOf": [
+        { "$ref": "decision-view.schema.json#/$defs/BlockingTask" },
+        { "type": "null" }
+      ]
+    },
+    "recovery_action": {
+      "oneOf": [
+        { "$ref": "decision-view.schema.json#/$defs/AvailableAction" },
+        { "type": "null" }
+      ]
+    },
+    "execution_steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "decision-view.schema.json#/$defs/ExecutionStep" }
+    },
+    "payment": {
+      "oneOf": [
+        { "$ref": "decision-view.schema.json#/$defs/PaymentView" },
+        { "type": "null" }
+      ]
+    },
+    "fulfillment": {
+      "oneOf": [
+        { "$ref": "decision-view.schema.json#/$defs/FulfillmentView" },
+        { "type": "null" }
+      ]
+    },
+    "result_artifacts": {
+      "type": "array",
+      "items": { "$ref": "decision-view.schema.json#/$defs/ResultArtifact" }
+    },
+    "created_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "updated_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "completed_at": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/Timestamp" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "COMPLETED" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "completed_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+          "result_artifacts": { "minItems": 1 }
+        }
+      }
+    }
+  ]
+}

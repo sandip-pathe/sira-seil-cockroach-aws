@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
-import json
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime
@@ -18,6 +17,8 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any
 from uuid import UUID
+
+import rfc8785
 
 from .errors import DomainValidationError
 
@@ -90,16 +91,13 @@ def canonical_json(
     *,
     excluded_fields: Iterable[str] = (),
 ) -> str:
-    """Return deterministic compact JSON for the supported artifact subset."""
+    """Return RFC 8785 JSON after applying the product's typed normalization."""
 
     normalized = _normalize(value, excluded_fields=frozenset(excluded_fields))
-    return json.dumps(
-        normalized,
-        ensure_ascii=False,
-        allow_nan=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
+    try:
+        return rfc8785.dumps(normalized).decode("utf-8")
+    except (rfc8785.CanonicalizationError, UnicodeError) as error:
+        raise DomainValidationError(f"RFC 8785 canonicalization failed: {error}") from error
 
 
 def content_hash(

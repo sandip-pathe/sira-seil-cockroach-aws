@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "contract_id": "contract_incumbent_fixture_c",
+  "version": 1,
+  "instance_id": "inst_meeting_intelligence_incumbent",
+  "product_id": "product_fixture_c",
+  "pack_id": "fixture_eligible_runner_up",
+  "seat_count": 10,
+  "currency": "USD",
+  "term_start": "2025-09-01T00:00:00Z",
+  "term_end": "2026-08-31T23:59:59Z",
+  "cancellation_deadline": "2026-08-15T23:59:59Z",
+  "current_monthly_cost": "99.00",
+  "configuration_cost": {"low": "8.00", "base": "12.00", "high": "18.00"},
+  "reuse_cost": {"low": "99.00", "base": "99.00", "high": "109.00"},
+  "no_action_cost": {"low": "99.00", "base": "104.00", "high": "119.00"},
+  "cancel_cost": {"low": "0.00", "base": "0.00", "high": "25.00"},
+  "evidence_id": "ev_incumbent_contract",
+  "observed_at_lower": "2026-07-30T00:00:00Z",
+  "observed_at_upper": "2026-08-01T00:00:00Z"
+}

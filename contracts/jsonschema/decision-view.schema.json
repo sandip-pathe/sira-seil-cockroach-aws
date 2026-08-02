@@ -1,105 +1,696 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.sira.local/v1/decision-view.schema.json",
-  "title": "UI-oriented decision view",
+  "title": "Role-filtered SIRA Decision Room view",
   "type": "object",
   "additionalProperties": false,
-  "required": ["request", "company_context", "coverage", "candidates", "selected_solution_plan", "counterfactual", "stack_patch", "approval", "payment", "fulfillment", "receipt"],
+  "required": ["request", "workflow", "evaluation", "company_context", "coverage", "decision_outcome", "rank_stability", "solution_options", "selected_action_plan", "stack_change", "approval", "payment", "fulfillment", "result_artifacts", "receipt"],
   "properties": {
-    "request": {
+    "request": { "$ref": "#/$defs/RequestView" },
+    "workflow": { "$ref": "#/$defs/WorkflowView" },
+    "evaluation": { "$ref": "#/$defs/EvaluationView" },
+    "company_context": { "$ref": "#/$defs/CompanyContextView" },
+    "coverage": { "$ref": "#/$defs/CoverageView" },
+    "decision_outcome": { "$ref": "enums.schema.json#/$defs/DecisionOutcome" },
+    "rank_stability": { "$ref": "#/$defs/RankStabilityView" },
+    "solution_options": { "type": "array", "items": { "$ref": "#/$defs/SolutionOption" } },
+    "selected_action_plan": {
+      "oneOf": [
+        { "$ref": "#/$defs/SelectedActionPlan" },
+        { "type": "null" }
+      ]
+    },
+    "stack_change": {
+      "oneOf": [
+        { "$ref": "#/$defs/StackChangeView" },
+        { "type": "null" }
+      ]
+    },
+    "approval": {
+      "oneOf": [
+        { "$ref": "#/$defs/ApprovalView" },
+        { "type": "null" }
+      ]
+    },
+    "payment": {
+      "oneOf": [
+        { "$ref": "#/$defs/PaymentView" },
+        { "type": "null" }
+      ]
+    },
+    "fulfillment": {
+      "oneOf": [
+        { "$ref": "#/$defs/FulfillmentView" },
+        { "type": "null" }
+      ]
+    },
+    "result_artifacts": { "type": "array", "items": { "$ref": "#/$defs/ResultArtifact" } },
+    "receipt": {
+      "oneOf": [
+        { "$ref": "receipt.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "$defs": {
+    "NullableIdentifier": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/Identifier" },
+        { "type": "null" }
+      ]
+    },
+    "NullableTimestamp": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/Timestamp" },
+        { "type": "null" }
+      ]
+    },
+    "NullableHref": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/Href" },
+        { "type": "null" }
+      ]
+    },
+    "RequestView": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "intent", "status"],
+      "required": ["id", "intent", "status", "decision_version", "decision_state", "superseded_by"],
       "properties": {
         "id": { "$ref": "common.schema.json#/$defs/Identifier" },
         "intent": { "type": "string", "minLength": 1, "maxLength": 500 },
-        "status": { "type": "string", "enum": ["DRAFT", "DISCOVERING", "DECISION_READY", "APPROVAL_PENDING", "PURCHASING", "FULFILLED"] }
+        "status": { "type": "string", "enum": ["DRAFT", "DISCOVERING", "DECISION_READY", "ACTION_IN_PROGRESS", "RESULT_READY", "COMPLETED"] },
+        "decision_version": { "type": "integer", "minimum": 1 },
+        "decision_state": { "$ref": "enums.schema.json#/$defs/DecisionVersionState" },
+        "superseded_by": { "$ref": "#/$defs/NullableIdentifier" }
       }
     },
-    "company_context": {
+    "ActorView": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["facts_used", "hidden_fact_count", "passport_version", "stack_snapshot"],
+      "required": ["role", "capabilities"],
       "properties": {
-        "facts_used": {
+        "role": { "$ref": "enums.schema.json#/$defs/ActorRole" },
+        "capabilities": {
           "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["fact_id", "display_name", "display_value", "provenance_label", "sensitivity"],
-            "properties": {
-              "fact_id": { "$ref": "common.schema.json#/$defs/Identifier" },
-              "display_name": { "type": "string", "minLength": 1, "maxLength": 100 },
-              "display_value": { "type": "string", "minLength": 1, "maxLength": 200 },
-              "provenance_label": { "type": "string", "minLength": 1, "maxLength": 200 },
-              "sensitivity": { "type": "string", "enum": ["internal", "confidential", "restricted"] }
-            }
-          }
-        },
-        "hidden_fact_count": { "type": "integer", "minimum": 0 },
-        "passport_version": { "type": "integer", "minimum": 1 },
-        "stack_snapshot": { "type": "integer", "minimum": 1 }
+          "uniqueItems": true,
+          "items": { "$ref": "enums.schema.json#/$defs/UIActionCapability" }
+        }
       }
     },
-    "coverage": {
+    "AvailableAction": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["evaluated_count", "statement"],
+      "required": ["id", "label", "method", "href", "requires_confirmation"],
       "properties": {
-        "evaluated_count": { "type": "integer", "minimum": 0 },
+        "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "method": { "type": "string", "enum": ["GET", "POST", "PATCH", "DELETE"] },
+        "href": { "$ref": "common.schema.json#/$defs/Href" },
+        "requires_confirmation": { "type": "boolean" },
+        "expires_at": { "$ref": "#/$defs/NullableTimestamp" }
+      }
+    },
+    "BlockingTask": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "owner_role", "due_at", "expires_at", "status", "href"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "owner_role": { "$ref": "enums.schema.json#/$defs/ActorRole" },
+        "due_at": { "$ref": "#/$defs/NullableTimestamp" },
+        "expires_at": { "$ref": "#/$defs/NullableTimestamp" },
+        "status": { "type": "string", "enum": ["OPEN", "WAITING", "BLOCKED", "COMPLETED", "EXPIRED"] },
+        "href": { "$ref": "common.schema.json#/$defs/Href" }
+      }
+    },
+    "ActiveOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "status", "current_checkpoint_id", "last_successful_checkpoint_id", "owner_role", "started_at", "updated_at", "retryable", "safe_to_leave", "recovery_action"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "kind": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+        "status": { "$ref": "enums.schema.json#/$defs/OperationStatus" },
+        "current_checkpoint_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "last_successful_checkpoint_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "owner_role": { "$ref": "enums.schema.json#/$defs/ActorRole" },
+        "started_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "updated_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "retryable": { "type": "boolean" },
+        "safe_to_leave": { "type": "boolean" },
+        "recovery_action": {
+          "oneOf": [
+            { "$ref": "#/$defs/AvailableAction" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "StageHistoryEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "status", "checkpoint_id", "completed_at", "href"],
+      "properties": {
+        "stage": { "$ref": "enums.schema.json#/$defs/DecisionStage" },
+        "status": { "$ref": "enums.schema.json#/$defs/StageStatus" },
+        "checkpoint_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "completed_at": { "$ref": "#/$defs/NullableTimestamp" },
+        "href": { "$ref": "common.schema.json#/$defs/Href" }
+      }
+    },
+    "VersionLinks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "previous", "superseded_by"],
+      "properties": {
+        "current": { "$ref": "common.schema.json#/$defs/Href" },
+        "previous": { "$ref": "#/$defs/NullableHref" },
+        "superseded_by": { "$ref": "#/$defs/NullableHref" }
+      }
+    },
+    "WorkflowView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current_stage", "actor", "available_actions", "blocking_tasks", "active_operation", "stage_history", "version_links"],
+      "properties": {
+        "current_stage": { "$ref": "enums.schema.json#/$defs/DecisionStage" },
+        "actor": { "$ref": "#/$defs/ActorView" },
+        "available_actions": { "type": "array", "items": { "$ref": "#/$defs/AvailableAction" } },
+        "blocking_tasks": { "type": "array", "items": { "$ref": "#/$defs/BlockingTask" } },
+        "active_operation": {
+          "oneOf": [
+            { "$ref": "#/$defs/ActiveOperation" },
+            { "type": "null" }
+          ]
+        },
+        "stage_history": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/StageHistoryEntry" } },
+        "version_links": { "$ref": "#/$defs/VersionLinks" }
+      }
+    },
+    "EvaluationView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "payload_hash", "decision_hash", "pipeline_version", "engine_version"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "payload_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+        "decision_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+        "pipeline_version": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "engine_version": { "$ref": "common.schema.json#/$defs/Identifier" }
+      }
+    },
+    "CompanyFactView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fact_id", "display_name", "display_value", "provenance_label", "sensitivity"],
+      "properties": {
+        "fact_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "display_value": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "provenance_label": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "sensitivity": { "type": "string", "enum": ["internal", "confidential", "restricted"] }
+      }
+    },
+    "CompanyContextView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["facts_used", "hidden_fact_count", "company_profile_version", "company_stack_snapshot"],
+      "properties": {
+        "facts_used": { "type": "array", "items": { "$ref": "#/$defs/CompanyFactView" } },
+        "hidden_fact_count": { "type": "integer", "minimum": 0 },
+        "company_profile_version": { "type": "integer", "minimum": 1 },
+        "company_stack_snapshot": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "CoverageView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_record_count", "product_evidence_option_count", "canonical_product_count", "duplicate_count", "generated_solution_plan_count", "evaluated_solution_plan_count", "excluded_count", "statement"],
+      "properties": {
+        "raw_record_count": { "type": "integer", "minimum": 0 },
+        "product_evidence_option_count": { "type": "integer", "minimum": 0 },
+        "canonical_product_count": { "type": "integer", "minimum": 0 },
+        "duplicate_count": { "type": "integer", "minimum": 0 },
+        "generated_solution_plan_count": { "type": "integer", "minimum": 0 },
+        "evaluated_solution_plan_count": { "type": "integer", "minimum": 0 },
+        "excluded_count": { "type": "integer", "minimum": 0 },
         "statement": { "type": "string", "minLength": 1, "maxLength": 500 }
       }
     },
-    "candidates": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/CandidateView" } },
-    "selected_solution_plan": { "$ref": "decision-ledger.schema.json#/$defs/SolutionPlan" },
-    "counterfactual": { "$ref": "decision-ledger.schema.json#/$defs/Counterfactual" },
-    "stack_patch": { "$ref": "stack-patch.schema.json" },
-    "approval": {
+    "EvidenceFrontierItem": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "approval_request_id", "intent_hash"],
+      "required": ["criterion_id", "reason_code", "option_ids", "permitted_resolution"],
       "properties": {
-        "status": { "$ref": "enums.schema.json#/$defs/ApprovalStatus" },
-        "approval_request_id": { "oneOf": [{ "$ref": "common.schema.json#/$defs/Identifier" }, { "type": "null" }] },
-        "intent_hash": { "oneOf": [{ "$ref": "common.schema.json#/$defs/Sha256" }, { "type": "null" }] }
+        "criterion_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "reason_code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+        "option_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "permitted_resolution": { "type": ["string", "null"], "maxLength": 300 }
       }
     },
-    "payment": {
+    "RankStabilityView": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "provider_session_reference"],
+      "required": ["status", "summary", "evidence_frontier"],
       "properties": {
-        "status": { "$ref": "enums.schema.json#/$defs/PaymentStatus" },
-        "provider_session_reference": { "oneOf": [{ "$ref": "common.schema.json#/$defs/Identifier" }, { "type": "null" }] }
+        "status": { "$ref": "enums.schema.json#/$defs/RankStability" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "evidence_frontier": { "type": "array", "items": { "$ref": "#/$defs/EvidenceFrontierItem" } }
       }
     },
-    "fulfillment": {
+    "MoneyOrUnavailable": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/Money" },
+        { "$ref": "common.schema.json#/$defs/BoundUnavailable" }
+      ]
+    },
+    "RatioOrUnavailable": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/ExactRatio" },
+        { "$ref": "common.schema.json#/$defs/BoundUnavailable" }
+      ]
+    },
+    "RiskOrUnavailable": {
+      "oneOf": [
+        { "$ref": "enums.schema.json#/$defs/StackRisk" },
+        { "$ref": "common.schema.json#/$defs/BoundUnavailable" }
+      ]
+    },
+    "PreferenceScoreBounds": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "verified_entitlement_ids"],
+      "required": ["conservative", "optimistic"],
       "properties": {
-        "status": { "$ref": "enums.schema.json#/$defs/FulfillmentStatus" },
-        "verified_entitlement_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+        "conservative": { "$ref": "common.schema.json#/$defs/ExactScore" },
+        "optimistic": { "$ref": "common.schema.json#/$defs/ExactScore" }
       }
     },
-    "receipt": { "oneOf": [{ "$ref": "receipt.schema.json" }, { "type": "null" }] }
-  },
-  "$defs": {
-    "CandidateView": {
+    "StackRiskBounds": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "name", "status", "reason_code", "reason", "preference_score", "stack_risk", "total_cost", "evidence", "seller_positioning"],
+      "required": ["base", "lower", "upper"],
+      "properties": {
+        "base": { "$ref": "#/$defs/RiskOrUnavailable" },
+        "lower": { "$ref": "#/$defs/RiskOrUnavailable" },
+        "upper": { "$ref": "#/$defs/RiskOrUnavailable" }
+      }
+    },
+    "TotalCostBounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["low", "base", "high"],
+      "properties": {
+        "low": { "$ref": "#/$defs/MoneyOrUnavailable" },
+        "base": { "$ref": "#/$defs/MoneyOrUnavailable" },
+        "high": { "$ref": "#/$defs/MoneyOrUnavailable" }
+      }
+    },
+    "EvidenceCoverageBounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hard", "decision_material"],
+      "properties": {
+        "hard": { "$ref": "common.schema.json#/$defs/ExactRatio" },
+        "decision_material": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["conservative", "optimistic"],
+          "properties": {
+            "conservative": { "$ref": "#/$defs/RatioOrUnavailable" },
+            "optimistic": { "$ref": "#/$defs/RatioOrUnavailable" }
+          }
+        }
+      }
+    },
+    "EvidenceAgeBounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lower", "upper"],
+      "properties": {
+        "lower": { "$ref": "#/$defs/RatioOrUnavailable" },
+        "upper": { "$ref": "#/$defs/RatioOrUnavailable" }
+      }
+    },
+    "DefaultComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cost", "stack_change", "next_action"],
+      "properties": {
+        "cost": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["amount", "currency", "horizon_days"],
+          "properties": {
+            "amount": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
+            "currency": { "$ref": "common.schema.json#/$defs/Currency" },
+            "horizon_days": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "stack_change": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "next_action": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "SolutionComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product_evidence_id", "current_instance_id", "action", "publisher_authority", "verification_summary"],
+      "properties": {
+        "product_evidence_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "current_instance_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "action": { "type": "string", "enum": ["ADD", "REMOVE", "RETAIN", "CONFIGURE", "RENEW", "RESIZE", "CANCEL", "REUSE"] },
+        "publisher_authority": {
+          "oneOf": [
+            { "$ref": "enums.schema.json#/$defs/PackAuthority" },
+            { "type": "null" }
+          ]
+        },
+        "verification_summary": { "type": "string", "minLength": 1, "maxLength": 300 }
+      },
+      "oneOf": [
+        { "required": ["product_evidence_id"], "properties": { "product_evidence_id": { "$ref": "common.schema.json#/$defs/Identifier" } } },
+        { "required": ["current_instance_id"], "properties": { "current_instance_id": { "$ref": "common.schema.json#/$defs/Identifier" } } }
+      ]
+    },
+    "MerchantOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "offer_id"],
       "properties": {
         "id": { "$ref": "common.schema.json#/$defs/Identifier" },
-        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
-        "status": { "$ref": "enums.schema.json#/$defs/CandidateStatus" },
+        "offer_id": { "$ref": "common.schema.json#/$defs/Identifier" }
+      }
+    },
+    "EvidenceSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "publisher_authority", "verification_state", "href"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "publisher_authority": { "$ref": "enums.schema.json#/$defs/PackAuthority" },
+        "verification_state": { "type": "string", "enum": ["VERIFIED", "SELLER_ASSERTED", "STALE", "INSUFFICIENT", "CONFLICTING", "REVOKED"] },
+        "href": { "$ref": "common.schema.json#/$defs/Href" }
+      }
+    },
+    "SolutionOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "action_type", "label", "status", "reason_code", "reason", "default_comparison", "preference_score", "ordering_frontier_member", "resolution_frontier_member", "quote_required", "quote_policy_reason", "permitted_resolution", "stack_risk", "total_cost", "evidence_coverage", "maximum_evidence_age_ratio", "evidence_frontier", "components", "merchant", "evidence", "seller_positioning"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "action_type": { "$ref": "enums.schema.json#/$defs/SolutionActionType" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "status": { "$ref": "enums.schema.json#/$defs/SolutionOptionStatus" },
         "reason_code": { "type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
         "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
-        "preference_score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
-        "stack_risk": { "$ref": "enums.schema.json#/$defs/StackRisk" },
-        "total_cost": { "$ref": "common.schema.json#/$defs/Money" },
-        "evidence": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "default_comparison": { "$ref": "#/$defs/DefaultComparison" },
+        "preference_score": { "$ref": "#/$defs/PreferenceScoreBounds" },
+        "ordering_frontier_member": { "type": "boolean" },
+        "resolution_frontier_member": { "type": "boolean" },
+        "quote_required": { "type": "boolean" },
+        "quote_policy_reason": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "permitted_resolution": { "type": ["string", "null"], "maxLength": 300 },
+        "stack_risk": { "$ref": "#/$defs/StackRiskBounds" },
+        "total_cost": { "$ref": "#/$defs/TotalCostBounds" },
+        "evidence_coverage": { "$ref": "#/$defs/EvidenceCoverageBounds" },
+        "maximum_evidence_age_ratio": { "$ref": "#/$defs/EvidenceAgeBounds" },
+        "evidence_frontier": { "type": "array", "items": { "$ref": "#/$defs/EvidenceFrontierItem" } },
+        "components": { "type": "array", "items": { "$ref": "#/$defs/SolutionComponent" } },
+        "merchant": {
+          "oneOf": [
+            { "$ref": "#/$defs/MerchantOption" },
+            { "type": "null" }
+          ]
+        },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/EvidenceSummary" } },
         "seller_positioning": { "type": ["string", "null"], "maxLength": 500 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "components": {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "publisher_authority": { "enum": ["PLATFORM_COMPILED", "EXTERNAL_UNSEALED"] }
+                  },
+                  "required": ["publisher_authority"]
+                }
+              }
+            },
+            "required": ["components"]
+          },
+          "then": {
+            "properties": {
+              "status": { "const": "RESEARCH_ONLY" },
+              "ordering_frontier_member": { "const": false },
+              "resolution_frontier_member": { "const": false },
+              "quote_required": { "const": false },
+              "merchant": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "action_type": { "const": "CONSOLIDATE" } }, "required": ["action_type"] },
+          "then": {
+            "properties": {
+              "ordering_frontier_member": { "const": false },
+              "resolution_frontier_member": { "const": false },
+              "quote_required": { "const": false },
+              "merchant": { "type": "null" }
+            }
+          }
+        }
+      ]
+    },
+    "ExecutionStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "status", "owner_role", "started_at", "completed_at", "checkpoint_id", "artifact_id", "blocker", "available_action"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "type": { "$ref": "enums.schema.json#/$defs/ExecutionStepType" },
+        "status": { "$ref": "enums.schema.json#/$defs/ExecutionStepStatus" },
+        "owner_role": { "$ref": "enums.schema.json#/$defs/ActorRole" },
+        "started_at": { "$ref": "#/$defs/NullableTimestamp" },
+        "completed_at": { "$ref": "#/$defs/NullableTimestamp" },
+        "checkpoint_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "artifact_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "blocker": { "type": ["string", "null"], "maxLength": 300 },
+        "available_action": {
+          "oneOf": [
+            { "$ref": "#/$defs/AvailableAction" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "SelectedActionPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "action_type", "state", "selected_at", "selected_by_role", "selection_id", "decision_version", "decision_hash", "execution_steps", "href"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "action_type": {
+          "type": "string",
+          "enum": ["REUSE_EXISTING", "CONFIGURE_EXISTING", "NO_ACTION", "BUY", "RENEW", "RESIZE", "REPLACE", "CANCEL"]
+        },
+        "state": { "$ref": "enums.schema.json#/$defs/PlanSelectionState" },
+        "selected_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "selected_by_role": { "$ref": "enums.schema.json#/$defs/ActorRole" },
+        "selection_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "decision_version": { "type": "integer", "minimum": 1 },
+        "decision_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+        "execution_steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ExecutionStep" } },
+        "href": { "$ref": "common.schema.json#/$defs/Href" }
+      }
+    },
+    "StackChangeView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "summary", "added", "removed", "staged_for_removal", "retained", "dependency_changed", "href"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "status": { "type": "string", "enum": ["PROPOSED", "STAGED", "APPLIED", "REJECTED", "SUPERSEDED"] },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "added": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "removed": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "staged_for_removal": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "retained": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "dependency_changed": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "href": { "$ref": "common.schema.json#/$defs/Href" }
+      }
+    },
+    "ApprovalView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "status", "requirement_set_id", "owner_roles", "completed_count", "required_count", "rejected_by_role", "expires_at", "href"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "status": { "$ref": "enums.schema.json#/$defs/ApprovalStatus" },
+        "requirement_set_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "owner_roles": { "type": "array", "uniqueItems": true, "items": { "$ref": "enums.schema.json#/$defs/ActorRole" } },
+        "completed_count": { "type": "integer", "minimum": 0 },
+        "required_count": { "type": "integer", "minimum": 0 },
+        "rejected_by_role": {
+          "oneOf": [
+            { "$ref": "enums.schema.json#/$defs/ActorRole" },
+            { "type": "null" }
+          ]
+        },
+        "expires_at": { "$ref": "#/$defs/NullableTimestamp" },
+        "href": { "$ref": "#/$defs/NullableHref" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "required": { "const": false } }, "required": ["required"] },
+          "then": { "properties": { "status": { "const": "NOT_REQUIRED" }, "required_count": { "const": 0 } } }
+        }
+      ]
+    },
+    "PaymentLineItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "amount"],
+      "properties": {
+        "type": { "type": "string", "enum": ["MERCHANT_SUBTOTAL", "SIRA_TRANSACTION_FEE", "TAX"] },
+        "amount": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
+        "schedule_version": { "$ref": "common.schema.json#/$defs/Identifier" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "SIRA_TRANSACTION_FEE" } }, "required": ["type"] },
+          "then": {
+            "required": ["schedule_version"],
+            "properties": { "amount": { "const": "2.00" }, "schedule_version": { "const": "buyer_txn_demo_v1" } }
+          },
+          "else": { "not": { "required": ["schedule_version"] } }
+        }
+      ]
+    },
+    "PaymentView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "status", "currency", "line_items", "landed_total", "purchase_intent_id", "last_checkpoint_at", "href"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "status": { "$ref": "enums.schema.json#/$defs/PaymentStatus" },
+        "currency": {
+          "oneOf": [
+            { "$ref": "common.schema.json#/$defs/Currency" },
+            { "type": "null" }
+          ]
+        },
+        "line_items": { "type": "array", "items": { "$ref": "#/$defs/PaymentLineItem" } },
+        "landed_total": {
+          "oneOf": [
+            { "$ref": "common.schema.json#/$defs/DecimalAmount" },
+            { "type": "null" }
+          ]
+        },
+        "purchase_intent_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "last_checkpoint_at": { "$ref": "#/$defs/NullableTimestamp" },
+        "href": { "$ref": "#/$defs/NullableHref" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "required": { "const": false } }, "required": ["required"] },
+          "then": {
+            "properties": {
+              "status": { "const": "NOT_REQUIRED" },
+              "currency": { "type": "null" },
+              "line_items": { "maxItems": 0 },
+              "landed_total": { "type": "null" },
+              "purchase_intent_id": { "type": "null" },
+              "href": { "type": "null" }
+            }
+          },
+          "else": {
+            "properties": {
+              "currency": { "const": "USD" },
+              "landed_total": { "const": "89.00" },
+              "line_items": {
+                "minItems": 2,
+                "uniqueItems": true,
+                "allOf": [
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": { "type": { "const": "SIRA_TRANSACTION_FEE" }, "amount": { "const": "2.00" }, "schedule_version": { "const": "buyer_txn_demo_v1" } },
+                      "required": ["type", "amount", "schedule_version"]
+                    },
+                    "minContains": 1,
+                    "maxContains": 1
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": { "type": { "const": "MERCHANT_SUBTOTAL" }, "amount": { "const": "87.00" } },
+                      "required": ["type", "amount"]
+                    },
+                    "minContains": 1,
+                    "maxContains": 1
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FulfillmentView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "status", "expected_item_count", "verified_item_count", "partial_item_count", "owner_role", "last_checkpoint_at", "href"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "status": { "$ref": "enums.schema.json#/$defs/FulfillmentStatus" },
+        "expected_item_count": { "type": "integer", "minimum": 0 },
+        "verified_item_count": { "type": "integer", "minimum": 0 },
+        "partial_item_count": { "type": "integer", "minimum": 0 },
+        "owner_role": {
+          "oneOf": [
+            { "$ref": "enums.schema.json#/$defs/ActorRole" },
+            { "type": "null" }
+          ]
+        },
+        "last_checkpoint_at": { "$ref": "#/$defs/NullableTimestamp" },
+        "href": { "$ref": "#/$defs/NullableHref" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "required": { "const": false } }, "required": ["required"] },
+          "then": {
+            "properties": {
+              "status": { "const": "NOT_REQUIRED" },
+              "expected_item_count": { "const": 0 },
+              "verified_item_count": { "const": 0 },
+              "partial_item_count": { "const": 0 },
+              "owner_role": { "type": "null" },
+              "href": { "type": "null" }
+            }
+          }
+        }
+      ]
+    },
+    "ResultArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "verification_state", "actor_ref", "owner_role", "occurred_at", "verified_at", "safe_label", "href", "stack_patch_id", "receipt_id"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "type": { "$ref": "enums.schema.json#/$defs/ResultArtifactType" },
+        "verification_state": { "type": "string", "enum": ["PENDING", "VERIFIED", "FAILED", "REVOKED"] },
+        "actor_ref": { "$ref": "#/$defs/NullableIdentifier" },
+        "owner_role": { "$ref": "enums.schema.json#/$defs/ActorRole" },
+        "occurred_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "verified_at": { "$ref": "#/$defs/NullableTimestamp" },
+        "safe_label": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "href": { "$ref": "common.schema.json#/$defs/Href" },
+        "stack_patch_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "receipt_id": { "$ref": "#/$defs/NullableIdentifier" }
       }
     }
   }

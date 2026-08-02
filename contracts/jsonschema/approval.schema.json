@@ -33,12 +33,52 @@
     "exact_summary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["decision_hash", "merchant_id", "amount", "currency", "quote_id", "quote_version", "pack_id", "pack_version", "offer_id", "offer_version", "expected_fulfillment_ids"],
+      "required": ["decision_version", "decision_hash", "selection_id", "solution_plan_id", "merchant_id", "line_items", "merchant_subtotal", "buyer_transaction_fee", "fee_schedule_version", "tax_amount", "landed_total", "currency", "quote_id", "quote_version", "pack_id", "pack_version", "offer_id", "offer_version", "expected_fulfillment_ids"],
       "properties": {
+        "decision_version": { "type": "integer", "minimum": 1 },
         "decision_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+        "selection_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "solution_plan_id": { "$ref": "common.schema.json#/$defs/Identifier" },
         "merchant_id": { "$ref": "common.schema.json#/$defs/Identifier" },
-        "amount": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
-        "currency": { "$ref": "common.schema.json#/$defs/Currency" },
+        "line_items": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "common.schema.json#/$defs/LineItem" },
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "SIRA_TRANSACTION_FEE" },
+                  "total_amount": { "const": "2.00" },
+                  "schedule_version": { "const": "buyer_txn_demo_v1" }
+                },
+                "required": ["type", "total_amount", "schedule_version"]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "MERCHANT_SUBTOTAL" },
+                  "total_amount": { "const": "87.00" }
+                },
+                "required": ["type", "total_amount"]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ]
+        },
+        "merchant_subtotal": { "const": "87.00" },
+        "buyer_transaction_fee": { "const": "2.00" },
+        "fee_schedule_version": { "const": "buyer_txn_demo_v1" },
+        "tax_amount": { "const": "0.00" },
+        "landed_total": { "const": "89.00" },
+        "currency": { "const": "USD" },
         "quote_id": { "$ref": "common.schema.json#/$defs/Identifier" },
         "quote_version": { "type": "integer", "minimum": 1 },
         "pack_id": { "$ref": "common.schema.json#/$defs/Identifier" },

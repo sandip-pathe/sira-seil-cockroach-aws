@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "version": "identity_normalization_v1",
+  "aliases": [
+    {"source": "Fictional Seller D, Inc.", "target": "seller_fixture_d"},
+    {"source": "seller_fixture_d_inc", "target": "seller_fixture_d"},
+    {"source": "Fixture D Meeting Notes", "target": "product_fixture_d"},
+    {"source": "fixture_d_meeting_notes", "target": "product_fixture_d"},
+    {"source": "Team Annual", "target": "Team"},
+    {"source": "US-East", "target": "US"},
+    {"source": "reseller_offer_fixture_d", "target": "offer_fixture_d_monthly"}
+  ]
+}

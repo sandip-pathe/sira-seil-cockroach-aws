@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from decision_engine import evaluate_demo
@@ -38,3 +39,20 @@ def test_frozen_demo_runner_up_and_winner_are_deterministic() -> None:
     assert ranked == ["fixture_selected_fit", "fixture_eligible_runner_up"]
     assert first == second
     assert round(first.selected_plan.preference_score) == 86
+
+
+def test_demo_replays_an_accepted_purchase_brief_version() -> None:
+    baseline = evaluate_demo(FIXTURES)
+    purchase_brief = json.loads((FIXTURES / "purchase_brief.json").read_text(encoding="utf-8"))
+    crm_preference = next(
+        item
+        for item in purchase_brief["preferences"]
+        if item["criterion_id"] == "pref_native_crm_sync"
+    )
+    crm_preference["weight"] = 2
+
+    revised = evaluate_demo(FIXTURES, purchase_brief_override=purchase_brief)
+
+    assert revised.selected_plan.component_ids == ("fixture_selected_fit",)
+    assert revised.selected_plan.preference_score != baseline.selected_plan.preference_score
+    assert purchase_brief["preferences"][-1]["weight"] == 2

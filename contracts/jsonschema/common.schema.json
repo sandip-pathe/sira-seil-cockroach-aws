@@ -40,6 +40,40 @@
         "currency": { "$ref": "#/$defs/Currency" }
       }
     },
+    "ExactRatio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": { "type": "integer", "minimum": 0 },
+        "denominator": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "ExactScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator", "display"],
+      "properties": {
+        "numerator": { "type": "integer", "minimum": 0 },
+        "denominator": { "type": "integer", "minimum": 1 },
+        "display": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$" }
+      }
+    },
+    "BoundUnavailable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason_code"],
+      "properties": {
+        "status": { "const": "BOUND_UNAVAILABLE" },
+        "reason_code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" }
+      }
+    },
+    "Href": {
+      "type": "string",
+      "pattern": "^/",
+      "minLength": 1,
+      "maxLength": 500
+    },
     "EvidenceReference": {
       "type": "object",
       "additionalProperties": false,
@@ -103,14 +137,42 @@
     "LineItem": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["line_item_id", "description", "quantity", "unit_amount", "total_amount"],
+      "required": ["line_item_id", "type", "description", "quantity", "unit_amount", "total_amount", "schedule_version", "demo_policy_label"],
       "properties": {
         "line_item_id": { "$ref": "#/$defs/Identifier" },
+        "type": { "type": "string", "enum": ["MERCHANT_SUBTOTAL", "SIRA_TRANSACTION_FEE", "TAX"] },
         "description": { "type": "string", "minLength": 1, "maxLength": 200 },
         "quantity": { "type": "integer", "minimum": 1 },
         "unit_amount": { "$ref": "#/$defs/DecimalAmount" },
-        "total_amount": { "$ref": "#/$defs/DecimalAmount" }
-      }
+        "total_amount": { "$ref": "#/$defs/DecimalAmount" },
+        "schedule_version": {
+          "oneOf": [
+            { "$ref": "#/$defs/Identifier" },
+            { "type": "null" }
+          ]
+        },
+        "demo_policy_label": { "type": ["string", "null"], "maxLength": 100 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "SIRA_TRANSACTION_FEE" } }, "required": ["type"] },
+          "then": {
+            "properties": {
+              "quantity": { "const": 1 },
+              "unit_amount": { "const": "2.00" },
+              "total_amount": { "const": "2.00" },
+              "schedule_version": { "const": "buyer_txn_demo_v1" },
+              "demo_policy_label": { "const": "DEMO_ONLY" }
+            }
+          },
+          "else": {
+            "properties": {
+              "schedule_version": { "type": "null" },
+              "demo_policy_label": { "type": "null" }
+            }
+          }
+        }
+      ]
     },
     "ExpectedFulfillment": {
       "type": "object",

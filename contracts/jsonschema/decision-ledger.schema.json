@@ -1,126 +1,408 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.sira.local/v1/decision-ledger.schema.json",
-  "title": "Immutable Decision Ledger",
+  "title": "Immutable SIRA Decision Graph ledger",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "decision_id", "request_id", "purchase_brief_id", "purchase_brief_version", "requirement_brief_id", "requirement_brief_version", "buyer_passport_version", "stack_snapshot", "policy_version", "evaluated_universe", "candidate_results", "solution_plans", "selected_solution_plan_id", "counterfactual", "decision_hash", "created_at"],
+  "required": ["schema_version", "decision_id", "decision_version", "decision_state", "supersedes_decision_id", "request_id", "purchase_brief_id", "purchase_brief_version", "requirement_brief_id", "requirement_brief_version", "company_profile_version", "stack_snapshot", "policy_version", "evaluation", "evaluated_universe", "component_results", "solution_plans", "decision_outcome", "selected_solution_plan_id", "rank_stability", "counterfactuals", "decision_hash", "created_at"],
   "properties": {
     "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
     "decision_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+    "decision_version": { "type": "integer", "minimum": 1 },
+    "decision_state": { "$ref": "enums.schema.json#/$defs/DecisionVersionState" },
+    "supersedes_decision_id": { "$ref": "#/$defs/NullableIdentifier" },
     "request_id": { "$ref": "common.schema.json#/$defs/Identifier" },
     "purchase_brief_id": { "$ref": "common.schema.json#/$defs/Identifier" },
     "purchase_brief_version": { "type": "integer", "minimum": 1 },
     "requirement_brief_id": { "$ref": "common.schema.json#/$defs/Identifier" },
     "requirement_brief_version": { "type": "integer", "minimum": 1 },
-    "buyer_passport_version": { "type": "integer", "minimum": 1 },
+    "company_profile_version": { "type": "integer", "minimum": 1 },
     "stack_snapshot": { "type": "integer", "minimum": 1 },
     "policy_version": { "type": "integer", "minimum": 1 },
-    "evaluated_universe": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["category_schema_version", "registry_candidates_considered", "known_external_candidates_not_normalized", "evaluated_candidate_ids", "coverage_statement"],
-      "properties": {
-        "category_schema_version": { "type": "integer", "minimum": 1 },
-        "registry_candidates_considered": { "type": "integer", "minimum": 0 },
-        "known_external_candidates_not_normalized": { "type": "integer", "minimum": 0 },
-        "evaluated_candidate_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
-        "coverage_statement": { "type": "string", "minLength": 1, "maxLength": 500 }
-      }
-    },
-    "candidate_results": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/CandidateResult" } },
+    "evaluation": { "$ref": "#/$defs/EvaluationRecord" },
+    "evaluated_universe": { "$ref": "#/$defs/EvaluatedUniverse" },
+    "component_results": { "type": "array", "items": { "$ref": "#/$defs/ComponentResult" } },
     "solution_plans": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/SolutionPlan" } },
-    "selected_solution_plan_id": { "$ref": "common.schema.json#/$defs/Identifier" },
-    "counterfactual": { "$ref": "#/$defs/Counterfactual" },
+    "decision_outcome": { "$ref": "enums.schema.json#/$defs/DecisionOutcome" },
+    "selected_solution_plan_id": { "$ref": "#/$defs/NullableIdentifier" },
+    "rank_stability": { "$ref": "decision-view.schema.json#/$defs/RankStabilityView" },
+    "counterfactuals": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/CounterfactualRecord" } },
     "decision_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
     "created_at": { "$ref": "common.schema.json#/$defs/Timestamp" }
   },
-  "$defs": {
-    "HardConstraintResult": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "source", "result", "reason_code", "evidence_ids"],
-      "properties": {
-        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
-        "source": { "type": "string", "enum": ["buyer", "seller", "dependency", "availability"] },
-        "result": { "type": "string", "enum": ["pass", "fail", "not_evaluated"] },
-        "reason_code": { "type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
-        "evidence_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
-      }
+  "allOf": [
+    {
+      "if": { "properties": { "decision_outcome": { "const": "NO_ELIGIBLE_SUPPORTED_ACTION" } }, "required": ["decision_outcome"] },
+      "then": { "properties": { "selected_solution_plan_id": { "type": "null" } } },
+      "else": { "properties": { "selected_solution_plan_id": { "$ref": "common.schema.json#/$defs/Identifier" } } }
     },
-    "PreferenceScore": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "weight", "satisfaction", "contribution", "evidence_ids"],
-      "properties": {
-        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
-        "weight": { "type": "integer", "minimum": 1, "maximum": 5 },
-        "satisfaction": { "type": "string", "enum": ["0", "0.25", "0.5", "0.75", "1"] },
-        "contribution": { "type": "string", "pattern": "^(0|[1-9][0-9]*)(\\.(00|25|50|75))?$" },
-        "evidence_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
-      }
-    },
-    "CandidateResult": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["candidate_id", "name", "pack_id", "pack_version", "status", "reason_code", "reason", "hard_constraints", "preference_scores", "preference_score", "dependency_impact", "total_cost", "evidence_ids", "seller_positioning"],
-      "properties": {
-        "candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
-        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
-        "pack_id": { "$ref": "common.schema.json#/$defs/Identifier" },
-        "pack_version": { "type": "integer", "minimum": 1 },
-        "status": { "$ref": "enums.schema.json#/$defs/CandidateStatus" },
-        "reason_code": { "type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
-        "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
-        "hard_constraints": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/HardConstraintResult" } },
-        "preference_scores": { "type": "array", "items": { "$ref": "#/$defs/PreferenceScore" } },
-        "preference_score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
-        "dependency_impact": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["risk", "affected_nodes"],
-          "properties": {
-            "risk": { "$ref": "enums.schema.json#/$defs/StackRisk" },
-            "affected_nodes": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+    {
+      "if": {
+        "properties": {
+          "rank_stability": {
+            "type": "object",
+            "properties": { "status": { "enum": ["UNSTABLE", "UNDETERMINED"] } },
+            "required": ["status"]
           }
         },
-        "total_cost": { "$ref": "common.schema.json#/$defs/Money" },
-        "evidence_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
-        "seller_positioning": { "type": ["string", "null"], "maxLength": 500 }
+        "required": ["rank_stability"]
+      },
+      "then": {
+        "properties": {
+          "solution_plans": {
+            "items": {
+              "properties": { "autonomous_execution_allowed": { "const": false } },
+              "required": ["autonomous_execution_allowed"]
+            }
+          }
+        }
       }
+    }
+  ],
+  "$defs": {
+    "NullableIdentifier": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/Identifier" },
+        { "type": "null" }
+      ]
+    },
+    "NullableHash": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/Sha256" },
+        { "type": "null" }
+      ]
+    },
+    "FrozenVersions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request", "company_profile", "stackfile", "registry", "pack_set", "offer_set", "taxonomy", "normalization", "policy", "fx", "pipeline", "engine"],
+      "properties": {
+        "request": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "company_profile": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "stackfile": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "registry": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "pack_set": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "offer_set": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "taxonomy": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "normalization": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "policy": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "fx": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "pipeline": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "engine": { "$ref": "common.schema.json#/$defs/Identifier" }
+      }
+    },
+    "EvaluationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evaluation_id", "evaluated_at", "evaluation_payload_hash", "frozen_versions", "ranked_solution_plan_ids", "ordering_frontier_plan_ids", "bound_unavailable_plan_ids"],
+      "properties": {
+        "evaluation_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "evaluated_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "evaluation_payload_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+        "frozen_versions": { "$ref": "#/$defs/FrozenVersions" },
+        "ranked_solution_plan_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "ordering_frontier_plan_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "bound_unavailable_plan_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } }
+      }
+    },
+    "IdentityMerge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical_id", "merged_record_id", "reasons"],
+      "properties": {
+        "canonical_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "merged_record_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "reasons": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 200 } }
+      }
+    },
+    "EvaluatedUniverse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_record_count", "product_evidence_option_count", "canonical_product_count", "duplicate_count", "generated_solution_plan_count", "evaluated_solution_plan_count", "excluded_count", "included_record_ids", "excluded_record_ids", "identity_merges", "coverage_statement"],
+      "properties": {
+        "raw_record_count": { "type": "integer", "minimum": 0 },
+        "product_evidence_option_count": { "type": "integer", "minimum": 0 },
+        "canonical_product_count": { "type": "integer", "minimum": 0 },
+        "duplicate_count": { "type": "integer", "minimum": 0 },
+        "generated_solution_plan_count": { "type": "integer", "minimum": 0 },
+        "evaluated_solution_plan_count": { "type": "integer", "minimum": 0 },
+        "excluded_count": { "type": "integer", "minimum": 0 },
+        "included_record_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "excluded_record_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "identity_merges": { "type": "array", "items": { "$ref": "#/$defs/IdentityMerge" } },
+        "coverage_statement": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "GateReason": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason_code", "status", "detail"],
+      "properties": {
+        "reason_code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+        "status": { "$ref": "enums.schema.json#/$defs/ComponentStatus" },
+        "detail": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "GateResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gate_id", "truth", "reasons", "evaluated_predicates", "permitted_resolution"],
+      "properties": {
+        "gate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "truth": { "$ref": "enums.schema.json#/$defs/TruthValue" },
+        "reasons": { "type": "array", "items": { "$ref": "#/$defs/GateReason" } },
+        "evaluated_predicates": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
+        "permitted_resolution": { "type": ["string", "null"], "maxLength": 300 }
+      }
+    },
+    "EvidenceAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "record_id", "field", "source_class", "verification_method", "scope_match", "reconstructable", "freshness_current", "disputed", "revoked", "state", "reasons", "age_bounds"],
+      "properties": {
+        "evidence_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "record_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "field": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{2,127}$" },
+        "source_class": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "verification_method": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "scope_match": { "type": "boolean" },
+        "reconstructable": { "type": "boolean" },
+        "freshness_current": { "type": ["boolean", "null"] },
+        "disputed": { "type": "boolean" },
+        "revoked": { "type": "boolean" },
+        "state": { "type": "string", "enum": ["ACCEPTABLE", "UNKNOWN", "STALE", "CONFLICT"] },
+        "reasons": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+        "age_bounds": {
+          "oneOf": [
+            { "$ref": "decision-view.schema.json#/$defs/EvidenceAgeBounds" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "ComponentResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component_id", "name", "pack_id", "pack_version", "current_instance_id", "publisher_authority", "status", "primary_reason", "gate_results", "evidence_assessments"],
+      "properties": {
+        "component_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "pack_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "pack_version": { "type": ["integer", "null"], "minimum": 1 },
+        "current_instance_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "publisher_authority": {
+          "oneOf": [
+            { "$ref": "enums.schema.json#/$defs/PackAuthority" },
+            { "type": "null" }
+          ]
+        },
+        "status": { "$ref": "enums.schema.json#/$defs/ComponentStatus" },
+        "primary_reason": {
+          "oneOf": [
+            { "$ref": "#/$defs/GateReason" },
+            { "type": "null" }
+          ]
+        },
+        "gate_results": { "type": "array", "items": { "$ref": "#/$defs/GateResult" } },
+        "evidence_assessments": { "type": "array", "items": { "$ref": "#/$defs/EvidenceAssessment" } }
+      },
+      "oneOf": [
+        { "properties": { "pack_id": { "$ref": "common.schema.json#/$defs/Identifier" }, "pack_version": { "type": "integer", "minimum": 1 } } },
+        { "properties": { "current_instance_id": { "$ref": "common.schema.json#/$defs/Identifier" } } }
+      ]
+    },
+    "PlanComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component_id", "source_type", "source_id", "action_type"],
+      "properties": {
+        "component_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "source_type": { "type": "string", "enum": ["PRODUCT_EVIDENCE", "CURRENT_INSTANCE", "CONTRACT", "DEPENDENCY"] },
+        "source_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "action_type": { "$ref": "enums.schema.json#/$defs/SolutionActionType" }
+      }
+    },
+    "ScoreComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterion_id", "weight", "coverage_weight", "conservative_satisfaction", "optimistic_satisfaction", "conservative_contribution", "optimistic_contribution", "evidence_ids", "evidence_state", "prior_label"],
+      "properties": {
+        "criterion_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "weight": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "coverage_weight": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "conservative_satisfaction": { "$ref": "common.schema.json#/$defs/ExactRatio" },
+        "optimistic_satisfaction": { "$ref": "common.schema.json#/$defs/ExactRatio" },
+        "conservative_contribution": { "$ref": "common.schema.json#/$defs/ExactRatio" },
+        "optimistic_contribution": { "$ref": "common.schema.json#/$defs/ExactRatio" },
+        "evidence_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "evidence_state": { "type": "string", "enum": ["ACCEPTABLE", "UNKNOWN", "STALE", "CONFLICT"] },
+        "prior_label": { "type": ["string", "null"], "maxLength": 200 }
+      }
+    },
+    "CostLineItemBounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "low", "base", "high", "schedule_version"],
+      "properties": {
+        "type": { "type": "string", "enum": ["MERCHANT_SUBTOTAL", "SIRA_TRANSACTION_FEE", "TAX", "CONTRACT_COST", "MIGRATION_COST", "IMPLEMENTATION_COST"] },
+        "low": { "$ref": "decision-view.schema.json#/$defs/MoneyOrUnavailable" },
+        "base": { "$ref": "decision-view.schema.json#/$defs/MoneyOrUnavailable" },
+        "high": { "$ref": "decision-view.schema.json#/$defs/MoneyOrUnavailable" },
+        "schedule_version": { "type": ["string", "null"], "maxLength": 100 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "SIRA_TRANSACTION_FEE" } }, "required": ["type"] },
+          "then": {
+            "properties": {
+              "low": { "type": "object", "properties": { "amount": { "const": "2.00" }, "currency": { "const": "USD" } }, "required": ["amount", "currency"] },
+              "base": { "type": "object", "properties": { "amount": { "const": "2.00" }, "currency": { "const": "USD" } }, "required": ["amount", "currency"] },
+              "high": { "type": "object", "properties": { "amount": { "const": "2.00" }, "currency": { "const": "USD" } }, "required": ["amount", "currency"] },
+              "schedule_version": { "const": "buyer_txn_demo_v1" }
+            }
+          }
+        }
+      ]
+    },
+    "PlanDimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preference", "stack_risk", "total_cost", "cost_line_items", "payment_required", "hard_coverage", "decision_material_coverage", "maximum_evidence_age_ratio", "universe_coverage", "unresolved_count", "conflicting_count", "bound_unavailable_reasons"],
+      "properties": {
+        "preference": { "$ref": "decision-view.schema.json#/$defs/PreferenceScoreBounds" },
+        "stack_risk": { "$ref": "decision-view.schema.json#/$defs/StackRiskBounds" },
+        "total_cost": { "$ref": "decision-view.schema.json#/$defs/TotalCostBounds" },
+        "cost_line_items": { "type": "array", "items": { "$ref": "#/$defs/CostLineItemBounds" } },
+        "payment_required": { "type": "boolean" },
+        "hard_coverage": { "$ref": "common.schema.json#/$defs/ExactRatio" },
+        "decision_material_coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["conservative", "optimistic"],
+          "properties": {
+            "conservative": { "$ref": "decision-view.schema.json#/$defs/RatioOrUnavailable" },
+            "optimistic": { "$ref": "decision-view.schema.json#/$defs/RatioOrUnavailable" }
+          }
+        },
+        "maximum_evidence_age_ratio": { "$ref": "decision-view.schema.json#/$defs/EvidenceAgeBounds" },
+        "universe_coverage": { "$ref": "common.schema.json#/$defs/ExactRatio" },
+        "unresolved_count": { "type": "integer", "minimum": 0 },
+        "conflicting_count": { "type": "integer", "minimum": 0 },
+        "bound_unavailable_reasons": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 300 } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "payment_required": { "const": false } }, "required": ["payment_required"] },
+          "then": {
+            "properties": {
+              "cost_line_items": {
+                "not": {
+                  "contains": { "type": "object", "properties": { "type": { "const": "SIRA_TRANSACTION_FEE" } }, "required": ["type"] }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "cost_line_items": {
+                "contains": { "type": "object", "properties": { "type": { "const": "SIRA_TRANSACTION_FEE" } }, "required": ["type"] },
+                "minContains": 1,
+                "maxContains": 1
+              }
+            }
+          }
+        }
+      ]
     },
     "SolutionPlan": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["solution_plan_id", "action", "component_candidate_ids", "status", "preference_score", "stack_risk", "total_cost", "required_evidence_coverage_percent", "maximum_evidence_age_days", "stable_action_ids", "rank", "stack_patch_id"],
+      "required": ["solution_plan_id", "action_type", "components", "component_hash", "construction_lifecycle", "lifecycle", "status", "primary_reason", "gate_results", "score_components", "dimensions", "stable_action_ids", "rank", "ordering_frontier_member", "resolution_frontier_member", "quote_required", "quote_policy_reason", "permitted_resolution", "autonomous_execution_allowed", "stack_patch_id"],
       "properties": {
         "solution_plan_id": { "$ref": "common.schema.json#/$defs/Identifier" },
-        "action": { "type": "string", "enum": ["REUSE_EXISTING", "CONFIGURE_EXISTING", "NO_ACTION", "BUY", "REPLACE", "CONSOLIDATE"] },
-        "component_candidate_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
-        "status": { "$ref": "enums.schema.json#/$defs/CandidateStatus" },
-        "preference_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "stack_risk": { "$ref": "enums.schema.json#/$defs/StackRisk" },
-        "total_cost": { "$ref": "common.schema.json#/$defs/Money" },
-        "required_evidence_coverage_percent": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "maximum_evidence_age_days": { "type": "integer", "minimum": 0 },
-        "stable_action_ids": { "type": "array", "minItems": 1, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
-        "rank": { "type": "integer", "minimum": 1 },
-        "stack_patch_id": { "$ref": "common.schema.json#/$defs/Identifier" }
-      }
+        "action_type": { "$ref": "enums.schema.json#/$defs/SolutionActionType" },
+        "components": { "type": "array", "items": { "$ref": "#/$defs/PlanComponent" } },
+        "component_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+        "construction_lifecycle": { "const": "CANDIDATE" },
+        "lifecycle": { "$ref": "enums.schema.json#/$defs/SolutionPlanLifecycle" },
+        "status": { "$ref": "enums.schema.json#/$defs/ComponentStatus" },
+        "primary_reason": {
+          "oneOf": [
+            { "$ref": "#/$defs/GateReason" },
+            { "type": "null" }
+          ]
+        },
+        "gate_results": { "type": "array", "items": { "$ref": "#/$defs/GateResult" } },
+        "score_components": { "type": "array", "items": { "$ref": "#/$defs/ScoreComponent" } },
+        "dimensions": { "$ref": "#/$defs/PlanDimensions" },
+        "stable_action_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "rank": { "type": ["integer", "null"], "minimum": 1 },
+        "ordering_frontier_member": { "type": "boolean" },
+        "resolution_frontier_member": { "type": "boolean" },
+        "quote_required": { "type": "boolean" },
+        "quote_policy_reason": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "permitted_resolution": { "type": ["string", "null"], "maxLength": 300 },
+        "autonomous_execution_allowed": { "type": "boolean" },
+        "stack_patch_id": { "$ref": "#/$defs/NullableIdentifier" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "dimensions": {
+                "type": "object",
+                "properties": { "bound_unavailable_reasons": { "minItems": 1 } },
+                "required": ["bound_unavailable_reasons"]
+              }
+            },
+            "required": ["dimensions"]
+          },
+          "then": { "properties": { "autonomous_execution_allowed": { "const": false } } }
+        }
+      ]
     },
-    "Counterfactual": {
+    "FactIdSet": {
+      "type": "array",
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": { "$ref": "common.schema.json#/$defs/Identifier" }
+    },
+    "CounterfactualRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["generic_selected_candidate_id", "company_aware_selected_candidate_id", "private_fact_ids_that_changed_result", "explanation", "rejected_candidate_id", "seller_pass_candidate_id", "remaining_uncertainties"],
+      "required": ["outcome", "removed_fact_ids", "alternative_fact_id_sets", "tested_limit", "before_evaluation_payload_hash", "after_evaluation_payload_hash", "generic_evaluation_payload_hash", "before_selected_plan_id", "after_selected_plan_id", "generic_selected_plan_id", "changed_gate_ids", "record_hash"],
       "properties": {
-        "generic_selected_candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
-        "company_aware_selected_candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
-        "private_fact_ids_that_changed_result": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
-        "explanation": { "type": "string", "minLength": 1, "maxLength": 500 },
-        "rejected_candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
-        "seller_pass_candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" },
-        "remaining_uncertainties": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 300 } }
-      }
+        "outcome": { "type": "string", "enum": ["WINNER_CHANGED", "NO_SMALL_COUNTERFACTUAL_FOUND"] },
+        "removed_fact_ids": { "$ref": "#/$defs/FactIdSet" },
+        "alternative_fact_id_sets": { "type": "array", "items": { "$ref": "#/$defs/FactIdSet" } },
+        "tested_limit": { "const": 3 },
+        "before_evaluation_payload_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+        "after_evaluation_payload_hash": { "$ref": "#/$defs/NullableHash" },
+        "generic_evaluation_payload_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+        "before_selected_plan_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "after_selected_plan_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "generic_selected_plan_id": { "$ref": "#/$defs/NullableIdentifier" },
+        "changed_gate_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/Identifier" } },
+        "record_hash": { "$ref": "common.schema.json#/$defs/Sha256" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "outcome": { "const": "WINNER_CHANGED" } }, "required": ["outcome"] },
+          "then": {
+            "properties": {
+              "removed_fact_ids": { "minItems": 1 },
+              "after_evaluation_payload_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+              "after_selected_plan_id": { "$ref": "common.schema.json#/$defs/Identifier" }
+            }
+          },
+          "else": {
+            "properties": {
+              "removed_fact_ids": { "maxItems": 0 },
+              "after_evaluation_payload_hash": { "type": "null" }
+            }
+          }
+        }
+      ]
     }
   }
 }

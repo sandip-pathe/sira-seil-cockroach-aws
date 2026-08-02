@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "version": 1,
+  "instance_id": "inst_meeting_intelligence_incumbent",
+  "safe_usage": {
+    "assigned_seats": 10,
+    "active_seats_30d": 6,
+    "meetings_processed_30d": 34,
+    "contains_content_or_contacts": false
+  },
+  "safe_outcomes": [
+    {
+      "criterion_id": "pref_outcome_adoption",
+      "value": {"numerator": 3, "denominator": 4},
+      "observation": "Six of ten assigned users were active and the workflow met the fixture retrieval target.",
+      "contains_customer_content": false
+    }
+  ],
+  "evidence_id": "ev_incumbent_usage_outcome",
+  "observed_at_lower": "2026-07-01T00:00:00Z",
+  "observed_at_upper": "2026-07-31T23:59:59Z"
+}
