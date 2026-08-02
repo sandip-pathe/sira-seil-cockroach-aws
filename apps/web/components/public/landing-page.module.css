@@ -1,0 +1,779 @@
+.page {
+  --canvas: #f3f6f5;
+  --surface: #ffffff;
+  --surface-subdued: #e9efec;
+  --ink: #13201c;
+  --text: #2b3833;
+  --muted: #52615b;
+  --border: #cbd6d1;
+  --border-strong: #97a7a0;
+  --control-border: #64736c;
+  --sira: #006b5f;
+  --sira-soft: #e4f2ef;
+  --seil: #8a4b16;
+  --seil-soft: #fbf0e8;
+  --focus: #1d4ed8;
+
+  min-height: 100vh;
+  background: var(--canvas);
+  color: var(--text);
+  color-scheme: light;
+  font-family: "Geist Sans", "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.page *,
+.page *::before,
+.page *::after {
+  box-sizing: border-box;
+}
+
+.page [data-pretext] {
+  min-block-size: var(--pretext-height, auto);
+}
+
+.page a {
+  color: inherit;
+}
+
+.page a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.skipLink {
+  position: fixed;
+  z-index: 100;
+  top: 12px;
+  left: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 650;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform 120ms ease;
+}
+
+.skipLink:focus {
+  transform: translateY(0);
+}
+
+.contentWidth,
+.headerInner,
+.footerInner {
+  width: min(1180px, calc(100% - 48px));
+  margin-inline: auto;
+}
+
+.siteHeader {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.headerInner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  min-height: 72px;
+  gap: 32px;
+}
+
+.wordmark,
+.footerWordmark {
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.wordmark span:nth-child(2) {
+  color: var(--muted);
+  font-weight: 450;
+}
+
+.primaryNav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+}
+
+.primaryNav a,
+.signInLink,
+.footer nav a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.primaryNav a:hover,
+.footer nav a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.signInLink {
+  justify-content: center;
+  gap: 8px;
+  padding-inline: 14px;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.signInLink:hover {
+  border-color: var(--sira);
+  color: var(--sira);
+}
+
+.signInLink svg,
+.productDoor > a svg,
+.assuranceGrid article > a svg {
+  width: 16px;
+  height: 16px;
+}
+
+.hero {
+  padding-block: 112px 88px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.eyebrow,
+.sectionHeading > p,
+.outcomeHeader p,
+.connectorHeading p,
+.assuranceGrid article > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  max-width: 960px;
+  margin: 20px 0 24px;
+  color: var(--ink);
+  font-size: clamp(44px, 6.5vw, 76px);
+  font-weight: 680;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+}
+
+.heroCopy {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(18px, 2vw, 22px);
+  line-height: 1.55;
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 36px;
+}
+
+.siraAction,
+.seilAction {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-inline: 18px;
+  border: 1px solid;
+  border-radius: 6px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.siraAction {
+  border-color: var(--sira);
+  background: var(--sira);
+  color: #ffffff !important;
+}
+
+.siraAction:hover {
+  background: #00584f;
+}
+
+.seilAction {
+  border-color: var(--seil);
+  background: var(--seil);
+  color: #ffffff !important;
+}
+
+.seilAction:hover {
+  background: #703b10;
+}
+
+.heroActions svg {
+  width: 18px;
+  height: 18px;
+}
+
+.heroNote {
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.productDoors,
+.flowSection,
+.trustSection,
+.outcomeSection,
+.connectorSection,
+.assuranceSection {
+  padding-block: 88px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sectionHeading {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.3fr) minmax(0, 0.7fr);
+  gap: 32px;
+  align-items: start;
+  margin-bottom: 40px;
+}
+
+.sectionHeading h2,
+.trustIntro h2,
+.outcomeHeader h2,
+.connectorHeading h2,
+.assuranceGrid h2 {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.16;
+}
+
+.sectionHeading h2,
+.trustIntro h2 {
+  font-size: clamp(30px, 4vw, 46px);
+}
+
+.doorGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.productDoor {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 40px;
+}
+
+.productDoor + .productDoor {
+  border-left: 1px solid var(--border-strong);
+}
+
+.siraDoor {
+  border-top: 4px solid var(--sira);
+}
+
+.seilDoor {
+  border-top: 4px solid var(--seil);
+}
+
+.doorHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.doorHeader svg {
+  width: 20px;
+  height: 20px;
+}
+
+.siraDoor .doorHeader svg,
+.siraDoor > a {
+  color: var(--sira);
+}
+
+.seilDoor .doorHeader svg,
+.seilDoor > a {
+  color: var(--seil);
+}
+
+.productDoor h3 {
+  margin: 28px 0 12px;
+  color: var(--ink);
+  font-size: 36px;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.productDoor > p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.productDoor ul {
+  display: grid;
+  gap: 12px;
+  margin: 28px 0 32px;
+  padding: 24px 0 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.productDoor li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.productDoor li svg {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+}
+
+.siraDoor li svg {
+  color: var(--sira);
+}
+
+.seilDoor li svg {
+  color: var(--seil);
+}
+
+.productDoor > a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin-top: auto;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.flowSection,
+.outcomeSection,
+.assuranceSection {
+  background: var(--surface);
+}
+
+.flowList {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border-strong);
+  list-style: none;
+}
+
+.flowList li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 24px;
+  padding-block: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.flowList > li > span {
+  color: var(--muted);
+  font-family: "Geist Mono", Consolas, monospace;
+  font-size: 12px;
+}
+
+.flowList strong {
+  display: block;
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.flowList p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.trustSection {
+  background: var(--canvas);
+}
+
+.trustIntro {
+  max-width: 780px;
+}
+
+.trustIntro h2 {
+  margin-block: 16px 20px;
+}
+
+.trustIntro > p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.boundaryTable {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 48px;
+  border-block: 1px solid var(--border-strong);
+}
+
+.boundaryTable > div {
+  padding: 28px 28px 28px 0;
+}
+
+.boundaryTable > div + div {
+  padding-left: 28px;
+  border-left: 1px solid var(--border);
+}
+
+.boundaryTable svg {
+  width: 22px;
+  height: 22px;
+  color: var(--ink);
+}
+
+.boundaryTable h3 {
+  margin: 20px 0 8px;
+  color: var(--ink);
+  font-size: 17px;
+}
+
+.boundaryTable p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.outcomeHeader,
+.connectorHeading {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  max-width: 860px;
+}
+
+.outcomeHeader > svg,
+.connectorHeading > svg {
+  width: 32px;
+  height: 32px;
+  color: var(--sira);
+}
+
+.outcomeHeader h2,
+.connectorHeading h2 {
+  margin-top: 10px;
+  font-size: clamp(28px, 3.5vw, 40px);
+}
+
+.outcomeRows {
+  margin: 48px 0 0;
+  border-top: 1px solid var(--border-strong);
+}
+
+.outcomeRows > div {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 24px;
+  padding-block: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.outcomeRows dt {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.outcomeRows dd {
+  margin: 0;
+  color: var(--muted);
+}
+
+.connectorSection {
+  background: var(--canvas);
+}
+
+.connectorList {
+  margin: 48px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--border-strong);
+  list-style: none;
+}
+
+.connectorList li {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.35fr) minmax(0, 0.65fr);
+  gap: 24px;
+  padding-block: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.connectorList strong {
+  color: var(--ink);
+}
+
+.connectorList span {
+  color: var(--muted);
+}
+
+.assuranceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.assuranceGrid article {
+  display: flex;
+  flex-direction: column;
+  min-height: 360px;
+  padding: 40px;
+}
+
+.assuranceGrid article + article {
+  border-left: 1px solid var(--border-strong);
+}
+
+.assuranceGrid article > svg {
+  width: 26px;
+  height: 26px;
+  margin-bottom: 28px;
+  color: var(--ink);
+}
+
+.assuranceGrid h2 {
+  margin-top: 12px;
+  font-size: 30px;
+}
+
+.assuranceGrid article > span {
+  display: block;
+  margin-top: 18px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.assuranceGrid article > a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin-top: auto;
+  padding-top: 28px;
+  color: var(--sira);
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.footer {
+  padding-block: 48px;
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.footerInner {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 48px;
+  align-items: end;
+}
+
+.footerWordmark {
+  color: #ffffff !important;
+}
+
+.footer p {
+  margin: 10px 0 0;
+  color: #cbd6d1;
+  font-size: 13px;
+}
+
+.footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.footer nav a {
+  color: #e9efec;
+}
+
+.footer small {
+  color: #97a7a0;
+}
+
+@media (max-width: 860px) {
+  .headerInner {
+    grid-template-columns: 1fr auto;
+  }
+
+  .primaryNav {
+    display: none;
+  }
+
+  .sectionHeading {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .doorGrid,
+  .assuranceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .productDoor + .productDoor,
+  .assuranceGrid article + article {
+    border-top: 1px solid var(--border-strong);
+    border-left: 0;
+  }
+
+  .boundaryTable {
+    grid-template-columns: 1fr;
+  }
+
+  .boundaryTable > div {
+    padding: 24px 0;
+  }
+
+  .boundaryTable > div + div {
+    padding-left: 0;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .footerInner {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+}
+
+@media (max-width: 639px) {
+  .contentWidth,
+  .headerInner,
+  .footerInner {
+    width: min(100% - 32px, 1180px);
+  }
+
+  .headerInner {
+    min-height: 64px;
+    gap: 12px;
+  }
+
+  .wordmark {
+    font-size: 17px;
+    gap: 5px;
+  }
+
+  .signInLink {
+    padding-inline: 12px;
+  }
+
+  .hero {
+    padding-block: 72px 64px;
+  }
+
+  .hero h1 {
+    font-size: clamp(40px, 13vw, 54px);
+  }
+
+  .heroActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .siraAction,
+  .seilAction {
+    width: 100%;
+  }
+
+  .productDoors,
+  .flowSection,
+  .trustSection,
+  .outcomeSection,
+  .connectorSection,
+  .assuranceSection {
+    padding-block: 64px;
+  }
+
+  .productDoor,
+  .assuranceGrid article {
+    min-height: auto;
+    padding: 28px 22px;
+  }
+
+  .flowList li {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .outcomeHeader,
+  .connectorHeading {
+    grid-template-columns: 1fr;
+  }
+
+  .outcomeRows > div,
+  .connectorList li {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .footer nav {
+    gap: 12px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skipLink {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .siraDoor,
+  .seilDoor {
+    border-top-width: 5px;
+  }
+
+  .siraAction,
+  .seilAction {
+    forced-color-adjust: none;
+  }
+}

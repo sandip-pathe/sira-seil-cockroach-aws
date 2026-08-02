@@ -5,8 +5,12 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "SIRA + SEIL",
-  description: "Company-aware procurement decisions and verified fulfillment",
+  title: {
+    default: "SIRA + SEIL",
+    template: "%s · SIRA + SEIL",
+  },
+  description:
+    "Company-aware software decisions powered by seller-published Product Evidence.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

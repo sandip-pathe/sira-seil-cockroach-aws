@@ -1,0 +1,74 @@
+.page {
+  min-height: 100dvh;
+  padding: 28px max(24px, calc((100vw - 1040px) / 2));
+  background: var(--canvas);
+}
+
+.wordmark {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 780;
+  letter-spacing: -0.03em;
+  text-decoration: none;
+}
+
+.wordmark span {
+  color: var(--muted);
+  font-weight: 450;
+}
+
+.page section {
+  width: min(620px, 100%);
+  margin-top: clamp(90px, 18vh, 190px);
+  padding: clamp(26px, 5vw, 48px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.page section > svg {
+  width: 28px;
+  height: 28px;
+  color: var(--sira);
+}
+
+.page section > p {
+  margin: 24px 0 6px;
+  color: var(--sira);
+  font-size: 11px;
+  font-weight: 790;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.page h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(32px, 6vw, 50px);
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+}
+
+.page section > span {
+  display: block;
+  max-width: 540px;
+  margin-top: 16px;
+  color: var(--muted);
+}
+
+.page section > a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 26px;
+  color: var(--sira);
+  font-size: 13px;
+  font-weight: 740;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.page section > a svg {
+  width: 16px;
+}
