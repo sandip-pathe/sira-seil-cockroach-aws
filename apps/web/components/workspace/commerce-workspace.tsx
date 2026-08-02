@@ -45,8 +45,15 @@ import {
   type RefObject,
 } from "react";
 import { prepareWithSegments, walkLineRanges } from "@chenglou/pretext";
+import { useQuery } from "@tanstack/react-query";
+import type { AgentProposalView } from "@sira/api-client";
 
-import { buyerDevelopmentHeaders, WEB_DATA_MODE } from "@/lib/api";
+import {
+  buyerDevelopmentHeaders,
+  getBrowserApiClient,
+  sellerEditorDevelopmentHeaders,
+  WEB_DATA_MODE,
+} from "@/lib/api";
 import { WORKSPACE_ACCOUNTS } from "@/components/home/workspace-account";
 import { ProfileSettingsModal } from "@/components/home/profile-preview";
 
@@ -67,6 +74,17 @@ type CatalogProduct = {
   summary: string;
   claims: string[];
   integrations: string[];
+  category?: string;
+  deployment?: string;
+  fit?: string;
+  why_company?: string;
+  admin_effort?: string;
+  evidence_freshness?: string;
+  requirement_coverage?: string;
+  limitation?: string;
+  logo?: string;
+  logo_tone?: "blue" | "gold" | "plum" | "teal";
+  seats?: string;
 };
 
 type ChatMessage = {
@@ -75,6 +93,8 @@ type ChatMessage = {
   content: string;
   meta?: string;
   products?: CatalogProduct[];
+  toolCalls?: string[];
+  proposals?: AgentProposalView[];
 };
 
 type Conversation = {
@@ -83,12 +103,6 @@ type Conversation = {
   title: string;
   updatedLabel: string;
   messages: ChatMessage[];
-};
-
-type RunStep = {
-  label: string;
-  detail: string;
-  state: "complete" | "current" | "waiting";
 };
 
 type Connector = {
@@ -113,6 +127,121 @@ const MODE_COPY = {
   },
 } as const;
 
+const FIXTURE_CATALOG: CatalogProduct[] = [
+  {
+    id: "product_fixture_d",
+    name: "Northstar Notes",
+    seller: "Northstar Labs",
+    edition: "Team",
+    price: "USD 89",
+    billing_unit: "workspace_month",
+    status: "Published evidence",
+    summary: "Source-linked meeting intelligence for client-facing teams with low administration overhead.",
+    claims: [
+      "Answers link to exact transcript moments.",
+      "A ten-seat workspace can be deployed in one day.",
+      "Native Google Workspace, Slack, and Zoom integrations are included.",
+      "The Team edition supports up to 50 seats.",
+    ],
+    integrations: ["google_workspace", "slack", "zoom"],
+    category: "Meeting intelligence",
+    deployment: "1 day",
+    fit: "Best company fit",
+    why_company: "Fits a ten-consultant team, keeps client conversations private, and works with the tools already in use.",
+    admin_effort: "Low",
+    evidence_freshness: "Reviewed 2 days ago",
+    requirement_coverage: "4 of 4 key needs",
+    limitation: "Advanced governance controls require the Enterprise edition.",
+    logo: "N",
+    logo_tone: "teal",
+    seats: "Up to 50 seats",
+  },
+  {
+    id: "product_fixture_c",
+    name: "RelayIQ",
+    seller: "Relay Systems",
+    edition: "Business",
+    price: "USD 99",
+    billing_unit: "workspace_month",
+    status: "Published evidence",
+    summary: "Structured meeting capture and controls for growing teams with a dedicated workspace administrator.",
+    claims: [
+      "Answers link to exact transcript moments.",
+      "A ten-seat workspace typically deploys in three days.",
+      "Native Google Workspace, Slack, and Zoom integrations are included.",
+      "The Business edition supports up to 100 seats.",
+    ],
+    integrations: ["google_workspace", "slack", "zoom"],
+    category: "Conversation intelligence",
+    deployment: "3 days",
+    fit: "Supported alternative",
+    why_company: "Covers the current stack and privacy needs, but needs a named workspace administrator.",
+    admin_effort: "Medium",
+    evidence_freshness: "Reviewed 6 days ago",
+    requirement_coverage: "4 of 4 key needs",
+    limitation: "Ongoing administration is heavier than the preferred operating model.",
+    logo: "R",
+    logo_tone: "blue",
+    seats: "Up to 100 seats",
+  },
+  {
+    id: "product_fixture_b",
+    name: "Briefly Cloud",
+    seller: "Briefly Software",
+    edition: "Team",
+    price: "USD 79",
+    billing_unit: "workspace_month",
+    status: "Published evidence",
+    summary: "Fast meeting capture for internal teams that do not need shared external-client workspaces.",
+    claims: [
+      "Customer content is not used for general model training.",
+      "A ten-seat workspace can be deployed in one day.",
+      "Native Google Workspace, Slack, and Zoom integrations are included.",
+      "Restricted shared client workspaces are not supported.",
+    ],
+    integrations: ["google_workspace", "slack", "zoom"],
+    category: "Meeting assistant",
+    deployment: "1 day",
+    fit: "Internal teams only",
+    why_company: "Low-cost option for internal meetings, but it cannot support the required shared client workspaces.",
+    admin_effort: "Low",
+    evidence_freshness: "Reviewed 12 days ago",
+    requirement_coverage: "3 of 4 key needs",
+    limitation: "Restricted shared client workspaces are not supported.",
+    logo: "B",
+    logo_tone: "plum",
+    seats: "Up to 50 seats",
+  },
+  {
+    id: "product_fixture_a",
+    name: "MemoFlow",
+    seller: "MemoFlow Inc.",
+    edition: "Starter",
+    price: "USD 49",
+    billing_unit: "workspace_month",
+    status: "Published evidence",
+    summary: "A lightweight and affordable way for small teams to capture searchable meeting notes.",
+    claims: [
+      "Answers link to exact transcript moments.",
+      "A ten-seat workspace can be deployed in one day.",
+      "Native Google Workspace, Slack, and Zoom integrations are included.",
+      "Customer content may be used for general model improvement.",
+    ],
+    integrations: ["google_workspace", "slack", "zoom"],
+    category: "AI meeting notes",
+    deployment: "1 day",
+    fit: "Policy mismatch",
+    why_company: "Affordable and easy to deploy, but its model-improvement policy conflicts with the client-data requirement.",
+    admin_effort: "Low",
+    evidence_freshness: "Reviewed 8 days ago",
+    requirement_coverage: "2 of 4 key needs",
+    limitation: "Customer content may be used for general model improvement.",
+    logo: "M",
+    logo_tone: "gold",
+    seats: "Up to 25 seats",
+  },
+];
+
 const SEED_CONVERSATIONS: Record<CommerceWorkspaceMode, Conversation[]> = {
   sira: [
     {
@@ -132,7 +261,8 @@ const SEED_CONVERSATIONS: Record<CommerceWorkspaceMode, Conversation[]> = {
           role: "assistant",
           meta: "Decision plan updated",
           content:
-            "## I have started the decision\n\nThe goal is clear: keep client conversations private while making source-linked answers easy for ten consultants.\n\n**What I am checking now**\n\n- your current contract and stack dependencies\n- company requirements that can block an option\n- reuse, resize, renew, and replacement actions\n- the exact approval path if money needs to move\n\nI found **10 supported actions to evaluate**. The live plan and current options are open on the right.",
+            "## I have started the decision\n\nThe goal is clear: keep client conversations private while making source-linked answers easy for ten consultants.\n\n**What I am checking now**\n\n- your current contract and stack dependencies\n- company requirements that can block an option\n- reuse, resize, renew, and replacement actions\n- the exact approval path if money needs to move\n\nI found **4 published products** that could support this need. Open any product to review its evidence, pricing, and stack fit.",
+          products: FIXTURE_CATALOG,
         },
       ],
     },
@@ -202,23 +332,6 @@ const SEED_CONVERSATIONS: Record<CommerceWorkspaceMode, Conversation[]> = {
   ],
 };
 
-const RUN_STEPS: Record<CommerceWorkspaceMode, RunStep[]> = {
-  sira: [
-    { label: "Need understood", detail: "Outcome, deadline, and owner captured", state: "complete" },
-    { label: "Company fit", detail: "Private rules and stack checked", state: "complete" },
-    { label: "Compare actions", detail: "Evaluating 10 supported actions", state: "current" },
-    { label: "Authority", detail: "Waiting for an exact plan", state: "waiting" },
-    { label: "Verify result", detail: "Starts after execution", state: "waiting" },
-  ],
-  seil: [
-    { label: "Product identity", detail: "Claim and seller scope confirmed", state: "complete" },
-    { label: "Claims compiled", detail: "9 of 12 required fields complete", state: "complete" },
-    { label: "Evidence check", detail: "Retention source needs attention", state: "current" },
-    { label: "Independent review", detail: "Waiting for a valid revision", state: "waiting" },
-    { label: "Publish", detail: "Available after approval", state: "waiting" },
-  ],
-};
-
 const CONNECTORS: Record<CommerceWorkspaceMode, Connector[]> = {
   sira: [
     { name: "Business Context", purpose: "Company rules, goals, and buying preferences", status: "Needs setup", meta: "Add company documents or confirm details in chat" },
@@ -265,8 +378,8 @@ function responseFor(mode: CommerceWorkspaceMode, prompt: string) {
     if (normalized.includes("connector") || normalized.includes("senso") || normalized.includes("prava")) {
       return "## Connector status is open\n\nI moved the work panel to **Connectors**. Senso is healthy, while Prava still needs production setup before a live charged purchase can run.\n\nNo purchase or company record was changed.";
     }
-    if (normalized.includes("product") || normalized.includes("option") || normalized.includes("compare")) {
-      return "## I opened the evaluated options\n\nThe right panel now separates supported actions from company-blocked and seller-unsupported options. Selection remains separate from approval and payment.";
+    if (normalized.includes("product") || normalized.includes("catalog") || normalized.includes("option") || normalized.includes("compare")) {
+      return "## I found four published products\n\nThese products have comparable pricing and published evidence for this need. Open a card to review company fit, deployment, integrations, and supported claims.\n\nThis is a **catalogue preview** only; choosing a product remains separate from approval and purchase.";
     }
     return "## I added this to the decision workspace\n\nI will use it to refine the need, company fit, and evaluated actions. The structured decision on the right remains the record that governs selection and execution.";
   }
@@ -278,6 +391,14 @@ function responseFor(mode: CommerceWorkspaceMode, prompt: string) {
     return "## I opened Product Evidence\n\nThe right panel shows the current product, publication state, and the exact evidence gap. Private seller material stays in this workspace and is not sent to buyers.";
   }
   return "## I added this to the seller workspace\n\nI will use it to improve the product record, evidence, fit rules, and buyer-ready answers. Only reviewed fields can become published Product Evidence.";
+}
+
+function fixtureProductsForPrompt(mode: CommerceWorkspaceMode, prompt: string) {
+  if (mode !== "sira") return [];
+  const normalized = prompt.toLowerCase();
+  return ["product", "catalog", "software", "option", "compare", "alternative"].some((term) => normalized.includes(term))
+    ? FIXTURE_CATALOG
+    : [];
 }
 
 function useIsCompact() {
@@ -481,52 +602,68 @@ function Sidebar({
   );
 }
 
-function RunPanel({ mode, running }: { mode: CommerceWorkspaceMode; running: boolean }) {
-  const steps = RUN_STEPS[mode];
-  const completeCount = steps.filter((step) => step.state === "complete").length;
+const TOOL_LABELS: Record<string, string> = {
+  search_published_products: "Searched published products",
+  get_published_product: "Read published product evidence",
+  get_purchase_request: "Read purchase request",
+  get_purchase_brief: "Read purchase brief",
+  get_stack_snapshot: "Checked company stack",
+  get_decision_view: "Read current decision",
+  get_decision_ledger: "Read decision ledger",
+  get_decision_counterfactuals: "Checked counterfactuals",
+  get_purchase_status: "Checked purchase status",
+  search_seller_products: "Searched seller products",
+  get_seller_product_view: "Inspected product evidence health",
+  get_seller_pack_draft: "Read evidence-pack draft",
+  get_seller_pack_exports: "Checked published exports",
+  get_engagement_requirement_brief: "Read shared buyer requirements",
+};
+
+function RunPanel({ mode, running, conversation }: { mode: CommerceWorkspaceMode; running: boolean; conversation: Conversation | null }) {
+  const latestAssistant = conversation?.messages.findLast((message) => message.role === "assistant" && Boolean(message.content));
+  const latestUser = conversation?.messages.findLast((message) => message.role === "user");
+  const toolCalls = latestAssistant?.toolCalls ?? [];
+  const hasRun = Boolean(latestAssistant);
+  const failed = latestAssistant?.meta === "Could not complete";
 
   return (
     <div className={styles.contextBody}>
       <section className={styles.runHero}>
         <div className={styles.runEyebrow}>
           <span className={styles.liveDot} />
-          {WEB_DATA_MODE === "fixture" ? (running ? "Preview response" : "Sample agent run") : (running ? "Agent working" : "Current agent run")}
+          {running ? "Agent working" : failed ? "Latest run failed" : hasRun ? "Latest completed run" : "No run yet"}
         </div>
-        <h2>{mode === "sira" ? "Meeting-intelligence decision" : "Product Evidence review"}</h2>
-        <p>
-          {mode === "sira"
-            ? "SIRA is checking company fit before it recommends an exact action."
-            : "SEIL is checking the seller record before it can enter independent review."}
-        </p>
-        <div className={styles.progressTrack} aria-label={`${completeCount} of ${steps.length} steps completed`}>
-          <span style={{ width: `${((completeCount + (running ? 0.5 : 1)) / steps.length) * 100}%` }} />
-        </div>
-        <div className={styles.runMeta}>
-          <span>{completeCount} complete</span>
-          <span>{steps.length - completeCount} remaining</span>
-        </div>
+        <h2>{conversation?.title ?? `${MODE_COPY[mode].name} workspace`}</h2>
+        <p>{running ? `Processing: ${latestUser?.content ?? "your request"}` : failed ? "The request did not complete and no successful tool activity was recorded." : hasRun ? "This is the activity reported by the latest agent response." : `Send a message to start a real ${MODE_COPY[mode].name} run.`}</p>
       </section>
 
       <section className={styles.contextSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <span>Plan</span>
-            <h3>What the agent is doing</h3>
+            <span>Activity</span>
+            <h3>{running ? "Run in progress" : "Tools used"}</h3>
           </div>
           {running ? <LoaderCircle className={styles.spin} aria-label="Running" /> : <Activity aria-hidden="true" />}
         </div>
         <ol className={styles.runSteps}>
-          {steps.map((step) => (
-            <li data-state={step.state} key={step.label}>
+          {running ? (
+            <li data-state="current">
               <span className={styles.stepIcon}>
-                {step.state === "complete" ? <Check aria-hidden="true" /> : step.state === "current" ? <LoaderCircle aria-hidden="true" /> : <Circle aria-hidden="true" />}
+                <LoaderCircle aria-hidden="true" />
               </span>
-              <div>
-                <strong>{step.label}</strong>
-                <small>{step.detail}</small>
-              </div>
+              <div><strong>Agent is processing</strong><small>Exact tool activity appears when the run completes.</small></div>
             </li>
-          ))}
+          ) : toolCalls.length ? toolCalls.map((tool) => (
+            <li data-state="complete" key={tool}>
+              <span className={styles.stepIcon}><Check aria-hidden="true" /></span>
+              <div><strong>{TOOL_LABELS[tool] ?? tool.replaceAll("_", " ")}</strong><small>{tool}</small></div>
+            </li>
+          )) : (
+            <li data-state={failed ? "waiting" : hasRun ? "complete" : "waiting"}>
+              <span className={styles.stepIcon}>{failed ? <CircleAlert aria-hidden="true" /> : hasRun ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}</span>
+              <div><strong>{failed ? "Request failed" : hasRun ? "Answered without tools" : "Waiting for a message"}</strong><small>{failed ? "Retry when the backend connection is available." : hasRun ? "The latest response did not call an application tool." : "No agent activity has been recorded."}</small></div>
+            </li>
+          )}
         </ol>
       </section>
 
@@ -548,7 +685,47 @@ function RunPanel({ mode, running }: { mode: CommerceWorkspaceMode; running: boo
   );
 }
 
+function AgentWorkingState({ mode }: { mode: CommerceWorkspaceMode }) {
+  const stages = mode === "sira"
+    ? ["Understanding your request", "Checking buyer context and product tools", "Preparing a recommendation"]
+    : ["Understanding your product task", "Checking seller evidence and pack tools", "Preparing the next step"];
+  const [stage, setStage] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setStage((current) => Math.min(current + 1, stages.length - 1));
+    }, 1800);
+    return () => window.clearInterval(timer);
+  }, [stages.length]);
+
+  return (
+    <div className={styles.typingState} role="status" aria-live="polite">
+      <span className={styles.thinkingMark} aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
+      <span>{stages[stage]}</span>
+    </div>
+  );
+}
+
 function SiraWorkPanel() {
+  if (WEB_DATA_MODE !== "fixture") {
+    return (
+      <div className={styles.contextBody}>
+        <section className={styles.documentHeader}>
+          <span>Decision details</span>
+          <h2>No decision selected</h2>
+          <p>A real decision will appear here after SIRA has enough context and the backend creates a decision record.</p>
+        </section>
+        <section className={styles.contextSection}>
+          <div className={styles.sectionHeading}><div><span>Current state</span><h3>Continue in chat</h3></div><MessageSquare aria-hidden="true" /></div>
+          <p className={styles.sectionCopy}>Describe the outcome, users, deadline, constraints, budget, and approval path. This panel will not invent missing decision data.</p>
+        </section>
+      </div>
+    );
+  }
   return (
     <div className={styles.contextBody}>
       <section className={styles.documentHeader}>
@@ -602,6 +779,21 @@ function SiraWorkPanel() {
 }
 
 function SeilWorkPanel() {
+  if (WEB_DATA_MODE !== "fixture") {
+    return (
+      <div className={styles.contextBody}>
+        <section className={styles.documentHeader}>
+          <span>Product details</span>
+          <h2>No product selected</h2>
+          <p>Select a seller product returned by SEIL before Product Evidence and pack health appear here.</p>
+        </section>
+        <section className={styles.contextSection}>
+          <div className={styles.sectionHeading}><div><span>Current state</span><h3>Continue in chat</h3></div><MessageSquare aria-hidden="true" /></div>
+          <p className={styles.sectionCopy}>Ask SEIL to search your products or inspect an exact product ID. This panel will show only backend-supplied evidence.</p>
+        </section>
+      </div>
+    );
+  }
   return (
     <div className={styles.contextBody}>
       <section className={styles.documentHeader}>
@@ -662,6 +854,16 @@ function SeilWorkPanel() {
 
 function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const query = useQuery({
+    queryKey: ["workspace-connectors", mode],
+    enabled: WEB_DATA_MODE === "api" && mode === "sira",
+    queryFn: () => getBrowserApiClient().request("workspace_connectors", { headers: buyerDevelopmentHeaders }),
+  });
+  const connectors: Connector[] = WEB_DATA_MODE === "fixture"
+    ? CONNECTORS[mode]
+    : mode === "sira"
+      ? query.data ?? []
+      : [];
   return (
     <div className={styles.contextBody}>
       <section className={styles.documentHeader}>
@@ -671,7 +873,7 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
       </section>
 
       <section className={styles.connectorList}>
-        {CONNECTORS[mode].map((connector) => (
+        {connectors.map((connector) => (
           <article data-status={connector.status.toLowerCase().replace(" ", "-")} key={connector.name}>
             <button type="button" onClick={() => setExpanded((current) => current === connector.name ? null : connector.name)}>
               <span className={styles.connectorIcon}><Plug aria-hidden="true" /></span>
@@ -690,6 +892,9 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
             ) : null}
           </article>
         ))}
+        {query.isPending && mode === "sira" ? <p className={styles.sectionCopy}>Loading connector status…</p> : null}
+        {query.isError ? <p className={styles.sectionCopy}>Connector status is temporarily unavailable.</p> : null}
+        {mode === "seil" && WEB_DATA_MODE === "api" ? <p className={styles.sectionCopy}>Seller connector status is not exposed by the backend yet.</p> : null}
       </section>
 
       <div className={styles.contextNote}>
@@ -701,6 +906,14 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
 }
 
 function DecisionsPanel({ onStart }: { onStart: () => void }) {
+  const query = useQuery({
+    queryKey: ["decision-index"],
+    enabled: WEB_DATA_MODE === "api",
+    queryFn: () => getBrowserApiClient().request("list_decision_requests", { headers: buyerDevelopmentHeaders }),
+  });
+  const decisions = WEB_DATA_MODE === "api"
+    ? [...(query.data?.active ?? []), ...(query.data?.history ?? [])]
+    : [];
   return (
     <div className={styles.contextBody}>
       <section className={styles.documentHeader}>
@@ -708,38 +921,130 @@ function DecisionsPanel({ onStart }: { onStart: () => void }) {
         <h2>Decisions</h2>
         <p>Buying work starts in chat. SIRA keeps asking for material context and turns it into structured decision state.</p>
       </section>
+      {decisions.length ? (
+        <section className={styles.contextSection}>
+          <div className={styles.sectionHeading}><div><span>Backend records</span><h3>{decisions.length} decision{decisions.length === 1 ? "" : "s"}</h3></div><Layers3 aria-hidden="true" /></div>
+          <div className={styles.decisionMiniList}>
+            {decisions.slice(0, 5).map((decision) => <Link href={decision.href} key={decision.id}><span>{decision.current_stage.replaceAll("_", " ")}</span><strong>{decision.intent}</strong><ArrowRight aria-hidden="true" /></Link>)}
+          </div>
+          <Link className={styles.fullViewLink} href="/sira/decisions">View all decisions <ArrowRight aria-hidden="true" /></Link>
+        </section>
+      ) : (
+        <section className={styles.contextSection}>
+          <div className={styles.sectionHeading}><div><span>Current</span><h3>{query.isPending ? "Loading decisions" : "No decisions yet"}</h3></div><MessageSquare aria-hidden="true" /></div>
+          <p className={styles.sectionCopy}>{query.isError ? "Decision records are temporarily unavailable." : "Describe what you need, who will use it, and when. SIRA will create a decision only after confirmation."}</p>
+          {!query.isPending ? <button className={styles.fullViewLink} type="button" onClick={onStart}>Start in chat <ArrowRight aria-hidden="true" /></button> : null}
+        </section>
+      )}
+    </div>
+  );
+}
+
+function InboxPanel({ mode }: { mode: CommerceWorkspaceMode }) {
+  const query = useQuery({
+    queryKey: ["workspace-inbox", mode, WEB_DATA_MODE],
+    enabled: WEB_DATA_MODE === "api",
+    queryFn: async () => {
+      if (mode === "sira") {
+        const result = await getBrowserApiClient().request("list_decision_requests", { headers: buyerDevelopmentHeaders });
+        return result.active.map((item) => ({
+          href: item.href,
+          id: item.id,
+          label: item.current_stage.replaceAll("_", " "),
+          title: item.intent,
+        }));
+      }
+      const result = await getBrowserApiClient().request("seller_evidence_search_products", {
+        headers: sellerEditorDevelopmentHeaders,
+        query: {},
+      });
+      return result.results
+        .filter((item) => !["PUBLISHED", "SUPERSEDED"].includes(item.state))
+        .map((item) => ({
+          href: `/seil/product-evidence/${encodeURIComponent(item.id)}`,
+          id: item.id,
+          label: item.state.replaceAll("_", " "),
+          title: item.name,
+        }));
+    },
+  });
+  const items = query.data ?? [];
+  return (
+    <div className={styles.contextBody}>
+      <section className={styles.documentHeader}><span>Assigned work</span><h2>Inbox</h2><p>Requests that need your review or approval appear here without leaving the workspace.</p></section>
       <section className={styles.contextSection}>
-        <div className={styles.sectionHeading}><div><span>Current</span><h3>No separate intake form</h3></div><MessageSquare aria-hidden="true" /></div>
-        <p className={styles.sectionCopy}>Describe what you need, who will use it, and when. Missing details are collected in the conversation.</p>
-        <button className={styles.fullViewLink} type="button" onClick={onStart}>Start in chat <ArrowRight aria-hidden="true" /></button>
+        <div className={styles.sectionHeading}><div><span>{items.length ? "Needs attention" : "Up to date"}</span><h3>{query.isPending ? "Loading assigned work" : `${items.length} assigned item${items.length === 1 ? "" : "s"}`}</h3></div><Inbox aria-hidden="true" /></div>
+        {items.length ? <div className={styles.decisionMiniList}>{items.map((item) => <Link href={item.href} key={item.id}><span>{item.label}</span><strong>{item.title}</strong><ArrowRight aria-hidden="true" /></Link>)}</div> : <p className={styles.sectionCopy}>{query.isError ? "Assigned work is temporarily unavailable." : "New work appears here only when a real workflow record requires attention."}</p>}
       </section>
     </div>
   );
 }
 
-function InboxPanel() {
+function ProductLogo({ product, large = false }: { product: CatalogProduct; large?: boolean }) {
+  const fallback = product.name
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
-    <div className={styles.contextBody}>
-      <section className={styles.documentHeader}><span>Assigned work</span><h2>Inbox</h2><p>Requests that need your review or approval appear here without leaving the workspace.</p></section>
-      <section className={styles.contextSection}><div className={styles.sectionHeading}><div><span>Up to date</span><h3>No assigned items</h3></div><Inbox aria-hidden="true" /></div><p className={styles.sectionCopy}>SIRA will surface a task here only when a real workflow assigns it to you.</p></section>
-    </div>
+    <span
+      className={`${styles.productLogo} ${large ? styles.productLogoLarge : ""}`}
+      data-tone={product.logo_tone ?? "teal"}
+      aria-hidden="true"
+    >
+      {product.logo ?? fallback}
+    </span>
+  );
+}
+
+function ProductCard({
+  product,
+  onSelect,
+  compact = false,
+}: {
+  product: CatalogProduct;
+  onSelect: (product: CatalogProduct) => void;
+  compact?: boolean;
+}) {
+  return (
+    <article className={`${styles.productCard} ${compact ? styles.productCardCompact : ""}`}>
+      <button type="button" onClick={() => onSelect(product)} aria-label={`Open ${product.name} details`}>
+        <div className={styles.productCardBrand}>
+          <ProductLogo product={product} />
+          <div>
+            <span>{product.seller}</span>
+            <small>{product.category ?? "Business software"}</small>
+          </div>
+          <BadgeCheck aria-label="Published evidence" />
+        </div>
+        <h3>{product.name}</h3>
+        <p>{product.summary}</p>
+        <div className={styles.productCompanyReason}>
+          <span>Why it fits your company</span>
+          <p>{product.why_company ?? "Company fit has not been evaluated yet."}</p>
+        </div>
+        <div className={styles.productCardFacts}>
+          <span>{product.requirement_coverage ?? product.edition}</span>
+          <span>{product.deployment ?? "Deployment varies"}</span>
+          <span>{product.admin_effort ? `${product.admin_effort} admin effort` : "Admin effort unknown"}</span>
+        </div>
+        <footer>
+          <div><strong>{product.price}</strong><span> / {product.billing_unit.replaceAll("_", " ")}</span></div>
+          <span className={styles.productCardAction}>View details <ArrowRight aria-hidden="true" /></span>
+        </footer>
+      </button>
+    </article>
   );
 }
 
 function CatalogPanel({ products, onSelect }: { products: CatalogProduct[]; onSelect: (product: CatalogProduct) => void }) {
   return (
     <div className={styles.contextBody}>
-      <section className={styles.documentHeader}><span>Published Product Evidence</span><h2>Product catalogue</h2><p>Products supplied by the backend catalogue. Open one to inspect its supported facts.</p></section>
-      <section className={styles.optionList}>
-        {products.map((product) => (
-          <article key={product.id}>
-            <button type="button" onClick={() => onSelect(product)}>
-              <div><strong>{product.name}</strong><span>{product.price}</span></div>
-              <p>{product.summary}</p>
-              <dl><div><dt>Seller</dt><dd>{product.seller}</dd></div><div><dt>Edition</dt><dd>{product.edition}</dd></div></dl>
-            </button>
-          </article>
-        ))}
+      <section className={styles.documentHeader}><span>Published Product Evidence</span><h2>Product catalogue</h2><p>Browse B2B software with comparable pricing, deployment, and fit details. Open a product to inspect its published facts.</p></section>
+      <section className={styles.catalogGrid}>
+        {products.map((product) => <ProductCard key={product.id} product={product} onSelect={onSelect} />)}
         {!products.length ? <p className={styles.sectionCopy}>Ask SIRA to show products. Catalogue results will appear in this pane and in the conversation.</p> : null}
       </section>
     </div>
@@ -751,15 +1056,35 @@ function ProductPanel({ product, onBack }: { product: CatalogProduct | null; onB
   return (
     <div className={styles.contextBody}>
       <button className={styles.fullViewLink} type="button" onClick={onBack}>Back to catalogue</button>
-      <section className={styles.documentHeader}><span>{product.seller}</span><h2>{product.name}</h2><p>{product.summary}</p><div className={styles.documentMeta}><span><BadgeCheck aria-hidden="true" /> {product.status}</span><span>{product.price} / {product.billing_unit.replaceAll("_", " ")}</span></div></section>
+      <section className={styles.productHero}>
+        <div className={styles.productHeroBrand}>
+          <ProductLogo product={product} large />
+          <div><span>{product.seller}</span><small>{product.category ?? "Business software"}</small></div>
+          <span className={styles.productEvidenceBadge}><BadgeCheck aria-hidden="true" /> {product.status}</span>
+        </div>
+        <h2>{product.name}</h2>
+        <p>{product.summary}</p>
+        <div className={styles.productPrice}><strong>{product.price}</strong><span>per {product.billing_unit.replaceAll("_", " ")}</span></div>
+        <dl className={styles.productSpecs}>
+          <div><dt>Edition</dt><dd>{product.edition}</dd></div>
+          <div><dt>Company fit</dt><dd>{product.fit ?? "Not evaluated"}</dd></div>
+          <div><dt>Deployment</dt><dd>{product.deployment ?? "Varies"}</dd></div>
+          <div><dt>Capacity</dt><dd>{product.seats ?? "Contact seller"}</dd></div>
+          <div><dt>Requirements</dt><dd>{product.requirement_coverage ?? "Not evaluated"}</dd></div>
+          <div><dt>Admin effort</dt><dd>{product.admin_effort ?? "Unknown"}</dd></div>
+          <div><dt>Evidence freshness</dt><dd>{product.evidence_freshness ?? "Unknown"}</dd></div>
+        </dl>
+      </section>
+      <section className={styles.contextSection}><div className={styles.sectionHeading}><div><span>Company context</span><h3>Why it makes sense</h3></div><Layers3 aria-hidden="true" /></div><p className={styles.sectionCopy}>{product.why_company ?? "Company fit has not been evaluated yet."}</p>{product.limitation ? <p className={styles.productLimitation}><strong>Important limitation</strong>{product.limitation}</p> : null}</section>
       <section className={styles.contextSection}><div className={styles.sectionHeading}><div><span>Evidence</span><h3>Published claims</h3></div><FileCheck2 aria-hidden="true" /></div><ul>{product.claims.map((claim) => <li key={claim}>{claim}</li>)}</ul></section>
-      <section className={styles.contextSection}><div className={styles.sectionHeading}><div><span>Stack fit</span><h3>Native integrations</h3></div><Plug aria-hidden="true" /></div><p className={styles.sectionCopy}>{product.integrations.map((item) => item.replaceAll("_", " ")).join(", ") || "No published integration facts."}</p></section>
+      <section className={styles.contextSection}><div className={styles.sectionHeading}><div><span>Stack fit</span><h3>Native integrations</h3></div><Plug aria-hidden="true" /></div><div className={styles.integrationTags}>{product.integrations.map((item) => <span key={item}>{item.replaceAll("_", " ")}</span>)}</div></section>
     </div>
   );
 }
 
 function ContextPanel({
   mode,
+  conversation,
   tab,
   running,
   expanded,
@@ -772,6 +1097,7 @@ function ContextPanel({
   onStartChat,
 }: {
   mode: CommerceWorkspaceMode;
+  conversation: Conversation | null;
   tab: CommerceContextTab;
   running: boolean;
   expanded: boolean;
@@ -814,11 +1140,11 @@ function ContextPanel({
       </div>
 
       <div className={styles.contextScroller}>
-        {tab === "run" ? <RunPanel mode={mode} running={running} /> : null}
+        {tab === "run" ? <RunPanel mode={mode} running={running} conversation={conversation} /> : null}
         {tab === "work" && mode === "sira" ? <SiraWorkPanel /> : null}
         {tab === "work" && mode === "seil" ? <SeilWorkPanel /> : null}
         {tab === "decisions" ? <DecisionsPanel onStart={onStartChat} /> : null}
-        {tab === "inbox" ? <InboxPanel /> : null}
+        {tab === "inbox" ? <InboxPanel mode={mode} /> : null}
         {tab === "catalog" ? <CatalogPanel products={products} onSelect={onSelectProduct} /> : null}
         {tab === "product" ? <ProductPanel product={selectedProduct} onBack={() => onTabChange("catalog")} /> : null}
         {tab === "connectors" ? <ConnectorsPanel mode={mode} /> : null}
@@ -848,9 +1174,18 @@ export function CommerceWorkspace({
   const [contextTab, setContextTab] = useState<CommerceContextTab>(initialContextTab);
   const [contextExpanded, setContextExpanded] = useState(false);
   const [running, setRunning] = useState(false);
+  const [confirmingProposal, setConfirmingProposal] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>(() => WEB_DATA_MODE === "fixture" ? FIXTURE_CATALOG : []);
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
+  const conversationsQuery = useQuery({
+    queryKey: ["workspace-conversations", mode],
+    enabled: WEB_DATA_MODE === "api",
+    queryFn: () => getBrowserApiClient().request("workspace_conversations", {
+      headers: mode === "seil" ? sellerEditorDevelopmentHeaders : buyerDevelopmentHeaders,
+      query: { mode },
+    }),
+  });
   const compact = useIsCompact();
   const messageRootRef = useRef<HTMLDivElement>(null);
   const messageViewportRef = useRef<HTMLDivElement>(null);
@@ -868,6 +1203,35 @@ export function CommerceWorkspace({
   const messageVersion = `${mode}:${selectedConversation?.id ?? "new"}:${messages.map((message) => `${message.id}:${message.content.length}`).join("|")}`;
 
   usePretextMessages(messageRootRef, messageVersion);
+
+  useEffect(() => {
+    if (WEB_DATA_MODE !== "api" || !conversationsQuery.data) return;
+    const restored: Conversation[] = conversationsQuery.data.map((conversation) => ({
+      id: conversation.id,
+      mode: conversation.mode,
+      title: conversation.title,
+      updatedLabel: "Saved",
+      messages: conversation.messages.map((message) => ({
+        id: `${message.role}-${crypto.randomUUID()}`,
+        role: message.role,
+        content: message.content,
+        toolCalls: message.tool_calls,
+        proposals: message.proposals,
+      })),
+    }));
+    const next = restored.length ? restored : [{
+      id: `${mode}-new-${crypto.randomUUID()}`,
+      mode,
+      title: "New chat",
+      updatedLabel: "Now",
+      messages: [],
+    }];
+    setConversations((current) => ({ ...current, [mode]: next }));
+    setSelectedByMode((current) => ({
+      ...current,
+      [mode]: next.some((item) => item.id === current[mode]) ? current[mode] : next[0].id,
+    }));
+  }, [conversationsQuery.data, mode]);
 
   useEffect(() => {
     if (shouldAutoScrollRef.current) {
@@ -974,9 +1338,11 @@ export function CommerceWorkspace({
     if (WEB_DATA_MODE === "fixture") {
       responseTimerRef.current = setTimeout(() => {
         const response = responseFor(targetMode, value);
+        const products = fixtureProductsForPrompt(targetMode, value);
+        if (products.length) setCatalogProducts(products);
         updateConversation(targetMode, conversationId, (conversation) => ({
           ...conversation,
-          messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: response, meta: "Preview updated" } : message),
+          messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: response, meta: "Preview updated", products } : message),
         }));
         if (targetMode === mode) setRunning(false);
         responseTimerRef.current = null;
@@ -988,21 +1354,30 @@ export function CommerceWorkspace({
     responseAbortRef.current = controller;
     try {
       const history = selectedConversation.messages.slice(-12).map(({ role, content }) => ({ role, content }));
-      const response = await fetch("/v1/workspace/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...buyerDevelopmentHeaders },
-        body: JSON.stringify({ mode: targetMode, message: value, history }),
+      const payload = await getBrowserApiClient().request("workspace_chat", {
+        headers: {
+          ...(targetMode === "seil"
+            ? sellerEditorDevelopmentHeaders
+            : buyerDevelopmentHeaders),
+        },
+        body: {
+          conversation_id: conversationId.startsWith("wc_") ? conversationId : undefined,
+          mode: targetMode,
+          message: value,
+          history,
+        },
         signal: controller.signal,
       });
-      const payload = await response.json() as { message?: string; panel?: CommerceContextTab; products?: CatalogProduct[]; error?: { message?: string } };
-      if (!response.ok) throw new Error(payload.error?.message ?? "SIRA could not respond.");
+      const panel = payload.panel as CommerceContextTab;
       const products = payload.products ?? [];
       if (products.length) setCatalogProducts(products);
       updateConversation(targetMode, conversationId, (conversation) => ({
         ...conversation,
-        messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: payload.message ?? "I need a little more context.", meta: "Context updated", products } : message),
+        id: payload.conversation_id,
+        messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: payload.message ?? "I need a little more context.", meta: "Context updated", products, toolCalls: payload.tool_calls ?? [], proposals: payload.proposals ?? [] } : message),
       }));
-      if (payload.panel) openContext(payload.panel);
+      setSelectedByMode((current) => ({ ...current, [targetMode]: payload.conversation_id }));
+      if (panel) openContext(panel);
     } catch (error) {
       if (!controller.signal.aborted) {
         updateConversation(targetMode, conversationId, (conversation) => ({
@@ -1013,6 +1388,50 @@ export function CommerceWorkspace({
     } finally {
       if (responseAbortRef.current === controller) responseAbortRef.current = null;
       if (targetMode === mode) setRunning(false);
+    }
+  }
+
+  async function confirmProposal(messageId: string, proposal: AgentProposalView) {
+    if (proposal.proposal_type !== "PURCHASE_REQUEST" || confirmingProposal) return;
+    const intent = proposal.payload.intent;
+    if (typeof intent !== "string" || intent.trim().length < 10) return;
+    const visibility = proposal.payload.visibility === "PRIVATE" ? "PRIVATE" : "SELECTIVE";
+    setConfirmingProposal(proposal.proposal_hash);
+    try {
+      const created = await getBrowserApiClient().request("create_decision_request", {
+        headers: buyerDevelopmentHeaders,
+        idempotencyKey: `agent-proposal-${proposal.proposal_hash.replace("sha256:", "")}`,
+        body: { intent: intent.trim(), visibility },
+      });
+      await getBrowserApiClient().request("discover_decision_request", {
+        headers: buyerDevelopmentHeaders,
+        pathParams: { request_id: created.id },
+        idempotencyKey: `discover-${created.id}`,
+      });
+      if (selectedConversation) {
+        updateConversation("sira", selectedConversation.id, (conversation) => ({
+          ...conversation,
+          messages: conversation.messages.map((message) => message.id === messageId ? {
+            ...message,
+            meta: "Decision created",
+            proposals: message.proposals?.filter((item) => item.proposal_hash !== proposal.proposal_hash),
+          } : message),
+        }));
+      }
+      setContextTab("decisions");
+      setContextOpen(true);
+    } catch (error) {
+      if (selectedConversation) {
+        updateConversation("sira", selectedConversation.id, (conversation) => ({
+          ...conversation,
+          messages: conversation.messages.map((message) => message.id === messageId ? {
+            ...message,
+            meta: error instanceof Error ? error.message : "Could not create decision",
+          } : message),
+        }));
+      }
+    } finally {
+      setConfirmingProposal(null);
     }
   }
 
@@ -1083,7 +1502,6 @@ export function CommerceWorkspace({
             </div>
           </div>
           <div className={styles.chatHeaderActions}>
-            <span className={styles.privacyHeader}><LockKeyhole aria-hidden="true" /> {MODE_COPY[mode].privacy}</span>
             <button type="button" onClick={() => { setContextOpen(true); if (compact) setSidebarOpen(false); }} aria-label="Open work panel" title="Open work panel">
               <PanelRightOpen aria-hidden="true" />
             </button>
@@ -1130,22 +1548,32 @@ export function CommerceWorkspace({
                 </article>
               ) : (
                 <article className={styles.assistantMessage} key={message.id}>
-                  {message.meta ? <p className={styles.messageMeta}><Sparkles aria-hidden="true" /> {message.meta}</p> : null}
+                  {message.meta && message.content ? <p className={styles.messageMeta}><Sparkles aria-hidden="true" /> {message.meta}</p> : null}
                   {message.content ? <ChatMessageBody content={message.content} /> : (
-                    <div className={styles.typingState} role="status"><LoaderCircle className={styles.spin} aria-hidden="true" /> Working through the current context...</div>
+                    <AgentWorkingState mode={mode} />
                   )}
                   {message.products?.length ? (
-                    <div className={styles.optionList}>
-                      {message.products.map((product) => (
-                        <article key={product.id}>
-                          <button type="button" onClick={() => { setSelectedProduct(product); openContext("product"); }}>
-                            <div><strong>{product.name}</strong><span>{product.price}</span></div>
-                            <p>{product.summary}</p>
-                          </button>
-                        </article>
-                      ))}
+                    <div className={styles.messageProductShelf} aria-label="Matching products">
+                      {message.products.map((product) => <ProductCard key={product.id} product={product} compact onSelect={(selected) => { setSelectedProduct(selected); openContext("product"); }} />)}
                     </div>
                   ) : null}
+                  {message.proposals?.map((proposal) => (
+                    <section className={styles.proposalCard} key={proposal.proposal_hash}>
+                      <div>
+                        <span>Requires your confirmation</span>
+                        <strong>{proposal.proposal_type === "PURCHASE_REQUEST" ? "Create this buying decision" : proposal.proposal_type.replaceAll("_", " ")}</strong>
+                        {typeof proposal.payload.intent === "string" ? <p>{proposal.payload.intent}</p> : null}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={proposal.proposal_type !== "PURCHASE_REQUEST" || confirmingProposal !== null}
+                        onClick={() => void confirmProposal(message.id, proposal)}
+                      >
+                        {confirmingProposal === proposal.proposal_hash ? "Creating…" : "Confirm and create"}
+                        <ArrowRight aria-hidden="true" />
+                      </button>
+                    </section>
+                  ))}
                 </article>
               )
             ))}
@@ -1171,10 +1599,14 @@ export function CommerceWorkspace({
             />
             <div className={styles.composerToolbar}>
               <div>
-                <input className={styles.hiddenFileInput} ref={fileInputRef} type="file" onChange={handleFile} />
-                <button type="button" onClick={() => fileInputRef.current?.click()} aria-label="Add company context" title="Add company context">
-                  <Paperclip aria-hidden="true" />
-                </button>
+                {WEB_DATA_MODE === "fixture" ? (
+                  <>
+                    <input className={styles.hiddenFileInput} ref={fileInputRef} type="file" onChange={handleFile} />
+                    <button type="button" onClick={() => fileInputRef.current?.click()} aria-label="Preview company context attachment" title="Preview company context attachment">
+                      <Paperclip aria-hidden="true" />
+                    </button>
+                  </>
+                ) : null}
               </div>
               <div className={styles.composerActions}>
                 {modeLocked ? (
@@ -1201,13 +1633,17 @@ export function CommerceWorkspace({
               </div>
             </div>
           </div>
-          <p className={styles.composerBoundary}>{WEB_DATA_MODE === "fixture" ? `Development preview · no message or file leaves this browser. ${MODE_COPY[mode].privacy}.` : `${MODE_COPY[mode].privacy}. Agent suggestions are advisory; approvals and purchases use server-owned workflows.`}</p>
+          <p className={styles.composerBoundary}>
+            <LockKeyhole aria-hidden="true" />
+            {MODE_COPY[mode].privacy}. Agent suggestions are advisory; approvals and purchases use server-owned workflows.
+          </p>
         </div>
       </section>
 
       {contextOpen ? (
         <ContextPanel
           mode={mode}
+          conversation={selectedConversation}
           tab={contextTab}
           running={running}
           expanded={contextExpanded}

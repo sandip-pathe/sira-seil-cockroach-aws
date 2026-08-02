@@ -132,7 +132,10 @@ async def discover_decision_request(
     tags=["decisions"],
 )
 async def get_decision_room(
-    request_id: str, context: ContextDependency, service: ServiceDependency
+    request_id: str,
+    context: ContextDependency,
+    service: ServiceDependency,
+    decision_version: Annotated[int | None, Query(alias="version", ge=1)] = None,
 ) -> dict[str, object]:
     require_permission(context, "can_view_context")
     return await DecisionRoomSurface(service).decision_view(
@@ -140,6 +143,7 @@ async def get_decision_room(
         request_id=request_id,
         roles=context.roles,
         party=context.party,
+        decision_version=decision_version,
     )
 
 

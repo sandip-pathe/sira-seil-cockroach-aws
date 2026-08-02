@@ -401,6 +401,45 @@
         "title": "ActorRole",
         "type": "string"
       },
+      "AgentProposalView": {
+        "properties": {
+          "advisory_only": {
+            "default": true,
+            "title": "Advisory Only",
+            "type": "boolean"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "proposal_hash": {
+            "title": "Proposal Hash",
+            "type": "string"
+          },
+          "proposal_type": {
+            "title": "Proposal Type",
+            "type": "string"
+          },
+          "ranking_effect": {
+            "default": false,
+            "title": "Ranking Effect",
+            "type": "boolean"
+          },
+          "requires_human_action": {
+            "default": true,
+            "title": "Requires Human Action",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_type",
+          "proposal_hash",
+          "payload"
+        ],
+        "title": "AgentProposalView",
+        "type": "object"
+      },
       "ApprovalCreate": {
         "additionalProperties": false,
         "properties": {
@@ -8543,6 +8582,18 @@
       },
       "WorkspaceChatCreate": {
         "properties": {
+          "conversation_id": {
+            "anyOf": [
+              {
+                "pattern": "^wc_[a-f0-9]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
           "history": {
             "items": {
               "$ref": "#/components/schemas/WorkspaceMessage"
@@ -8580,6 +8631,10 @@
             "title": "Advisory Only",
             "type": "boolean"
           },
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
           "follow_up_required": {
             "default": false,
             "title": "Follow Up Required",
@@ -8607,12 +8662,67 @@
             },
             "title": "Products",
             "type": "array"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/AgentProposalView"
+            },
+            "title": "Proposals",
+            "type": "array"
+          },
+          "tool_calls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tool Calls",
+            "type": "array"
           }
         },
         "required": [
+          "conversation_id",
           "message"
         ],
         "title": "WorkspaceChatView",
+        "type": "object"
+      },
+      "WorkspaceConversationView": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceMessage"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "sira",
+              "seil"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "mode",
+          "title",
+          "messages",
+          "updated_at"
+        ],
+        "title": "WorkspaceConversationView",
         "type": "object"
       },
       "WorkspaceMessage": {
@@ -8623,6 +8733,13 @@
             "title": "Content",
             "type": "string"
           },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/AgentProposalView"
+            },
+            "title": "Proposals",
+            "type": "array"
+          },
           "role": {
             "enum": [
               "user",
@@ -8630,6 +8747,13 @@
             ],
             "title": "Role",
             "type": "string"
+          },
+          "tool_calls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tool Calls",
+            "type": "array"
           }
         },
         "required": [
@@ -10715,6 +10839,23 @@
             "schema": {
               "title": "Request Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
             }
           },
           {
@@ -19628,6 +19769,221 @@
           }
         ],
         "summary": "Workspace Connectors",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/workspace/conversations": {
+      "get": {
+        "operationId": "workspace_conversations",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "mode",
+            "required": true,
+            "schema": {
+              "enum": [
+                "sira",
+                "seil"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceConversationView"
+                  },
+                  "title": "Response Workspace Conversations",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Workspace Conversations",
         "tags": [
           "workspace"
         ]

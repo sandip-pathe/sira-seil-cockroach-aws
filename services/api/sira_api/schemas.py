@@ -19,6 +19,9 @@ MoneyAmount = Annotated[str, StringConstraints(pattern=r"^(0|[1-9][0-9]*)\.[0-9]
 MetricValue = Annotated[str, StringConstraints(pattern=r"^-?(0|[1-9][0-9]*)(\.[0-9]{1,6})?$")]
 Currency = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
 HttpsUrl = Annotated[AnyUrl, UrlConstraints(allowed_schemes=["https"], host_required=True)]
+BrowserReturnUrl = Annotated[
+    AnyUrl, UrlConstraints(allowed_schemes=["http", "https"], host_required=True)
+]
 
 
 class StrictModel(BaseModel):
@@ -548,7 +551,7 @@ class ApprovalRevokeCreate(StrictModel):
 
 
 class PravaSessionCreate(StrictModel):
-    return_url: HttpsUrl
+    return_url: BrowserReturnUrl
 
 
 class PravaSessionView(StrictModel):
@@ -572,7 +575,7 @@ class PravaBrowserReturnCreate(StrictModel):
             pattern=r"^[A-Za-z0-9._~-]+$",
         ),
     ]
-    return_url: HttpsUrl
+    return_url: BrowserReturnUrl
 
 
 class PurchaseStatusView(StrictModel):

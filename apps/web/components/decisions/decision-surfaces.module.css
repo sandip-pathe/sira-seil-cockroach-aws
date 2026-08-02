@@ -2432,3 +2432,77 @@
     background: Highlight;
   }
 }
+.commerceAuthority {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #b8d4cd;
+  border-radius: 12px;
+  background: #f2f8f6;
+}
+
+.commerceAuthority small {
+  color: #006b5f;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.commerceAuthority h3 {
+  margin: 5px 0;
+  font-size: 19px;
+}
+
+.commerceAuthority p {
+  margin: 0;
+  color: #68635b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.commerceAuthority > button,
+.commerceAuthority > a {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 7px;
+  background: #006b5f;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.approvalRoles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.approvalRoles button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #c9d8d3;
+  border-radius: 7px;
+  background: #fff;
+  color: #393733;
+  font-size: 10px;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+
+.approvalRoles button:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.approvalRoles svg {
+  width: 13px;
+}

@@ -420,7 +420,6 @@ class WorkflowRepository:
             .where(
                 EvaluationSolutionPlan.organization_id == self.organization_id,
                 EvaluationSolutionPlan.solution_plan_id == solution_plan_id,
-                EvaluationSolutionPlan.selected.is_(True),
                 EvaluationRun.organization_id == self.organization_id,
                 EvaluationRun.decision_id == decision_id,
                 EvaluationRun.run_kind == "BASE",

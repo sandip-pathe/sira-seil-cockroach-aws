@@ -191,6 +191,13 @@ async def test_plan_selection_and_action_run_bind_the_exact_decision(
     assert current["request"]["decision_version"] == 2
     assert current["workflow"]["current_stage"] == "ACTION"
     assert current["selected_action_plan"]["id"] == selected_option["id"]
+    historical = (
+        await api_client.get(
+            "/v1/decision-requests/req_demo/decision-view", params={"version": 1}
+        )
+    ).json()
+    assert historical["request"]["decision_version"] == 1
+    assert historical["selected_action_plan"] is None
     assert current["payment"]["line_items"] == [
         {"type": "MERCHANT_SUBTOTAL", "amount": "87.00"},
         {
@@ -199,6 +206,15 @@ async def test_plan_selection_and_action_run_bind_the_exact_decision(
             "schedule_version": "buyer_txn_demo_v1",
         },
     ]
+
+    intent = await api_client.post(
+        f"/v1/decisions/{selected_body['selected_decision_id']}/purchase-intents",
+        headers=idempotency("purchase-intent-v2-0001"),
+        json={"solution_plan_id": selected_body["solution_plan_id"]},
+    )
+    assert intent.status_code == 201, intent.text
+    assert intent.json()["decision_version"] == selected_body["decision_version"]
+    assert intent.json()["solution_plan_id"] == selected_body["solution_plan_id"]
 
     run = await api_client.post(
         f"/v1/decisions/{selected_body['selected_decision_id']}/action-runs",

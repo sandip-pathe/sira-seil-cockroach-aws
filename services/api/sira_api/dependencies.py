@@ -33,6 +33,8 @@ _bearer = HTTPBearer(auto_error=False)
 # the service after this coarse route boundary.
 _SELLER_ROUTE_ALLOWLIST = frozenset(
     {
+        ("POST", "/v1/workspace/chat"),
+        ("GET", "/v1/workspace/conversations"),
         ("GET", "/v1/requirement-briefs/{brief_id}"),
         ("POST", "/v1/engagements/{engagement_id}/consent"),
         ("GET", "/v1/seller/products/search"),

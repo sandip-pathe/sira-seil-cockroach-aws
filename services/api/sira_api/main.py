@@ -32,6 +32,7 @@ from .routes_v2 import router_v2
 from .schemas import ErrorEnvelope
 from .seller_routes import seller_router
 from .seller_service import SellerEvidenceService
+from .senso_runtime import activate_senso, close_senso
 from .service import WorkflowService, translate_persistence_conflict
 from .workspace_routes import workspace_router
 from .workspace_service import WorkspaceService
@@ -117,6 +118,7 @@ def create_app(
             resolved_database,
             development_fixture_mode=resolved_settings.development_fixture_mode,
         )
+        senso_providers, senso_error = await activate_senso(resolved_settings)
         application.state.workflow_service = workflow_service
         application.state.seller_evidence_service = seller_evidence_service
         application.state.workspace_service = WorkspaceService(
@@ -125,8 +127,12 @@ def create_app(
             model=resolved_settings.openai_model,
             workflow_service=workflow_service,
             seller_evidence_service=seller_evidence_service,
+            database=resolved_database,
+            senso_providers=senso_providers,
+            senso_error=senso_error,
         )
         yield
+        await close_senso(senso_providers)
         close_identity = getattr(resolved_identity_adapter, "aclose", None)
         if close_identity is not None:
             await close_identity()

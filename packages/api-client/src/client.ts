@@ -53,12 +53,17 @@ const operations = {
   workspace_catalog: { method: "GET", path: "/v1/workspace/catalog", responseMediaType: "application/json" },
   workspace_chat: { method: "POST", path: "/v1/workspace/chat", responseMediaType: "application/json" },
   workspace_connectors: { method: "GET", path: "/v1/workspace/connectors", responseMediaType: "application/json" },
+  workspace_conversations: { method: "GET", path: "/v1/workspace/conversations", responseMediaType: "application/json" },
   workspace_product: { method: "GET", path: "/v1/workspace/catalog/{product_id}", responseMediaType: "application/json" },
 } as const;
 
 type PathInput<K extends OperationId> = keyof Operations[K]["pathParams"] extends never
   ? { pathParams?: never }
   : { pathParams: Operations[K]["pathParams"] };
+
+type QueryInput<K extends OperationId> = keyof Operations[K]["queryParams"] extends never
+  ? { query?: never }
+  : { query?: Operations[K]["queryParams"] };
 
 type BodyInput<K extends OperationId> = Operations[K]["body"] extends never
   ? { body?: never }
@@ -69,6 +74,7 @@ type IdempotencyInput<K extends OperationId> = Operations[K]["requiresIdempotenc
   : { idempotencyKey?: string };
 
 export type RequestInput<K extends OperationId> = PathInput<K> &
+  QueryInput<K> &
   BodyInput<K> &
   IdempotencyInput<K> & { headers?: Record<string, string>; signal?: AbortSignal };
 
@@ -130,6 +136,17 @@ export class SiraApiClient {
     }
     if (/\{[^}]+\}/.test(route)) throw new Error("Missing generated-client path parameter");
 
+    const url = new URL(route, this.baseUrl);
+    const query = (input as { query?: Record<string, unknown> }).query ?? {};
+    for (const [name, value] of Object.entries(query)) {
+      if (value === undefined || value === null) continue;
+      if (Array.isArray(value)) {
+        for (const item of value) url.searchParams.append(name, String(item));
+      } else {
+        url.searchParams.set(name, String(value));
+      }
+    }
+
     const headers = new Headers(input.headers);
     const body = (input as { body?: unknown }).body;
     const idempotencyKey = (input as { idempotencyKey?: string }).idempotencyKey;
@@ -137,7 +154,7 @@ export class SiraApiClient {
     if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
     if (body !== undefined) headers.set("Content-Type", "application/json");
 
-    const response = await this.fetcher(new URL(route, this.baseUrl), {
+    const response = await this.fetcher.call(globalThis, url, {
       method: operation.method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),

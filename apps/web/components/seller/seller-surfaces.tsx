@@ -43,6 +43,7 @@ import {
   createIdempotencyKey,
   getBrowserApiClient,
   sellerEditorDevelopmentHeaders,
+  sellerReviewerDevelopmentHeaders,
 } from "@/lib/api";
 
 import styles from "./seller-surfaces.module.css";
@@ -370,13 +371,15 @@ function sellerRequestHeaders(): Record<string, string> {
   return { ...(configured as Record<string, string>) };
 }
 
-function useSellerProducts() {
+function useSellerProducts(search = "") {
+  const normalizedSearch = search.trim();
   return useQuery({
-    queryKey: ["seller", "products", WEB_DATA_MODE],
+    queryKey: ["seller", "products", WEB_DATA_MODE, normalizedSearch],
     queryFn: async ({ signal }) => {
       if (IS_FIXTURE_MODE) return FIXTURE_SEARCH;
       return getBrowserApiClient().request("seller_evidence_search_products", {
         headers: sellerRequestHeaders(),
+        query: normalizedSearch ? { q: normalizedSearch } : {},
         signal,
       });
     },
@@ -691,18 +694,9 @@ export function SellerHome() {
 }
 
 export function SellerProductSearch() {
-  const products = useSellerProducts();
   const [query, setQuery] = useState("");
-  const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return products.data?.results ?? [];
-    return (products.data?.results ?? []).filter((item) =>
-      [item.name, item.category, item.public_summary]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalized),
-    );
-  }, [products.data, query]);
+  const products = useSellerProducts(query);
+  const filtered = products.data?.results ?? [];
 
   return (
     <SellerShell active="search">
@@ -1101,12 +1095,18 @@ function PublishTab({
   draftPending,
   canSubmit,
   openConfirmation,
+  lifecycleAction,
+  lifecycleLabel,
+  lifecyclePending,
 }: {
   view: SellerEvidenceView;
   draft?: SellerPackDraftView;
   draftPending: boolean;
   canSubmit: boolean;
   openConfirmation: () => void;
+  lifecycleAction?: () => void;
+  lifecycleLabel?: string;
+  lifecyclePending?: boolean;
 }) {
   return (
     <div className={styles.twoColumn}>
@@ -1116,12 +1116,14 @@ function PublishTab({
         <div>
           <p className={styles.sectionKicker}>Server-authorized next action</p>
           <h2 id="next-action-heading">
-            {canSubmit ? "Submit this revision for review" : "No supported mutation available"}
+            {canSubmit ? "Submit this revision for review" : lifecycleLabel ?? "No supported mutation available"}
           </h2>
           <p>
             {canSubmit
               ? "Submission freezes the exact draft revision and hash shown here. It does not publish Product Evidence."
-              : "Unsupported claim, evidence, review, publication, and suspension controls are intentionally omitted."}
+              : lifecycleLabel
+                ? "This action uses the exact frozen revision and is checked again by the server."
+                : "No action is available for the current role and workflow state."}
           </p>
           {draft ? (
             <code className={styles.hashLine}>{draft.revision_hash}</code>
@@ -1136,6 +1138,11 @@ function PublishTab({
           >
             <Send aria-hidden="true" />
             Submit for review
+          </button>
+        ) : lifecycleAction && lifecycleLabel ? (
+          <button className={styles.primaryButton} type="button" onClick={lifecycleAction} disabled={lifecyclePending || !draft}>
+            <FileCheck2 aria-hidden="true" />
+            {lifecyclePending ? "Working" : lifecycleLabel}
           </button>
         ) : null}
       </section>
@@ -1355,6 +1362,30 @@ export function SellerProductWorkspace({ productId, initialField }: { productId:
     },
   });
 
+  const lifecycle = useMutation({
+    mutationFn: async (action: "APPROVE" | "PUBLISH") => {
+      if (!draftId || !draft.data) throw new Error("No frozen draft is available");
+      if (action === "APPROVE") {
+        return getBrowserApiClient().request("seller_evidence_review_decision", {
+          body: { decision: "APPROVE", reason: "Evidence reviewed for the demo publication path.", revision_hash: draft.data.revision_hash },
+          headers: sellerReviewerDevelopmentHeaders,
+          idempotencyKey: createIdempotencyKey("seller-approve-review"),
+          pathParams: { draft_id: draftId },
+        });
+      }
+      return getBrowserApiClient().request("seller_evidence_publish", {
+        body: { revision_hash: draft.data.revision_hash },
+        headers: sellerReviewerDevelopmentHeaders,
+        idempotencyKey: createIdempotencyKey("seller-publish"),
+        pathParams: { draft_id: draftId },
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["seller", "draft", draftId, WEB_DATA_MODE] });
+      void queryClient.invalidateQueries({ queryKey: ["seller", "product", productId, WEB_DATA_MODE] });
+    },
+  });
+
   if (product.isPending) {
     return (
       <SellerShell active="product">
@@ -1481,6 +1512,9 @@ export function SellerProductWorkspace({ productId, initialField }: { productId:
             draftPending={draft.isPending && Boolean(draftId)}
             canSubmit={canSubmit}
             openConfirmation={() => setConfirmSubmit(true)}
+            lifecycleAction={draft.data?.state === "IN_REVIEW" ? () => lifecycle.mutate("APPROVE") : draft.data?.state === "PUBLISH_READY" ? () => lifecycle.mutate("PUBLISH") : undefined}
+            lifecycleLabel={draft.data?.state === "IN_REVIEW" ? "Approve reviewed revision" : draft.data?.state === "PUBLISH_READY" ? "Publish Product Evidence" : undefined}
+            lifecyclePending={lifecycle.isPending}
           />
         ) : null}
         {activeTab === "activity" ? <ActivityTab view={view} /> : null}

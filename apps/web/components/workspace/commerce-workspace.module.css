@@ -3,7 +3,7 @@
   --workspace-accent-soft: #e4f2ef;
   --workspace-accent-dark: #005348;
   display: grid;
-  grid-template-columns: clamp(220px, 20vw, 256px) minmax(0, 1fr) 50%;
+  grid-template-columns: clamp(190px, 18vw, 220px) minmax(0, 1fr) 50%;
   width: 100%;
   height: 100dvh;
   min-width: 320px;
@@ -25,7 +25,7 @@
 }
 
 .workspace.contextClosed {
-  grid-template-columns: clamp(220px, 20vw, 256px) minmax(0, 1fr) 0;
+  grid-template-columns: clamp(190px, 18vw, 220px) minmax(0, 1fr) 0;
 }
 
 .workspace.sidebarClosed.contextClosed {
@@ -105,12 +105,12 @@
 
 .sidebarHeader {
   flex: 0 0 auto;
-  padding: 14px 14px 10px;
+  padding: 10px 11px 7px;
 }
 
 .brandRow {
   display: flex;
-  min-height: 42px;
+  min-height: 36px;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -135,7 +135,7 @@
 .brand strong {
   color: var(--brand-ink);
   font-family: var(--font-brand);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.1;
@@ -144,7 +144,7 @@
 .brand small {
   margin-top: 2px;
   color: #777269;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .sidebarHeaderActions {
@@ -248,16 +248,16 @@
 .newChatButton {
   display: flex;
   width: 100%;
-  min-height: 42px;
+  min-height: 38px;
   align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-  padding: 0 12px;
+  gap: 8px;
+  margin-top: 9px;
+  padding: 0 10px;
   border: 1px solid #dcd8cd;
   border-radius: 11px;
   background: #f9f7f1;
   color: #33322e;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 580;
   cursor: pointer;
 }
@@ -278,21 +278,21 @@
   display: grid;
   flex: 0 0 auto;
   gap: 2px;
-  padding: 2px 10px 10px;
+  padding: 2px 8px 8px;
 }
 
 .sidebarNav button,
 .sidebarNav a {
   display: flex;
-  min-height: 42px;
+  min-height: 36px;
   align-items: center;
-  gap: 11px;
-  padding: 0 10px;
+  gap: 9px;
+  padding: 0 9px;
   border: 0;
   border-radius: 9px;
   background: transparent;
   color: #4d4a44;
-  font-size: 14px;
+  font-size: 12px;
   text-decoration: none;
   cursor: pointer;
 }
@@ -324,7 +324,7 @@
 
 .sidebarDivider {
   height: 1px;
-  margin: 0 14px 12px;
+  margin: 0 11px 9px;
   background: #dfdcd3;
 }
 
@@ -333,9 +333,9 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px 7px;
+  padding: 0 12px 6px;
   color: #8a867d;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 620;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -358,11 +358,11 @@
 .recentList button {
   display: flex;
   width: 100%;
-  min-height: 48px;
+  min-height: 42px;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 7px 9px;
+  padding: 5px 8px;
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -385,7 +385,7 @@
 
 .recentList strong {
   overflow: hidden;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 540;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -395,7 +395,7 @@
 .recentList small {
   margin-top: 2px;
   color: #8c877d;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .recentList svg {
@@ -420,7 +420,7 @@
 
 .sidebarFooter {
   flex: 0 0 auto;
-  padding: 10px;
+  padding: 7px 8px;
   border-top: 1px solid #dfdcd3;
 }
 
@@ -428,11 +428,11 @@
 .sidebarFooter > button {
   display: grid;
   width: 100%;
-  min-height: 52px;
-  grid-template-columns: 34px minmax(0, 1fr) 18px;
-  gap: 9px;
+  min-height: 44px;
+  grid-template-columns: 30px minmax(0, 1fr) 16px;
+  gap: 8px;
   align-items: center;
-  padding: 7px 8px;
+  padding: 5px 6px;
   border: 0;
   border-radius: 11px;
   background: transparent;
@@ -449,14 +449,14 @@
 
 .avatar {
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   background: #2f2f2d;
   color: #f5f3ee;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 650;
 }
 
@@ -467,13 +467,13 @@
 }
 
 .sidebarFooter strong {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 620;
 }
 
 .sidebarFooter small {
   color: #858077;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .sidebarFooter svg {
@@ -542,24 +542,6 @@
   height: 6px;
   border-radius: 999px;
   background: var(--workspace-accent);
-}
-
-.privacyHeader {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  gap: 6px;
-  padding: 0 9px;
-  border: 1px solid #dfdbd0;
-  border-radius: 999px;
-  background: #f7f5ee;
-  color: #706b62;
-  font-size: 10px;
-}
-
-.privacyHeader svg {
-  width: 13px;
-  height: 13px;
 }
 
 .messageViewport {
@@ -759,13 +741,477 @@
   text-underline-offset: 3px;
 }
 
+.messageProductShelf {
+  display: flex;
+  width: 100%;
+  gap: 12px;
+  overflow-x: auto;
+  margin-top: 18px;
+  padding: 2px 2px 13px;
+  scroll-padding-inline: 2px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: #cfc9bc transparent;
+}
+
+.proposalCard {
+  display: grid;
+  gap: 12px;
+  max-width: 520px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--workspace-accent) 32%, #d8d3c8);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--workspace-accent-soft) 50%, #ffffff);
+}
+
+.proposalCard > div {
+  display: grid;
+  gap: 4px;
+}
+
+.proposalCard span {
+  color: var(--workspace-accent-dark);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.proposalCard strong {
+  font-size: 13px;
+}
+
+.proposalCard p {
+  margin: 0;
+  color: #625e56;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.workspace .proposalCard button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--workspace-accent);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.proposalCard button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.proposalCard button svg {
+  width: 13px;
+}
+
+.catalogGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.productCard {
+  min-width: 0;
+  overflow: hidden;
+  border: 2px dashed #d3cdc1;
+  border-radius: 14px;
+  background: #ffffff;
+  scroll-snap-align: start;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.productCardCompact {
+  width: 254px;
+  min-width: 254px;
+}
+
+.productCard:hover {
+  border-color: color-mix(in srgb, var(--workspace-accent) 46%, #ddd8cd);
+  background: #fbfaf7;
+}
+
+.productCard > button {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 340px;
+  flex-direction: column;
+  padding: 15px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.productCardBrand {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 42px minmax(0, 1fr) 18px;
+  gap: 10px;
+  align-items: center;
+}
+
+.productCardBrand > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.productCardBrand > div > span {
+  overflow: hidden;
+  color: #403d37;
+  font-size: 11px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.productCardBrand small {
+  overflow: hidden;
+  color: #8a8379;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.productCardBrand > svg {
+  width: 16px;
+  height: 16px;
+  color: #187255;
+}
+
+.productLogo {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(0 0 0 / 7%);
+  border-radius: 11px;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 760;
+  letter-spacing: -0.04em;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 20%);
+}
+
+.productLogo[data-tone="teal"] { background: linear-gradient(145deg, #087c71, #07564f); }
+.productLogo[data-tone="blue"] { background: linear-gradient(145deg, #4d70ca, #2e478f); }
+.productLogo[data-tone="plum"] { background: linear-gradient(145deg, #8d5c91, #5e3867); }
+.productLogo[data-tone="gold"] { background: linear-gradient(145deg, #c58b2b, #8f5d0d); }
+
+.productLogoLarge {
+  width: 58px;
+  height: 58px;
+  border-radius: 15px;
+  font-size: 24px;
+}
+
+.productCard h3 {
+  margin: 18px 0 7px;
+  color: #24231f;
+  font-size: 17px;
+  font-weight: 690;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.productCard > button > p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: #716b62;
+  font-size: 10.5px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.productCompanyReason {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #ece8df;
+}
+
+.productCompanyReason > span {
+  color: var(--workspace-accent-dark);
+  font-size: 8px;
+  font-weight: 760;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.productCompanyReason > p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: #4f4b44;
+  font-size: 10px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.productCardFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 13px;
+}
+
+.productCardFacts span {
+  padding: 4px 7px;
+  border: 1px solid #e3ded3;
+  border-radius: 999px;
+  background: #f8f6f1;
+  color: #6e685f;
+  font-size: 8px;
+  line-height: 1;
+}
+
+.productCard footer {
+  display: flex;
+  width: 100%;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.productCard footer > div {
+  display: grid;
+  gap: 1px;
+}
+
+.productCard footer strong {
+  color: #26241f;
+  font-size: 13px;
+  font-weight: 720;
+}
+
+.productCard footer > div > span {
+  color: #918a80;
+  font-size: 7px;
+  text-transform: capitalize;
+}
+
+.productCardAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--workspace-accent-dark);
+  font-size: 9px;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
+.productCardAction svg {
+  width: 12px;
+  height: 12px;
+}
+
+.productLimitation {
+  display: grid;
+  gap: 4px;
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-left: 3px solid #c6943e;
+  background: #fbf7ee;
+  color: #665d4f;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.productLimitation strong {
+  color: #463e32;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.productHero {
+  padding: 20px;
+  border: 1px solid #ded9cf;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #ffffff, #f8f6f0);
+  box-shadow: 0 12px 30px rgb(49 43 32 / 6%);
+}
+
+.productHeroBrand {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.productHeroBrand > div {
+  display: grid;
+  gap: 3px;
+}
+
+.productHeroBrand > div > span {
+  color: #36332e;
+  font-size: 12px;
+  font-weight: 660;
+}
+
+.productHeroBrand small {
+  color: #858076;
+  font-size: 9px;
+}
+
+.productEvidenceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border: 1px solid #bcd8ca;
+  border-radius: 999px;
+  background: #edf7f1;
+  color: #27674f;
+  font-size: 8px;
+  font-weight: 670;
+  white-space: nowrap;
+}
+
+.productEvidenceBadge svg {
+  width: 11px;
+  height: 11px;
+}
+
+.productHero h2 {
+  margin: 22px 0 8px;
+  color: #23221f;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.productHero > p {
+  margin: 0;
+  color: #6e685f;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.productPrice {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-top: 20px;
+}
+
+.productPrice strong {
+  color: #24231f;
+  font-size: 19px;
+  font-weight: 740;
+}
+
+.productPrice span {
+  color: #918a80;
+  font-size: 9px;
+  text-transform: capitalize;
+}
+
+.productSpecs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 18px 0 0;
+}
+
+.productSpecs > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid #e3ded4;
+  border-radius: 9px;
+  background: rgb(255 255 255 / 70%);
+}
+
+.productSpecs dt,
+.productSpecs dd {
+  margin: 0;
+}
+
+.productSpecs dt {
+  color: #938c82;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.productSpecs dd {
+  color: #3e3a34;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.integrationTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.integrationTags span {
+  padding: 6px 9px;
+  border: 1px solid #ddd8cd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #5c574f;
+  font-size: 9px;
+  text-transform: capitalize;
+}
+
 .typingState {
   display: inline-flex;
   min-height: 34px;
   align-items: center;
-  gap: 9px;
-  color: #777168;
-  font-size: 13px;
+  gap: 10px;
+  color: #68635b;
+  font-size: 12px;
+}
+
+.thinkingMark {
+  display: inline-flex;
+  width: 28px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid #ded9cf;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.thinkingMark span {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--workspace-accent);
+  animation: thinkingPulse 1.2s ease-in-out infinite;
+}
+
+.thinkingMark span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.thinkingMark span:nth-child(3) {
+  animation-delay: 0.3s;
 }
 
 .spin {
@@ -806,6 +1252,15 @@
 
 .composer textarea::placeholder {
   color: #9a958c;
+}
+
+.workspace .composer textarea:focus-visible {
+  outline: none;
+}
+
+.composer:focus-within {
+  border-color: #bcb6aa;
+  box-shadow: 0 4px 18px rgb(55 46 28 / 5%), 0 0 0 2px rgb(82 78 70 / 7%);
 }
 
 .composerToolbar {
@@ -887,10 +1342,19 @@
 }
 
 .composerBoundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   margin: 6px 0 0;
   color: #8c877e;
   font-size: 9px;
   text-align: center;
+}
+
+.composerBoundary svg {
+  width: 9px;
+  height: 9px;
 }
 
 .hiddenFileInput {
@@ -1464,7 +1928,7 @@
   line-height: 1.45;
 }
 
-.fullViewLink {
+.workspace .fullViewLink {
   display: flex;
   min-height: 42px;
   align-items: center;
@@ -1480,8 +1944,54 @@
   text-decoration: none;
 }
 
-.fullViewLink:hover {
+.workspace .fullViewLink:hover {
   background: var(--workspace-accent-dark);
+  color: #ffffff;
+}
+
+.decisionMiniList {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.decisionMiniList a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  gap: 3px 10px;
+  padding: 10px;
+  border: 1px solid #e1ddd3;
+  border-radius: 8px;
+  color: #302f2b;
+  text-decoration: none;
+}
+
+.decisionMiniList a:hover {
+  border-color: #bdb7aa;
+  background: #f7f5ef;
+}
+
+.decisionMiniList span {
+  grid-column: 1;
+  color: #817b72;
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.decisionMiniList strong {
+  grid-column: 1;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.decisionMiniList svg {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  width: 14px;
+  align-self: center;
 }
 
 .fullViewLink svg {
@@ -1637,6 +2147,11 @@
   to { transform: rotate(360deg); }
 }
 
+@keyframes thinkingPulse {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+
 @media (max-width: 839px) {
   .workspace,
   .workspace.contextExpanded:not(.sidebarClosed) {
@@ -1720,10 +2235,6 @@
     backdrop-filter: blur(1px);
   }
 
-  .privacyHeader {
-    display: none;
-  }
-
   .messageColumn {
     gap: 28px;
     padding: 32px 20px 54px;
@@ -1766,6 +2277,24 @@
     padding-inline: 8px;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .productCardCompact {
+    width: min(78vw, 270px);
+    min-width: min(78vw, 270px);
+  }
+
+  .catalogGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .productHeroBrand {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .productEvidenceBadge {
+    grid-column: 1 / -1;
+    width: fit-content;
   }
 
   .contextBody {

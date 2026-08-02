@@ -59,6 +59,13 @@ class ApiSettings(BaseSettings):
     )
     openai_api_key: SecretStr = Field(default=SecretStr(""), validation_alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-5-mini", validation_alias="OPENAI_MODEL")
+    senso_base_url: str = Field(default="https://apiv2.senso.ai/api/v1", validation_alias="SENSO_BASE_URL")
+    senso_buyer_query_api_key: SecretStr = Field(default=SecretStr(""), validation_alias="SENSO_BUYER_QUERY_API_KEY")
+    senso_seller_query_api_key: SecretStr = Field(default=SecretStr(""), validation_alias="SENSO_SELLER_QUERY_API_KEY")
+    senso_buyer_query_key_id: str = Field(default="", validation_alias="SENSO_BUYER_QUERY_KEY_ID")
+    senso_seller_query_key_id: str = Field(default="", validation_alias="SENSO_SELLER_QUERY_KEY_ID")
+    senso_buyer_folder_id: str = Field(default="", validation_alias="SENSO_BUYER_FOLDER_ID")
+    senso_seller_folder_id: str = Field(default="", validation_alias="SENSO_SELLER_FOLDER_ID")
 
     @property
     def is_development(self) -> bool:
