@@ -25,6 +25,7 @@ from .schemas import (
     ApprovalRejectCreate,
     ApprovalRequestCreate,
     ApprovalRequestView,
+    ApprovalRevokeCreate,
     CalibrationRunCreate,
     CalibrationRunView,
     CandidateActionCreate,
@@ -503,6 +504,34 @@ async def reject_approval(
     require_human_identity(context)
     require_permission(context, "can_approve_purchase")
     response_status, payload = await service.reject_approval(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        actor_roles=context.roles,
+        step_up_verified=context.step_up_verified,
+        approval_id=approval_id,
+        idempotency_key=idempotency_key,
+        body=body.model_dump(mode="json"),
+    )
+    response.status_code = response_status
+    return payload
+
+
+@router.post(
+    "/v1/approval-requests/{approval_id}/revoke",
+    response_model=ApprovalRequestView,
+    tags=["commerce"],
+)
+async def revoke_approval(
+    approval_id: str,
+    body: ApprovalRevokeCreate,
+    context: ContextDependency,
+    service: ServiceDependency,
+    idempotency_key: IdempotencyDependency,
+    response: Response,
+) -> dict[str, object]:
+    require_human_identity(context)
+    require_permission(context, "can_approve_purchase")
+    response_status, payload = await service.revoke_approval(
         organization_id=context.organization_id,
         actor_id=context.actor_id,
         actor_roles=context.roles,

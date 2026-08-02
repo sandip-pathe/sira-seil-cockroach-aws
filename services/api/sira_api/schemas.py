@@ -44,6 +44,7 @@ class ApprovalStatus(StrEnum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+    REVOKED = "REVOKED"
     EXPIRED = "EXPIRED"
     SUPERSEDED = "SUPERSEDED"
 
@@ -525,6 +526,12 @@ class ApprovalCreate(StrictModel):
 
 
 class ApprovalRejectCreate(StrictModel):
+    intent_hash: HashValue
+    actor_role: str
+    reason: str = Field(min_length=3, max_length=1000)
+
+
+class ApprovalRevokeCreate(StrictModel):
     intent_hash: HashValue
     actor_role: str
     reason: str = Field(min_length=3, max_length=1000)

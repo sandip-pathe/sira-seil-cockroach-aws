@@ -757,6 +757,90 @@ async def test_exact_hash_approval_and_separate_states(api_client: httpx.AsyncCl
 
 
 @pytest.mark.asyncio
+async def test_approved_authority_can_be_revoked_before_checkout(
+    api_client: httpx.AsyncClient,
+) -> None:
+    intent, approval = await lock_intent_and_start_approval(api_client)
+    roles = [
+        "operations_owner",
+        "security_privacy_owner",
+        "legal_owner",
+        "budget_owner",
+    ]
+    for index, role in enumerate(roles):
+        approved = await api_client.post(
+            f"/v1/approval-requests/{approval['id']}/approve",
+            headers={
+                **idempotency(f"revoke-setup-{index}"),
+                "X-Actor-Id": f"usr_{role}",
+                "X-Actor-Roles": f"{role},can_approve_purchase",
+                "X-Step-Up-Verified": "true",
+            },
+            json={"intent_hash": approval["intent_hash"], "actor_role": role},
+        )
+        assert approved.status_code == 200, approved.text
+    assert approved.json()["status"] == "APPROVED"
+
+    wrong_hash = await api_client.post(
+        f"/v1/approval-requests/{approval['id']}/revoke",
+        headers={
+            **idempotency("revoke-wrong-hash"),
+            "X-Actor-Id": "usr_operations_owner",
+            "X-Actor-Roles": "operations_owner,can_approve_purchase",
+            "X-Step-Up-Verified": "true",
+        },
+        json={
+            "intent_hash": "sha256:" + "0" * 64,
+            "actor_role": "operations_owner",
+            "reason": "The purchase authority must be withdrawn",
+        },
+    )
+    assert wrong_hash.status_code == 409
+
+    headers = {
+        **idempotency("revoke-approved-intent"),
+        "X-Actor-Id": "usr_operations_owner",
+        "X-Actor-Roles": "operations_owner,can_approve_purchase",
+        "X-Step-Up-Verified": "true",
+    }
+    body = {
+        "intent_hash": approval["intent_hash"],
+        "actor_role": "operations_owner",
+        "reason": "Company approval was explicitly withdrawn",
+    }
+    revoked = await api_client.post(
+        f"/v1/approval-requests/{approval['id']}/revoke",
+        headers=headers,
+        json=body,
+    )
+    replay = await api_client.post(
+        f"/v1/approval-requests/{approval['id']}/revoke",
+        headers=headers,
+        json=body,
+    )
+    assert revoked.status_code == replay.status_code == 200
+    assert revoked.json() == replay.json()
+    assert revoked.json()["status"] == "REVOKED"
+
+    status = await api_client.get(f"/v1/purchase-intents/{intent['purchase_intent_id']}/status")
+    assert status.status_code == 200
+    assert status.json()["approval_status"] == "REVOKED"
+    assert status.json()["payment_status"] == "NOT_STARTED"
+
+    reapprove = await api_client.post(
+        f"/v1/approval-requests/{approval['id']}/approve",
+        headers={
+            **idempotency("approve-after-revoke"),
+            "X-Actor-Id": "usr_operations_owner",
+            "X-Actor-Roles": "operations_owner,can_approve_purchase",
+            "X-Step-Up-Verified": "true",
+        },
+        json={"intent_hash": approval["intent_hash"], "actor_role": "operations_owner"},
+    )
+    assert reapprove.status_code == 409
+
+
+@pytest.mark.asyncio
 async def test_prava_setup_blocker_and_no_fake_receipt(api_client: httpx.AsyncClient) -> None:
     intent, _approval = await lock_intent_and_start_approval(api_client)
     intent_id = intent["purchase_intent_id"]

@@ -4,7 +4,7 @@ Updated: 2026-08-02
 
 Branch reviewed: `core-backend`
 
-Implementation reviewed through: `86ef60a`
+Implementation reviewed through: `caf51f1` plus the current approval-revocation batch
 
 This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes that followed it. It is the short, current checklist for the demo; the earlier audit remains useful background but its original P0 verdict is stale.
 
@@ -28,6 +28,7 @@ This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes t
 | PAY-04 | **FIXED IN CODE:** Concurrent first idempotency claims use a savepoint, resolve the uniqueness race, and reread the canonical record. Live PostgreSQL proof is still open below. | `86ef60a`. |
 | PAY-05 | **FIXED IN CODE:** Purchase Intent merchant, Pack, offer, quote, amount, currency, line items, fulfillment expectations, and Stackfile patch now come from a hashed snapshot on the exact persisted selected plan. Missing or altered terms fail closed. | Batch 1 transaction-binding tests; live PostgreSQL proof remains open. |
 | PAY-06 | **PASS IN CONTRACT:** Prava binds the exact ISO currency at session creation and the same canonical currency reaches the controlled merchant. The official payment-result response does not return a currency field, so result-time currency comparison is not possible; session/order/amount/merchant checks prevent substitution. | Prava adapter contract tests and official [Create Session](https://docs.prava.space/api-reference/create-session)/[Get Payment Result](https://docs.prava.space/api-reference/get-payment-result) documentation. |
+| PAY-07 | **FIXED IN APPLICATION:** An authorized approver can revoke the exact intent hash before merchant dispatch. Revocation invalidates local hosted-session/browser authority, retires queued checkout work, and the worker recheck proves zero Prava or merchant dispatch. | Approval API/domain/worker tests; provider-side session cancellation remains open under LIVE-03. |
 | SEC-01 | **PASS IN CODE:** Production defaults fail closed, fixture adapters are labelled, tenant scoping/RLS policies exist, and the one-time Prava credential stays out of persistence, payloads, workflow history, and errors. | Production-boundary, provider, worker, and contract tests. |
 
 ## Required on the laptop for the demo
@@ -46,7 +47,7 @@ Docker is not required for these checks. A local laptop PostgreSQL/Temporal setu
 
 | ID | Blocker |
 |---|---|
-| LIVE-03 | Add approval revocation and enforce it through dispatch. Expiry is fixed; revocation is not implemented. |
+| LIVE-03 | Compose Prava's official [Revoke Session](https://docs.prava.space/api-reference/revoke-session) operation for an already-created hosted session and certify it in sandbox. Application authority revocation already blocks merchant dispatch. |
 | LIVE-04 | Configure authentic Prava, controlled merchant/entitlement, Temporal, and HTTPS return URL values and run the real sandbox contracts. Development adapters must remain visibly non-production. |
 | LIVE-05 | Prove pending/timeout, unknown result, duplicate attempt, crash-after-charge, and paid-but-unfulfilled recovery against the sandbox without a duplicate charge. |
 | LIVE-06 | Senso must be composed into typed, provenance-preserving input compilation before claiming that live company evidence affected the decision. |
@@ -58,6 +59,7 @@ Until those pass, demonstrate the deterministic transaction state machine with l
 | Check | Current evidence |
 |---|---|
 | Focused P0 regression | **PASS:** 133 tests. |
+| Approval-revocation regression | **PASS:** 37 focused API, domain, and worker tests; frozen OpenAPI and generated client checks pass. |
 | Persistence-focused run | **PASS:** 73 tests; **2 skipped** because `SIRA_TEST_DATABASE_ADMIN_URL` was not set to a dedicated `sira_test` PostgreSQL database. |
 | Python lint | **PASS:** Ruff. |
 | Python typing | **PASS:** strict mypy across 23 source files. |

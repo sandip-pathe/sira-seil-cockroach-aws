@@ -32,6 +32,19 @@ def test_approval_requires_the_exact_intent_hash() -> None:
         )
 
 
+def test_pending_or_approved_authority_can_be_revoked_but_not_restored() -> None:
+    assert (
+        ApprovalTransitionService.transition(ApprovalStatus.PENDING, ApprovalStatus.REVOKED)
+        is ApprovalStatus.REVOKED
+    )
+    assert (
+        ApprovalTransitionService.transition(ApprovalStatus.APPROVED, ApprovalStatus.REVOKED)
+        is ApprovalStatus.REVOKED
+    )
+    with pytest.raises(InvalidTransitionError):
+        ApprovalTransitionService.transition(ApprovalStatus.REVOKED, ApprovalStatus.APPROVED)
+
+
 def test_complete_payment_path_and_charged_guard() -> None:
     status = PaymentStatus.NOT_STARTED
     for target in (

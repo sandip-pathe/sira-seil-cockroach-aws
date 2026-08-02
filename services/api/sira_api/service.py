@@ -2355,6 +2355,176 @@ class WorkflowService:
             raise RuntimeError("approval rejection transaction produced no result")
         return result
 
+    async def revoke_approval(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        actor_roles: frozenset[str],
+        step_up_verified: bool,
+        approval_id: str,
+        idempotency_key: str,
+        body: dict[str, Any],
+    ) -> tuple[int, dict[str, Any]]:
+        if not step_up_verified:
+            raise ApiProblem(
+                code="STEP_UP_REQUIRED",
+                message="Recent step-up authentication is required to revoke approval.",
+                status_code=403,
+                next_action="authenticate",
+            )
+        request_hash = content_hash({"approval_id": approval_id, **body})
+        async with self.database.transaction(organization_id) as session:
+            repository = WorkflowRepository(session, organization_id)
+            approval = (
+                await session.execute(
+                    select(ApprovalRequest)
+                    .where(
+                        ApprovalRequest.id == approval_id,
+                        ApprovalRequest.organization_id == organization_id,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if approval is None:
+                raise self._missing("APPROVAL_REQUEST")
+            intent = await repository.get_purchase_intent(approval.purchase_intent_id, lock=True)
+            decision = await repository.get_decision(intent.decision_id)
+            await self._require_current_decision(session, organization_id, decision)
+            claim = await repository.claim_idempotency(
+                actor_id=actor_id,
+                operation="approval_requests.revoke",
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+            )
+            if claim.replay:
+                return int(claim.record.response_status or 200), dict(
+                    claim.record.response_payload or {}
+                )
+            if approval.status not in {"PENDING", "APPROVED"}:
+                raise ApiProblem(
+                    code="APPROVAL_NOT_REVOCABLE",
+                    message=f"Approval request is already {approval.status}.",
+                    status_code=409,
+                    next_action="poll_purchase_status",
+                )
+            if intent.payment_status not in {
+                "NOT_STARTED",
+                "SESSION_CREATED",
+                "CARDHOLDER_PENDING",
+            }:
+                raise ApiProblem(
+                    code="REVOCATION_TOO_LATE",
+                    message="Checkout has already reached merchant dispatch or a terminal state.",
+                    status_code=409,
+                    next_action="poll_purchase_status",
+                )
+
+            sessions = (
+                await session.execute(
+                    select(PaymentSession)
+                    .where(
+                        PaymentSession.organization_id == organization_id,
+                        PaymentSession.purchase_intent_id == intent.id,
+                    )
+                    .with_for_update()
+                )
+            ).scalars().all()
+            if any(item.status == "CREATING" for item in sessions):
+                raise ApiProblem(
+                    code="SESSION_CREATE_PENDING",
+                    message="Wait for the in-flight Prava session create before revoking it.",
+                    status_code=409,
+                    retryable=True,
+                    next_action="retry_revocation",
+                )
+
+            role = body["actor_role"]
+            self._require_verified_approval_role(approval, actor_roles, role)
+            await repository.record_approval_event(
+                approval_request_id=approval_id,
+                intent_hash=body["intent_hash"],
+                actor_id=actor_id,
+                actor_role=role,
+                action="REVOKE",
+                event_key=f"revoke:{approval_id}:{actor_id}",
+                reason=body["reason"],
+            )
+            now = datetime.now(UTC)
+            approval.status = "REVOKED"
+            intent.approval_status = "REVOKED"
+            for payment_session in sessions:
+                if payment_session.status in {"SESSION_CREATED", "CARDHOLDER_PENDING"}:
+                    payment_session.status = "REVOKED"
+            bindings = (
+                await session.execute(
+                    select(BrowserReturnBinding)
+                    .where(
+                        BrowserReturnBinding.organization_id == organization_id,
+                        BrowserReturnBinding.purchase_intent_id == intent.id,
+                        BrowserReturnBinding.consumed_at.is_(None),
+                    )
+                    .with_for_update()
+                )
+            ).scalars().all()
+            for binding in bindings:
+                binding.consumed_at = now
+            queued_events = (
+                await session.execute(
+                    select(OutboxEvent)
+                    .where(
+                        OutboxEvent.organization_id == organization_id,
+                        OutboxEvent.aggregate_type == "purchase_intent",
+                        OutboxEvent.aggregate_id == intent.id,
+                        OutboxEvent.event_type == "purchase_checkout.requested",
+                        OutboxEvent.published_at.is_(None),
+                    )
+                    .with_for_update()
+                )
+            ).scalars().all()
+            for event in queued_events:
+                event.published_at = now
+            workflow = (
+                await session.execute(
+                    select(WorkflowRun)
+                    .where(
+                        WorkflowRun.id == f"wf_checkout_{intent.id}",
+                        WorkflowRun.organization_id == organization_id,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if workflow is not None and workflow.status == "PENDING":
+                workflow.status = "FAILED"
+                workflow.safe_error_code = "APPROVAL_REVOKED"
+                workflow.event_log = [
+                    *workflow.event_log,
+                    {
+                        "id": str(len(workflow.event_log) + 1),
+                        "status": "FAILED",
+                        "message": "Approval revoked before merchant dispatch",
+                    },
+                ]
+            await repository.add_outbox(
+                aggregate_type="purchase_intent",
+                aggregate_id=intent.id,
+                event_type="approval.revoked",
+                event_key=f"approval-revoked:{approval.id}",
+                payload={
+                    "purchase_intent_id": intent.id,
+                    "approval_request_id": approval.id,
+                    "actor_role": role,
+                },
+            )
+            response = self._approval_view(approval)
+            await repository.complete_idempotency(
+                claim.record,
+                response_status=200,
+                response_payload=response,
+                response_reference=approval.id,
+            )
+            return 200, response
+
     @classmethod
     def _approval_expiry_problem(
         cls, approval: ApprovalRequest, intent: PurchaseIntent, now: datetime
@@ -2408,7 +2578,7 @@ class WorkflowService:
         return problem
 
     @staticmethod
-    def _require_approval_role(
+    def _require_verified_approval_role(
         approval: ApprovalRequest, actor_roles: frozenset[str], role: str
     ) -> None:
         if role not in actor_roles:
@@ -2423,6 +2593,12 @@ class WorkflowService:
                 message="The authenticated actor does not satisfy a required approval role.",
                 status_code=403,
             )
+
+    @classmethod
+    def _require_approval_role(
+        cls, approval: ApprovalRequest, actor_roles: frozenset[str], role: str
+    ) -> None:
+        cls._require_verified_approval_role(approval, actor_roles, role)
         next_stage = len(approval.approved_roles)
         if next_stage >= len(approval.required_roles):
             raise ApiProblem(

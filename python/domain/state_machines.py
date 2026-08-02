@@ -21,12 +21,16 @@ class ApprovalTransitionService:
             {
                 ApprovalStatus.APPROVED,
                 ApprovalStatus.REJECTED,
+                ApprovalStatus.REVOKED,
                 ApprovalStatus.EXPIRED,
                 ApprovalStatus.SUPERSEDED,
             }
         ),
-        ApprovalStatus.APPROVED: frozenset({ApprovalStatus.SUPERSEDED}),
+        ApprovalStatus.APPROVED: frozenset(
+            {ApprovalStatus.REVOKED, ApprovalStatus.SUPERSEDED}
+        ),
         ApprovalStatus.REJECTED: frozenset(),
+        ApprovalStatus.REVOKED: frozenset(),
         ApprovalStatus.EXPIRED: frozenset(),
         ApprovalStatus.SUPERSEDED: frozenset(),
     }

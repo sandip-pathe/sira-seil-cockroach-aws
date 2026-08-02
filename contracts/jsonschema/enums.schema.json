@@ -61,7 +61,7 @@
     },
     "ApprovalStatus": {
       "type": "string",
-      "enum": ["NOT_REQUIRED", "NOT_REQUESTED", "PENDING", "APPROVED", "REJECTED", "EXPIRED", "SUPERSEDED"]
+      "enum": ["NOT_REQUIRED", "NOT_REQUESTED", "PENDING", "APPROVED", "REJECTED", "REVOKED", "EXPIRED", "SUPERSEDED"]
     },
     "PaymentStatus": {
       "type": "string",

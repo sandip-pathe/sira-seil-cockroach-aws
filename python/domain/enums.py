@@ -55,6 +55,7 @@ class ApprovalStatus(StringEnum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+    REVOKED = "REVOKED"
     EXPIRED = "EXPIRED"
     SUPERSEDED = "SUPERSEDED"
 

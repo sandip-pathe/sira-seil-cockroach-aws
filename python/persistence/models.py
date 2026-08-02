@@ -991,7 +991,7 @@ class PurchaseIntent(Base, TenantOwned, Timestamped):
         CheckConstraint("currency = upper(currency)", name="ck_purchase_intent_currency_upper"),
         CheckConstraint(
             "approval_status IN ("
-            "'NOT_REQUESTED','PENDING','APPROVED','REJECTED','EXPIRED','SUPERSEDED')",
+            "'NOT_REQUESTED','PENDING','APPROVED','REJECTED','REVOKED','EXPIRED','SUPERSEDED')",
             name="ck_purchase_intent_approval_status",
         ),
         CheckConstraint(
@@ -1139,6 +1139,10 @@ class ApprovalRequest(Base, TenantOwned, Timestamped):
         UniqueConstraint(
             "organization_id", "purchase_intent_id", "intent_hash", name="uq_approval_exact_intent"
         ),
+        CheckConstraint(
+            "status IN ('PENDING','APPROVED','REJECTED','REVOKED','EXPIRED','SUPERSEDED')",
+            name="ck_approval_request_status",
+        ),
     )
 
 
@@ -1162,7 +1166,8 @@ class ApprovalEvent(Base, TenantOwned):
     __table_args__ = (
         UniqueConstraint("organization_id", "event_key", name="uq_approval_event_key"),
         CheckConstraint(
-            "action IN ('APPROVE','REJECT','DELEGATE')", name="ck_approval_event_action"
+            "action IN ('APPROVE','REJECT','REVOKE','DELEGATE')",
+            name="ck_approval_event_action",
         ),
     )
 

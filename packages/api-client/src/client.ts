@@ -31,6 +31,7 @@ const operations = {
   reject_rule_proposal: { method: "POST", path: "/v1/decision-rules/{rules_id}/proposals/{proposal_id}/reject", responseMediaType: "application/json" },
   replay_evaluation: { method: "POST", path: "/v1/evaluation-runs/{evaluation_run_id}/replay", responseMediaType: "application/json" },
   reset_demo: { method: "POST", path: "/v1/demo/reset", responseMediaType: "application/json" },
+  revoke_approval: { method: "POST", path: "/v1/approval-requests/{approval_id}/revoke", responseMediaType: "application/json" },
   run_decision_calibration: { method: "POST", path: "/v1/decision-requests/{request_id}/calibration-runs", responseMediaType: "application/json" },
   select_action_plan: { method: "POST", path: "/v1/decisions/{decision_id}/plan-selections", responseMediaType: "application/json" },
   seller_evidence_activity_metrics: { method: "GET", path: "/v1/seller/products/{product_id}/activity-metrics", responseMediaType: "application/json" },

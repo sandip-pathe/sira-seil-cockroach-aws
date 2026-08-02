@@ -854,6 +854,8 @@ class WorkflowRepository:
         event_key: str,
         reason: str | None = None,
     ) -> ApprovalEvent:
+        if action not in {"APPROVE", "REJECT", "REVOKE", "DELEGATE"}:
+            raise PersistenceConflict("Approval event action is unsupported")
         approval = await _one_or_missing(
             self.session,
             select(ApprovalRequest)

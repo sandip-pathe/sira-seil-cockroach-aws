@@ -45,11 +45,13 @@ from persistence.models import (
     ApprovalRequest,
     Base,
     BrowserReturnBinding,
+    OutboxEvent,
     PaymentAttempt,
     PaymentSession,
     PurchaseIntent,
     StackPatch,
     TransactionTransition,
+    WorkflowRun,
 )
 from persistence.repositories import WorkflowRepository
 
@@ -609,3 +611,86 @@ async def test_worker_rechecks_expiry_before_provider_dispatch(
         assert canonical_intent.approval_status == "EXPIRED"
     assert attempt_count == 0
     assert transition.reason_code == expected_reason
+
+
+@pytest.mark.asyncio
+async def test_revocation_cancels_queued_checkout_before_provider_dispatch(
+    checkout_database: Database,
+) -> None:
+    service, intent = await prepare_approved_checkout(checkout_database)
+    intent_id = str(intent["purchase_intent_id"])
+    async with checkout_database.transaction("org_consultco") as session:
+        approval = (
+            await session.execute(
+                select(ApprovalRequest).where(
+                    ApprovalRequest.purchase_intent_id == intent_id,
+                    ApprovalRequest.status == "APPROVED",
+                )
+            )
+        ).scalar_one()
+        approval_id = approval.id
+        intent_hash = approval.intent_hash
+
+    _, revoked = await service.revoke_approval(
+        organization_id="org_consultco",
+        actor_id="usr_operations_owner",
+        actor_roles=frozenset({"operations_owner"}),
+        step_up_verified=True,
+        approval_id=approval_id,
+        idempotency_key="worker-revoke-before-dispatch",
+        body={
+            "intent_hash": intent_hash,
+            "actor_role": "operations_owner",
+            "reason": "The approved purchase authority was withdrawn",
+        },
+    )
+    assert revoked["status"] == "REVOKED"
+
+    prava = FakePrava()
+    coordinator = PersistentCheckoutCoordinator(
+        database=checkout_database,
+        prava=prava,
+        merchant=FakeMerchant(),
+        merchant_adapter_id="merchant_fixture_d",
+    )
+    with pytest.raises(ProviderError) as raised:
+        await coordinator.execute_isolated_checkout(
+            IsolatedCheckoutActivityInput(
+                organization_id="org_consultco",
+                purchase_intent_id=intent_id,
+                intent_hash=intent_hash,
+                prava_session_id="prava_session_real_contract",
+                merchant_adapter_id="merchant_fixture_d",
+                idempotency_key="checkout-after-revocation",
+            )
+        )
+    assert raised.value.code is ProviderErrorCode.INVALID_STATE
+    assert prava.execute_calls == 0
+
+    async with checkout_database.transaction("org_consultco") as session:
+        canonical_intent = (
+            await session.execute(select(PurchaseIntent).where(PurchaseIntent.id == intent_id))
+        ).scalar_one()
+        payment_session = (
+            await session.execute(
+                select(PaymentSession).where(PaymentSession.id == "pays_worker_contract")
+            )
+        ).scalar_one()
+        checkout_event = (
+            await session.execute(
+                select(OutboxEvent).where(
+                    OutboxEvent.aggregate_id == intent_id,
+                    OutboxEvent.event_type == "purchase_checkout.requested",
+                )
+            )
+        ).scalar_one()
+        workflow = (
+            await session.execute(
+                select(WorkflowRun).where(WorkflowRun.id == f"wf_checkout_{intent_id}")
+            )
+        ).scalar_one()
+        assert canonical_intent.approval_status == "REVOKED"
+        assert payment_session.status == "REVOKED"
+        assert checkout_event.published_at is not None
+        assert workflow.status == "FAILED"
+        assert workflow.safe_error_code == "APPROVAL_REVOKED"
