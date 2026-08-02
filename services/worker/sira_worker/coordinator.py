@@ -159,23 +159,15 @@ class PersistentCheckoutCoordinator:
             result=result,
         )
         if (
-            output.reconciliation_required
-            or output.merchant_outcome is not SafeMerchantOutcome.APPROVED
+            not output.reconciliation_required
+            and output.merchant_outcome is not SafeMerchantOutcome.APPROVED
         ):
             await self._finish_workflow_run(
                 organization_id=request.organization_id,
                 intent_id=request.purchase_intent_id,
-                status="FAILED" if output.reconciliation_required else "COMPLETED",
-                safe_error_code=(
-                    "CHECKOUT_RECONCILIATION_INCOMPLETE"
-                    if output.reconciliation_required
-                    else None
-                ),
-                message=(
-                    "Checkout reconciliation remains incomplete"
-                    if output.reconciliation_required
-                    else f"Checkout finished with {output.merchant_outcome.value}"
-                ),
+                status="COMPLETED",
+                safe_error_code=None,
+                message=f"Checkout finished with {output.merchant_outcome.value}",
             )
         assert_credential_free_contract(output)
         return output

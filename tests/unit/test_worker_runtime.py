@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Coroutine
+from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -440,6 +441,50 @@ async def test_workflow_reconciles_uncertain_checkout_before_returning(
     ]
     assert calls[1][1] == _reconcile_input()
     assert calls[1][2]["retry_policy"].maximum_attempts == 5
+
+
+@pytest.mark.asyncio
+async def test_workflow_schedules_authoritative_reconciliation_until_exhausted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, object, dict[str, Any]]] = []
+    sleeps: list[timedelta] = []
+    unresolved = _checkout_result(
+        outcome=SafeMerchantOutcome.UNKNOWN,
+        reconciliation_required=True,
+    )
+
+    async def fake_execute(name: str, request: object, **kwargs: Any) -> object:
+        calls.append((name, request, kwargs))
+        if name == "sira.fail_checkout_workflow":
+            return None
+        return unresolved
+
+    async def fake_sleep(delay: timedelta) -> None:
+        sleeps.append(delay)
+
+    monkeypatch.setattr(workflows.workflow, "execute_activity", fake_execute)
+    monkeypatch.setattr(workflows.workflow, "sleep", fake_sleep)
+    request = PurchaseCheckoutWorkflowInput(
+        organization_id="org_consultco",
+        purchase_intent_id="pi_demo",
+        intent_hash="sha256:demo",
+        prava_session_id="ses_demo",
+        merchant_adapter_id="merchant_demo",
+        idempotency_key="checkout_demo_v1",
+    )
+
+    result = await workflows.PurchaseCheckoutWorkflow().run(request)
+
+    assert result.reconciliation_required is True
+    assert [call[0] for call in calls].count("sira.reconcile_checkout") == 5
+    assert [item.total_seconds() for item in sleeps] == [15, 60, 300, 900]
+    assert calls[-1][0] == "sira.fail_checkout_workflow"
+    assert calls[-1][1] == WorkflowFailureActivityInput(
+        organization_id="org_consultco",
+        purchase_intent_id="pi_demo",
+        safe_code="CHECKOUT_RECONCILIATION_INCOMPLETE",
+    )
 
 
 @pytest.mark.asyncio

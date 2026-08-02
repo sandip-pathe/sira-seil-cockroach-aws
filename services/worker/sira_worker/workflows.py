@@ -20,6 +20,8 @@ with workflow.unsafe.imports_passed_through():
         assert_credential_free_contract,
     )
 
+_RECONCILIATION_DELAYS_SECONDS = (0, 15, 60, 300, 900)
+
 
 @workflow.defn(name="sira.purchase_checkout")
 class PurchaseCheckoutWorkflow:
@@ -51,19 +53,35 @@ class PurchaseCheckoutWorkflow:
                 idempotency_key=request.idempotency_key,
                 transaction_reference=checkout.transaction_reference,
             )
-            checkout = await workflow.execute_activity(
-                "sira.reconcile_checkout",
-                reconciliation_input,
-                result_type=CheckoutActivityResult,
-                start_to_close_timeout=timedelta(seconds=30),
-                retry_policy=RetryPolicy(
-                    initial_interval=timedelta(seconds=2),
-                    backoff_coefficient=2.0,
-                    maximum_interval=timedelta(seconds=30),
-                    maximum_attempts=5,
-                ),
-            )
-            assert_credential_free_contract(checkout)
+            for delay_seconds in _RECONCILIATION_DELAYS_SECONDS:
+                if delay_seconds:
+                    await workflow.sleep(timedelta(seconds=delay_seconds))
+                checkout = await workflow.execute_activity(
+                    "sira.reconcile_checkout",
+                    reconciliation_input,
+                    result_type=CheckoutActivityResult,
+                    start_to_close_timeout=timedelta(seconds=30),
+                    retry_policy=RetryPolicy(
+                        initial_interval=timedelta(seconds=2),
+                        backoff_coefficient=2.0,
+                        maximum_interval=timedelta(seconds=30),
+                        maximum_attempts=5,
+                    ),
+                )
+                assert_credential_free_contract(checkout)
+                if not checkout.reconciliation_required:
+                    break
+            if checkout.reconciliation_required:
+                await workflow.execute_activity(
+                    "sira.fail_checkout_workflow",
+                    WorkflowFailureActivityInput(
+                        organization_id=request.organization_id,
+                        purchase_intent_id=request.purchase_intent_id,
+                        safe_code="CHECKOUT_RECONCILIATION_INCOMPLETE",
+                    ),
+                    start_to_close_timeout=timedelta(seconds=15),
+                    retry_policy=RetryPolicy(maximum_attempts=3),
+                )
         if (
             checkout.merchant_outcome is SafeMerchantOutcome.APPROVED
             and checkout.provider_reported
