@@ -84,3 +84,50 @@ jobs:
 
       - name: Scan current tree for credentials
         run: uv run --frozen python scripts/credential_scan.py --current-tree-only
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Validate Compose
+        run: |
+          docker compose config --quiet
+          sh -n infra/postgres/bootstrap.sh
+          sh -n infra/postgres/certify-runtime.sh
+
+      - name: Build backend image
+        run: docker compose build api
+
+      - name: Start fresh PostgreSQL and restricted API
+        env:
+          POSTGRES_PORT: "55432"
+          SIRA_API_PORT: "18000"
+        run: |
+          docker compose -p sira-ci up -d --wait api
+          health="$(curl --fail --silent http://127.0.0.1:18000/health)"
+          test "$(jq -r '.status + ":" + .database' <<<"$health")" = "ok:configured"
+          test "$(docker compose -p sira-ci exec -T postgres psql -U sira -d postgres -Atc \
+            "SELECT rolsuper::text || ':' || rolbypassrls::text FROM pg_roles WHERE rolname='sira_runtime'")" = "false:false"
+          test "$(docker compose -p sira-ci exec -T postgres psql -U sira -d sira -Atc \
+            "SELECT version_num FROM alembic_version")" = "f8c1d2e3a4b5"
+          docker compose -p sira-ci --profile certify run --rm --no-deps postgres-certify
+
+      - name: Show container logs
+        if: always()
+        env:
+          POSTGRES_PORT: "55432"
+          SIRA_API_PORT: "18000"
+        run: docker compose -p sira-ci logs --no-color
+
+      - name: Remove isolated Docker test project
+        if: always()
+        env:
+          POSTGRES_PORT: "55432"
+          SIRA_API_PORT: "18000"
+        run: docker compose -p sira-ci down --volumes --remove-orphans

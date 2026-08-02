@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from datetime import datetime
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -77,6 +78,16 @@ def create_app(
         application.state.database = resolved_database
         application.state.identity_adapter = resolved_identity_adapter
         fixtures = DemoFixtureBundle.load() if resolved_settings.development_fixture_mode else None
+        fixture_quote_clock: Callable[[], datetime] | None = None
+        if fixtures is not None:
+            fixture_quote_now = datetime.fromisoformat(
+                str(fixtures.expected_purchase_intent["locked_at"]).replace("Z", "+00:00")
+            )
+
+            def fixed_fixture_quote_clock() -> datetime:
+                return fixture_quote_now
+
+            fixture_quote_clock = fixed_fixture_quote_clock
         resolved_seller_directory = seller_directory
         if resolved_seller_directory is None and fixtures is not None:
             resolved_seller_directory = StaticSellerOrganizationDirectory(
@@ -98,6 +109,7 @@ def create_app(
             ),
             browser_return_ttl_seconds=resolved_settings.browser_return_ttl_seconds,
             seller_directory=resolved_seller_directory,
+            quote_clock=fixture_quote_clock,
         )
         application.state.seller_evidence_service = SellerEvidenceService(
             resolved_database,
@@ -112,9 +124,9 @@ def create_app(
     application = FastAPI(
         title="SIRA + SEIL API",
         version="0.1.0",
-        summary="Company-aware decisions, exact authority, and verified fulfillment",
+        summary="B2B commerce agents with exact authority and verified fulfillment",
         description=(
-            "PostgreSQL-canonical control plane for the first meeting-intelligence vertical. "
+            "Backend for SIRA buyer and SEIL seller B2B commerce agents. "
             "Development fixtures are fictional and never indicate production provider success."
         ),
         lifespan=lifespan,

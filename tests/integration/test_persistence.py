@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 import os
+import secrets
 import subprocess
 import sys
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import psycopg
 import pytest
@@ -15,12 +20,20 @@ from psycopg.types.json import Jsonb
 from sira_api.fixtures import DemoFixtureBundle
 from sira_api.marketplace import SellerPrincipalBinding, StaticSellerOrganizationDirectory
 from sira_api.service import WorkflowService
-from sqlalchemy import select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
 
 from persistence.database import Database, DatabaseSettings
-from persistence.models import Base, Engagement, Organization, PurchaseRequest
+from persistence.models import (
+    Base,
+    Engagement,
+    Organization,
+    OutcomeCheckpoint,
+    PurchaseIntent,
+    PurchaseRequest,
+    PurchaseReversal,
+)
 from persistence.repositories import PersistenceConflict, WorkflowRepository
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -45,6 +58,68 @@ def validated_test_database_url(value: str) -> URL:
 
 def database_url_with_driver(url: URL, drivername: str) -> str:
     return url.set(drivername=drivername).render_as_string(hide_password=False)
+
+
+@contextmanager
+def postgres_runtime_database(database_url: URL) -> Iterator[URL]:
+    """Create a real restricted login for tests that must not rely on SET ROLE."""
+
+    plain_url = database_url_with_driver(database_url, "postgresql")
+    suffix = uuid.uuid4().hex[:12]
+    runtime_role = f"sira_runtime_test_{suffix}"
+    runtime_password = secrets.token_urlsafe(24)
+    database_name = database_url.database
+    assert database_name is not None
+
+    with psycopg.connect(plain_url, autocommit=True) as connection:
+        current_user = str(connection.info.user)
+        connection.execute(
+            sql.SQL(
+                "CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOCREATEDB "
+                "NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+            ).format(sql.Identifier(runtime_role), sql.Literal(runtime_password))
+        )
+        connection.execute(
+            sql.SQL("GRANT {} TO {}").format(
+                sql.Identifier(runtime_role), sql.Identifier(current_user)
+            )
+        )
+        connection.execute(
+            sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
+                sql.Identifier(database_name), sql.Identifier(runtime_role)
+            )
+        )
+        connection.execute(
+            sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(sql.Identifier(runtime_role))
+        )
+        connection.execute(
+            sql.SQL(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {}"
+            ).format(sql.Identifier(runtime_role))
+        )
+        connection.execute(
+            sql.SQL("GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO {}").format(
+                sql.Identifier(runtime_role)
+            )
+        )
+
+    runtime_url = database_url.set(username=runtime_role, password=runtime_password)
+    try:
+        yield runtime_url
+    finally:
+        with psycopg.connect(plain_url, autocommit=True) as connection:
+            connection.execute(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                "WHERE usename = %s AND pid <> pg_backend_pid()",
+                (runtime_role,),
+            )
+            connection.execute(sql.SQL("DROP OWNED BY {}").format(sql.Identifier(runtime_role)))
+            connection.execute(
+                sql.SQL("REVOKE {} FROM {}").format(
+                    sql.Identifier(runtime_role), sql.Identifier(current_user)
+                )
+            )
+            connection.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(runtime_role)))
 
 
 @contextmanager
@@ -261,11 +336,21 @@ async def test_postgres_engagement_is_visible_only_to_bound_parties() -> None:
                 body={"action": "REQUEST_OFFER", "reason": "PostgreSQL RLS proof"},
             )
             engagement_id = str(response["engagement_id"])
+            await service.record_consent(
+                organization_id="org_consultco",
+                actor_id="usr_demo_requester",
+                actor_party="BUYER",
+                engagement_id=engagement_id,
+                idempotency_key=f"postgres-buyer-consent-{uuid.uuid4().hex}",
+                body={"consent": True},
+            )
         finally:
             await database.close()
 
         plain_url = database_url_with_driver(database_url, "postgresql")
         runtime_role = f"sira_engagement_test_{uuid.uuid4().hex[:12]}"
+        forged_engagement_id = f"eng_forged_{uuid.uuid4().hex}"
+        forged_grant_hash = "sha256:" + uuid.uuid4().hex + uuid.uuid4().hex
         with psycopg.connect(plain_url, autocommit=True) as connection:
             current_user = str(connection.info.user)
             connection.execute(
@@ -286,10 +371,14 @@ async def test_postgres_engagement_is_visible_only_to_bound_parties() -> None:
                     )
                 )
                 connection.execute(
+                    sql.SQL("GRANT SELECT, INSERT ON engagements TO {}").format(
+                        sql.Identifier(runtime_role)
+                    )
+                )
+                connection.execute(
                     sql.SQL(
-                        "GRANT SELECT ON engagements, purchase_requests, "
-                        "purchase_brief_versions, requirement_brief_versions, "
-                        "stack_snapshots TO {}"
+                        "GRANT SELECT ON purchase_requests, purchase_brief_versions, "
+                        "requirement_brief_versions, stack_snapshots TO {}"
                     ).format(sql.Identifier(runtime_role))
                 )
                 connection.execute(
@@ -341,6 +430,119 @@ async def test_postgres_engagement_is_visible_only_to_bound_parties() -> None:
                         == 1
                     )
 
+                with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                    with connection.transaction():
+                        connection.execute(
+                            sql.SQL("SET LOCAL ROLE {}").format(sql.Identifier(runtime_role))
+                        )
+                        connection.execute(
+                            "SELECT set_config('app.organization_id', %s, true)",
+                            ("org_consultco",),
+                        )
+                        connection.execute(
+                            """
+                            INSERT INTO engagements (
+                                id,
+                                organization_id,
+                                purchase_request_id,
+                                requirement_brief_id,
+                                requirement_brief_version,
+                                requirement_brief_hash,
+                                candidate_id,
+                                seller_organization_id,
+                                expected_buyer_actor_id,
+                                expected_seller_actor_id,
+                                grant_scope,
+                                grant_status,
+                                grant_hash,
+                                seller_visible_requirement_brief,
+                                granted_at,
+                                status,
+                                buyer_consented,
+                                seller_consented,
+                                buyer_consent_actor_id,
+                                seller_consent_actor_id,
+                                contact_exchange
+                            )
+                            SELECT
+                                %s,
+                                organization_id,
+                                purchase_request_id,
+                                requirement_brief_id,
+                                requirement_brief_version,
+                                requirement_brief_hash,
+                                candidate_id,
+                                seller_organization_id,
+                                expected_buyer_actor_id,
+                                expected_seller_actor_id,
+                                grant_scope,
+                                grant_status,
+                                %s,
+                                seller_visible_requirement_brief,
+                                granted_at,
+                                'INTRODUCTION_READY',
+                                true,
+                                true,
+                                expected_buyer_actor_id,
+                                expected_seller_actor_id,
+                                jsonb_build_object(
+                                    'buyer', expected_buyer_actor_id,
+                                    'seller', expected_seller_actor_id
+                                )
+                            FROM engagements
+                            WHERE id = %s
+                            """,
+                            (forged_engagement_id, forged_grant_hash, engagement_id),
+                        )
+                        raise AssertionError("buyer created a pre-consented engagement")
+
+                with pytest.raises(psycopg.errors.CheckViolation):
+                    with connection.transaction():
+                        connection.execute(
+                            sql.SQL("SET LOCAL ROLE {}").format(sql.Identifier(runtime_role))
+                        )
+                        connection.execute(
+                            "SELECT set_config('app.organization_id', %s, true)",
+                            ("org_seller_fixture_d",),
+                        )
+                        connection.execute(
+                            """
+                            UPDATE engagements
+                               SET seller_consented = true,
+                                   seller_consent_actor_id = expected_seller_actor_id,
+                                   status = 'INTRODUCTION_READY',
+                                   contact_exchange = %s
+                             WHERE id = %s
+                            """,
+                            (
+                                Jsonb({"buyer": "forged", "seller": "forged"}),
+                                engagement_id,
+                            ),
+                        )
+                        raise AssertionError("seller supplied non-canonical contact data")
+
+                with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                    with connection.transaction():
+                        connection.execute(
+                            sql.SQL("SET LOCAL ROLE {}").format(sql.Identifier(runtime_role))
+                        )
+                        connection.execute(
+                            "SELECT set_config('app.organization_id', %s, true)",
+                            ("org_seller_fixture_d",),
+                        )
+                        connection.execute(
+                            """
+                            UPDATE engagements
+                               SET buyer_consented = true,
+                                   buyer_consent_actor_id = 'spoofed_buyer',
+                                   status = 'INTRODUCTION_READY',
+                                   contact_exchange = %s
+                             WHERE id = %s
+                            """,
+                            (Jsonb({"buyer": "leaked", "seller": "leaked"}), engagement_id),
+                        )
+                        raise AssertionError("seller changed buyer-owned consent state")
+
                 with connection.transaction():
                     connection.execute(
                         sql.SQL("SET LOCAL ROLE {}").format(sql.Identifier(runtime_role))
@@ -364,12 +566,12 @@ async def test_postgres_engagement_is_visible_only_to_bound_parties() -> None:
                     )
             finally:
                 connection.execute("RESET ROLE")
+                connection.execute(sql.SQL("DROP OWNED BY {}").format(sql.Identifier(runtime_role)))
                 connection.execute(
                     sql.SQL("REVOKE {} FROM {}").format(
                         sql.Identifier(runtime_role), sql.Identifier(current_user)
                     )
                 )
-                connection.execute(sql.SQL("DROP OWNED BY {}").format(sql.Identifier(runtime_role)))
                 connection.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(runtime_role)))
 
 
@@ -533,11 +735,395 @@ def test_postgres_runtime_role_cannot_cross_tenant_boundary() -> None:
                     "DELETE FROM organizations WHERE id IN (%s, %s)",
                     (organization_a, organization_b),
                 )
+                connection.execute(sql.SQL("DROP OWNED BY {}").format(sql.Identifier(runtime_role)))
                 connection.execute(
                     sql.SQL("REVOKE {} FROM {}").format(
                         sql.Identifier(runtime_role),
                         sql.Identifier(str(connection.info.user)),
                     )
                 )
-                connection.execute(sql.SQL("DROP OWNED BY {}").format(sql.Identifier(runtime_role)))
                 connection.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(runtime_role)))
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_postgres_readiness_requires_direct_restricted_runtime_login() -> None:
+    with postgres_test_database() as database_url:
+        upgrade_database_to_head(database_url)
+
+        admin_database = Database(
+            DatabaseSettings(
+                database_url=database_url_with_driver(database_url, "postgresql+asyncpg")
+            )
+        )
+        try:
+            assert await admin_database.is_ready() is False
+        finally:
+            await admin_database.close()
+
+        with postgres_runtime_database(database_url) as runtime_url:
+            runtime_database = Database(
+                DatabaseSettings(
+                    database_url=database_url_with_driver(runtime_url, "postgresql+asyncpg")
+                )
+            )
+            try:
+                assert await runtime_database.is_ready() is True
+                assert (
+                    await runtime_database.is_ready(
+                        expected_alembic_heads=frozenset({"intentionally_stale"})
+                    )
+                    is False
+                )
+            finally:
+                await runtime_database.close()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_postgres_readiness_rejects_dangerous_role_state() -> None:
+    with postgres_test_database() as database_url:
+        upgrade_database_to_head(database_url)
+        plain_url = database_url_with_driver(database_url, "postgresql")
+
+        with postgres_runtime_database(database_url) as runtime_url:
+            runtime_role = runtime_url.username
+            assert runtime_role is not None
+            dangerous_role = f"sira_dangerous_test_{uuid.uuid4().hex[:12]}"
+            runtime_database = Database(
+                DatabaseSettings(
+                    database_url=database_url_with_driver(runtime_url, "postgresql+asyncpg")
+                )
+            )
+            try:
+                assert await runtime_database.is_ready() is True
+                with psycopg.connect(plain_url, autocommit=True) as connection:
+                    connection.execute(
+                        sql.SQL("ALTER ROLE {} CREATEROLE").format(sql.Identifier(runtime_role))
+                    )
+                    try:
+                        assert await runtime_database.is_ready() is False
+                    finally:
+                        connection.execute(
+                            sql.SQL("ALTER ROLE {} NOCREATEROLE").format(
+                                sql.Identifier(runtime_role)
+                            )
+                        )
+                    assert await runtime_database.is_ready() is True
+
+                    connection.execute(
+                        sql.SQL(
+                            "CREATE ROLE {} NOLOGIN NOSUPERUSER CREATEDB "
+                            "NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+                        ).format(sql.Identifier(dangerous_role))
+                    )
+                    try:
+                        connection.execute(
+                            sql.SQL("GRANT {} TO {}").format(
+                                sql.Identifier(dangerous_role),
+                                sql.Identifier(runtime_role),
+                            )
+                        )
+                        assert await runtime_database.is_ready() is False
+                    finally:
+                        connection.execute(
+                            sql.SQL("REVOKE {} FROM {}").format(
+                                sql.Identifier(dangerous_role),
+                                sql.Identifier(runtime_role),
+                            )
+                        )
+                        connection.execute(
+                            sql.SQL("DROP ROLE {}").format(sql.Identifier(dangerous_role))
+                        )
+                    assert await runtime_database.is_ready() is True
+            finally:
+                await runtime_database.close()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_postgres_readiness_rejects_rls_policy_and_trigger_drift() -> None:
+    with postgres_test_database() as database_url:
+        upgrade_database_to_head(database_url)
+        plain_url = database_url_with_driver(database_url, "postgresql")
+        suffix = uuid.uuid4().hex[:12]
+        probe_table = f"readiness_tenant_probe_{suffix}"
+        renamed_policy = f"readiness_disabled_select_{suffix}"
+
+        with postgres_runtime_database(database_url) as runtime_url:
+            runtime_database = Database(
+                DatabaseSettings(
+                    database_url=database_url_with_driver(runtime_url, "postgresql+asyncpg")
+                )
+            )
+            try:
+                assert await runtime_database.is_ready() is True
+                with psycopg.connect(plain_url, autocommit=True) as connection:
+                    connection.execute(
+                        "ALTER TABLE public.purchase_requests DISABLE ROW LEVEL SECURITY"
+                    )
+                    try:
+                        assert await runtime_database.is_ready() is False
+                    finally:
+                        connection.execute(
+                            "ALTER TABLE public.purchase_requests ENABLE ROW LEVEL SECURITY"
+                        )
+                        connection.execute(
+                            "ALTER TABLE public.purchase_requests FORCE ROW LEVEL SECURITY"
+                        )
+                    assert await runtime_database.is_ready() is True
+
+                    connection.execute(
+                        sql.SQL("CREATE TABLE public.{} (organization_id text NOT NULL)").format(
+                            sql.Identifier(probe_table)
+                        )
+                    )
+                    try:
+                        connection.execute(
+                            sql.SQL("ALTER TABLE public.{} ENABLE ROW LEVEL SECURITY").format(
+                                sql.Identifier(probe_table)
+                            )
+                        )
+                        connection.execute(
+                            sql.SQL("ALTER TABLE public.{} FORCE ROW LEVEL SECURITY").format(
+                                sql.Identifier(probe_table)
+                            )
+                        )
+                        assert await runtime_database.is_ready() is False
+                    finally:
+                        connection.execute(
+                            sql.SQL("DROP TABLE public.{}").format(sql.Identifier(probe_table))
+                        )
+                    assert await runtime_database.is_ready() is True
+
+                    connection.execute(
+                        sql.SQL(
+                            "ALTER POLICY engagement_party_select ON public.engagements "
+                            "RENAME TO {}"
+                        ).format(sql.Identifier(renamed_policy))
+                    )
+                    try:
+                        assert await runtime_database.is_ready() is False
+                    finally:
+                        connection.execute(
+                            sql.SQL(
+                                "ALTER POLICY {} ON public.engagements "
+                                "RENAME TO engagement_party_select"
+                            ).format(sql.Identifier(renamed_policy))
+                        )
+                    assert await runtime_database.is_ready() is True
+
+                    connection.execute(
+                        "ALTER TABLE public.engagements "
+                        "DISABLE TRIGGER engagement_party_update_guard"
+                    )
+                    try:
+                        assert await runtime_database.is_ready() is False
+                    finally:
+                        connection.execute(
+                            "ALTER TABLE public.engagements "
+                            "ENABLE TRIGGER engagement_party_update_guard"
+                        )
+                    assert await runtime_database.is_ready() is True
+            finally:
+                await runtime_database.close()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_postgres_first_idempotency_claim_is_atomic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with postgres_test_database() as database_url:
+        upgrade_database_to_head(database_url)
+        idempotency_key = f"postgres-intent-race-{uuid.uuid4().hex}"
+        backend_pids: set[int] = set()
+        entrant_lock = asyncio.Lock()
+        first_claimed = asyncio.Event()
+        second_entered = asyncio.Event()
+        entrant_count = 0
+        original_claim = WorkflowRepository.claim_idempotency
+
+        async def synchronized_claim(repository: WorkflowRepository, **kwargs: Any) -> Any:
+            nonlocal entrant_count
+            async with entrant_lock:
+                entrant_count += 1
+                entrant_number = entrant_count
+                backend_pid = await repository.session.scalar(text("SELECT pg_backend_pid()"))
+                assert backend_pid is not None
+                backend_pids.add(int(backend_pid))
+                if entrant_number == 2:
+                    second_entered.set()
+
+            if entrant_number == 1:
+                claim = await original_claim(repository, **kwargs)
+                first_claimed.set()
+                await asyncio.wait_for(second_entered.wait(), timeout=5)
+                # Keep the first outer transaction open long enough for the second
+                # connection to block on the unique idempotency scope.
+                await asyncio.sleep(0.1)
+                return claim
+
+            await asyncio.wait_for(first_claimed.wait(), timeout=5)
+            return await original_claim(repository, **kwargs)
+
+        with postgres_runtime_database(database_url) as runtime_url:
+            async_url = database_url_with_driver(runtime_url, "postgresql+asyncpg")
+            database = Database(DatabaseSettings(database_url=async_url))
+            try:
+                service = WorkflowService(database, DemoFixtureBundle.load())
+                await service.reset_demo("org_consultco")
+                monkeypatch.setattr(
+                    WorkflowRepository,
+                    "claim_idempotency",
+                    synchronized_claim,
+                )
+
+                async def lock_intent() -> tuple[int, dict[str, Any]]:
+                    return await service.lock_purchase_intent(
+                        organization_id="org_consultco",
+                        actor_id="usr_requester",
+                        decision_id="dec_consultco_v1",
+                        idempotency_key=idempotency_key,
+                        body={"solution_plan_id": None},
+                    )
+
+                first, second = await asyncio.wait_for(
+                    asyncio.gather(lock_intent(), lock_intent()),
+                    timeout=15,
+                )
+            finally:
+                await database.close()
+
+        assert len(backend_pids) == 2
+        assert first[0] == second[0] == 201
+        assert first[1] == second[1]
+        intent_id = str(first[1]["purchase_intent_id"])
+
+        plain_url = database_url_with_driver(database_url, "postgresql")
+        with psycopg.connect(plain_url) as connection:
+            intent_count = connection.execute(
+                "SELECT count(*) FROM purchase_intents WHERE organization_id = %s AND id = %s",
+                ("org_consultco", intent_id),
+            ).fetchone()
+            idempotency_rows = connection.execute(
+                "SELECT state, response_reference FROM idempotency_records "
+                "WHERE organization_id = %s AND actor_id = %s "
+                "AND operation = %s AND idempotency_key = %s",
+                (
+                    "org_consultco",
+                    "usr_requester",
+                    "purchase_intents.create",
+                    idempotency_key,
+                ),
+            ).fetchall()
+        assert intent_count == (1,)
+        assert idempotency_rows == [("COMPLETED", intent_id)]
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_postgres_demo_reset_clears_reversals_and_outcomes() -> None:
+    with postgres_test_database() as database_url:
+        upgrade_database_to_head(database_url)
+        async_url = database_url_with_driver(database_url, "postgresql+asyncpg")
+        database = Database(DatabaseSettings(database_url=async_url))
+        try:
+            service = WorkflowService(database, DemoFixtureBundle.load())
+            async with database.transaction("org_consultco") as session:
+                await session.execute(
+                    delete(PurchaseReversal).where(
+                        PurchaseReversal.organization_id == "org_consultco"
+                    )
+                )
+                await session.execute(
+                    delete(OutcomeCheckpoint).where(
+                        OutcomeCheckpoint.organization_id == "org_consultco"
+                    )
+                )
+            await service.reset_demo("org_consultco")
+            _, intent_view = await service.lock_purchase_intent(
+                organization_id="org_consultco",
+                actor_id="usr_requester",
+                decision_id="dec_consultco_v1",
+                idempotency_key=f"postgres-reset-intent-{uuid.uuid4().hex}",
+                body={"solution_plan_id": None},
+            )
+            intent_id = str(intent_view["purchase_intent_id"])
+            now = datetime.now(UTC)
+            async with database.transaction("org_consultco") as session:
+                intent = await session.get(PurchaseIntent, intent_id)
+                assert intent is not None
+                session.add(
+                    PurchaseReversal(
+                        id=f"rev_{uuid.uuid4().hex}",
+                        organization_id="org_consultco",
+                        purchase_intent_id=intent.id,
+                        intent_hash=intent.intent_hash,
+                        kind="REFUND",
+                        status="REQUESTED",
+                        requested_amount=Decimal("1.00"),
+                        refunded_amount=Decimal("0.00"),
+                        currency=intent.currency,
+                        merchant_order_id="merchant_order_reset_proof",
+                        provider_reference=None,
+                        provider_adapter_id="fixture_reset_proof",
+                        provider_confirmed=False,
+                        reason_code="RESET_PROOF",
+                        reason_hash="sha256:" + "a" * 64,
+                        requested_by_actor_id="usr_requester",
+                        safe_error_code=None,
+                        completed_at=None,
+                    )
+                )
+                session.add(
+                    OutcomeCheckpoint(
+                        id=f"outcome_{uuid.uuid4().hex}",
+                        organization_id="org_consultco",
+                        purchase_intent_id=intent.id,
+                        decision_id=intent.decision_id,
+                        decision_hash=intent.decision_hash,
+                        solution_plan_id=intent.solution_plan_id,
+                        metric_id="reset_proof_metric",
+                        target_value=Decimal("1.000000"),
+                        target_operator="gte",
+                        observed_value=Decimal("0.000000"),
+                        checkpoint_days=30,
+                        measurement_started_at=now,
+                        checkpoint_due_at=now + timedelta(days=30),
+                        observed_at=now,
+                        state="NOT_ACHIEVED",
+                        source_class="HUMAN_ATTESTATION",
+                        source_reference_hash="sha256:" + "b" * 64,
+                        recorded_by_actor_id="usr_requester",
+                        checkpoint_hash="sha256:" + "c" * 64,
+                        preference_proposal=None,
+                    )
+                )
+
+            try:
+                await service.reset_demo("org_consultco")
+            finally:
+                async with database.transaction("org_consultco") as session:
+                    await session.execute(
+                        delete(PurchaseReversal).where(
+                            PurchaseReversal.organization_id == "org_consultco"
+                        )
+                    )
+                    await session.execute(
+                        delete(OutcomeCheckpoint).where(
+                            OutcomeCheckpoint.organization_id == "org_consultco"
+                        )
+                    )
+
+            async with database.transaction("org_consultco") as session:
+                reversal_count = await session.scalar(
+                    select(func.count()).select_from(PurchaseReversal)
+                )
+                outcome_count = await session.scalar(
+                    select(func.count()).select_from(OutcomeCheckpoint)
+                )
+            assert reversal_count == 0
+            assert outcome_count == 0
+        finally:
+            await database.close()

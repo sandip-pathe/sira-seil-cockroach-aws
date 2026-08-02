@@ -1,17 +1,27 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
 import respx
+from sqlalchemy import select
+
+from domain import content_hash
+from persistence.models import BrowserReturnBinding, PurchaseIntent
 
 
 def idempotency(value: str) -> dict[str, str]:
     return {"Idempotency-Key": value}
+
+
+def application_for(client: httpx.AsyncClient) -> Any:
+    transport = cast(Any, client._transport)
+    return transport.app
 
 
 @pytest.mark.asyncio
@@ -45,6 +55,32 @@ async def test_health_and_frozen_demo_projection(api_client: httpx.AsyncClient) 
     }
     assert payload["selected_action_plan"] is None
     assert payload["stack_change"] is None
+
+
+@pytest.mark.asyncio
+async def test_degraded_health_returns_typed_503(
+    api_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = application_for(api_client).state.database
+
+    async def unavailable() -> bool:
+        return False
+
+    monkeypatch.setattr(database, "is_ready", unavailable)
+    health = await api_client.get("/health")
+
+    assert health.status_code == 503
+    assert health.json() == {
+        "status": "degraded",
+        "service": "sira-api",
+        "version": "0.1.0",
+        "database": "unavailable",
+        "fixture_mode": True,
+    }
+    openapi = (await api_client.get("/openapi.json")).json()
+    assert openapi["paths"]["/health"]["get"]["responses"]["503"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/HealthResponse"}
 
 
 @pytest.mark.asyncio
@@ -512,7 +548,10 @@ async def test_selective_engagement_requires_mutual_consent(
     )
     assert seller.status_code == 200
     assert seller.json()["status"] == "INTRODUCTION_READY"
-    assert seller.json()["contact_details"] is not None
+    assert seller.json()["contact_details"] == {
+        "buyer": "usr_buyer_owner",
+        "seller": "seller_fixture_d",
+    }
 
 
 @pytest.mark.asyncio
@@ -631,6 +670,37 @@ async def lock_intent_and_start_approval(
     )
     assert approval_response.status_code == 201, approval_response.text
     return intent, approval_response.json()
+
+
+@pytest.mark.asyncio
+async def test_fixture_quote_keeps_canonical_hash_while_runtime_ttl_advances(
+    api_client: httpx.AsyncClient,
+) -> None:
+    first_intent, first_approval = await lock_intent_and_start_approval(api_client)
+    first_expiry = datetime.fromisoformat(first_approval["expires_at"].replace("Z", "+00:00"))
+    assert first_expiry > datetime.now(UTC) + timedelta(minutes=59)
+    assert first_intent["locked_at"] == "2026-08-02T01:10:00Z"
+
+    await asyncio.sleep(0.05)
+    reset = await api_client.post("/v1/demo/reset")
+    assert reset.status_code == 200, reset.text
+    second_intent, second_approval = await lock_intent_and_start_approval(api_client)
+    second_expiry = datetime.fromisoformat(second_approval["expires_at"].replace("Z", "+00:00"))
+    assert second_expiry > first_expiry
+
+    database = application_for(api_client).state.database
+    async with database.transaction("org_consultco") as session:
+        record = (
+            await session.execute(
+                select(PurchaseIntent).where(
+                    PurchaseIntent.id == second_intent["purchase_intent_id"]
+                )
+            )
+        ).scalar_one()
+        assert record.intent_hash == record.payload["intent_hash"]
+        assert record.intent_hash == content_hash(
+            {key: value for key, value in record.payload.items() if key != "intent_hash"}
+        )
 
 
 @pytest.mark.asyncio
@@ -963,6 +1033,7 @@ async def test_configured_prava_session_uses_real_adapter_and_updates_canonical_
     for name, value in environment.items():
         monkeypatch.setenv(name, value)
 
+    provider_started_at = datetime.now(UTC)
     with respx.mock(assert_all_called=True) as mock:
         mock.post("https://api.prava.test/v1/sessions").mock(
             return_value=httpx.Response(
@@ -983,6 +1054,7 @@ async def test_configured_prava_session_uses_real_adapter_and_updates_canonical_
         provider_request = json.loads(mock.calls[0].request.content)
         callback_url = provider_request["callback_url"]
         state = parse_qs(urlsplit(callback_url).query)["state"][0]
+    provider_finished_at = datetime.now(UTC)
 
     assert response.status_code == 201, response.text
     assert response.json()["status"] == "SESSION_CREATED"
@@ -990,6 +1062,20 @@ async def test_configured_prava_session_uses_real_adapter_and_updates_canonical_
     assert response.json()["hosted_url"].startswith("https://checkout.prava.test/")
     assert "state" not in response.json()
     assert urlsplit(callback_url)._replace(query="").geturl() == environment["PRAVA_CALLBACK_URL"]
+    database = application_for(api_client).state.database
+    async with database.transaction("org_consultco") as session:
+        binding = (
+            await session.execute(
+                select(BrowserReturnBinding).where(
+                    BrowserReturnBinding.purchase_intent_id == intent["purchase_intent_id"]
+                )
+            )
+        ).scalar_one()
+        binding_expiry = binding.expires_at
+        if binding_expiry.tzinfo is None:
+            binding_expiry = binding_expiry.replace(tzinfo=UTC)
+        assert binding_expiry >= provider_started_at + timedelta(seconds=599)
+        assert binding_expiry <= provider_finished_at + timedelta(seconds=601)
 
     tampered_state = f"{state[:-1]}{'A' if state[-1] != 'A' else 'B'}"
     tampered = await api_client.post(

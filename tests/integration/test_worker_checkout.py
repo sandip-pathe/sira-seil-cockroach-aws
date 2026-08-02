@@ -64,6 +64,28 @@ from persistence.repositories import WorkflowRepository
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def renew_locked_fixture_quote(
+    canonical_intent: PurchaseIntent,
+    intent_view: dict[str, Any],
+    *,
+    expires_at: datetime,
+) -> None:
+    """Rebuild the complete exact-hash snapshot before any approval is requested."""
+
+    normalized_expiry = expires_at.astimezone(UTC)
+    payload = dict(canonical_intent.payload)
+    payload["quote_expires_at"] = normalized_expiry.isoformat().replace("+00:00", "Z")
+    payload.pop("intent_hash", None)
+    intent_hash = content_hash(payload)
+    payload["intent_hash"] = intent_hash
+
+    canonical_intent.quote_expires_at = normalized_expiry
+    canonical_intent.payload = payload
+    canonical_intent.intent_hash = intent_hash
+    intent_view["quote_expires_at"] = normalized_expiry.isoformat()
+    intent_view["intent_hash"] = intent_hash
+
+
 def assert_frozen_receipt_schema(receipt: dict[str, Any]) -> None:
     schema_root = ROOT / "contracts" / "jsonschema"
     common = json.loads((schema_root / "common.schema.json").read_text(encoding="utf-8"))
@@ -258,6 +280,18 @@ async def prepare_approved_checkout(
         idempotency_key="worker-lock-intent",
         body={"solution_plan_id": None},
     )
+    # These worker tests use real wall time. Rebuild the complete locked snapshot before
+    # approval, just as a fresh live quote would; never mutate a hash-bound column alone.
+    async with database.transaction("org_consultco") as session:
+        repository = WorkflowRepository(session, "org_consultco")
+        canonical_intent = await repository.get_purchase_intent(
+            str(intent["purchase_intent_id"]), lock=True
+        )
+        renew_locked_fixture_quote(
+            canonical_intent,
+            intent,
+            expires_at=datetime.now(UTC) + timedelta(hours=2),
+        )
     _, approval = await service.create_approval_request(
         organization_id="org_consultco",
         actor_id="usr_requester",
@@ -286,7 +320,6 @@ async def prepare_approved_checkout(
         canonical_intent = await repository.get_purchase_intent(
             str(intent["purchase_intent_id"]), lock=True
         )
-        canonical_intent.quote_expires_at = datetime.now(UTC) + timedelta(hours=2)
         payment_session = PaymentSession(
             id="pays_worker_contract",
             organization_id="org_consultco",

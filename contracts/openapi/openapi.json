@@ -8448,8 +8448,8 @@
     }
   },
   "info": {
-    "description": "PostgreSQL-canonical control plane for the first meeting-intelligence vertical. Development fixtures are fictional and never indicate production provider success.",
-    "summary": "Company-aware decisions, exact authority, and verified fulfillment",
+    "description": "Backend for SIRA buyer and SEIL seller B2B commerce agents. Development fixtures are fictional and never indicate production provider success.",
+    "summary": "B2B commerce agents with exact authority and verified fulfillment",
     "title": "SIRA + SEIL API",
     "version": "0.1.0"
   },
@@ -8543,11 +8543,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
               }
             },
-            "description": "Dependency or setup unavailable"
+            "description": "Database readiness is degraded"
           }
         },
         "summary": "Health",
