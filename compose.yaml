@@ -97,7 +97,7 @@ services:
       DEVELOPMENT_FIXTURE_MODE: "true"
       DEMO_RESET_ENABLED: "true"
       PUBLIC_BASE_URL: http://localhost:${SIRA_API_PORT:-8000}
-      WEB_BASE_URL: http://localhost:${SIRA_WEB_PORT:-3000}
+      WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:${SIRA_WEB_PORT:-3000}}
       DATABASE_URL: ${SIRA_DOCKER_DATABASE_URL:-postgresql+asyncpg://sira_runtime:change-me@postgres:5432/sira} # pragma: allowlist secret -- local development only
       BROWSER_RETURN_SIGNING_KEY: ${BROWSER_RETURN_SIGNING_KEY:-}
       BROWSER_RETURN_TTL_SECONDS: ${BROWSER_RETURN_TTL_SECONDS:-600}
@@ -115,6 +115,13 @@ services:
       # OPENAI_API_KEY must never override this project's credential.
       OPENAI_API_KEY: ${SIRA_OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
+      SENSO_BASE_URL: ${SENSO_BASE_URL:-https://apiv2.senso.ai/api/v1}
+      SENSO_BUYER_QUERY_API_KEY: ${SENSO_BUYER_QUERY_API_KEY:-}
+      SENSO_SELLER_QUERY_API_KEY: ${SENSO_SELLER_QUERY_API_KEY:-}
+      SENSO_BUYER_QUERY_KEY_ID: ${SENSO_BUYER_QUERY_KEY_ID:-}
+      SENSO_SELLER_QUERY_KEY_ID: ${SENSO_SELLER_QUERY_KEY_ID:-}
+      SENSO_BUYER_FOLDER_ID: ${SENSO_BUYER_FOLDER_ID:-}
+      SENSO_SELLER_FOLDER_ID: ${SENSO_SELLER_FOLDER_ID:-}
     command:
       [
         "python",

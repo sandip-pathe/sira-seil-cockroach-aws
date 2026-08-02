@@ -587,9 +587,10 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
       const intentId = purchaseIntent?.purchase_intent_id ?? view?.payment?.purchase_intent_id;
       const approvalStatus = approval?.status ?? view?.approval?.status;
       if (!intentId || approvalStatus !== "APPROVED") throw new Error("Approval incomplete");
+      const configuredReturnUrl = process.env.NEXT_PUBLIC_PRAVA_RETURN_URL;
       return getBrowserApiClient().request("create_prava_session", {
         pathParams: { intent_id: intentId },
-        body: { return_url: `${window.location.origin}/decisions/${requestId}/versions/${version}/result` },
+        body: { return_url: configuredReturnUrl ?? `${window.location.origin}/decisions/${requestId}/versions/${version}/result` },
         idempotencyKey: `prava-${intentId}`,
         headers: buyerDevelopmentHeaders,
       });

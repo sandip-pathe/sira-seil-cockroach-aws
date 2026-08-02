@@ -419,6 +419,7 @@ async def request_pack_review(
 SIRA_TOOL_NAMES = (
     "search_published_products",
     "get_published_product",
+    "search_senso_evidence",
     "get_purchase_request",
     "get_purchase_brief",
     "get_stack_snapshot",
@@ -432,6 +433,7 @@ SIRA_TOOL_NAMES = (
 )
 
 SEIL_TOOL_NAMES = (
+    "search_senso_evidence",
     "search_seller_products",
     "get_seller_product_view",
     "get_seller_pack_draft",

@@ -38,12 +38,16 @@ class WorkspaceService:
         workflow_service: object | None = None,
         seller_evidence_service: object | None = None,
         database: Database | None = None,
+        senso_providers: dict[str, object] | None = None,
+        senso_error: str | None = None,
     ) -> None:
         self.fixtures = fixtures
         self.api_key = api_key
         self.workflow_service = workflow_service
         self.seller_evidence_service = seller_evidence_service
         self.database = database
+        self.senso_providers = senso_providers or {}
+        self.senso_error = senso_error
         tools = {**workspace_tool_registry(), **commerce_tool_registry()}
         self.runtime = OpenAIAgentsRuntime(model=model, tools=tools)
 
@@ -53,7 +57,13 @@ class WorkspaceService:
             services["workflow_service"] = self.workflow_service
         if self.seller_evidence_service is not None:
             services["seller_evidence_service"] = self.seller_evidence_service
+        services.update(self.senso_providers)
         return services
+
+    def senso_status(self) -> tuple[bool, str]:
+        if {"senso_buyer", "senso_seller"}.issubset(self.senso_providers):
+            return True, "Buyer and seller folder scopes verified"
+        return False, self.senso_error or "Senso is not configured"
 
     def catalog(self) -> list[dict[str, Any]]:
         if self.fixtures is None:
@@ -109,6 +119,7 @@ class WorkspaceService:
             "budget, "
             "and approval path are sufficiently clear. Never claim to rank, approve, buy, pay, or "
             "activate anything. Use catalogue tools for product facts and never invent products. "
+            "Use search_senso_evidence for company documents and preserve source citations. "
             "When the context is sufficient and the user explicitly asks to create or start the "
             "buying work, call propose_purchase_request. Tell the user that nothing is created "
             "until they confirm the returned proposal. "
@@ -119,6 +130,7 @@ class WorkspaceService:
             else "You are SEIL, a B2B selling assistant. Collect product and evidence "
             "context one question "
             "at a time. Use seller tools for product, evidence, Pack, and sanitized buyer facts. "
+            "Use search_senso_evidence for seller-private sources and preserve citations. "
             "Tool proposals are advisory drafts requiring human review. Never publish, approve, "
             "or invent claims. When the user asks to change claims, fit rules, anti-fit rules, or "
             "request review, use the matching proposal tool. Return only JSON with message, "

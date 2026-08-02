@@ -7,6 +7,7 @@ from typing import Any, Protocol, cast
 from pydantic import BaseModel, Field
 
 from agents import RunContextWrapper, function_tool
+from integrations.senso import SensoEvidenceProvider, SensoSearchRequest
 from sira_agents.runtime import AgentRunContext
 
 
@@ -27,6 +28,12 @@ class CatalogProductResult(BaseModel):
     summary: str
     claims: list[str]
     integrations: list[str]
+
+
+class SensoEvidenceResult(BaseModel):
+    answer: str | None
+    sources: list[dict[str, object]]
+    truth_verified: bool = False
 
 
 def _catalog(context: AgentRunContext) -> WorkspaceCatalog:
@@ -97,8 +104,40 @@ async def get_published_product(
     return get_catalog_product(wrapper.context, product_id=product_id)
 
 
+@function_tool(strict_mode=True)
+async def search_senso_evidence(
+    wrapper: RunContextWrapper[AgentRunContext],
+    query: str,
+    max_results: int = Field(default=5, ge=1, le=10),
+) -> SensoEvidenceResult:
+    """Search the caller's verified private Senso folder with source provenance."""
+
+    service_name = "senso_seller" if wrapper.context.party == "SELLER" else "senso_buyer"
+    provider = wrapper.context.services.get(service_name)
+    if provider is None:
+        raise RuntimeError("verified Senso scope is unavailable")
+    senso = cast(SensoEvidenceProvider, provider)
+    result = await senso.search(
+        SensoSearchRequest(query=query, scope=senso.scope, max_results=max_results)
+    )
+    return SensoEvidenceResult(
+        answer=result.answer,
+        sources=[
+            {
+                "content_id": hit.content_id,
+                "title": hit.title,
+                "chunk_text": hit.chunk_text,
+                "score": hit.score,
+                "source_version": hit.source_version,
+            }
+            for hit in result.hits
+        ],
+    )
+
+
 def workspace_tool_registry() -> dict[str, object]:
     return {
         "search_published_products": search_published_products,
         "get_published_product": get_published_product,
+        "search_senso_evidence": search_senso_evidence,
     }

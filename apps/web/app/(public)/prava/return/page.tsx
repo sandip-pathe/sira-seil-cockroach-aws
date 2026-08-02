@@ -1,0 +1,33 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+
+import { buyerDevelopmentHeaders, getBrowserApiClient } from "@/lib/api";
+
+export default function PravaReturnPage() {
+  const search = useSearchParams();
+  const [message, setMessage] = useState("Confirming Prava authorization…");
+
+  useEffect(() => {
+    const state = search.get("state");
+    const returnUrl = search.get("return_url");
+    if (!state || !returnUrl) {
+      setMessage("This Prava return link is incomplete.");
+      return;
+    }
+    void getBrowserApiClient()
+      .request("accept_prava_browser_return_v2", {
+        headers: buyerDevelopmentHeaders,
+        query: { state, return_url: returnUrl },
+      })
+      .then(() => window.location.replace(returnUrl))
+      .catch(() => setMessage("Prava authorization could not be confirmed. Return to SIRA and retry."));
+  }, [search]);
+
+  return (
+    <main style={{ display: "grid", minHeight: "100vh", placeItems: "center", padding: "2rem" }}>
+      <p role="status">{message}</p>
+    </main>
+  );
+}

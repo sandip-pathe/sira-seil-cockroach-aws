@@ -88,11 +88,6 @@ class PravaRuntimeConfiguration:
             "PRAVA_MERCHANT_URL": settings.prava_merchant_url.strip(),
             "PRAVA_CALLBACK_URL": settings.prava_callback_url.strip(),
             "PRAVA_USER_EMAIL": settings.prava_user_email.strip(),
-            "CONTROLLED_MERCHANT_BASE_URL": settings.controlled_merchant_base_url.strip(),
-            "CONTROLLED_MERCHANT_API_KEY": (
-                settings.controlled_merchant_api_key.get_secret_value().strip()
-            ),
-            "CONTROLLED_MERCHANT_ID": settings.controlled_merchant_id.strip(),
         }
         missing = [name for name, value in values.items() if not value]
         if missing:

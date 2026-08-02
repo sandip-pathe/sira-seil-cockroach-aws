@@ -129,8 +129,9 @@ async def workspace_product(
 @workspace_router.get(
     "/v1/workspace/connectors", response_model=list[ConnectorView], tags=["workspace"]
 )
-async def workspace_connectors(context: ContextDependency) -> list[dict[str, str]]:
+async def workspace_connectors(context: ContextDependency, service: ServiceDependency) -> list[dict[str, str]]:
     require_permission(context, "can_view_context")
+    senso_ready, senso_meta = service.senso_status()
     return [
         {
             "id": "business-context",
@@ -143,8 +144,8 @@ async def workspace_connectors(context: ContextDependency) -> list[dict[str, str
             "id": "senso",
             "name": "Senso",
             "purpose": "Company files and decision evidence",
-            "status": "Needs setup",
-            "meta": "Server connection required",
+            "status": "Healthy" if senso_ready else "Needs setup",
+            "meta": senso_meta,
         },
         {
             "id": "datahub",
