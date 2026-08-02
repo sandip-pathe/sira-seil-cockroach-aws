@@ -4,6 +4,7 @@ from sira_agents.guardrails import AgentBoundaryViolation
 from sira_agents.harness import SiraSeilHarness
 from sira_agents.runtime import (
     AgentRole,
+    AgentRunContext,
     AgentRunRequest,
     AgentRunResult,
     OpenAIAgentsRuntime,
@@ -12,6 +13,7 @@ from sira_agents.runtime import (
 __all__ = [
     "AgentBoundaryViolation",
     "AgentRole",
+    "AgentRunContext",
     "AgentRunRequest",
     "AgentRunResult",
     "OpenAIAgentsRuntime",

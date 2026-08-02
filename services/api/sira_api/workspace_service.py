@@ -7,7 +7,9 @@ from typing import Any
 
 from openai import AuthenticationError, RateLimitError
 from pydantic import BaseModel, ValidationError
-from sira_agents.runtime import AgentRole, AgentRunRequest, OpenAIAgentsRuntime
+from sira_agents.commerce_tools import SEIL_TOOL_NAMES, SIRA_TOOL_NAMES, commerce_tool_registry
+from sira_agents.runtime import AgentRole, AgentRunContext, AgentRunRequest, OpenAIAgentsRuntime
+from sira_agents.workspace_tools import workspace_tool_registry
 
 from .errors import ApiProblem
 from .fixtures import DemoFixtureBundle
@@ -22,10 +24,29 @@ class _AgentAnswer(BaseModel):
 
 
 class WorkspaceService:
-    def __init__(self, fixtures: DemoFixtureBundle | None, *, api_key: str, model: str) -> None:
+    def __init__(
+        self,
+        fixtures: DemoFixtureBundle | None,
+        *,
+        api_key: str,
+        model: str,
+        workflow_service: object | None = None,
+        seller_evidence_service: object | None = None,
+    ) -> None:
         self.fixtures = fixtures
         self.api_key = api_key
-        self.runtime = OpenAIAgentsRuntime(model=model)
+        self.workflow_service = workflow_service
+        self.seller_evidence_service = seller_evidence_service
+        tools = {**workspace_tool_registry(), **commerce_tool_registry()}
+        self.runtime = OpenAIAgentsRuntime(model=model, tools=tools)
+
+    def agent_services(self) -> dict[str, object]:
+        services: dict[str, object] = {"workspace_catalog": self}
+        if self.workflow_service is not None:
+            services["workflow_service"] = self.workflow_service
+        if self.seller_evidence_service is not None:
+            services["seller_evidence_service"] = self.seller_evidence_service
+        return services
 
     def catalog(self) -> list[dict[str, Any]]:
         if self.fixtures is None:
@@ -64,7 +85,9 @@ class WorkspaceService:
     def product(self, product_id: str) -> dict[str, Any] | None:
         return next((item for item in self.catalog() if item["id"] == product_id), None)
 
-    async def chat(self, body: WorkspaceChatCreate) -> dict[str, Any]:
+    async def chat(
+        self, body: WorkspaceChatCreate, *, run_context: AgentRunContext
+    ) -> dict[str, Any]:
         if not self.api_key:
             raise ApiProblem(
                 code="AGENT_PROVIDER_NOT_CONFIGURED",
@@ -73,20 +96,21 @@ class WorkspaceService:
                 retryable=False,
                 next_action="configure_openai_api_key",
             )
-        catalog = self.catalog() if body.mode == "sira" else []
         instructions = (
             "You are SIRA, a B2B buying assistant. Collect purchasing context conversationally. "
             "Ask one material question at a time until outcome, users, deadline, constraints, "
             "budget, "
             "and approval path are sufficiently clear. Never claim to rank, approve, buy, pay, or "
-            "activate anything. Use only the supplied catalogue facts and never invent products. "
+            "activate anything. Use catalogue tools for product facts and never invent products. "
             "When the user asks to browse, compare, buy, find, or see products, set "
             "show_catalog true. "
             "Return only JSON with message, follow_up_required, panel, and show_catalog."
             if body.mode == "sira"
             else "You are SEIL, a B2B selling assistant. Collect product and evidence "
             "context one question "
-            "at a time. Never publish, approve, or invent claims. Return only JSON with message, "
+            "at a time. Use seller tools for product, evidence, Pack, and sanitized buyer facts. "
+            "Tool proposals are advisory drafts requiring human review. Never publish, approve, "
+            "or invent claims. Return only JSON with message, "
             "follow_up_required, panel, and show_catalog=false."
         )
         try:
@@ -95,10 +119,11 @@ class WorkspaceService:
                     role=AgentRole.SIRA if body.mode == "sira" else AgentRole.SEIL,
                     instructions=instructions,
                     prompt=body.message,
-                    context={
+                    model_context={
                         "recent_history": [item.model_dump() for item in body.history[-12:]],
-                        "available_catalog": catalog,
                     },
+                    run_context=run_context,
+                    allowed_tools=SIRA_TOOL_NAMES if body.mode == "sira" else SEIL_TOOL_NAMES,
                     output_type=_AgentAnswer,
                 )
             )
@@ -154,6 +179,6 @@ class WorkspaceService:
             "message": answer.message,
             "follow_up_required": answer.follow_up_required,
             "panel": panel,
-            "products": catalog if answer.show_catalog else [],
+            "products": self.catalog() if answer.show_catalog else [],
             "advisory_only": True,
         }

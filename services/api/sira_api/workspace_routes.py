@@ -3,6 +3,7 @@
 from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, Request
+from sira_agents.runtime import AgentRunContext
 
 from .dependencies import (
     RequestContext,
@@ -35,7 +36,18 @@ async def workspace_chat(
     body: WorkspaceChatCreate, context: ContextDependency, service: ServiceDependency
 ) -> dict[str, object]:
     require_permission(context, "can_view_context")
-    return await service.chat(body)
+    return await service.chat(
+        body,
+        run_context=AgentRunContext(
+            organization_id=context.organization_id,
+            actor_id=context.actor_id,
+            actor_roles=context.roles,
+            permissions=context.roles,
+            party=context.party,
+            step_up_verified=context.step_up_verified,
+            services=service.agent_services(),
+        ),
+    )
 
 
 @workspace_router.get(

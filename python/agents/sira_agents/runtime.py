@@ -17,11 +17,32 @@ class AgentRole(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class AgentRunContext:
+    """Private application state available to tools, never serialized for the model."""
+
+    organization_id: str
+    actor_id: str
+    actor_roles: frozenset[str] = frozenset()
+    permissions: frozenset[str] = frozenset()
+    party: str | None = None
+    step_up_verified: bool = False
+    request_id: str | None = None
+    services: Mapping[str, object] = field(default_factory=dict, compare=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if not self.organization_id.strip():
+            raise ValueError("agent run context requires organization_id")
+        if not self.actor_id.strip():
+            raise ValueError("agent run context requires actor_id")
+
+
+@dataclass(frozen=True, slots=True)
 class AgentRunRequest:
     role: AgentRole
     instructions: str
     prompt: str
-    context: Mapping[str, Any]
+    model_context: Mapping[str, Any]
+    run_context: AgentRunContext | None = None
     allowed_tools: tuple[str, ...] = ()
     output_type: type[Any] | None = None
 
@@ -50,6 +71,7 @@ class _SdkFacade(Protocol):
         agent: object,
         input_text: str,
         *,
+        context: AgentRunContext | None,
         max_turns: int,
         workflow_name: str,
     ) -> object: ...
@@ -84,6 +106,7 @@ class _OpenAISdkFacade:
         agent: object,
         input_text: str,
         *,
+        context: AgentRunContext | None,
         max_turns: int,
         workflow_name: str,
     ) -> object:
@@ -93,6 +116,7 @@ class _OpenAISdkFacade:
         result: Any = await sdk_runner.run(
             agent,
             input_text,
+            context=context,
             max_turns=max_turns,
             run_config=RunConfig(
                 tracing_disabled=True,
@@ -118,7 +142,7 @@ class OpenAIAgentsRuntime:
         payload = {
             "role": request.role.value,
             "prompt": request.prompt,
-            "context": request.context,
+            "context": request.model_context,
         }
         validate_agent_payload(payload, seller_visible=seller_visible)
 
@@ -138,6 +162,7 @@ class OpenAIAgentsRuntime:
         output = await self._sdk.run(
             agent,
             json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str),
+            context=request.run_context,
             max_turns=self.max_turns,
             workflow_name=f"sira-seil-{request.role.value.lower()}",
         )

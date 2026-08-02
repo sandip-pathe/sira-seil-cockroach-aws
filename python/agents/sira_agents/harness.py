@@ -36,7 +36,7 @@ class SiraSeilHarness:
                     "Do not add confidence, verification, authority, status, score, or rank."
                 ),
                 prompt=prompt,
-                context=private_context,
+                model_context=private_context,
             )
         )
 
@@ -55,7 +55,7 @@ class SiraSeilHarness:
                     "Positioning is labelled seller content and has zero ranking effect."
                 ),
                 prompt=prompt,
-                context={
+                model_context={
                     "requirement_brief": requirement_brief,
                     "published_pack": published_pack,
                 },
