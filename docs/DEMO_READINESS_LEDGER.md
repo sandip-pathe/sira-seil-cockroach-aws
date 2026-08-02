@@ -4,14 +4,16 @@ Updated: 2026-08-02
 
 Branch reviewed: `core-backend`
 
-Implementation reviewed through: `828cfc1` plus the laptop handoff
+Implementation reviewed through: `f1d690f` plus the PostgreSQL/Docker laptop follow-up
 
 This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes that followed it. It is the short, current checklist for the demo; the earlier audit remains useful background but its original P0 verdict is stale.
 
 ## Current verdict
 
 - **GO:** an explicitly labelled, deterministic fixture demo of company-aware evaluation, seller PASS, eligible alternatives, ranking, counterfactual, ledger, and proposed Stackfile patch.
-- **CONDITIONAL GO:** the laptop-backed API demo after the PostgreSQL checks and one complete startup smoke test below pass.
+- **GO:** the Docker-backed PostgreSQL/API fixture demo; fresh-volume startup, restricted-role
+  readiness, migrations, RLS, reset, and persistence checks pass locally.
+- **CONDITIONAL GO:** the complete laptop web journey; UI refresh/E2E remains a separate proof.
 - **NO-GO:** claims that arbitrary company intent, Senso retrieval, autonomous agents, or a real Prava/merchant purchase work end to end.
 - **NO-GO:** production or real-money use.
 
@@ -31,11 +33,11 @@ This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes t
 | CORE-09 | **COMPOSITION COMPLETE IN CODE:** Folder-scoped Senso search resolves exact content versions before model use. Agent output is a strict advisory fact proposal with zero rank/authority fields; support must be an exact document span. Only an authorized human acceptance creates a Buyer Passport fact. Provider/content/version/chunk/time/evidence hash and production-versus-fixture mode survive into the frozen fact hash. A live credentialed run is still required. | Senso ingestion, unversioned-source rejection, hallucinated-span rejection, authority-boundary, fixture-label, compiler-provenance, agent-runtime, and REST-adapter tests. |
 | SEC-02 | **FIXED IN CODE:** Senso document text is explicitly isolated as untrusted evidence data. Reserved decision/payment namespaces cannot be proposed, model tools remain unavailable, instruction/tool/exfiltration/decision-manipulation patterns are flagged, and flagged evidence cannot become a Buyer Passport fact without an explicit human adversarial-content review. Flags are frozen into the accepted source and its hash. | Malicious evidence corpus, reserved-field, exact-span, agent-boundary, schema, lint, and strict typing tests. |
 | SEC-03 | **FIXED IN CODE:** Production identity now has a real server-side RFC 7662/OIDC introspection adapter. It verifies active status, issuer, audience, expiry, safe tenant/actor IDs, an explicit role allowlist, identity kind and party. Step-up authority requires both an approved ACR and recent `auth_time`; browser identity headers remain ignored in production, and provider failures return a credential-free retryable error. | Identity-adapter claim matrix, stale step-up, secret-safe outage, production boundary, lint, and strict typing tests. Live identity-provider configuration is still required. |
-| SEC-04 | **FIXED IN CODE:** Buyer/seller introductions bind an exact buyer organization, seller organization, buyer actor, seller actor, sanitized Requirement Brief hash and grant scope. The seller reads a frozen seller-safe projection rather than the buyer tenant's brief row. Consent verifies both actor and organization; dedicated engagement RLS permits only the two bound tenants while owner-only insert/delete remains enforced. | Cross-tenant seller read/denial, mutual consent, replay-after-decline, migration-head, API, lint, and strict typing tests. Live PostgreSQL RLS proof remains open under DB-03. |
+| SEC-04 | **PASS LOCALLY:** Buyer/seller introductions bind exact parties and a sanitized Requirement Brief grant. PostgreSQL RLS permits only the two bound tenants; a database trigger rejects pre-consented inserts, forged consent provenance/contact data, and immutable-binding changes. | Direct restricted-role PostgreSQL test proves buyer/bound-seller visibility, unrelated-tenant denial, private buyer-table isolation, malicious insert rejection, and both-party mutation boundaries. |
 | PAY-01 | **FIXED:** Approval expiry is rechecked at hosted-session creation, browser return, and final dispatch; stale authority becomes `EXPIRED` before side effects. | `47db419`. |
 | PAY-02 | **FIXED:** Provider uncertainty and hosted-session failures are recoverable; malformed outbox events no longer starve later work. | `70dc0a3`. |
 | PAY-03 | **FIXED:** Fulfillment retries separately from checkout, so paid-but-unfulfilled recovery does not repeat the charge. | `d6ee047`. |
-| PAY-04 | **FIXED IN CODE:** Concurrent first idempotency claims use a savepoint, resolve the uniqueness race, and reread the canonical record. Live PostgreSQL proof is still open below. | `86ef60a`. |
+| PAY-04 | **PASS LOCALLY:** Concurrent first idempotency claims use a savepoint, resolve the uniqueness race, and reread the canonical record. | Two independent PostgreSQL sessions are synchronized at the first claim; both return the same 201 response with one intent and one completed idempotency row. |
 | PAY-05 | **FIXED IN CODE:** Purchase Intent merchant, Pack, offer, quote, amount, currency, line items, fulfillment expectations, and Stackfile patch now come from a hashed snapshot on the exact persisted selected plan. Missing or altered terms fail closed. | Batch 1 transaction-binding tests; live PostgreSQL proof remains open. |
 | PAY-06 | **PASS IN CONTRACT:** Prava binds the exact ISO currency at session creation and the same canonical currency reaches the controlled merchant. The official payment-result response does not return a currency field, so result-time currency comparison is not possible; session/order/amount/merchant checks prevent substitution. | Prava adapter contract tests and official [Create Session](https://docs.prava.space/api-reference/create-session)/[Get Payment Result](https://docs.prava.space/api-reference/get-payment-result) documentation. |
 | PAY-07 | **FIXED IN APPLICATION:** An authorized approver can revoke the exact intent hash before merchant dispatch. Revocation invalidates local hosted-session/browser authority, retires queued checkout work, and the worker recheck proves zero Prava or merchant dispatch. | Approval API/domain/worker tests; provider-side session cancellation remains open under LIVE-03. |
@@ -52,13 +54,14 @@ Use the exact commands and sandbox checklist in `docs/LAPTOP_BACKEND_HANDOFF.md`
 
 | ID | Priority | Required proof | Done when |
 |---|---:|---|---|
-| DB-01 | P0 laptop smoke | **CI PASS; repeat with the laptop's real owner/runtime accounts.** PostgreSQL is canonical; SQLite is not an acceptable substitute. | Alembic reaches head; runtime is `NOSUPERUSER`, `NOBYPASSRLS`, non-owner; forced RLS allows same-tenant access and denies cross-tenant access. |
-| DB-02 | P0 | **Run the idempotency race against live PostgreSQL.** The code fix is tested with mocks but database transaction behavior has not been certified locally. | Two concurrent first requests produce one canonical idempotency record and no 500/duplicate intent. |
-| DB-03 | P0 laptop smoke | **CI PASS; repeat with the laptop's runtime account.** | The buyer and bound seller tenants can read the same sanitized engagement; an unrelated tenant cannot read/update it; seller access never reaches Buyer Passport, Purchase Brief, Stackfile, or buyer-owned Requirement Brief rows. |
-| DEMO-02 | P0 | **Complete one laptop startup smoke test.** | Fresh setup starts web/API/worker, health reports the expected mode, migrations are current, and the chosen scripted path survives a refresh without changing hashes/state. |
+| DB-01 | P0 laptop smoke | **PASS locally on existing and fresh Docker volumes.** | Alembic reaches `f8c1d2e3a4b5`; direct runtime is `NOSUPERUSER`, `NOBYPASSRLS`, non-owner, and health rejects the owner/admin login. |
+| DB-02 | P0 | **PASS locally on PostgreSQL 17.6.** | Two concurrent first requests produce one canonical idempotency record and intent, identical 201 responses, and no 500. |
+| DB-03 | P0 laptop smoke | **PASS locally through restricted roles.** | Buyer and bound seller can read the sanitized engagement; unrelated access, pre-consented inserts, cross-party consent mutation, and forged contact material are denied. |
+| DEMO-02 | P0 | **PARTIAL PASS:** fresh Docker PostgreSQL/migrations/API startup and health pass; web refresh and live worker remain separate. | The API is healthy through the restricted login and fixture reset survives post-purchase reversal/outcome records. Worker remains blocked until Temporal/providers are real. |
 | UI-01 | P0, UI owner | **Wire or deliberately scope the visible journey.** The current laptop-owned web check fails because two `DecisionRequestView` samples in `apps/web/components/decisions/decision-surfaces.tsx` do not provide the required `evaluation_mode`. | The web typecheck passes, the user can complete the claimed demo path, and unavailable provider actions remain disabled and honestly labelled rather than reporting fake success. |
 
-Docker is not required for these checks. A local laptop PostgreSQL/Temporal setup or reachable services on the laptop can be used.
+Docker is now the reproducible laptop path for PostgreSQL and the API. Temporal and live
+provider certification remain explicitly separate and are not started by default.
 
 ## Required only if the demo claims live sandbox purchasing
 
@@ -76,12 +79,12 @@ Until those pass, demonstrate the deterministic transaction state machine with l
 
 | Check | Current evidence |
 |---|---|
-| Full backend regression | **PASS in hosted CI:** 306 tests against PostgreSQL 16. The three PostgreSQL tests remain locally skippable when the dedicated laptop URL is absent. |
+| Full backend regression | **PASS locally:** 314 tests against Docker PostgreSQL 17.6, including all eight live-PostgreSQL cases. The earlier hosted PostgreSQL 16 baseline remains 306 passing tests. |
 | Approval-revocation regression | **PASS:** 37 focused API, domain, and worker tests; frozen OpenAPI and generated client checks pass. |
-| PostgreSQL focus | **PASS in hosted CI:** migration/seed, runtime tenant isolation, and buyer/seller engagement RLS. Repeat with the laptop's actual owner/runtime accounts. |
+| PostgreSQL focus | **PASS locally:** eight PostgreSQL tests cover migration/seed, direct runtime readiness and drift rejection, tenant isolation, engagement RLS/mutation guards, true idempotency race, and reset after reversal/outcome records. |
 | Python lint | **PASS:** Ruff. |
 | Python typing | **PASS:** strict mypy across 84 source files. |
-| Python formatting | **PASS:** all 143 Python files match the configured Ruff formatter. |
+| Python formatting | **PASS:** all 145 Python files match the configured Ruff formatter. |
 | Frozen contracts | **PASS:** OpenAPI and generated TypeScript client are current; the shared client typecheck passes. |
 | Credential scan | **PASS:** source, configuration, fixtures, migrations, and reachable Git history were checked with project rules plus `detect-secrets`; no credential was detected. Current files receive entropy detection; history ignores entropy-only hits from frozen content hashes while retaining credential-signature detectors. |
 | Web application | **FAIL, laptop-owned:** two sample `DecisionRequestView` objects lack `evaluation_mode`; backend/client contract checks remain green and no `apps/web/**` file was changed in this batch. |

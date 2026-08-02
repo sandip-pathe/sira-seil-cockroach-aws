@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 import httpx
+import pytest
 import pytest_asyncio
 from sira_api.config import ApiSettings
 from sira_api.main import create_app
@@ -21,6 +22,27 @@ BUYER_TEST_AUTHORITIES = ",".join(
         "can_execute_purchase",
     )
 )
+
+PROVIDER_ENV_KEYS = (
+    "PRAVA_BASE_URL",
+    "PRAVA_SECRET_KEY",
+    "PRAVA_MERCHANT_URL",
+    "PRAVA_CALLBACK_URL",
+    "PRAVA_USER_EMAIL",
+    "PRAVA_MERCHANT_COUNTRY",
+    "PRAVA_HOSTED_CHECKOUT_HOSTS",
+    "CONTROLLED_MERCHANT_BASE_URL",
+    "CONTROLLED_MERCHANT_API_KEY",
+    "CONTROLLED_MERCHANT_ID",
+)
+
+
+@pytest.fixture(autouse=True)
+def isolate_provider_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep private laptop `.env` values from changing deterministic API tests."""
+
+    for setting in PROVIDER_ENV_KEYS:
+        monkeypatch.setenv(setting, "")
 
 
 @pytest_asyncio.fixture

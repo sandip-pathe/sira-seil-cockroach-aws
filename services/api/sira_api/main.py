@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from datetime import datetime
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -32,6 +33,8 @@ from .schemas import ErrorEnvelope
 from .seller_routes import seller_router
 from .seller_service import SellerEvidenceService
 from .service import WorkflowService, translate_persistence_conflict
+from .workspace_routes import workspace_router
+from .workspace_service import WorkspaceService
 
 
 def operation_id(route: APIRoute) -> str:
@@ -77,6 +80,16 @@ def create_app(
         application.state.database = resolved_database
         application.state.identity_adapter = resolved_identity_adapter
         fixtures = DemoFixtureBundle.load() if resolved_settings.development_fixture_mode else None
+        fixture_quote_clock: Callable[[], datetime] | None = None
+        if fixtures is not None:
+            fixture_quote_now = datetime.fromisoformat(
+                str(fixtures.expected_purchase_intent["locked_at"]).replace("Z", "+00:00")
+            )
+
+            def fixed_fixture_quote_clock() -> datetime:
+                return fixture_quote_now
+
+            fixture_quote_clock = fixed_fixture_quote_clock
         resolved_seller_directory = seller_directory
         if resolved_seller_directory is None and fixtures is not None:
             resolved_seller_directory = StaticSellerOrganizationDirectory(
@@ -98,10 +111,16 @@ def create_app(
             ),
             browser_return_ttl_seconds=resolved_settings.browser_return_ttl_seconds,
             seller_directory=resolved_seller_directory,
+            quote_clock=fixture_quote_clock,
         )
         application.state.seller_evidence_service = SellerEvidenceService(
             resolved_database,
             development_fixture_mode=resolved_settings.development_fixture_mode,
+        )
+        application.state.workspace_service = WorkspaceService(
+            fixtures,
+            api_key=resolved_settings.openai_api_key.get_secret_value(),
+            model=resolved_settings.openai_model,
         )
         yield
         close_identity = getattr(resolved_identity_adapter, "aclose", None)
@@ -112,9 +131,9 @@ def create_app(
     application = FastAPI(
         title="SIRA + SEIL API",
         version="0.1.0",
-        summary="Company-aware decisions, exact authority, and verified fulfillment",
+        summary="B2B commerce agents with exact authority and verified fulfillment",
         description=(
-            "PostgreSQL-canonical control plane for the first meeting-intelligence vertical. "
+            "Backend for SIRA buyer and SEIL seller B2B commerce agents. "
             "Development fixtures are fictional and never indicate production provider success."
         ),
         lifespan=lifespan,
@@ -141,6 +160,7 @@ def create_app(
             {"name": "commerce"},
             {"name": "stackfile"},
             {"name": "workflows"},
+            {"name": "workspace"},
         ],
     )
 
@@ -215,6 +235,7 @@ def create_app(
     application.include_router(public_router)
     application.include_router(seller_router)
     application.include_router(router_v2)
+    application.include_router(workspace_router)
     application.include_router(router)
     return application
 

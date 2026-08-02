@@ -330,7 +330,6 @@
 }
 
 .indexMain,
-.newMain,
 .roomMain {
   min-width: 0;
   min-height: 100dvh;
@@ -363,7 +362,6 @@
 .roomHeader p,
 .stageIntro > p,
 .sectionTitle p,
-.briefPreview > p,
 .cardHead p,
 .boundaryCard > p,
 .calibrationCard > p,
@@ -383,7 +381,6 @@
 .roomHeader h1,
 .stageIntro h2,
 .sectionTitle h2,
-.briefPreview h2,
 .ledgerHead h2 {
   margin: 0;
   color: var(--ink);
@@ -656,217 +653,6 @@
   height: 14px;
 }
 
-.newGrid {
-  max-width: 1220px;
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
-  gap: 24px;
-  margin: 0 auto;
-  padding: 32px clamp(24px, 4vw, 56px) 72px;
-}
-
-.briefForm,
-.briefPreview {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-.briefForm {
-  padding: 24px;
-}
-
-.formIntro {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-  padding: 14px;
-  border: 1px solid #cdd9ec;
-  border-radius: 8px;
-  background: var(--info-bg);
-}
-
-.formIntro > svg {
-  width: 19px;
-  flex: 0 0 auto;
-  color: var(--info);
-}
-
-.formIntro strong {
-  font-size: 13px;
-}
-
-.formIntro p {
-  margin: 3px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.briefForm > label,
-.formRow > label {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 20px;
-}
-
-.briefForm label > span,
-.formRow legend {
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 690;
-}
-
-.briefForm label > small {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.briefForm textarea,
-.briefForm input[type="datetime-local"] {
-  width: 100%;
-  border: 1px solid var(--control-border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-  outline: none;
-}
-
-.briefForm textarea {
-  min-height: 104px;
-  resize: vertical;
-  padding: 11px 12px;
-  line-height: 1.5;
-}
-
-.briefForm input[type="datetime-local"] {
-  min-height: 44px;
-  padding: 0 11px;
-}
-
-.briefForm textarea:focus,
-.briefForm input:focus {
-  border-color: var(--focus);
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus);
-}
-
-.formRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-}
-
-.formRow fieldset {
-  min-width: 0;
-  display: grid;
-  gap: 8px;
-  margin: 0 0 20px;
-  padding: 0;
-  border: 0;
-}
-
-.formRow fieldset label {
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--text);
-  font-size: 12px;
-}
-
-.formActions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding-top: 6px;
-  border-top: 1px solid var(--border);
-}
-
-.formActions > a {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 13px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 680;
-  text-decoration: none;
-}
-
-.formActions .primaryButton {
-  padding: 0 16px;
-}
-
-.inlineError {
-  margin: 0 0 15px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  background: var(--danger-bg);
-  color: var(--danger);
-  font-size: 12px;
-}
-
-.briefPreview {
-  align-self: start;
-  position: sticky;
-  top: 24px;
-  padding: 22px;
-}
-
-.briefPreview h2 {
-  font-size: 22px;
-  line-height: 1.25;
-}
-
-.briefPreview dl {
-  display: grid;
-  margin: 22px 0 0;
-}
-
-.briefPreview dl > div {
-  display: grid;
-  grid-template-columns: 105px 1fr;
-  gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--border);
-}
-
-.briefPreview dt {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.briefPreview dd {
-  margin: 0;
-  color: var(--text);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.boundaryNote {
-  display: flex;
-  gap: 10px;
-  margin-top: 14px;
-  padding: 13px;
-  border-radius: 7px;
-  background: var(--sira-soft);
-}
-
-.boundaryNote svg {
-  width: 18px;
-  flex: 0 0 auto;
-  color: var(--sira);
-}
-
-.boundaryNote p {
-  margin: 0;
-  color: var(--text);
-  font-size: 12px;
-  line-height: 1.5;
-}
 
 .roomMain {
   height: 100dvh;
@@ -2375,14 +2161,6 @@
     display: inline-flex;
   }
 
-  .newGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .briefPreview {
-    position: static;
-  }
-
   .optionsHeading {
     display: block;
   }
@@ -2435,16 +2213,6 @@
     white-space: normal;
   }
 
-  .newGrid {
-    padding: 20px 16px 50px;
-  }
-
-  .briefForm,
-  .briefPreview {
-    padding: 18px;
-  }
-
-  .formRow,
   .factGrid,
   .sideStack,
   .artifactGrid,
@@ -2620,7 +2388,6 @@
     font-size: 27px;
   }
 
-  .briefPreview dl > div,
   .ledgerContent dl > div,
   .confirmDialog dl > div {
     grid-template-columns: 1fr;

@@ -66,7 +66,7 @@ function SettingRows({
   );
 }
 
-export function ProfileSettingsModal({ workspace }: { workspace: ProfileWorkspace }) {
+export function ProfileSettingsModal({ workspace, onClose }: { workspace: ProfileWorkspace; onClose?: () => void }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -109,7 +109,8 @@ export function ProfileSettingsModal({ workspace }: { workspace: ProfileWorkspac
   }, [activeSection, mobilePane]);
 
   function dismiss() {
-    router.replace(`/${workspace}`, { scroll: false });
+    if (onClose) onClose();
+    else router.replace(`/${workspace}`, { scroll: false });
   }
 
   function handleDialogKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {

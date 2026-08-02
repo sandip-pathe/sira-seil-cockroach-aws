@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "python"))
+sys.path.insert(0, str(ROOT / "python" / "agents"))
 sys.path.insert(0, str(ROOT / "services" / "api"))
 
 from sira_api.main import app  # noqa: E402

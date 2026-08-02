@@ -69,10 +69,24 @@ ServiceDependency = Annotated[WorkflowService, Depends(get_service)]
 IdempotencyDependency = Annotated[str, Depends(require_idempotency_key)]
 
 
-@public_router.get("/health", response_model=HealthResponse, tags=["runtime"])
-async def health(request: Request, service: ServiceDependency) -> HealthResponse:
+@public_router.get(
+    "/health",
+    response_model=HealthResponse,
+    responses={
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "model": HealthResponse,
+            "description": "Database readiness is degraded",
+        }
+    },
+    tags=["runtime"],
+)
+async def health(
+    request: Request, response: Response, service: ServiceDependency
+) -> HealthResponse:
     settings: ApiSettings = request.app.state.settings
     database = await service.health()
+    if database != "configured":
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return HealthResponse(
         status="ok" if database == "configured" else "degraded",
         version="0.1.0",

@@ -1892,7 +1892,7 @@ class OutboxEvent(Base, TenantOwned):
     aggregate_type: Mapped[str] = mapped_column(String(80), nullable=False)
     aggregate_id: Mapped[str] = mapped_column(String(64), nullable=False)
     event_type: Mapped[str] = mapped_column(String(120), nullable=False)
-    event_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    event_key: Mapped[str] = mapped_column(String(255), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

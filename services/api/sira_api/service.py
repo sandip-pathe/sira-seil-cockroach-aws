@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, cast
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, func, select
 
 from decision_engine import (
     DecisionGraphDecision,
@@ -129,6 +130,8 @@ class WorkflowService:
         browser_return_signer: BrowserReturnStateSigner | None = None,
         browser_return_ttl_seconds: int = 600,
         seller_directory: SellerOrganizationDirectory | None = None,
+        clock: Callable[[], datetime] | None = None,
+        quote_clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.database = database
         self.fixtures = fixtures
@@ -138,6 +141,16 @@ class WorkflowService:
         )
         self.browser_return_ttl_seconds = browser_return_ttl_seconds
         self.seller_directory = seller_directory
+        self._clock = clock or (lambda: datetime.now(UTC))
+        self._quote_clock = quote_clock or self._clock
+
+    def _now(self) -> datetime:
+        return self._as_utc(self._clock())
+
+    def _quote_now(self) -> datetime:
+        """Return the as-of time for quote-bound fixture operations only."""
+
+        return self._as_utc(self._quote_clock())
 
     def _fixture_bundle(self) -> DemoFixtureBundle:
         if self.fixtures is None:
@@ -423,12 +436,7 @@ class WorkflowService:
         return graph_write.evaluation_run.id
 
     async def health(self) -> str:
-        try:
-            async with self.database.engine.connect() as connection:
-                await connection.execute(text("SELECT 1"))
-            return "configured"
-        except Exception:
-            return "unavailable"
+        return "configured" if await self.database.is_ready() else "unavailable"
 
     async def reset_demo(self, organization_id: str) -> dict[str, Any]:
         fixtures = self._fixture_bundle()
@@ -478,6 +486,8 @@ class WorkflowService:
                 MerchantOrder,
                 Receipt,
                 ApprovalRequest,
+                PurchaseReversal,
+                OutcomeCheckpoint,
                 PurchaseIntent,
                 CandidateFeedback,
                 Engagement,
@@ -1403,7 +1413,7 @@ class WorkflowService:
                     await session.flush()
                 engagement_id = new_id("eng")
                 seller_visible_brief = self._requirement_brief_view(requirement_brief.payload)
-                granted_at = datetime.now(UTC)
+                granted_at = self._now()
                 grant_scope = "SANITIZED_BRIEF_AND_CONTACT_CONSENT"
                 grant_hash = content_hash(
                     {
@@ -1551,8 +1561,8 @@ class WorkflowService:
                 )
             if body["consent"] and engagement.buyer_consented and engagement.seller_consented:
                 engagement.contact_exchange = {
-                    "buyer": "buyer-contact-channel-demo",
-                    "seller": "seller-contact-channel-demo",
+                    "buyer": engagement.expected_buyer_actor_id,
+                    "seller": engagement.expected_seller_actor_id,
                 }
             response = self._engagement_view(engagement)
             await repository.complete_idempotency(
@@ -1901,7 +1911,7 @@ class WorkflowService:
             resulting_decision_id: str | None = None
             resulting_decision_hash: str | None = None
             resulting_decision_version: int | None = None
-            now = datetime.now(UTC)
+            now = self._now()
             if accept:
                 current_version = (
                     await session.execute(
@@ -2396,7 +2406,7 @@ class WorkflowService:
                     stack_patch_id=stack_patch_id,
                     purchase_intent_id=new_id("pi"),
                     commercial_terms=selected_plan.payload.get("commercial_terms", {}),
-                    locked_at=datetime.now(UTC),
+                    locked_at=self._quote_now(),
                 )
             except CommercialTermsConflict as error:
                 raise ApiProblem(
@@ -2476,7 +2486,7 @@ class WorkflowService:
                 repository.get_decision(intent.decision_id), "DECISION"
             )
             await self._require_current_decision(session, organization_id, decision)
-            if self._as_utc(intent.quote_expires_at) <= datetime.now(UTC):
+            if self._as_utc(intent.quote_expires_at) <= self._quote_now():
                 raise ApiProblem(
                     code="QUOTE_EXPIRED",
                     message="The locked quote expired; create a new Purchase Intent and approval.",
@@ -2528,7 +2538,7 @@ class WorkflowService:
                 status="PENDING",
                 required_roles=roles,
                 approved_roles=[],
-                expires_at=datetime.now(UTC) + timedelta(minutes=60),
+                expires_at=self._now() + timedelta(minutes=60),
             )
             session.add(approval)
             intent.approval_status = "PENDING"
@@ -2579,7 +2589,7 @@ class WorkflowService:
             intent = await repository.get_purchase_intent(approval.purchase_intent_id, lock=True)
             decision = await repository.get_decision(intent.decision_id)
             await self._require_current_decision(session, organization_id, decision)
-            now = datetime.now(UTC)
+            now = self._now()
             expiry_problem = self._approval_expiry_problem(approval, intent, now)
             if expiry_problem is not None:
                 approval.status = "EXPIRED"
@@ -2678,7 +2688,7 @@ class WorkflowService:
             intent = await repository.get_purchase_intent(approval.purchase_intent_id, lock=True)
             decision = await repository.get_decision(intent.decision_id)
             await self._require_current_decision(session, organization_id, decision)
-            expiry_problem = self._approval_expiry_problem(approval, intent, datetime.now(UTC))
+            expiry_problem = self._approval_expiry_problem(approval, intent, self._now())
             if expiry_problem is not None:
                 approval.status = "EXPIRED"
                 intent.approval_status = "EXPIRED"
@@ -2830,7 +2840,7 @@ class WorkflowService:
                 event_key=f"revoke:{approval_id}:{actor_id}",
                 reason=body["reason"],
             )
-            now = datetime.now(UTC)
+            now = self._now()
             approval.status = "REVOKED"
             intent.approval_status = "REVOKED"
             for payment_session in sessions:
@@ -2913,18 +2923,17 @@ class WorkflowService:
             )
             return 200, response
 
-    @classmethod
     def _approval_expiry_problem(
-        cls, approval: ApprovalRequest, intent: PurchaseIntent, now: datetime
+        self, approval: ApprovalRequest, intent: PurchaseIntent, now: datetime
     ) -> ApiProblem | None:
-        if cls._as_utc(approval.expires_at) <= now:
+        if self._as_utc(approval.expires_at) <= now:
             return ApiProblem(
                 code="APPROVAL_EXPIRED",
                 message="This exact-hash approval request has expired.",
                 status_code=409,
                 next_action="create_approval_request",
             )
-        if cls._as_utc(intent.quote_expires_at) <= now:
+        if self._as_utc(intent.quote_expires_at) <= self._quote_now():
             return ApiProblem(
                 code="QUOTE_EXPIRED",
                 message="The quote expired before approval completed.",
@@ -2959,7 +2968,7 @@ class WorkflowService:
                 or intent.approval_status != "APPROVED"
             ):
                 return None
-            problem = self._approval_expiry_problem(approval, intent, datetime.now(UTC))
+            problem = self._approval_expiry_problem(approval, intent, self._now())
             if problem is not None:
                 approval.status = "EXPIRED"
                 intent.approval_status = "EXPIRED"
@@ -3072,14 +3081,14 @@ class WorkflowService:
                     status_code=409,
                     next_action="complete_approval",
                 )
-            if self._as_utc(approval.expires_at) <= datetime.now(UTC):
+            if self._as_utc(approval.expires_at) <= self._now():
                 raise ApiProblem(
                     code="APPROVAL_EXPIRED",
                     message="The exact-hash approval expired before Prava session creation.",
                     status_code=409,
                     next_action="create_approval_request",
                 )
-            if self._as_utc(intent.quote_expires_at) <= datetime.now(UTC):
+            if self._as_utc(intent.quote_expires_at) <= self._quote_now():
                 raise ApiProblem(
                     code="QUOTE_EXPIRED",
                     message="The approved quote expired before Prava session creation.",
@@ -3107,9 +3116,10 @@ class WorkflowService:
                         response_reference=existing.id,
                     )
                     return 201, response
-                if existing.status == "CREATING" and self._as_utc(
-                    existing.expires_at
-                ) > datetime.now(UTC):
+                if (
+                    existing.status == "CREATING"
+                    and self._as_utc(existing.expires_at) > self._now()
+                ):
                     raise ApiProblem(
                         code="SESSION_CREATE_PENDING",
                         message=(
@@ -3169,7 +3179,7 @@ class WorkflowService:
                 provider_session_id=f"pending:{internal_session_id}",
                 provider_order_id=f"pending:{internal_session_id}",
                 hosted_url="",
-                expires_at=datetime.now(UTC) + timedelta(minutes=15),
+                expires_at=self._now() + timedelta(minutes=15),
                 status="CREATING",
             )
             session.add(placeholder)
@@ -3245,7 +3255,7 @@ class WorkflowService:
                     return_url_hash=return_url_hash,
                     expires_at=min(
                         self._as_utc(hosted_session.expires_at),
-                        datetime.now(UTC) + timedelta(seconds=self.browser_return_ttl_seconds),
+                        self._now() + timedelta(seconds=self.browser_return_ttl_seconds),
                     ),
                     consumed_at=None,
                 )
@@ -3322,7 +3332,7 @@ class WorkflowService:
             )
             if approval_expiry is not None:
                 raise approval_expiry
-        now = datetime.now(UTC)
+        now = self._now()
         async with self.database.transaction(organization_id) as session:
             repository = WorkflowRepository(session, organization_id)
             binding = (
@@ -3402,7 +3412,7 @@ class WorkflowService:
             if (
                 self._as_utc(binding.expires_at) <= now
                 or self._as_utc(payment_session.expires_at) <= now
-                or self._as_utc(intent.quote_expires_at) <= now
+                or self._as_utc(intent.quote_expires_at) <= self._quote_now()
                 or approval is None
                 or self._as_utc(approval.expires_at) <= now
             ):
@@ -3649,7 +3659,7 @@ class WorkflowService:
                     "reason": body["reason"],
                 }
             )
-            now = datetime.now(UTC)
+            now = self._now()
             reversal = PurchaseReversal(
                 id=new_id("rev"),
                 organization_id=organization_id,
@@ -3790,7 +3800,7 @@ class WorkflowService:
                     status_code=409,
                 )
             observed_at = self._as_utc(cast(datetime, body["observed_at"]))
-            now = datetime.now(UTC)
+            now = self._now()
             if observed_at > now + timedelta(minutes=5):
                 raise ApiProblem(
                     code="OUTCOME_OBSERVATION_IN_FUTURE",

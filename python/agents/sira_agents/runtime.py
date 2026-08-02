@@ -23,6 +23,7 @@ class AgentRunRequest:
     prompt: str
     context: Mapping[str, Any]
     allowed_tools: tuple[str, ...] = ()
+    output_type: type[Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +42,7 @@ class _SdkFacade(Protocol):
         instructions: str,
         model: str,
         tools: list[object],
+        output_type: type[Any] | None,
     ) -> object: ...
 
     async def run(
@@ -63,6 +65,7 @@ class _OpenAISdkFacade:
         instructions: str,
         model: str,
         tools: list[object],
+        output_type: type[Any] | None,
     ) -> object:
         from agents import Agent
 
@@ -72,6 +75,7 @@ class _OpenAISdkFacade:
             instructions=instructions,
             model=model,
             tools=tools,
+            output_type=output_type,
         )
         return agent
 
@@ -129,6 +133,7 @@ class OpenAIAgentsRuntime:
             instructions=request.instructions,
             model=self.model,
             tools=resolved_tools,
+            output_type=request.output_type,
         )
         output = await self._sdk.run(
             agent,
