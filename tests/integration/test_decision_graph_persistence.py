@@ -146,7 +146,7 @@ def _graph(
         solution_plan_id=selected_plan_id,
         action="BUY",
         component_hash=_sha({"components": suffix}),
-        plan_hash=_sha({"plan": suffix}),
+        plan_hash=_sha({"solution_plan": suffix}),
         construction_lifecycle="CANDIDATE",
         lifecycle="EXECUTABLE",
         candidate_status="SEIL_PASS",

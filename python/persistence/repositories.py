@@ -12,7 +12,7 @@ from fractions import Fraction
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Select, select, update
+from sqlalchemy import Select, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -164,6 +164,21 @@ class WorkflowRepository:
             select(DecisionRecord).where(
                 DecisionRecord.id == decision_id,
                 DecisionRecord.organization_id == self.organization_id,
+            ),
+        )
+
+    async def get_evaluation_run(self, reference_id: str) -> EvaluationRun:
+        """Resolve the canonical base run by its own ID or its bound decision ID."""
+
+        return await _one_or_missing(
+            self.session,
+            select(EvaluationRun).where(
+                EvaluationRun.organization_id == self.organization_id,
+                EvaluationRun.run_kind == "BASE",
+                or_(
+                    EvaluationRun.id == reference_id,
+                    EvaluationRun.decision_id == reference_id,
+                ),
             ),
         )
 

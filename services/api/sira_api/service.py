@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, cast
@@ -159,6 +159,125 @@ class WorkflowService:
             "fixture_label": None,
         }
 
+    @staticmethod
+    def _demo_graph_input(
+        *,
+        purchase_brief_id: str,
+        purchase_brief_version: int,
+        preference_weights: dict[str, int] | None = None,
+    ) -> DecisionGraphInput:
+        graph_input = load_demo_decision_graph_input(DEMO)
+        return replace(
+            graph_input,
+            versions=replace(
+                graph_input.versions,
+                request_version=f"{purchase_brief_id}:v{purchase_brief_version}",
+                policy_version=f"consultco_policy_v{purchase_brief_version}",
+            ),
+            preferences=tuple(
+                replace(
+                    item,
+                    weight=(preference_weights or {}).get(item.criterion_id, item.weight),
+                )
+                for item in graph_input.preferences
+            ),
+        )
+
+    @staticmethod
+    def _ledger_preference_weights(ledger: dict[str, Any]) -> dict[str, int]:
+        return {
+            str(component["criterion_id"]): int(component["weight"])
+            for plan in ledger["solution_plans"]
+            for component in plan["score_components"]
+        }
+
+    def _verified_demo_replay_source(
+        self, run: EvaluationRun, ledger: dict[str, Any]
+    ) -> tuple[DecisionGraphInput, DecisionGraphDecision]:
+        """Reconstruct a demo input only when its persisted hashes prove exact identity."""
+
+        graph_input = self._demo_graph_input(
+            purchase_brief_id=str(ledger["purchase_brief_id"]),
+            purchase_brief_version=int(ledger["purchase_brief_version"]),
+            preference_weights=self._ledger_preference_weights(ledger),
+        )
+        created_at = datetime.fromisoformat(str(ledger["created_at"]).replace("Z", "+00:00"))
+        replay = evaluate_decision_graph(
+            graph_input,
+            evaluation_id=str(ledger["evaluation"]["evaluation_id"]),
+            generated_at=created_at,
+        )
+        payload = run.input_payload
+        mismatch: list[str] = []
+        if content_hash(payload) != run.input_payload_hash:
+            mismatch.append("input_payload_hash")
+        if payload.get("schema_version") != "decision_graph_input_hashes_v1":
+            mismatch.append("input_schema")
+        if payload.get("run_kind") != "BASE" or run.run_kind != "BASE":
+            mismatch.append("run_kind")
+        if content_hash(payload.get("versions")) != content_hash(asdict(graph_input.versions)):
+            mismatch.append("versions")
+        run_versions = {
+            field: getattr(run, field)
+            for field in asdict(graph_input.versions)
+        }
+        if run_versions != asdict(graph_input.versions):
+            mismatch.append("version_columns")
+        if (
+            payload.get("candidate_set_version") != run.candidate_set_version
+            or payload.get("quote_set_version") != run.quote_set_version
+            or payload.get("risk_rule_set_version")
+            != "demo_risk_rules_v1"
+        ):
+            mismatch.append("source_set_versions")
+        try:
+            stored_evaluated_at = datetime.fromisoformat(
+                str(payload.get("evaluated_at")).replace("Z", "+00:00")
+            )
+        except ValueError:
+            stored_evaluated_at = None
+        run_evaluated_at = run.evaluated_at
+        if run_evaluated_at.tzinfo is None:
+            run_evaluated_at = run_evaluated_at.replace(tzinfo=UTC)
+        if (
+            stored_evaluated_at != graph_input.evaluated_at
+            or run_evaluated_at != graph_input.evaluated_at
+        ):
+            mismatch.append("evaluated_at")
+        try:
+            stored_frozen_hashes = dict(payload.get("frozen_input_hashes", []))
+        except (TypeError, ValueError):
+            stored_frozen_hashes = {}
+        if stored_frozen_hashes != dict(replay.base.frozen_input_hashes):
+            mismatch.append("frozen_input_hashes")
+        stored_removed_ids = payload.get("removed_private_fact_ids", [])
+        if not isinstance(stored_removed_ids, list) or stored_removed_ids != list(
+            replay.base.removed_private_fact_ids
+        ):
+            mismatch.append("removed_private_fact_ids")
+        if (
+            replay.base.evaluation_payload_hash != run.evaluation_payload_hash
+            or content_hash(run.evaluation_payload) != run.evaluation_payload_hash
+        ):
+            mismatch.append("evaluation_payload_hash")
+        if (
+            run.purchase_request_id != ledger["request_id"]
+            or run.purchase_brief_id != ledger["purchase_brief_id"]
+            or run.decision_id != ledger["decision_id"]
+        ):
+            mismatch.append("aggregate_binding")
+        if mismatch:
+            raise ApiProblem(
+                code="REPLAY_INPUT_UNAVAILABLE",
+                message=(
+                    "The exact frozen evaluation input is unavailable; replay was not run "
+                    "against a substitute fixture."
+                ),
+                status_code=409,
+                details={"evaluation_run_id": run.id, "mismatches": sorted(set(mismatch))},
+            )
+        return graph_input, replay
+
     def _demo_graph_artifacts(
         self,
         *,
@@ -184,21 +303,10 @@ class WorkflowService:
         """Run the deterministic graph and bind DB-owned artifact identifiers."""
 
         fixtures = self._fixture_bundle()
-        graph_input = load_demo_decision_graph_input(DEMO)
-        graph_input = replace(
-            graph_input,
-            versions=replace(
-                graph_input.versions,
-                request_version=f"{purchase_brief_id}:v{purchase_brief_version}",
-                policy_version=f"consultco_policy_v{purchase_brief_version}",
-            ),
-            preferences=tuple(
-                replace(
-                    item,
-                    weight=(preference_weights or {}).get(item.criterion_id, item.weight),
-                )
-                for item in graph_input.preferences
-            ),
+        graph_input = self._demo_graph_input(
+            purchase_brief_id=purchase_brief_id,
+            purchase_brief_version=purchase_brief_version,
+            preference_weights=preference_weights,
         )
         artifact_created_at = created_at or graph_input.evaluated_at
         graph_decision = evaluate_decision_graph(
@@ -1318,13 +1426,11 @@ class WorkflowService:
             repository = WorkflowRepository(session, organization_id)
             decision = await self._not_found(repository.get_decision(decision_id), "DECISION")
             ledger = deepcopy(decision.payload["ledger"])
+            run = await self._not_found(
+                repository.get_evaluation_run(decision_id), "EVALUATION_RUN"
+            )
 
-        graph_input = load_demo_decision_graph_input(DEMO)
-        replay = evaluate_decision_graph(
-            graph_input,
-            evaluation_id=str(ledger["evaluation"]["evaluation_id"]),
-            generated_at=graph_input.evaluated_at,
-        )
+        graph_input, replay = self._verified_demo_replay_source(run, ledger)
         if replay.generic.selected_plan_id is None or replay.base.selected_plan_id is None:
             raise ApiProblem(
                 code="DECISION_SELECTION_UNAVAILABLE",
@@ -1385,7 +1491,18 @@ class WorkflowService:
                 status_code=422,
             )
 
-        graph_input = load_demo_decision_graph_input(DEMO)
+        async with self.database.transaction(organization_id) as session:
+            source_repository = WorkflowRepository(session, organization_id)
+            source_decision = await self._not_found(
+                source_repository.get_decision(decision_id), "DECISION"
+            )
+            source_ledger = deepcopy(source_decision.payload["ledger"])
+            source_run = await self._not_found(
+                source_repository.get_evaluation_run(decision_id), "EVALUATION_RUN"
+            )
+        graph_input, _baseline_replay = self._verified_demo_replay_source(
+            source_run, source_ledger
+        )
         known_criteria = {item.criterion_id for item in graph_input.preferences}
         unknown = sorted(set(overrides).difference(known_criteria))
         if unknown:
@@ -1486,18 +1603,22 @@ class WorkflowService:
         self._fixture_bundle()
         async with self.database.transaction(organization_id) as session:
             repository = WorkflowRepository(session, organization_id)
+            run = await self._not_found(
+                repository.get_evaluation_run(evaluation_run_id), "EVALUATION_RUN"
+            )
+            if run.decision_id is None:
+                raise ApiProblem(
+                    code="REPLAY_INPUT_UNAVAILABLE",
+                    message="The frozen evaluation is not bound to a Decision Ledger.",
+                    status_code=409,
+                )
             decision = await self._not_found(
-                repository.get_decision(evaluation_run_id), "EVALUATION_RUN"
+                repository.get_decision(run.decision_id), "DECISION"
             )
             ledger = deepcopy(decision.payload["ledger"])
 
-        score_components = [
-            component for plan in ledger["solution_plans"] for component in plan["score_components"]
-        ]
-        preference_weights = {
-            str(component["criterion_id"]): int(component["weight"])
-            for component in score_components
-        }
+        self._verified_demo_replay_source(run, ledger)
+        preference_weights = self._ledger_preference_weights(ledger)
         selected_plan = next(
             plan
             for plan in ledger["solution_plans"]
@@ -1537,7 +1658,7 @@ class WorkflowService:
         ordering_matches = stored_order == replayed_order
         statuses_match = stored_statuses == replayed_statuses
         return {
-            "evaluation_run_id": evaluation_run_id,
+            "evaluation_run_id": run.id,
             "decision_id": decision.id,
             "stored_decision_hash": stored_hash,
             "replayed_decision_hash": replayed_hash,
