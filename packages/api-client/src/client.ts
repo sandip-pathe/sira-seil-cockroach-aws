@@ -154,7 +154,7 @@ export class SiraApiClient {
     if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
     if (body !== undefined) headers.set("Content-Type", "application/json");
 
-    const response = await this.fetcher(url, {
+    const response = await this.fetcher.call(globalThis, url, {
       method: operation.method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),

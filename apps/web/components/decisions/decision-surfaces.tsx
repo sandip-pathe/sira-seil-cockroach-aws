@@ -12,6 +12,7 @@ import type {
   PurchaseIntentView,
   SolutionOption,
 } from "@sira/api-client";
+import { ApiClientError } from "@sira/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BadgeCheck,
@@ -363,11 +364,14 @@ function OptionsStage({
 function ActionStage({ view, optionsHref, onExecute, pending, purchaseIntent, approval, pravaSession, onPrepareAuthority, onApprove, onCreatePrava, authorityPending }: { view: DecisionView; optionsHref: string; onExecute: (action: ActionDescriptor) => void; pending: boolean; purchaseIntent: PurchaseIntentView | null; approval: ApprovalRequestView | null; pravaSession: PravaSessionView | null; onPrepareAuthority: () => void; onApprove: (role: string) => void; onCreatePrava: () => void; authorityPending: boolean }) {
   const plan = view.selected_action_plan;
   const steps = plan?.execution_steps ?? [];
+  const persistedIntentId = view.payment?.purchase_intent_id;
+  const hasIntent = Boolean(purchaseIntent || persistedIntentId);
+  const approvalStatus = approval?.status ?? view.approval?.status;
   return (
     <section className={styles.stageSection}>
       <div className={styles.stageIntro}><p>04 · Action</p><h2>{plan ? "Execute the selected action safely" : "Select an action plan first"}</h2><span>Review, required authority, execution or assignment, and verification remain separate.</span></div>
       {!plan ? <div className={styles.emptyStage}><FileCheck2 aria-hidden="true" /><h3>No plan is selected in this version</h3><p>Return to Options and select the exact plan/version/hash. A fixture preview never creates approval or payment authority.</p><Link className={styles.primaryButton} href={optionsHref}>Review options</Link></div> : <div className={styles.executionGrid}><ol className={styles.executionTimeline}>{steps.map((step, index) => <li key={step.id} data-status={step.status.toLowerCase()}><span>{step.status === "COMPLETED" ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{step.type.replaceAll("_", " ").toLowerCase()}</strong><small>{step.owner_role.replaceAll("_", " ")} · {step.status.replaceAll("_", " ")}</small>{step.blocker ? <p>{step.blocker}</p> : null}</div>{step.available_action ? <button type="button" disabled={pending || WEB_DATA_MODE === "fixture" || !step.available_action.href.includes("/action-runs")} onClick={() => onExecute(step.available_action!)}>{pending ? "Starting…" : step.available_action.label}</button> : null}</li>)}</ol><aside className={styles.authorityPanel}><p>Authority</p><dl><div><dt>Plan selection</dt><dd>{plan.selected_by_role.replaceAll("_", " ")}</dd></div><div><dt>Approval</dt><dd>{view.approval?.status ?? "Not requested"}</dd></div><div><dt>Payment</dt><dd>{view.payment?.status ?? "Not required"}</dd></div><div><dt>Fulfillment</dt><dd>{view.fulfillment?.status ?? "Not started"}</dd></div></dl></aside></div>}
-      {plan && WEB_DATA_MODE === "api" ? <section className={styles.commerceAuthority}><div><small>Exact offer authority</small><h3>{purchaseIntent ? `${purchaseIntent.currency} ${purchaseIntent.landed_total}` : "Lock the selected offer"}</h3><p>{purchaseIntent ? `Offer ${purchaseIntent.offer_id} · decision v${purchaseIntent.decision_version}` : "This freezes the decision hash, offer, merchant, amount, fee, and approval policy."}</p></div>{!purchaseIntent ? <button type="button" disabled={authorityPending} onClick={onPrepareAuthority}>Lock offer and request approval</button> : approval?.status !== "APPROVED" ? <div className={styles.approvalRoles}>{approval?.required_roles.map((role) => <button type="button" disabled={authorityPending || approval.approved_roles.includes(role)} onClick={() => onApprove(role)} key={role}>{approval.approved_roles.includes(role) ? <Check aria-hidden="true" /> : null}{role.replaceAll("_", " ")}</button>)}</div> : !pravaSession ? <button type="button" disabled={authorityPending} onClick={onCreatePrava}>Create Prava authority</button> : pravaSession.hosted_url ? <a href={pravaSession.hosted_url}>Open secure Prava checkout</a> : <p>Prava setup blocked: {pravaSession.missing_configuration?.join(", ") || "provider unavailable"}</p>}</section> : null}
+      {plan && WEB_DATA_MODE === "api" ? <section className={styles.commerceAuthority}><div><small>Exact offer authority</small><h3>{hasIntent ? `${purchaseIntent?.currency ?? view.payment?.currency} ${purchaseIntent?.landed_total ?? view.payment?.landed_total}` : "Lock the selected offer"}</h3><p>{purchaseIntent ? `Offer ${purchaseIntent.offer_id} · decision v${purchaseIntent.decision_version}` : hasIntent ? `Locked intent ${persistedIntentId}` : "This freezes the decision hash, offer, merchant, amount, fee, and approval policy."}</p></div>{!hasIntent ? <button type="button" disabled={authorityPending} onClick={onPrepareAuthority}>Lock offer and request approval</button> : approvalStatus !== "APPROVED" ? approval ? <div className={styles.approvalRoles}>{approval.required_roles.map((role) => <button type="button" disabled={authorityPending || approval.approved_roles.includes(role)} onClick={() => onApprove(role)} key={role}>{approval.approved_roles.includes(role) ? <Check aria-hidden="true" /> : null}{role.replaceAll("_", " ")}</button>)}</div> : <p>Approval is in progress. Continue from the assigned inbox item.</p> : !pravaSession ? <button type="button" disabled={authorityPending} onClick={onCreatePrava}>Create Prava authority</button> : pravaSession.hosted_url ? <a href={pravaSession.hosted_url}>Open secure Prava checkout</a> : <p>Prava setup blocked: {pravaSession.missing_configuration?.join(", ") || "provider unavailable"}</p>}</section> : null}
     </section>
   );
 }
@@ -580,11 +584,13 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
 
   const pravaMutation = useMutation({
     mutationFn: async () => {
-      if (!purchaseIntent || approval?.status !== "APPROVED") throw new Error("Approval incomplete");
+      const intentId = purchaseIntent?.purchase_intent_id ?? view?.payment?.purchase_intent_id;
+      const approvalStatus = approval?.status ?? view?.approval?.status;
+      if (!intentId || approvalStatus !== "APPROVED") throw new Error("Approval incomplete");
       return getBrowserApiClient().request("create_prava_session", {
-        pathParams: { intent_id: purchaseIntent.purchase_intent_id },
+        pathParams: { intent_id: intentId },
         body: { return_url: `${window.location.origin}/decisions/${requestId}/versions/${version}/result` },
-        idempotencyKey: `prava-${purchaseIntent.purchase_intent_id}`,
+        idempotencyKey: `prava-${intentId}`,
         headers: buyerDevelopmentHeaders,
       });
     },
@@ -592,7 +598,28 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
       setPravaSession(result);
       setToast(result.setup_blocked ? "Prava reported missing setup." : "Bounded Prava authority created.");
     },
-    onError: () => setToast("Prava authority was not created; no payment was attempted."),
+    onError: (error) => {
+      const payload = error instanceof ApiClientError ? error.payload : null;
+      const problem = payload && typeof payload === "object" && "error" in payload
+        ? (payload as { error?: { code?: string; details?: { missing_configuration?: string[] } } }).error
+        : undefined;
+      if (problem?.code === "PROVIDER_SETUP_BLOCKED") {
+        setPravaSession({
+          id: "pays_setup_blocked",
+          purchase_intent_id: purchaseIntent?.purchase_intent_id ?? view?.payment?.purchase_intent_id ?? "pi_unavailable",
+          status: "NOT_STARTED",
+          hosted_url: null,
+          expires_at: null,
+          production_provider: "PRAVA",
+          production_verified: false,
+          setup_blocked: true,
+          missing_configuration: problem.details?.missing_configuration ?? [],
+        });
+        setToast("Prava needs provider configuration; no payment was attempted.");
+        return;
+      }
+      setToast("Prava authority was not created; no payment was attempted.");
+    },
   });
 
   const activeStage = stages.some((item) => item.slug === stage) ? stage : "options";

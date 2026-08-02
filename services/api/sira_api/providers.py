@@ -123,7 +123,10 @@ class PravaRuntimeConfiguration:
 
     def validate_return_url(self, return_url: str) -> None:
         expected = _origin(self.web_base_url, setting="WEB_BASE_URL", require_https=False)
-        supplied = _origin(return_url, setting="return_url", require_https=True)
+        local_web_app = expected[0] in {"localhost", "127.0.0.1", "::1"}
+        supplied = _origin(
+            return_url, setting="return_url", require_https=not local_web_app
+        )
         if supplied != expected:
             raise ApiProblem(
                 code="RETURN_URL_NOT_ALLOWED",

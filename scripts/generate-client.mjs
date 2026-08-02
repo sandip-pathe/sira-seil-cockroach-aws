@@ -183,7 +183,7 @@ type BodyInput<K extends OperationId>`,
 
     const headers`,
   )
-  .replace("this.fetcher(new URL(route, this.baseUrl),", "this.fetcher(url,");
+  .replace("this.fetcher(new URL(route, this.baseUrl),", "this.fetcher.call(globalThis, url,");
 
 const indexSource = `// Generated from contracts/openapi/openapi.json. Do not edit by hand.\nexport * from "./client";\nexport * from "./types";\nexport const contractVersion = ${JSON.stringify(openapi.info.version)} as const;\n`;
 

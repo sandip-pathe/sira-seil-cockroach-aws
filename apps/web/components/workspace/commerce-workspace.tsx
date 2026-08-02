@@ -624,16 +624,17 @@ function RunPanel({ mode, running, conversation }: { mode: CommerceWorkspaceMode
   const latestUser = conversation?.messages.findLast((message) => message.role === "user");
   const toolCalls = latestAssistant?.toolCalls ?? [];
   const hasRun = Boolean(latestAssistant);
+  const failed = latestAssistant?.meta === "Could not complete";
 
   return (
     <div className={styles.contextBody}>
       <section className={styles.runHero}>
         <div className={styles.runEyebrow}>
           <span className={styles.liveDot} />
-          {running ? "Agent working" : hasRun ? "Latest completed run" : "No run yet"}
+          {running ? "Agent working" : failed ? "Latest run failed" : hasRun ? "Latest completed run" : "No run yet"}
         </div>
         <h2>{conversation?.title ?? `${MODE_COPY[mode].name} workspace`}</h2>
-        <p>{running ? `Processing: ${latestUser?.content ?? "your request"}` : hasRun ? "This is the activity reported by the latest agent response." : `Send a message to start a real ${MODE_COPY[mode].name} run.`}</p>
+        <p>{running ? `Processing: ${latestUser?.content ?? "your request"}` : failed ? "The request did not complete and no successful tool activity was recorded." : hasRun ? "This is the activity reported by the latest agent response." : `Send a message to start a real ${MODE_COPY[mode].name} run.`}</p>
       </section>
 
       <section className={styles.contextSection}>
@@ -658,9 +659,9 @@ function RunPanel({ mode, running, conversation }: { mode: CommerceWorkspaceMode
               <div><strong>{TOOL_LABELS[tool] ?? tool.replaceAll("_", " ")}</strong><small>{tool}</small></div>
             </li>
           )) : (
-            <li data-state={hasRun ? "complete" : "waiting"}>
-              <span className={styles.stepIcon}>{hasRun ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}</span>
-              <div><strong>{hasRun ? "Answered without tools" : "Waiting for a message"}</strong><small>{hasRun ? "The latest response did not call an application tool." : "No agent activity has been recorded."}</small></div>
+            <li data-state={failed ? "waiting" : hasRun ? "complete" : "waiting"}>
+              <span className={styles.stepIcon}>{failed ? <CircleAlert aria-hidden="true" /> : hasRun ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}</span>
+              <div><strong>{failed ? "Request failed" : hasRun ? "Answered without tools" : "Waiting for a message"}</strong><small>{failed ? "Retry when the backend connection is available." : hasRun ? "The latest response did not call an application tool." : "No agent activity has been recorded."}</small></div>
             </li>
           )}
         </ol>

@@ -207,6 +207,15 @@ async def test_plan_selection_and_action_run_bind_the_exact_decision(
         },
     ]
 
+    intent = await api_client.post(
+        f"/v1/decisions/{selected_body['selected_decision_id']}/purchase-intents",
+        headers=idempotency("purchase-intent-v2-0001"),
+        json={"solution_plan_id": selected_body["solution_plan_id"]},
+    )
+    assert intent.status_code == 201, intent.text
+    assert intent.json()["decision_version"] == selected_body["decision_version"]
+    assert intent.json()["solution_plan_id"] == selected_body["solution_plan_id"]
+
     run = await api_client.post(
         f"/v1/decisions/{selected_body['selected_decision_id']}/action-runs",
         headers=idempotency("action-run-v2-0001"),

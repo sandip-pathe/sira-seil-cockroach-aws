@@ -2349,7 +2349,7 @@ class WorkflowService:
                 )
             try:
                 selected_plan = await repository.get_selected_solution_plan(
-                    decision.id, selected_plan_id
+                    decision.supersedes_id or decision.id, selected_plan_id
                 )
             except RecordNotFound:
                 raise ApiProblem(
