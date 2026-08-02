@@ -181,6 +181,84 @@ def test_frozen_fixture_runs_from_raw_facts_and_builds_every_locked_action() -> 
     assert decision.base.versions.offer_set_version == "demo_offer_set_v1_buyer_txn_demo_v1"
 
 
+def test_reuse_existing_can_win_without_a_purchase() -> None:
+    decision_input = load_demo_decision_graph_input(FIXTURE_ROOT)
+    reuse = next(
+        item
+        for item in decision_input.current_actions
+        if item.action is SolutionAction.REUSE_EXISTING
+    )
+    evaluation = evaluate_decision_graph_once(
+        replace(
+            decision_input,
+            candidates=tuple(
+                replace(item, available=False) for item in decision_input.candidates
+            ),
+            current_actions=(reuse,),
+        )
+    )
+    selected = _selected(evaluation)
+
+    assert selected.action is SolutionAction.REUSE_EXISTING
+    assert selected.dimensions.total_cost.payment_required is False
+    assert selected.autonomous_execution_allowed is True
+
+
+def test_no_action_can_win_when_buying_is_not_supported() -> None:
+    decision_input = load_demo_decision_graph_input(FIXTURE_ROOT)
+    no_action = next(
+        item
+        for item in decision_input.current_actions
+        if item.action is SolutionAction.NO_ACTION
+    )
+    gates = tuple(
+        replace(
+            gate,
+            predicates=tuple(
+                replace(predicate, value="120.00")
+                if predicate.field == "offer.landed_total"
+                else predicate
+                for predicate in gate.predicates
+            ),
+        )
+        if gate.gate_id == "gate_budget"
+        else gate
+        for gate in decision_input.gates
+    )
+    evaluation = evaluate_decision_graph_once(
+        replace(
+            decision_input,
+            candidates=tuple(
+                replace(item, available=False) for item in decision_input.candidates
+            ),
+            current_actions=(no_action,),
+            gates=gates,
+        )
+    )
+    selected = _selected(evaluation)
+
+    assert selected.action is SolutionAction.NO_ACTION
+    assert selected.dimensions.total_cost.payment_required is False
+    assert selected.autonomous_execution_allowed is True
+
+
+def test_no_eligible_supported_action_is_distinct_from_no_action() -> None:
+    decision_input = load_demo_decision_graph_input(FIXTURE_ROOT)
+    evaluation = evaluate_decision_graph_once(
+        replace(
+            decision_input,
+            candidates=tuple(
+                replace(item, available=False) for item in decision_input.candidates
+            ),
+            current_actions=(),
+        )
+    )
+
+    assert evaluation.selected_plan_id is None
+    assert evaluation.ranked_plan_ids == ()
+    assert {plan.status for plan in evaluation.plans} == {CandidateStatus.UNAVAILABLE}
+
+
 def test_demo_retains_buyer_and_seller_provenance_and_orders_runner_up() -> None:
     decision = evaluate_decision_graph(load_demo_decision_graph_input(FIXTURE_ROOT))
     plans_by_component = {plan.components[0].component_id: plan for plan in decision.base.plans}
