@@ -898,6 +898,78 @@ async def test_configured_prava_session_uses_real_adapter_and_updates_canonical_
 
 
 @pytest.mark.asyncio
+async def test_prava_session_create_can_retry_after_uncertain_provider_failure(
+    api_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    intent, approval = await lock_intent_and_start_approval(api_client)
+    for index, role in enumerate(
+        ["operations_owner", "security_privacy_owner", "legal_owner", "budget_owner"]
+    ):
+        approved = await api_client.post(
+            f"/v1/approval-requests/{approval['id']}/approve",
+            headers={
+                **idempotency(f"retry-provider-approve-{index:04d}"),
+                "X-Actor-Id": f"usr_retry_provider_{role}",
+                "X-Actor-Roles": f"{role},can_approve_purchase",
+                "X-Step-Up-Verified": "true",
+            },
+            json={"intent_hash": approval["intent_hash"], "actor_role": role},
+        )
+        assert approved.status_code == 200, approved.text
+
+    environment = {
+        "PRAVA_BASE_URL": "https://api.prava.test",
+        "PRAVA_SECRET_KEY": "x",
+        "PRAVA_MERCHANT_URL": "https://merchant-d.example.test",
+        "PRAVA_CALLBACK_URL": "https://api.example.test/prava/callback",
+        "PRAVA_USER_EMAIL": "fixture-user@example.test",
+        "PRAVA_HOSTED_CHECKOUT_HOSTS": "checkout.prava.test",
+        "PRAVA_MERCHANT_COUNTRY": "US",
+        "CONTROLLED_MERCHANT_BASE_URL": "https://merchant-d.example.test",
+        "CONTROLLED_MERCHANT_API_KEY": "x",
+        "CONTROLLED_MERCHANT_ID": "merchant_fixture_d",
+        "WEB_BASE_URL": "https://app.example.test",
+    }
+    for name, value in environment.items():
+        monkeypatch.setenv(name, value)
+
+    with respx.mock(assert_all_called=True) as mock:
+        mock.post("https://api.prava.test/v1/sessions").mock(
+            side_effect=[
+                httpx.Response(503),
+                httpx.Response(
+                    201,
+                    json={
+                        "session_id": "ses_recovered_contract",
+                        "order_id": "ord_recovered_contract",
+                        "iframe_url": "https://checkout.prava.test/session/recovered",
+                        "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+                    },
+                ),
+            ]
+        )
+        first = await api_client.post(
+            f"/v1/purchase-intents/{intent['purchase_intent_id']}/prava-sessions",
+            headers=idempotency("retry-configured-prava-session"),
+            json={"return_url": "https://app.example.test/purchase/return"},
+        )
+        status = await api_client.get(
+            f"/v1/purchase-intents/{intent['purchase_intent_id']}/status"
+        )
+        second = await api_client.post(
+            f"/v1/purchase-intents/{intent['purchase_intent_id']}/prava-sessions",
+            headers=idempotency("retry-configured-prava-session"),
+            json={"return_url": "https://app.example.test/purchase/return"},
+        )
+
+    assert first.status_code == 503
+    assert first.json()["error"]["next_action"] == "retry_provider_session"
+    assert status.json()["payment_status"] == "NOT_STARTED"
+    assert second.status_code == 201, second.text
+    assert second.json()["status"] == "SESSION_CREATED"
+
+
+@pytest.mark.asyncio
 async def test_stackfile_is_current_plus_proposed_not_active(
     api_client: httpx.AsyncClient,
 ) -> None:

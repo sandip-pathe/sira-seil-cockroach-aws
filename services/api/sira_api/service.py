@@ -2485,13 +2485,29 @@ class WorkflowService:
                         response_reference=existing.id,
                     )
                     return 201, response
-                raise ApiProblem(
-                    code="SESSION_CREATE_RECONCILIATION_REQUIRED",
-                    message="A prior provider session create is incomplete; do not create another.",
-                    status_code=409,
-                    retryable=False,
-                    next_action="reconcile_provider_session",
-                )
+                if (
+                    existing.status == "CREATING"
+                    and self._as_utc(existing.expires_at) > datetime.now(UTC)
+                ):
+                    raise ApiProblem(
+                        code="SESSION_CREATE_PENDING",
+                        message=(
+                            "A provider session create is still inside its safe response window."
+                        ),
+                        status_code=409,
+                        retryable=True,
+                        next_action="retry_provider_session_later",
+                    )
+                if existing.status == "CREATING":
+                    existing.status = "EXPIRED"
+                elif existing.status not in {"FAILED", "UNCERTAIN", "EXPIRED"}:
+                    raise ApiProblem(
+                        code="SESSION_CREATE_NOT_RETRYABLE",
+                        message="The current payment session cannot be replaced safely.",
+                        status_code=409,
+                        retryable=False,
+                        next_action="poll_purchase_status",
+                    )
 
             configuration.validate_merchant_url(intent.merchant_url)
             line_items = intent.payload.get("line_items")
@@ -2571,7 +2587,7 @@ class WorkflowService:
                 status_code=503 if retryable else 502,
                 retryable=retryable,
                 next_action=(
-                    "reconcile_provider_session" if retryable else "review_provider_configuration"
+                    "retry_provider_session" if retryable else "review_provider_configuration"
                 ),
             ) from None
         if hosted_session is None:
@@ -2862,7 +2878,6 @@ class WorkflowService:
     ) -> None:
         target = "UNCERTAIN" if uncertain else "FAILED"
         async with self.database.transaction(organization_id) as session:
-            repository = WorkflowRepository(session, organization_id)
             payment_session = (
                 await session.execute(
                     select(PaymentSession)
@@ -2874,19 +2889,20 @@ class WorkflowService:
                 )
             ).scalar_one()
             payment_session.status = target
-            await repository.transition_purchase_intent(
-                intent_id=intent_id,
-                state_field="payment_status",
-                allowed_from={"NOT_STARTED"},
-                to_state=target,
-                event_key=f"prava-session-create-failed:{internal_session_id}",
-                actor_type="provider",
-                actor_id="prava",
-                reason_code=safe_code,
-                payload_hash=content_hash(
-                    {"payment_session_id": internal_session_id, "safe_code": safe_code}
-                ),
-            )
+            intent = (
+                await session.execute(
+                    select(PurchaseIntent)
+                    .where(
+                        PurchaseIntent.id == intent_id,
+                        PurchaseIntent.organization_id == organization_id,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one()
+            if intent.payment_status != "NOT_STARTED":
+                raise PersistenceConflict(
+                    "Provider session failure cannot rewrite an active payment state"
+                )
 
     async def purchase_status(self, organization_id: str, intent_id: str) -> dict[str, Any]:
         async with self.database.transaction(organization_id) as session:

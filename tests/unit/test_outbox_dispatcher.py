@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -141,6 +142,70 @@ async def test_dispatcher_leaves_event_pending_when_temporal_is_unavailable(
         workflow = (await session.execute(select(WorkflowRun))).scalar_one()
         assert event.published_at is None
         assert workflow.status == "PENDING"
+
+
+@pytest.mark.asyncio
+async def test_invalid_oldest_event_is_quarantined_without_blocking_next_event(
+    outbox_database: Database,
+) -> None:
+    await seed_checkout_event(outbox_database)
+    invalid_intent_id = "pi_dispatch_invalid"
+    invalid_workflow_id = f"wf_checkout_{invalid_intent_id}"
+    async with outbox_database.transaction(ORGANIZATION_ID) as session:
+        session.add(
+            WorkflowRun(
+                id=invalid_workflow_id,
+                organization_id=ORGANIZATION_ID,
+                aggregate_type="purchase_intent",
+                aggregate_id=invalid_intent_id,
+                operation="purchase_checkout",
+                status="PENDING",
+                result_reference=f"/v1/purchase-intents/{invalid_intent_id}/status",
+                safe_error_code=None,
+                event_log=[],
+            )
+        )
+        session.add(
+            OutboxEvent(
+                id="out_dispatch_invalid",
+                organization_id=ORGANIZATION_ID,
+                aggregate_type="purchase_intent",
+                aggregate_id=invalid_intent_id,
+                event_type="purchase_checkout.requested",
+                event_key="purchase-checkout-requested:invalid",
+                payload={"workflow_id": invalid_workflow_id},
+                occurred_at=datetime(2000, 1, 1, tzinfo=UTC),
+                published_at=None,
+            )
+        )
+    temporal = FakeTemporal()
+    worker = dispatcher(outbox_database, temporal)
+
+    assert await worker.dispatch_once(ORGANIZATION_ID) is True
+    assert temporal.calls == []
+    assert await worker.dispatch_once(ORGANIZATION_ID) is True
+    assert len(temporal.calls) == 1
+
+    async with outbox_database.transaction(ORGANIZATION_ID) as session:
+        invalid_event = (
+            await session.execute(
+                select(OutboxEvent).where(OutboxEvent.id == "out_dispatch_invalid")
+            )
+        ).scalar_one()
+        invalid_workflow = (
+            await session.execute(
+                select(WorkflowRun).where(WorkflowRun.id == invalid_workflow_id)
+            )
+        ).scalar_one()
+        valid_event = (
+            await session.execute(
+                select(OutboxEvent).where(OutboxEvent.id == "out_dispatch_test")
+            )
+        ).scalar_one()
+        assert invalid_event.published_at is not None
+        assert invalid_workflow.status == "FAILED"
+        assert invalid_workflow.safe_error_code == "OUTBOX_CONTRACT_INVALID"
+        assert valid_event.published_at is not None
 
 
 @pytest.mark.asyncio

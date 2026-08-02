@@ -12,7 +12,11 @@ from jsonschema.validators import validator_for
 from referencing import Registry, Resource
 from sira_api.fixtures import DemoFixtureBundle, content_hash
 from sira_api.service import WorkflowService
-from sira_worker.contracts import IsolatedCheckoutActivityInput, SafeMerchantOutcome
+from sira_worker.contracts import (
+    IsolatedCheckoutActivityInput,
+    ReconcileActivityInput,
+    SafeMerchantOutcome,
+)
 from sira_worker.coordinator import PersistentCheckoutCoordinator
 from sqlalchemy import func, select
 
@@ -152,6 +156,24 @@ class FakePrava:
 
     async def aclose(self) -> None:
         return None
+
+
+class FailingPrava(FakePrava):
+    async def execute_isolated_checkout(
+        self,
+        *,
+        session_id: str,
+        request: MerchantCheckoutRequest,
+        merchant: ControlledMerchantAdapter,
+    ) -> PravaCheckoutResult:
+        del session_id, request, merchant
+        self.execute_calls += 1
+        raise ProviderError(
+            provider="prava",
+            operation="execute_isolated_checkout",
+            code=ProviderErrorCode.UNAVAILABLE,
+            retryable=True,
+        ) from None
 
 
 @pytest_asyncio.fixture
@@ -347,6 +369,62 @@ async def test_worker_persists_payment_fulfillment_receipt_and_staged_patch(
     assert patches["patch_consultco_fixture_d"] == "STAGED"
     assert patches["patch_unrelated_newer"] == "PROPOSED"
     assert payment_session.status == "PRAVA_COMPLETED"
+
+
+@pytest.mark.asyncio
+async def test_provider_failure_after_dispatch_enters_reconciliation_and_recovers(
+    checkout_database: Database,
+) -> None:
+    service, intent = await prepare_approved_checkout(checkout_database)
+    intent_id = str(intent["purchase_intent_id"])
+    prava = FailingPrava()
+    coordinator = PersistentCheckoutCoordinator(
+        database=checkout_database,
+        prava=prava,
+        merchant=FakeMerchant(),
+        merchant_adapter_id="merchant_fixture_d",
+    )
+    activity_input = IsolatedCheckoutActivityInput(
+        organization_id="org_consultco",
+        purchase_intent_id=intent_id,
+        intent_hash=str(intent["intent_hash"]),
+        prava_session_id="prava_session_real_contract",
+        merchant_adapter_id="merchant_fixture_d",
+        idempotency_key="checkout-provider-failure",
+    )
+
+    uncertain = await coordinator.execute_isolated_checkout(activity_input)
+
+    assert uncertain.merchant_outcome is SafeMerchantOutcome.UNKNOWN
+    assert uncertain.reconciliation_required is True
+    status = await service.purchase_status("org_consultco", intent_id)
+    assert status["payment_status"] == "UNCERTAIN"
+    async with checkout_database.transaction("org_consultco") as session:
+        attempt = (
+            await session.execute(
+                select(PaymentAttempt).where(PaymentAttempt.purchase_intent_id == intent_id)
+            )
+        ).scalar_one()
+        assert attempt.closed_at is None
+        assert attempt.merchant_outcome == "UNKNOWN"
+
+    recovered = await coordinator.reconcile_checkout(
+        ReconcileActivityInput(
+            organization_id="org_consultco",
+            purchase_intent_id=intent_id,
+            intent_hash=str(intent["intent_hash"]),
+            prava_session_id="prava_session_real_contract",
+            merchant_adapter_id="merchant_fixture_d",
+            idempotency_key="checkout-provider-failure",
+            transaction_reference=uncertain.transaction_reference,
+        )
+    )
+
+    assert recovered.merchant_outcome is SafeMerchantOutcome.APPROVED
+    assert recovered.reconciliation_required is False
+    status = await service.purchase_status("org_consultco", intent_id)
+    assert status["payment_status"] == "PRAVA_COMPLETED"
+    assert status["fulfillment_status"] == "VERIFIED"
 
 
 @pytest.mark.asyncio

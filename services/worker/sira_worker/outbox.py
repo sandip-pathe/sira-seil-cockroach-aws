@@ -82,7 +82,11 @@ class CheckoutOutboxDispatcher:
             event_id = event.id
             payload = deepcopy(event.payload)
 
-        workflow_id, request = self._workflow_request(organization_id, payload)
+        try:
+            workflow_id, request = self._workflow_request(organization_id, payload)
+        except ValueError:
+            await self._quarantine_invalid_event(organization_id, event_id)
+            return True
         try:
             await self._temporal.start_workflow(
                 PurchaseCheckoutWorkflow.run,
@@ -131,6 +135,44 @@ class CheckoutOutboxDispatcher:
                     },
                 ]
         return True
+
+    async def _quarantine_invalid_event(self, organization_id: str, event_id: str) -> None:
+        async with self._database.transaction(organization_id) as session:
+            event = (
+                await session.execute(
+                    select(OutboxEvent)
+                    .where(
+                        OutboxEvent.id == event_id,
+                        OutboxEvent.organization_id == organization_id,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one()
+            if event.published_at is not None:
+                return
+            event.published_at = datetime.now(UTC)
+            workflow = (
+                await session.execute(
+                    select(WorkflowRun)
+                    .where(
+                        WorkflowRun.organization_id == organization_id,
+                        WorkflowRun.aggregate_type == event.aggregate_type,
+                        WorkflowRun.aggregate_id == event.aggregate_id,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if workflow is not None and workflow.status not in {"COMPLETED", "FAILED"}:
+                workflow.status = "FAILED"
+                workflow.safe_error_code = "OUTBOX_CONTRACT_INVALID"
+                workflow.event_log = [
+                    *workflow.event_log,
+                    {
+                        "id": str(len(workflow.event_log) + 1),
+                        "status": "FAILED",
+                        "message": "Checkout dispatch contract was rejected",
+                    },
+                ]
 
     def _workflow_request(
         self, organization_id: str, payload: dict[str, Any]

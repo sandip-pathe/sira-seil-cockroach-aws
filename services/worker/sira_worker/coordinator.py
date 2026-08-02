@@ -14,6 +14,7 @@ from integrations.errors import ProviderError, ProviderErrorCode
 from integrations.merchants.models import (
     EntitlementVerificationRequest,
     EntitlementVerificationStatus,
+    MerchantCheckoutOutcome,
     MerchantCheckoutRequest,
     MerchantOutcome,
 )
@@ -68,11 +69,33 @@ class PersistentCheckoutCoordinator:
     ) -> CheckoutActivityResult:
         assert_credential_free_contract(request)
         merchant_request, attempt_id = await self._prepare_attempt(request)
-        result = await self._prava.execute_isolated_checkout(
-            session_id=request.prava_session_id,
-            request=merchant_request,
-            merchant=self._merchant,
-        )
+        try:
+            result = await self._prava.execute_isolated_checkout(
+                session_id=request.prava_session_id,
+                request=merchant_request,
+                merchant=self._merchant,
+            )
+        except Exception:
+            # Once an attempt is committed, any provider-side exception is an
+            # uncertain dispatch. Return a credential-free recovery result so the
+            # durable workflow reconciles instead of stranding CHECKOUT_PENDING.
+            result = PravaCheckoutResult(
+                session_id=request.prava_session_id,
+                prava_order_id=merchant_request.prava_order_id,
+                transaction_reference=f"reconcile:{attempt_id}",
+                merchant=MerchantCheckoutOutcome(
+                    outcome=MerchantOutcome.UNKNOWN,
+                    merchant_order_id=None,
+                    authorization_code=None,
+                    response_code=None,
+                    adapter=self._merchant.descriptor,
+                    provider_confirmed=False,
+                ),
+                provider_reported=False,
+                final_status=PravaPaymentStatus.AWAITING_RESULT,
+                reconciliation_required=True,
+                adapter=self._prava.descriptor,
+            )
         output = await self._persist_checkout_result(
             organization_id=request.organization_id,
             intent_id=request.purchase_intent_id,
@@ -534,7 +557,11 @@ class PersistentCheckoutCoordinator:
                     event_key=f"checkout-uncertain:{attempt_id}",
                     reason_code="MERCHANT_OUTCOME_UNKNOWN",
                     payload_hash=safe_hash,
-                    provider_event_ref=result.transaction_reference,
+                    provider_event_ref=(
+                        None
+                        if result.transaction_reference.startswith("reconcile:")
+                        else result.transaction_reference
+                    ),
                 )
             elif outcome is MerchantOutcome.DECLINED:
                 payment_session.status = "DECLINED"
