@@ -2071,26 +2071,48 @@ Use OpenAI Agents SDK tracing for workflow shape only with `RunConfig.trace_incl
 
 ## 20. User Experience and Information Architecture
 
-The interface is a chat-first procurement workspace, not an agent chat demo. Conversation is the primary context-collection and coordination surface; every important fact, decision, authority, and result remains structured and server-owned, but renders as inline chat components and a collapsible contextual pane instead of separate buyer pages.
+The interface is a chat-first procurement workspace, not an agent chat demo. Conversation is the primary context-collection, entry, and coordination surface; important state remains structured and server-owned and renders as inline chat components, an embedded Decision Canvas, or a collapsible contextual pane. Every material fact, decision, authority, and result remains a structured, linkable artifact rather than living only in chat or on a disconnected buyer page.
 
 The default visual direction is **operational cartography**: a cool mineral canvas, ink/navy text, one deep-teal SIRA accent, compact evidence-dense typography, monospaced provenance metadata, and subtle graph/diff lines that make causes and stack changes visible. The product should feel like a trusted decision instrument, not a warm lifestyle marketplace. Avoid beige editorial imitation, decorative gradients, glass effects, anthropomorphic agent avatars, ornamental icons, confetti-led success, and dashboard mosaics of interchangeable cards.
 
 ### 20.1 SIRA buyer application
 
-The primary buyer surface is a continuous **SIRA conversation workspace**. Once a request becomes structured, an embedded **Decision Canvas** carries five persistent stages from intent to outcome. Chat gathers context, explains changes, and invokes server-authorized actions; the canvas owns canonical state, comparison, approval, and evidence. On desktop they can appear together. On mobile the user switches between Chat and Decision without losing state.
+The primary buyer surface is a continuous **SIRA conversation workspace**. Once a request becomes structured, an embedded **Decision Canvas** carries five persistent stages from intent to outcome. Chat gathers context, explains changes, and may invoke only actions explicitly authorized by the server; it cannot rank, approve, pay, publish seller claims, or activate software. The canvas owns canonical state, comparison, approval, and evidence. On desktop, chat and the contextual pane can appear together. On mobile, the user switches between Chat and Decision without losing state.
 
 ```text
 SIRA workspace (persistent sidebar + chat + collapsible contextual pane)
-|-- Chat / new chat: primary intent and missing-context collection
-|-- Decisions pane: requests, requirements, candidates, plans, approvals, and results
+|-- Chat / new chat: primary intent and material-context collection
+|-- Decisions pane
+|   |-- Active
+|   |-- History
+|   `-- Decision Canvas
+|       |-- 1 Need
+|       |-- 2 Company fit
+|       |-- 3 Options
+|       |-- 4 Action
+|       `-- 5 Result
 |-- Catalogue: product cards inline in chat; selected Product Evidence in the pane
-|-- Connectors pane: Business Context, Senso, DataHub, and other scoped sources
-|-- Inbox pane: assigned tasks and approvals
-|-- Stack, renewal, deployment, outcome, and audit details: contextual pane states
+|-- Connectors: Business Context, Senso, DataHub, and other scoped sources
+|-- Inbox: assigned tasks and approvals
+|-- Stack, renewals, deployments, outcomes, Company Profile, and audit: contextual pane states
 `-- Profile and settings: modal over the workspace
 ```
 
-Standalone buyer URLs may exist only as compatibility redirects to `/sira`. Sidebar actions never replace the workspace route. Structured decision, authority, execution, and audit state remains canonical in backend workflows; the chat agent collects and explains context but cannot rank, approve, pay, or activate.
+The first-build SIRA chat is the creation surface; the **Decisions pane** is the re-entry and history surface. It has an **Active** list ordered by nearest decision/cancellation deadline and read-only **History** grouped by current versus superseded Decision version. Each row shows desired outcome, incumbent/category, owner, deadline, current stage, blocker/next action, last checkpoint, and version. Starting in chat creates the request and opens Need in the Decision Canvas; resuming opens the server-owned current stage with its attached conversation.
+
+The primary buyer workspace is `/sira`. Compatibility entry URLs `/decisions`, `/decisions/new`, `/sira/decisions`, and `/sira/inbox` redirect there; sidebar actions change contextual-pane state without replacing the workspace route or unmounting chat. Durable Decision Canvas stages remain stable, audit-safe deep links at `/decisions/{request_id}/versions/{decision_version}/{need|company-fit|options|action|result}`. Stage navigation pushes browser history. Browser Back first closes an open drawer/sheet, then returns to the previously visited stage or the SIRA workspace; it never mutates or silently discards persisted data. A dirty unsubmitted form receives a native leave warning. A superseded-version URL stays read-only and links to the current version; it never silently redirects away from audit history.
+
+The first, second, and third things visible in each stage are fixed:
+
+| Stage | First | Second | Third |
+|---|---|---|---|
+| Need | Desired outcome and deadline | Who uses/owns/pays | Minimal clarifications that can change the decision |
+| Company fit | Decisive company rules and current tools | Sources, freshness, and private/shared boundary | Calibration check and unresolved facts |
+| Options | Recommended action plus plain-language stability state | Aligned rows showing support status, comparable cost, Stack change, and next action | Evidence, score math, frontier, provenance, and full Decision Ledger in a side drawer |
+| Action | Exact selected Action Plan and current substep | Action-specific review -> required authority -> execute or assign -> verify | Stack diff, TCO/term/merchant when applicable, owner, and one server-authorized primary action |
+| Result | Current verified state and completion evidence | Action-specific artifact, Company stack result, and receipt only when money moved | Outcome checkpoint and next safe action |
+
+Secondary navigation never competes with the active conversation and Decision Canvas. Catalogue shows backend-supplied Product Evidence as inline chat cards and selected detail in the contextual pane. Connectors shows scoped source setup for Business Context, Senso, DataHub, and other authorized sources. Inbox shows only real assigned blockers and approvals. Stack, renewals, deployments, outcomes, Company Profile, and audit open as contextual pane states; profile and settings open in a modal without unmounting chat. Unimplemented destinations remain hidden, with required facts and tasks surfaced contextually.
 
 ### 20.2 SEIL seller surface
 
