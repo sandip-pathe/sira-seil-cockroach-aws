@@ -4,7 +4,7 @@
   "organization_id": "org_consultco",
   "decision_id": "dec_consultco_v1",
   "decision_version": 1,
-  "decision_hash": "sha256:312889ff066eb5cb472bafc5dad4a303ed7f81fa737bcc18ab8e86f48fab841d",
+  "decision_hash": "sha256:84337d2a6ff04c8b95b58a174e3df014114c5154cff177087ff20d8969d49f9c",
   "selection_id": "selection_consultco_fixture_d",
   "solution_plan_id": "plan_5a682ec42084ae355a2d",
   "stack_patch_id": "patch_consultco_fixture_d",
@@ -88,6 +88,6 @@
   "approval_policy_version": 1,
   "approval_requirement_set_id": "aprs_consultco_v1",
   "approval_plan_hash": "sha256:674fd172cfafb42bbf8c31b0272d8e9c34b53cb191ac739784362034dde89cfe",
-  "intent_hash": "sha256:40331dae94cb968c73705fbca8a44af937dfe2ec7b9747115023e342ad21315a",
+  "intent_hash": "sha256:7bd3d90fd46a4a2b232143b8d483a19f712e2a317acb57fd005733f332e33e9f",
   "locked_at": "2026-08-02T01:10:00Z"
 }

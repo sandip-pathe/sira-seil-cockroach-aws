@@ -242,15 +242,42 @@ def _candidate_members(
         for record_id in identity.record_ids
     }
     duplicate_ids = {item.merged_record_id for item in evaluation.identity_merges}
+    exclusion_by_record = {
+        item.record_id: item for item in evaluation.recall_exclusions
+    }
     rows: list[CandidateSetMember] = []
     ordinal = 0
     for candidate in sorted(decision_input.candidates, key=lambda item: item.record_id):
         identity = identity_by_record.get(candidate.record_id)
-        if identity is None:
+        exclusion = exclusion_by_record.get(candidate.record_id)
+        if identity is None and exclusion is None:
             raise ValueError(f"Candidate {candidate.record_id} is absent from graph discovery")
-        disposition = "DEDUPLICATED" if candidate.record_id in duplicate_ids else "INCLUDED"
+        if exclusion is not None:
+            canonical_identity_id = "excluded_" + content_hash(
+                candidate.record_id
+            ).split(":", 1)[1][:20]
+            disposition = "EXCLUDED"
+            canonical_identity: dict[str, Any] | None = None
+            exclusion_payload: dict[str, str] | None = {
+                "reason_code": exclusion.reason_code,
+                "detail": exclusion.detail,
+            }
+        else:
+            assert identity is not None
+            canonical_identity_id = identity.canonical_id
+            disposition = "DEDUPLICATED" if candidate.record_id in duplicate_ids else "INCLUDED"
+            canonical_identity = {
+                "seller_id": identity.seller_id,
+                "product_id": identity.product_id,
+                "edition": identity.edition,
+                "region": identity.region,
+                "record_ids": list(identity.record_ids),
+                "pack_ids": list(identity.pack_ids),
+                "offer_ids": list(identity.offer_ids),
+            }
+            exclusion_payload = None
         payload = {
-            "canonical_identity_id": identity.canonical_id,
+            "canonical_identity_id": canonical_identity_id,
             "source_record_id": candidate.record_id,
             "member_kind": "PACK",
             "disposition": disposition,
@@ -262,15 +289,8 @@ def _candidate_members(
             "authority": candidate.authority.value,
             "available": candidate.available,
             "seller_gate_ids": list(candidate.seller_gate_ids),
-            "canonical_identity": {
-                "seller_id": identity.seller_id,
-                "product_id": identity.product_id,
-                "edition": identity.edition,
-                "region": identity.region,
-                "record_ids": list(identity.record_ids),
-                "pack_ids": list(identity.pack_ids),
-                "offer_ids": list(identity.offer_ids),
-            },
+            "canonical_identity": canonical_identity,
+            "exclusion": exclusion_payload,
         }
         member_hash = content_hash(payload)
         rows.append(
@@ -280,7 +300,7 @@ def _candidate_members(
                 ),
                 organization_id=metadata.organization_id,
                 discovery_run_id=discovery_run_id,
-                canonical_identity_id=identity.canonical_id,
+                canonical_identity_id=canonical_identity_id,
                 source_record_id=candidate.record_id,
                 member_kind="PACK",
                 disposition=disposition,

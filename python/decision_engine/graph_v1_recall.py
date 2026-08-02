@@ -21,6 +21,7 @@ from .graph_v1_models import (
     IdentityRecord,
     ProductFact,
     RawCandidateRecord,
+    RecallExclusion,
     RecallResult,
 )
 
@@ -62,7 +63,9 @@ def _authority_floor(records: Iterable[RawCandidateRecord]) -> PackAuthority:
     return max((record.authority for record in records), key=authority_rank.__getitem__)
 
 
-def _merge_facts(records: tuple[RawCandidateRecord, ...]) -> tuple[ProductFact, ...]:
+def _merge_facts(
+    records: tuple[RawCandidateRecord, ...], *, component_id: str
+) -> tuple[ProductFact, ...]:
     unique: dict[tuple[str, str], set[str]] = {}
     values: dict[tuple[str, str], FactValue] = {}
     for record in records:
@@ -72,9 +75,45 @@ def _merge_facts(records: tuple[RawCandidateRecord, ...]) -> tuple[ProductFact, 
             values[key] = fact.value
             unique.setdefault(key, set()).update(fact.evidence_ids)
     return tuple(
-        ProductFact(field, values[(field, value_hash)], tuple(sorted(evidence_ids)))
+        ProductFact(
+            field,
+            values[(field, value_hash)],
+            tuple(sorted(evidence_ids)),
+            component_id,
+        )
         for (field, value_hash), evidence_ids in sorted(unique.items())
     )
+
+
+def _recall_exclusion(
+    record: RawCandidateRecord, decision_input: DecisionGraphInput
+) -> RecallExclusion | None:
+    policy = decision_input.recall_policy
+    if record.pack_status == "REVOKED":
+        return RecallExclusion(record.record_id, "PACK_REVOKED", "Pack version is revoked")
+    if record.pack_status == "SUPERSEDED":
+        return RecallExclusion(record.record_id, "PACK_SUPERSEDED", "Pack version is superseded")
+    if policy is None:
+        return None
+    if policy.category_id not in record.category_ids:
+        return RecallExclusion(
+            record.record_id,
+            "CATEGORY_MISMATCH",
+            f"Pack does not support category {policy.category_id}",
+        )
+    if policy.jtbd_id not in record.jtbd_ids:
+        return RecallExclusion(
+            record.record_id,
+            "JTBD_MISMATCH",
+            f"Pack does not support JTBD {policy.jtbd_id}",
+        )
+    if record.region not in policy.allowed_regions:
+        return RecallExclusion(
+            record.record_id,
+            "REGION_UNSUPPORTED",
+            f"Pack region {record.region} is outside the allowed region set",
+        )
+    return None
 
 
 def recall_and_deduplicate(decision_input: DecisionGraphInput) -> RecallResult:
@@ -87,7 +126,12 @@ def recall_and_deduplicate(decision_input: DecisionGraphInput) -> RecallResult:
 
     aliases = _alias_map(decision_input)
     grouped: dict[tuple[str, str, str, str], list[RawCandidateRecord]] = defaultdict(list)
+    exclusions: list[RecallExclusion] = []
     for record in sorted(decision_input.candidates, key=lambda item: item.record_id):
+        exclusion = _recall_exclusion(record, decision_input)
+        if exclusion is not None:
+            exclusions.append(exclusion)
+            continue
         grouped[_identity_key(record, aliases)].append(record)
 
     identities: list[IdentityRecord] = []
@@ -125,11 +169,19 @@ def recall_and_deduplicate(decision_input: DecisionGraphInput) -> RecallResult:
                 offer_id=_canonical(anchor.offer_id, aliases),
                 authority=_authority_floor(group),
                 available=all(item.available for item in group),
-                facts=_merge_facts(group),
+                facts=_merge_facts(group, component_id=key[1]),
                 seller_gate_ids=tuple(
                     sorted({gate_id for item in group for gate_id in item.seller_gate_ids})
                 ),
                 aliases=tuple(sorted({alias for item in group for alias in item.aliases})),
+                category_ids=tuple(
+                    sorted({value for item in group for value in item.category_ids})
+                ),
+                jtbd_ids=tuple(sorted({value for item in group for value in item.jtbd_ids})),
+                pack_status="PUBLISHED",
+                required_product_ids=tuple(
+                    sorted({value for item in group for value in item.required_product_ids})
+                ),
             )
         )
         for duplicate in group[1:]:
@@ -144,6 +196,7 @@ def recall_and_deduplicate(decision_input: DecisionGraphInput) -> RecallResult:
         identities=tuple(identities),
         merges=tuple(sorted(merges, key=lambda item: (item.canonical_id, item.merged_record_id))),
         representatives=tuple(sorted(representatives, key=lambda item: item.record_id)),
+        exclusions=tuple(sorted(exclusions, key=lambda item: item.record_id)),
         raw_record_count=len(decision_input.candidates),
     )
 

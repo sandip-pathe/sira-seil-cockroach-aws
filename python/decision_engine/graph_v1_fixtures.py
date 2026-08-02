@@ -35,6 +35,7 @@ from .graph_v1_models import (
     PreferenceCriterion,
     ProductFact,
     RawCandidateRecord,
+    RecallPolicy,
     RiskRule,
 )
 
@@ -255,6 +256,16 @@ def _buyer_facts(
                 100,
             ),
             FrozenFact(
+                "bf_required_integrations",
+                "buyer.required_integrations",
+                _value(passport["operational_preferences"]["required_integrations"]),
+                True,
+                f"buyer_passport_v{passport['version']}",
+                "stack_owner",
+                "DOMAIN_OWNER",
+                300,
+            ),
+            FrozenFact(
                 "bf_incumbent_outcome",
                 "outcome.adoption_available",
                 True,
@@ -464,14 +475,24 @@ def _pack_records(
                 )
             )
             facts.append(
-                ProductFact(str(raw_fact["field"]), _value(raw_fact["value"]), evidence_ids)
+                ProductFact(
+                    str(raw_fact["field"]),
+                    _value(raw_fact["value"]),
+                    evidence_ids,
+                    str(pack["product_id"]),
+                )
             )
         offer_id = candidate_offer[pack_id]
         offer = next(
             item for item in source.offers["offers"] if item["offer_id"] == offer_id
         )
         facts.append(
-            ProductFact("offer.landed_total", str(offer["amount"]), (offer_evidence[offer_id],))
+            ProductFact(
+                "offer.landed_total",
+                str(offer["amount"]),
+                (offer_evidence[offer_id],),
+                str(pack["product_id"]),
+            )
         )
         identity = pack["identity"]
         records.append(
@@ -487,7 +508,18 @@ def _pack_records(
                 authority=PackAuthority.SELLER_SEALED,
                 available=True,
                 facts=tuple(facts),
-                seller_gate_ids=tuple(str(item["rule_id"]) for item in pack["anti_fit_rules"]),
+                seller_gate_ids=tuple(
+                    str(item["rule_id"])
+                    for item in (*pack["anti_fit_rules"], *pack["dependency_rules"])
+                ),
+                category_ids=tuple(str(value) for value in pack["category_ids"]),
+                jtbd_ids=tuple(str(value) for value in pack["jtbd_ids"]),
+                pack_status=str(pack["status"]).upper(),
+                required_product_ids=tuple(
+                    str(item["required_product_id"])
+                    for item in pack.get("component_dependencies", [])
+                    if bool(item.get("required", True))
+                ),
             )
         )
     return tuple(records)
@@ -634,7 +666,11 @@ def _gates(
         }
         for item in pack["anti_fit_rules"]:
             predicates = tuple(
-                Predicate(str(condition["field"]), str(condition["op"]), _value(condition["value"]))
+                Predicate(
+                    str(condition["field"]),
+                    str(condition["op"]),
+                    _value(condition["value"]),
+                )
                 for condition in item["all"]
             )
             gates.append(
@@ -658,6 +694,40 @@ def _gates(
                         )
                     ),
                     permitted_resolution=None,
+                )
+            )
+        for item in pack["dependency_rules"]:
+            predicates = tuple(
+                Predicate(
+                    str(condition["field"]),
+                    str(condition["op"]),
+                    _value(condition["value"]),
+                )
+                for condition in item["all"]
+            )
+            gates.append(
+                GateRule(
+                    gate_id=str(item["rule_id"]),
+                    predicates=predicates,
+                    mode=GateMode.REQUIRE_MATCH,
+                    blocked_status=CandidateStatus.SEIL_PASS,
+                    reason_code=str(item["reason_code"]),
+                    source_fact_ids=tuple(
+                        sorted(source_by_field[predicate.field] for predicate in predicates)
+                    ),
+                    applies_to_actions=(SolutionAction.REPLACE, SolutionAction.BUY),
+                    evidence_claim_ids=tuple(
+                        sorted(
+                            {
+                                evidence_id
+                                for claim_id in item["evidence_claim_ids"]
+                                for evidence_id in claim_evidence[str(claim_id)]
+                            }
+                        )
+                    ),
+                    permitted_resolution="SELLER_DEPENDENCY_RESOLUTION"
+                    if str(item["severity"]) == "soft"
+                    else None,
                 )
             )
     return tuple(gates)
@@ -691,6 +761,7 @@ def _preferences(taxonomy: Mapping[str, Any]) -> tuple[PreferenceCriterion, ...]
                 unknown_upper=_ratio(item["unknown_upper"]) if item.get("unknown_upper") else None,
                 permitted_evidence_resolution=item.get("permitted_evidence_resolution"),
                 neutral_prior=_ratio(item["neutral_prior"]) if item.get("neutral_prior") else None,
+                aggregation=str(item.get("aggregation", "PRIMARY_COMPONENT")),
             )
         )
     return tuple(results)
@@ -859,6 +930,11 @@ def compile_decision_graph_input(source: DecisionSourceBundle) -> DecisionGraphI
         ),
         outcome_values=outcome_values,
         actor_conflict_resolutions=actor_conflicts,
+        recall_policy=RecallPolicy(
+            category_id=str(source.purchase_brief["category_id"]),
+            jtbd_id=str(source.purchase_brief["desired_outcome"]["jtbd_id"]),
+            allowed_regions=(str(source.buyer_passport["company_profile"]["region"]),),
+        ),
     )
 
 

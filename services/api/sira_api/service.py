@@ -1172,13 +1172,14 @@ class WorkflowService:
                 generated_at=graph_input.evaluated_at,
             )
             plan_by_product = {
-                plan.components[0].component_id: plan
+                plan.components[-1].component_id: plan
                 for plan in graph.base.plans
-                if plan.components and plan.components[0].source_type == "PACK"
+                if plan.components and plan.components[-1].source_type == "PACK"
             }
             status_by_candidate = {
                 candidate.pack_id: plan_by_product[candidate.product_id].status.value
                 for candidate in graph_input.candidates
+                if candidate.product_id in plan_by_product
             }
             failure_actual = status_by_candidate.get(
                 body["known_failure_candidate_id"], "UNAVAILABLE"
@@ -1525,12 +1526,12 @@ class WorkflowService:
             candidate.product_id: candidate.pack_id for candidate in graph_input.candidates
         }
         generic_candidate = pack_by_product.get(
-            generic_plan.components[0].component_id,
-            generic_plan.components[0].component_id,
+            generic_plan.components[-1].component_id,
+            generic_plan.components[-1].component_id,
         )
         company_candidate = pack_by_product.get(
-            company_plan.components[0].component_id,
-            company_plan.components[0].component_id,
+            company_plan.components[-1].component_id,
+            company_plan.components[-1].component_id,
         )
         stored = ledger["counterfactuals"][0]
         return {

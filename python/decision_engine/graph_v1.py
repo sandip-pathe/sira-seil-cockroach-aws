@@ -71,6 +71,7 @@ from .graph_v1_models import (
     Predicate,
     PreferenceCriterion,
     ProductFact,
+    RawCandidateRecord,
     RecallResult,
     ScoreComponent,
 )
@@ -105,13 +106,17 @@ class _PlanMaterial:
     source_id: str
     action: SolutionAction
     component_id: str
+    component_ids: tuple[str, ...]
     facts: tuple[ProductFact, ...]
+    gate_facts: tuple[ProductFact, ...]
     cost: OfferCost
+    payment_component_count: int
     available: bool
     authority: PackAuthority | None
     seller_gate_ids: tuple[str, ...]
     permitted_resolution: str | None
     outcome_subject_id: str
+    dependency_issues: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -280,6 +285,41 @@ def _authority_gate(material: _PlanMaterial) -> GateResult | None:
     )
 
 
+def _dependency_gates(material: _PlanMaterial) -> tuple[GateResult, ...]:
+    return tuple(
+        GateResult(
+            gate_id=f"dependency_{material.source_id}_{index}",
+            truth=TruthValue.FALSE,
+            reasons=(
+                GateReason(
+                    issue,
+                    CandidateStatus.SIRA_INELIGIBLE,
+                    "Required component dependency closure is not feasible",
+                ),
+            ),
+            evaluated_predicates=("component_dependency_closure",),
+            permitted_resolution=None,
+        )
+        for index, issue in enumerate(material.dependency_issues, start=1)
+    )
+
+
+def _component_field_states(
+    material: _PlanMaterial,
+    field: str,
+    assessment_index: Mapping[tuple[str, str], EvidenceAssessment],
+) -> tuple[_FieldState, ...]:
+    if len(material.component_ids) == 1:
+        return (_field_state(material.gate_facts, field, assessment_index),)
+    states: list[_FieldState] = []
+    for component_id in material.component_ids:
+        component_facts = tuple(
+            fact for fact in material.gate_facts if fact.component_id == component_id
+        )
+        states.append(_field_state(component_facts, field, assessment_index))
+    return tuple(states)
+
+
 def _evaluate_gate(
     gate: GateRule,
     material: _PlanMaterial,
@@ -344,8 +384,11 @@ def _evaluate_gate(
             )
             continue
 
-        field_state = _field_state(material.facts, predicate.field, assessment_index)
-        if field_state.state is EvidenceState.CONFLICT:
+        field_states = _component_field_states(
+            material, predicate.field, assessment_index
+        )
+        states_by_evidence = {item.state for item in field_states}
+        if EvidenceState.CONFLICT in states_by_evidence:
             states.append(TruthValue.CONFLICT)
             reasons.append(
                 GateReason(
@@ -354,7 +397,7 @@ def _evaluate_gate(
                     f"Conflicting values support {predicate.field}",
                 )
             )
-        elif field_state.state is EvidenceState.STALE:
+        elif EvidenceState.STALE in states_by_evidence:
             states.append(TruthValue.UNKNOWN)
             reasons.append(
                 GateReason(
@@ -363,7 +406,9 @@ def _evaluate_gate(
                     f"Evidence for {predicate.field} is stale",
                 )
             )
-        elif field_state.state is EvidenceState.UNKNOWN or not field_state.values:
+        elif EvidenceState.UNKNOWN in states_by_evidence or any(
+            not item.values for item in field_states
+        ):
             states.append(TruthValue.UNKNOWN)
             reasons.append(
                 GateReason(
@@ -373,11 +418,15 @@ def _evaluate_gate(
                 )
             )
         else:
-            states.append(
-                TruthValue.TRUE
-                if all(_predicate_matches(value, predicate) for value in field_state.values)
-                else TruthValue.FALSE
-            )
+            for field_state in field_states:
+                states.append(
+                    TruthValue.TRUE
+                    if all(
+                        _predicate_matches(value, predicate)
+                        for value in field_state.values
+                    )
+                    else TruthValue.FALSE
+                )
 
     if TruthValue.CONFLICT in states:
         truth = TruthValue.CONFLICT
@@ -424,6 +473,7 @@ def evaluate_gates(
     active_sources = _active_source_ids(decision_input)
     assessment_index = _assessment_index(assessments)
     results: list[GateResult] = [_availability_gate(material)]
+    results.extend(_dependency_gates(material))
     authority = _authority_gate(material)
     if authority is not None:
         results.append(authority)
@@ -706,7 +756,9 @@ def _coverage_and_age(
     return aggregate_coverage_bounds(tuple(coverage_criteria)), age_bounds, hard_coverage, reasons
 
 
-def _valid_cost(cost: OfferCost) -> tuple[bool, tuple[str, ...]]:
+def _valid_cost(
+    cost: OfferCost, *, expected_payment_components: int
+) -> tuple[bool, tuple[str, ...]]:
     if cost.low is None or cost.base is None or cost.high is None:
         return False, (f"BOUND_UNAVAILABLE:TCO:{cost.offer_id}",)
     CostBounds(cost.low, cost.base, cost.high)
@@ -723,9 +775,9 @@ def _valid_cost(cost: OfferCost) -> tuple[bool, tuple[str, ...]]:
     fee_items = tuple(
         item for item in cost.line_items if item.line_item_type == "SIRA_TRANSACTION_FEE"
     )
-    if cost.payment_required and len(fee_items) != 1:
+    if cost.payment_required and len(fee_items) != expected_payment_components:
         return False, (f"BOUND_UNAVAILABLE:TRANSACTION_FEE:{cost.offer_id}",)
-    if not cost.payment_required and fee_items:
+    if not cost.payment_required and (fee_items or expected_payment_components):
         return False, (f"BOUND_UNAVAILABLE:UNEXPECTED_TRANSACTION_FEE:{cost.offer_id}",)
     return True, ()
 
@@ -735,7 +787,8 @@ def _material_dimensions(
     material: _PlanMaterial,
     gates: Sequence[GateResult],
     assessments: Sequence[EvidenceAssessment],
-    universe_count: int,
+    evaluated_universe_count: int,
+    discovered_universe_count: int,
 ) -> tuple[tuple[ScoreComponent, ...], PlanDimensions, tuple[str, ...]]:
     scores, score_reasons = _score_components(decision_input, material, assessments)
     preference = None
@@ -757,7 +810,10 @@ def _material_dimensions(
     coverage, age, hard_coverage, evidence_reasons = _coverage_and_age(
         decision_input, material, gates, scores, assessments
     )
-    _, cost_reasons = _valid_cost(material.cost)
+    _, cost_reasons = _valid_cost(
+        material.cost,
+        expected_payment_components=material.payment_component_count,
+    )
     reasons = tuple(sorted(set((*score_reasons, *risk_reasons, *evidence_reasons, *cost_reasons))))
     risk_input_hash = content_hash(
         {
@@ -777,8 +833,8 @@ def _material_dimensions(
         decision_material_coverage=coverage,
         maximum_evidence_age_ratio=age,
         hard_coverage=hard_coverage,
-        universe_coverage=ExactRatio(universe_count, universe_count)
-        if universe_count
+        universe_coverage=ExactRatio(evaluated_universe_count, discovered_universe_count)
+        if discovered_universe_count
         else ExactRatio(0),
         unresolved_count=sum(gate.truth is TruthValue.UNKNOWN for gate in gates),
         conflicting_count=sum(gate.truth is TruthValue.CONFLICT for gate in gates),
@@ -789,9 +845,130 @@ def _material_dimensions(
     return scores, dimensions, risk_rule_ids
 
 
-def _plan_id(action: SolutionAction, component_id: str) -> str:
-    digest = content_hash({"action": action.value, "component_id": component_id}).split(":", 1)[1]
+def _plan_id(action: SolutionAction, component_ids: tuple[str, ...]) -> str:
+    payload: dict[str, object]
+    if len(component_ids) == 1:
+        payload = {"action": action.value, "component_id": component_ids[0]}
+    else:
+        payload = {"action": action.value, "ordered_component_ids": component_ids}
+    digest = content_hash(payload).split(":", 1)[1]
     return f"plan_{digest[:20]}"
+
+
+def _aggregate_preference_facts(
+    decision_input: DecisionGraphInput,
+    records: tuple[RawCandidateRecord, ...],
+) -> tuple[ProductFact, ...]:
+    raw_facts = tuple(fact for record in records for fact in record.facts)
+    if len(records) == 1:
+        return raw_facts
+    preference_by_field = {item.field: item for item in decision_input.preferences}
+    retained = [fact for fact in raw_facts if fact.field not in preference_by_field]
+    primary = records[-1]
+    bundle_id = primary.product_id
+    for field, criterion in sorted(preference_by_field.items()):
+        per_component = [
+            tuple(fact for fact in record.facts if fact.field == field)
+            for record in records
+        ]
+        if criterion.aggregation == "PRIMARY_COMPONENT":
+            retained.extend(per_component[-1])
+            continue
+        if any(len(facts) != 1 for facts in per_component):
+            retained.extend(fact for facts in per_component for fact in facts)
+            continue
+        facts = tuple(items[0] for items in per_component)
+        values = tuple(fact.value for fact in facts)
+        evidence_ids = tuple(
+            sorted({evidence_id for fact in facts for evidence_id in fact.evidence_ids})
+        )
+        aggregated: FactValue
+        if criterion.aggregation in {"SUM", "MIN", "MAX"}:
+            if any(
+                isinstance(value, bool) or not isinstance(value, (int, str))
+                for value in values
+            ):
+                retained.extend(facts)
+                continue
+            numeric = tuple(Fraction(str(value)) for value in values)
+            if criterion.aggregation == "SUM":
+                result = sum(numeric, start=Fraction(0))
+            elif criterion.aggregation == "MIN":
+                result = min(numeric)
+            else:
+                result = max(numeric)
+            aggregated = result.numerator if result.denominator == 1 else str(result)
+        elif criterion.aggregation == "UNION":
+            if any(not isinstance(value, tuple) for value in values):
+                retained.extend(facts)
+                continue
+            aggregated = tuple(
+                sorted(
+                    {
+                        item
+                        for value in values
+                        if isinstance(value, tuple)
+                        for item in value
+                    }
+                )
+            )
+        elif criterion.aggregation in {"ALL", "ANY"}:
+            if any(not isinstance(value, bool) for value in values):
+                retained.extend(facts)
+                continue
+            aggregated = all(values) if criterion.aggregation == "ALL" else any(values)
+        else:
+            retained.extend(facts)
+            continue
+        retained.append(ProductFact(field, aggregated, evidence_ids, bundle_id))
+    return tuple(retained)
+
+
+def _combined_cost(
+    records: tuple[RawCandidateRecord, ...],
+    offers: Mapping[str, OfferCost],
+) -> tuple[OfferCost, int, tuple[str, ...]]:
+    costs = tuple(offers[record.offer_id] for record in records if record.offer_id in offers)
+    issues: set[str] = set()
+    if len(costs) != len(records):
+        issues.add("MISSING_REQUIRED_DEPENDENCY_OFFER")
+    if len(records) == 1 and len(costs) == 1:
+        return costs[0], int(costs[0].payment_required), ()
+    horizons = {cost.horizon_days for cost in costs}
+    currencies = {
+        value.currency
+        for cost in costs
+        for value in (cost.low, cost.base, cost.high)
+        if value is not None
+    }
+    if len(horizons) > 1 or len(currencies) > 1:
+        issues.add("INCOMPARABLE_DEPENDENCY_COST")
+    bundle_offer_id = "bundle_" + content_hash(
+        tuple(cost.offer_id for cost in costs)
+    ).split(":", 1)[1][:20]
+    horizon = next(iter(horizons), 1)
+    currency = next(iter(currencies), "USD")
+
+    def total(field: str) -> Money | None:
+        values = tuple(getattr(cost, field) for cost in costs)
+        if len(values) != len(records) or any(value is None for value in values):
+            return None
+        return Money(sum(value.amount for value in values if value is not None), currency)
+
+    payment_count = sum(cost.payment_required for cost in costs)
+    return (
+        OfferCost(
+            bundle_offer_id,
+            total("low"),
+            total("base"),
+            total("high"),
+            horizon,
+            tuple(item for cost in costs for item in cost.line_items),
+            payment_count > 0,
+        ),
+        payment_count,
+        tuple(sorted(issues)),
+    )
 
 
 def _pack_materials(
@@ -808,24 +985,115 @@ def _pack_materials(
         return current
 
     offers = {canonical_offer(item.offer_id): item for item in decision_input.offers}
-    return tuple(
-        _PlanMaterial(
-            source_id=item.record_id,
-            action=SolutionAction.REPLACE,
-            component_id=item.product_id,
-            facts=item.facts,
-            cost=offers.get(
-                canonical_offer(item.offer_id),
-                OfferCost(item.offer_id, None, None, None, 1),
-            ),
-            available=item.available,
-            authority=item.authority,
-            seller_gate_ids=item.seller_gate_ids,
-            permitted_resolution=None,
-            outcome_subject_id=item.product_id,
-        )
+    representatives = tuple(
+        replace(item, offer_id=canonical_offer(item.offer_id))
         for item in recall.representatives
     )
+    by_product: dict[str, list[RawCandidateRecord]] = {}
+    for item in representatives:
+        by_product.setdefault(item.product_id, []).append(item)
+
+    def closure(root: RawCandidateRecord) -> tuple[tuple[RawCandidateRecord, ...], tuple[str, ...]]:
+        ordered: list[RawCandidateRecord] = []
+        issues: set[str] = set()
+        visiting: set[str] = set()
+        visited: set[str] = set()
+
+        def visit(record: RawCandidateRecord) -> None:
+            if record.product_id in visiting:
+                issues.add("CYCLIC_COMPONENT_DEPENDENCY")
+                return
+            if record.product_id in visited:
+                return
+            visiting.add(record.product_id)
+            for dependency_id in record.required_product_ids:
+                matches = by_product.get(dependency_id, [])
+                if not matches:
+                    issues.add("MISSING_REQUIRED_COMPONENT")
+                elif len(matches) > 1:
+                    issues.add("AMBIGUOUS_REQUIRED_COMPONENT")
+                else:
+                    visit(matches[0])
+            visiting.remove(record.product_id)
+            visited.add(record.product_id)
+            ordered.append(record)
+
+        visit(root)
+        return tuple(ordered), tuple(sorted(issues))
+
+    materials: list[_PlanMaterial] = []
+    authority_rank = {
+        PackAuthority.SELLER_SEALED: 0,
+        PackAuthority.PLATFORM_COMPILED: 1,
+        PackAuthority.EXTERNAL_UNSEALED: 2,
+    }
+    for root in representatives:
+        records, dependency_issues = closure(root)
+        cost, payment_count, cost_issues = _combined_cost(records, offers)
+        raw_facts = tuple(fact for record in records for fact in record.facts)
+        cost_evidence = tuple(
+            sorted(
+                {
+                    evidence_id
+                    for fact in raw_facts
+                    if fact.field == "offer.landed_total"
+                    for evidence_id in fact.evidence_ids
+                }
+            )
+        )
+        non_cost_gate_facts = tuple(
+            fact for fact in raw_facts if fact.field != "offer.landed_total"
+        )
+        aggregate_cost_facts: tuple[ProductFact, ...] = ()
+        if cost.base is not None:
+            aggregate_cost_facts = tuple(
+                ProductFact(
+                    "offer.landed_total",
+                    str(cost.base.amount),
+                    cost_evidence,
+                    record.product_id,
+                )
+                for record in records
+            )
+        facts = tuple(
+            fact
+            for fact in _aggregate_preference_facts(decision_input, records)
+            if fact.field != "offer.landed_total"
+        )
+        if cost.base is not None:
+            facts = (
+                *facts,
+                ProductFact(
+                    "offer.landed_total",
+                    str(cost.base.amount),
+                    cost_evidence,
+                    root.product_id,
+                ),
+            )
+        materials.append(
+            _PlanMaterial(
+                source_id=root.record_id,
+                action=SolutionAction.REPLACE,
+                component_id=root.product_id,
+                component_ids=tuple(record.product_id for record in records),
+                facts=facts,
+                gate_facts=(*non_cost_gate_facts, *aggregate_cost_facts),
+                cost=cost,
+                payment_component_count=payment_count,
+                available=all(record.available for record in records),
+                authority=max(
+                    (record.authority for record in records),
+                    key=authority_rank.__getitem__,
+                ),
+                seller_gate_ids=tuple(
+                    sorted({gate for record in records for gate in record.seller_gate_ids})
+                ),
+                permitted_resolution=None,
+                outcome_subject_id=root.product_id,
+                dependency_issues=tuple(sorted({*dependency_issues, *cost_issues})),
+            )
+        )
+    return tuple(materials)
 
 
 def _current_material(item: CurrentActionRecord) -> _PlanMaterial:
@@ -838,8 +1106,11 @@ def _current_material(item: CurrentActionRecord) -> _PlanMaterial:
         source_id=item.action_id,
         action=item.action,
         component_id=item.instance_id,
+        component_ids=(item.instance_id,),
         facts=item.facts,
+        gate_facts=item.facts,
         cost=item.cost,
+        payment_component_count=0,
         available=item.available,
         authority=None,
         seller_gate_ids=(),
@@ -859,7 +1130,8 @@ def build_solution_plans(
         *_pack_materials(decision_input, recall),
         *map(_current_material, decision_input.current_actions),
     )
-    universe_count = len(materials)
+    evaluated_universe_count = len(materials)
+    discovered_universe_count = evaluated_universe_count + len(recall.exclusions)
     results: list[EvaluatedPlan] = []
     for material in sorted(
         materials, key=lambda item: (item.action.value, item.component_id, item.source_id)
@@ -867,12 +1139,17 @@ def build_solution_plans(
         gates = evaluate_gates(decision_input, material, assessments)
         status, primary_reason = _primary_status(gates)
         scores, dimensions, _ = _material_dimensions(
-            decision_input, material, gates, assessments, universe_count
+            decision_input,
+            material,
+            gates,
+            assessments,
+            evaluated_universe_count,
+            discovered_universe_count,
         )
-        stable_ids = (material.action.value.lower(), material.component_id)
+        stable_ids = (material.action.value.lower(), *material.component_ids)
         component_payload = {
             "action": material.action.value,
-            "ordered_component_ids": (material.component_id,),
+            "ordered_component_ids": material.component_ids,
         }
         component_hash = content_hash(component_payload)
         permitted_resolutions = tuple(
@@ -910,14 +1187,15 @@ def build_solution_plans(
             lifecycle = PlanLifecycle.BLOCKED
         results.append(
             EvaluatedPlan(
-                plan_id=_plan_id(material.action, material.component_id),
+                plan_id=_plan_id(material.action, material.component_ids),
                 action=material.action,
-                components=(
+                components=tuple(
                     PlanComponent(
-                        material.component_id,
+                        component_id,
                         "PACK" if material.authority else "CURRENT_INSTANCE",
                         material.action,
-                    ),
+                    )
+                    for component_id in material.component_ids
                 ),
                 component_hash=component_hash,
                 construction_lifecycle=PlanLifecycle.CANDIDATE,
@@ -1178,6 +1456,7 @@ def evaluation_canonical_payload(evaluation: DecisionGraphEvaluation) -> dict[st
             for item in evaluation.identity_records
         ),
         "identity_merges": evaluation.identity_merges,
+        "recall_exclusions": evaluation.recall_exclusions,
         "evidence_assessments": evaluation.evidence_assessments,
         "plans": tuple(_canonical_plan(plan) for plan in evaluation.plans),
         "ranked_stable_action_ids": ranked,
@@ -1233,6 +1512,8 @@ def _frozen_input_hashes(decision_input: DecisionGraphInput) -> tuple[tuple[str,
                 key=lambda item: item.field,
             )
         )
+    if decision_input.recall_policy is not None:
+        artifacts["recall_policy"] = decision_input.recall_policy
     return tuple((name, content_hash(value)) for name, value in sorted(artifacts.items()))
 
 
@@ -1253,10 +1534,15 @@ def evaluate_decision_graph_once(
         duplicate_count=len(recall.merges),
         generated_solution_plan_count=len(plans),
         evaluated_solution_plan_count=len(plans),
-        excluded_count=0,
+        excluded_count=len(recall.exclusions),
         statement=(
             f"Best supported action among {len(recall.identities)} canonical products and "
             f"{len(decision_input.current_actions)} current-stack/contract actions"
+            + (
+                f"; {len(recall.exclusions)} catalog records excluded by frozen recall policy"
+                if recall.exclusions
+                else ""
+            )
         ),
     )
     provisional = DecisionGraphEvaluation(
@@ -1268,6 +1554,7 @@ def evaluate_decision_graph_once(
         removed_private_fact_ids=tuple(sorted(decision_input.removed_private_fact_ids)),
         identity_records=recall.identities,
         identity_merges=recall.merges,
+        recall_exclusions=recall.exclusions,
         evidence_assessments=assessments,
         plans=plans,
         ranked_plan_ids=ranked_ids,

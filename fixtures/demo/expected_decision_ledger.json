@@ -15,7 +15,7 @@
   "evaluation": {
     "evaluation_id": "eval_dec_consultco_v1",
     "evaluated_at": "2026-08-02T12:00:00Z",
-    "evaluation_payload_hash": "sha256:e4a4f2ec6e10173f32a3e81b726d16103ec627f2688aedfe843e0379cc0611a4",
+    "evaluation_payload_hash": "sha256:020121dbc4c71d5052fa75271c3f3b79d66c65addf63d502dd0e94ca0401d113",
     "frozen_versions": {
       "request": "pb_consultco_v1:v1",
       "company_profile": "buyer_passport_v1",
@@ -81,6 +81,15 @@
             "availability"
           ],
           "permitted_resolution": null
+        },
+        {
+          "gate_id": "dep_fixture_c_admin",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "buyer.admin_capacity"
+          ],
+          "permitted_resolution": "SELLER_DEPENDENCY_RESOLUTION"
         },
         {
           "gate_id": "gate_budget",
@@ -919,6 +928,15 @@
           "reasons": [],
           "evaluated_predicates": [
             "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "dep_fixture_d_stack",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "buyer.required_integrations"
           ],
           "permitted_resolution": null
         },
@@ -2905,6 +2923,15 @@
           "permitted_resolution": null
         },
         {
+          "gate_id": "dep_fixture_c_admin",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "buyer.admin_capacity"
+          ],
+          "permitted_resolution": "SELLER_DEPENDENCY_RESOLUTION"
+        },
+        {
           "gate_id": "gate_budget",
           "truth": "TRUE",
           "reasons": [],
@@ -3213,6 +3240,15 @@
           "reasons": [],
           "evaluated_predicates": [
             "availability"
+          ],
+          "permitted_resolution": null
+        },
+        {
+          "gate_id": "dep_fixture_d_stack",
+          "truth": "TRUE",
+          "reasons": [],
+          "evaluated_predicates": [
+            "buyer.required_integrations"
           ],
           "permitted_resolution": null
         },
@@ -4127,18 +4163,18 @@
         ]
       ],
       "tested_limit": 3,
-      "before_evaluation_payload_hash": "sha256:e4a4f2ec6e10173f32a3e81b726d16103ec627f2688aedfe843e0379cc0611a4",
-      "after_evaluation_payload_hash": "sha256:29dcfba8c9628c39346a316bc073fcbcf6e9d42f6601fd2096bd90ae1abe9f32",
-      "generic_evaluation_payload_hash": "sha256:5d7b0e0e7fe73e8f99b4d1f210ed2cd323f2c3b857fe1497538589b2ae2a5b97",
+      "before_evaluation_payload_hash": "sha256:020121dbc4c71d5052fa75271c3f3b79d66c65addf63d502dd0e94ca0401d113",
+      "after_evaluation_payload_hash": "sha256:e340a15d50bef50e759ed14b495310997d6c9d16dd65be80bd621327c18b36e8",
+      "generic_evaluation_payload_hash": "sha256:65a35e36ec20ba1feb1f1df00c305e1bc5dd3ca57345f81393981674bad7b1d5",
       "before_selected_plan_id": "plan_5a682ec42084ae355a2d",
       "after_selected_plan_id": "plan_3bf2f83ab61e5f63ae7c",
       "generic_selected_plan_id": "plan_15ed07224364e2feeb56",
       "changed_gate_ids": [
         "af_fixture_b_shared_client_data"
       ],
-      "record_hash": "sha256:28c97465d39889827935c9a816683e5fd9072a4ff1895b908778c9cc2bcd2317"
+      "record_hash": "sha256:7b02fc60f62a8424989cf87f1108eb53c7c7daccac2852c8f56cbbc68f133aea"
     }
   ],
   "created_at": "2026-08-02T12:00:00Z",
-  "decision_hash": "sha256:312889ff066eb5cb472bafc5dad4a303ed7f81fa737bcc18ab8e86f48fab841d"
+  "decision_hash": "sha256:84337d2a6ff04c8b95b58a174e3df014114c5154cff177087ff20d8969d49f9c"
 }

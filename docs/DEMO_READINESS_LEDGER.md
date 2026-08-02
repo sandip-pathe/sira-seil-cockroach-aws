@@ -4,7 +4,7 @@ Updated: 2026-08-02
 
 Branch reviewed: `core-backend`
 
-Implementation reviewed through: `68b14b4` plus the current actor-conflict batch
+Implementation reviewed through: `16fb7ad` plus the current dependency/recall batch
 
 This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes that followed it. It is the short, current checklist for the demo; the earlier audit remains useful background but its original P0 verdict is stale.
 
@@ -26,6 +26,8 @@ This ledger reconciles the pre-P0 quality audit at `f4ac492` with the P0 fixes t
 | CORE-04 | **FIXED FOR THE DEMO:** Replay, simulation, and counterfactual execution resolve the canonical persisted Evaluation Run and verify its input hash, versions, evaluation time, frozen artifact hashes, evaluation hash, and aggregate bindings. If the exact fixture source no longer matches, the operation fails with `REPLAY_INPUT_UNAVAILABLE` instead of substituting current data. | Replay-fidelity unit tests and the combined counterfactual/simulation/replay API regression. |
 | CORE-05 | **FOUNDATION COMPLETE:** The deterministic engine now compiles from a complete credential-free `DecisionSourceBundle`, not a filesystem-only loader. Accepted Buyer Passport, Purchase/Requirement Brief, Stackfile, Pack, evidence, offer, contract, usage, taxonomy, and normalization documents are stored as one immutable tenant-scoped source snapshot; discovery, calibration, and accepted rule changes use that exact hash-bound snapshot. The demo snapshot remains explicitly `DEVELOPMENT_FIXTURE`; provider/manual ingestion is the next composition layer. | Compiler divergence tests, source-snapshot repository tests, API discovery/calibration regressions, and migration `a4c8e1f7b205`. |
 | CORE-06 | **FIXED:** Buyer facts carry actor role and authority. A unique higher-authority assertion wins deterministically; equal-authority disagreement stops compilation unless the Purchase Brief's declared field owner records an explicit selection and reason. The winner, losing fact IDs, roles, strategy, and rationale are frozen into evaluation hashes and the Decision Ledger. | Actor-conflict compiler, hash, gate-lineage, authorization, and ledger tests. |
+| CORE-07 | **FIXED FOR DECLARED REQUIRED COMPONENTS:** Pack candidates can declare required products. Plan construction resolves transitive dependencies in stable dependency-first order, blocks missing/ambiguous/cyclic closure, applies hard gates to every component, aggregates preferences with versioned exact operators, and sums bounded TCO and fee lines across the bundle. Broad combinatorial optimization and multi-merchant execution remain deferred. | Two-component ordering/TCO/aggregation tests, weakest-link policy test, and missing/cycle failure tests. |
+| CORE-08 | **FIXED:** Recall applies a frozen category/JTBD/region/Pack-status policy before deduplication. Included, deduplicated, and excluded records now have exact counts; exclusions retain stable reason codes in persistence and the Decision Ledger instead of being reported as zero. | Recall coverage, duplicate merge, revoked Pack, ledger, API, and persistence tests. |
 | PAY-01 | **FIXED:** Approval expiry is rechecked at hosted-session creation, browser return, and final dispatch; stale authority becomes `EXPIRED` before side effects. | `47db419`. |
 | PAY-02 | **FIXED:** Provider uncertainty and hosted-session failures are recoverable; malformed outbox events no longer starve later work. | `70dc0a3`. |
 | PAY-03 | **FIXED:** Fulfillment retries separately from checkout, so paid-but-unfulfilled recovery does not repeat the charge. | `d6ee047`. |
@@ -78,7 +80,7 @@ These are real launch requirements, but they should not distract from a truthful
 - explicit buyer-organization/seller-organization marketplace grants;
 - refund, cancellation, dispute, and compensation workflows;
 - adoption, ROI, renewal, cancellation, and claim-accuracy learning;
-- broad catalog retrieval, multi-component dependency optimization, open RFP, and autonomous agent orchestration;
+- broad catalog retrieval, mutually exclusive/quantity-constrained optimization, multi-merchant execution, open RFP, and autonomous agent orchestration;
 - production deployment, rate limits, telemetry, alerting, backup/restore, load tests, and provider quota controls;
 - complete web component/accessibility/E2E coverage and non-critical visual polish.
 

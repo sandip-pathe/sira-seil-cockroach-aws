@@ -180,6 +180,7 @@ class ProductFact:
     field: str
     value: FactValue
     evidence_ids: tuple[str, ...]
+    component_id: str | None = None
 
     def __post_init__(self) -> None:
         if not self.field:
@@ -187,6 +188,8 @@ class ProductFact:
         object.__setattr__(self, "evidence_ids", tuple(sorted(set(self.evidence_ids))))
         for evidence_id in self.evidence_ids:
             require_id(evidence_id, "evidence_id")
+        if self.component_id is not None:
+            require_id(self.component_id, "fact_component_id")
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,6 +235,10 @@ class RawCandidateRecord:
     facts: tuple[ProductFact, ...]
     seller_gate_ids: tuple[str, ...] = ()
     aliases: tuple[str, ...] = ()
+    category_ids: tuple[str, ...] = ()
+    jtbd_ids: tuple[str, ...] = ()
+    pack_status: str = "PUBLISHED"
+    required_product_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for value, name in (
@@ -247,6 +254,15 @@ class RawCandidateRecord:
         object.__setattr__(self, "facts", tuple(self.facts))
         object.__setattr__(self, "seller_gate_ids", tuple(sorted(set(self.seller_gate_ids))))
         object.__setattr__(self, "aliases", tuple(sorted(set(self.aliases))))
+        object.__setattr__(self, "category_ids", tuple(sorted(set(self.category_ids))))
+        object.__setattr__(self, "jtbd_ids", tuple(sorted(set(self.jtbd_ids))))
+        object.__setattr__(
+            self, "required_product_ids", tuple(sorted(set(self.required_product_ids)))
+        )
+        if self.pack_status not in {"PUBLISHED", "REVOKED", "SUPERSEDED"}:
+            raise DomainValidationError("unsupported candidate Pack status")
+        for identifier in (*self.category_ids, *self.jtbd_ids, *self.required_product_ids):
+            require_id(identifier, "candidate classification or dependency")
 
 
 @dataclass(frozen=True, slots=True)
@@ -322,10 +338,46 @@ class IdentityMerge:
 
 
 @dataclass(frozen=True, slots=True)
+class RecallExclusion:
+    record_id: str
+    reason_code: str
+    detail: str
+
+    def __post_init__(self) -> None:
+        require_id(self.record_id, "excluded_record_id")
+        if self.reason_code not in {
+            "CATEGORY_MISMATCH",
+            "JTBD_MISMATCH",
+            "REGION_UNSUPPORTED",
+            "PACK_REVOKED",
+            "PACK_SUPERSEDED",
+        }:
+            raise DomainValidationError("unsupported recall exclusion reason")
+        if not self.detail:
+            raise DomainValidationError("recall exclusion requires detail")
+
+
+@dataclass(frozen=True, slots=True)
+class RecallPolicy:
+    category_id: str
+    jtbd_id: str
+    allowed_regions: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        require_id(self.category_id, "recall_category_id")
+        require_id(self.jtbd_id, "recall_jtbd_id")
+        normalized = tuple(sorted(set(self.allowed_regions)))
+        if not normalized:
+            raise DomainValidationError("recall policy requires an allowed region")
+        object.__setattr__(self, "allowed_regions", normalized)
+
+
+@dataclass(frozen=True, slots=True)
 class RecallResult:
     identities: tuple[IdentityRecord, ...]
     merges: tuple[IdentityMerge, ...]
     representatives: tuple[RawCandidateRecord, ...]
+    exclusions: tuple[RecallExclusion, ...]
     raw_record_count: int
 
 
@@ -424,6 +476,7 @@ class PreferenceCriterion:
     unknown_upper: ExactRatio | None = None
     permitted_evidence_resolution: str | None = None
     neutral_prior: ExactRatio | None = None
+    aggregation: str = "PRIMARY_COMPONENT"
 
     def __post_init__(self) -> None:
         require_id(self.criterion_id, "criterion_id")
@@ -436,6 +489,16 @@ class PreferenceCriterion:
             raise DomainValidationError("normalization must declare a finite satisfaction domain")
         if ExactRatio(0) not in allowed:
             raise DomainValidationError("normalization must define the zero satisfaction bound")
+        if self.aggregation not in {
+            "PRIMARY_COMPONENT",
+            "ALL",
+            "ANY",
+            "MIN",
+            "MAX",
+            "SUM",
+            "UNION",
+        }:
+            raise DomainValidationError("unsupported plan field aggregation")
         if self.unknown_upper is not None and self.unknown_upper not in allowed:
             raise DomainValidationError("unknown preference bound must be in the declared domain")
         if self.neutral_prior is not None and self.neutral_prior not in allowed:
@@ -644,6 +707,7 @@ class DecisionGraphInput:
     outcome_values: tuple[OutcomeObservation, ...] = ()
     removed_private_fact_ids: frozenset[str] = field(default_factory=frozenset)
     actor_conflict_resolutions: tuple[ActorConflictResolution, ...] = ()
+    recall_policy: RecallPolicy | None = None
 
     def __post_init__(self) -> None:
         if self.evaluated_at.tzinfo is None:
@@ -692,6 +756,7 @@ class DecisionGraphEvaluation:
     removed_private_fact_ids: tuple[str, ...]
     identity_records: tuple[IdentityRecord, ...]
     identity_merges: tuple[IdentityMerge, ...]
+    recall_exclusions: tuple[RecallExclusion, ...]
     evidence_assessments: tuple[EvidenceAssessment, ...]
     plans: tuple[EvaluatedPlan, ...]
     ranked_plan_ids: tuple[str, ...]

@@ -30,6 +30,11 @@
     "fit_rules": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Rule" } },
     "anti_fit_rules": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Rule" } },
     "dependency_rules": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Rule" } },
+    "component_dependencies": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ComponentDependency" }
+    },
     "positioning_angles": {
       "type": "array",
       "items": {
@@ -94,6 +99,16 @@
     "content_hash": { "$ref": "common.schema.json#/$defs/Sha256" }
   },
   "$defs": {
+    "ComponentDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_product_id", "required", "relationship"],
+      "properties": {
+        "required_product_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "required": { "type": "boolean" },
+        "relationship": { "type": "string", "enum": ["PREREQUISITE", "ADD_ON", "MIGRATION_SERVICE"] }
+      }
+    },
     "PackFact": {
       "type": "object",
       "additionalProperties": false,

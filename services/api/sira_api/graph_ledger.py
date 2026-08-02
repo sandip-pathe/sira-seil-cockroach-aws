@@ -254,9 +254,9 @@ def build_decision_ledger(
         for rank, solution_plan_id in enumerate(evaluation.ranked_plan_ids, start=1)
     }
     plan_by_product = {
-        plan.components[0].component_id: plan
+        plan.components[-1].component_id: plan
         for plan in evaluation.plans
-        if plan.components and plan.components[0].source_type == "PACK"
+        if plan.components and plan.components[-1].source_type == "PACK"
     }
     assessment_by_key = {
         (item.evidence_id, item.field): item for item in evaluation.evidence_assessments
@@ -264,7 +264,17 @@ def build_decision_ledger(
     evidence_by_id = {item.evidence_id: item for item in decision_input.evidence}
     names = component_names or {}
     component_results: list[dict[str, Any]] = []
+    recalled_record_ids = {
+        record_id for item in evaluation.identity_records for record_id in item.record_ids
+    }
+    emitted_products: set[str] = set()
     for candidate in sorted(decision_input.candidates, key=lambda item: item.record_id):
+        if (
+            candidate.record_id not in recalled_record_ids
+            or candidate.product_id in emitted_products
+        ):
+            continue
+        emitted_products.add(candidate.product_id)
         plan = plan_by_product[candidate.product_id]
         relevant_assessments = []
         for fact in candidate.facts:
@@ -308,9 +318,7 @@ def build_decision_ledger(
         "pipeline": versions.pipeline_version,
         "engine": versions.engine_version,
     }
-    included_record_ids = sorted(
-        record_id for item in evaluation.identity_records for record_id in item.record_ids
-    )
+    included_record_ids = sorted(recalled_record_ids)
     all_record_ids = {item.record_id for item in decision_input.candidates}
     excluded_record_ids = sorted(all_record_ids - set(included_record_ids))
     stability_summary = {
@@ -411,6 +419,15 @@ def build_decision_ledger(
         ],
         "created_at": _timestamp(metadata.created_at),
     }
+    if evaluation.recall_exclusions:
+        payload["evaluated_universe"]["exclusion_reasons"] = [
+            {
+                "record_id": item.record_id,
+                "reason_code": item.reason_code,
+                "detail": item.detail,
+            }
+            for item in evaluation.recall_exclusions
+        ]
     if decision_input.actor_conflict_resolutions:
         payload["actor_conflict_resolutions"] = [
             {

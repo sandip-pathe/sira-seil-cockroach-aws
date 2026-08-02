@@ -51,6 +51,8 @@ from .graph_v1_models import (
     IdentityMerge,
     IdentityRecord,
     PlanLifecycle,
+    RecallExclusion,
+    RecallPolicy,
 )
 from .graph_v1_recall import assess_evidence, recall_and_deduplicate
 from .models import (
@@ -95,6 +97,8 @@ __all__ = [
     "PreferenceResult",
     "PreferenceScoreBounds",
     "RankStabilityResult",
+    "RecallExclusion",
+    "RecallPolicy",
     "RiskBounds",
     "SellerAntiFitRule",
     "SolutionPlan",
