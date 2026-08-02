@@ -8,8 +8,11 @@ from temporalio.exceptions import ApplicationError
 from integrations.errors import ProviderError
 from sira_worker.contracts import (
     CheckoutActivityResult,
+    FulfillmentActivityResult,
     IsolatedCheckoutActivityInput,
     ReconcileActivityInput,
+    VerifyFulfillmentActivityInput,
+    WorkflowFailureActivityInput,
     assert_credential_free_contract,
 )
 from sira_worker.ports import CheckoutActivityCoordinator
@@ -84,3 +87,41 @@ class CheckoutActivities:
             ) from None
         assert_credential_free_contract(result)
         return result
+
+    @activity.defn(name="sira.verify_fulfillment")
+    async def verify_fulfillment(
+        self,
+        request: VerifyFulfillmentActivityInput,
+    ) -> FulfillmentActivityResult:
+        assert_credential_free_contract(request)
+        try:
+            result = await self._coordinator.verify_fulfillment(request)
+        except ProviderError as exc:
+            raise ApplicationError(
+                "fulfillment verification failed",
+                type=exc.code.value,
+                non_retryable=not exc.retryable,
+            ) from None
+        except Exception:
+            raise ApplicationError(
+                "fulfillment verification failed",
+                type="FULFILLMENT_ACTIVITY_REDACTED_FAILURE",
+                non_retryable=False,
+            ) from None
+        assert_credential_free_contract(result)
+        return result
+
+    @activity.defn(name="sira.fail_checkout_workflow")
+    async def fail_checkout_workflow(
+        self,
+        request: WorkflowFailureActivityInput,
+    ) -> None:
+        assert_credential_free_contract(request)
+        try:
+            await self._coordinator.fail_checkout_workflow(request)
+        except Exception:
+            raise ApplicationError(
+                "workflow failure checkpoint could not be persisted",
+                type="WORKFLOW_FAILURE_CHECKPOINT_REDACTED_FAILURE",
+                non_retryable=False,
+            ) from None

@@ -15,7 +15,9 @@ from sira_api.service import WorkflowService
 from sira_worker.contracts import (
     IsolatedCheckoutActivityInput,
     ReconcileActivityInput,
+    SafeFulfillmentStatus,
     SafeMerchantOutcome,
+    VerifyFulfillmentActivityInput,
 )
 from sira_worker.coordinator import PersistentCheckoutCoordinator
 from sqlalchemy import func, select
@@ -105,6 +107,25 @@ class FakeMerchant:
             authorization_code=None,
             response_code="APPROVED",
             adapter=cls.descriptor,
+            provider_confirmed=True,
+        )
+
+
+class FlakyEntitlementMerchant(FakeMerchant):
+    def __init__(self) -> None:
+        self.fail_verification = True
+
+    async def verify_entitlements(
+        self, request: EntitlementVerificationRequest
+    ) -> EntitlementVerificationResult:
+        if not self.fail_verification:
+            return await super().verify_entitlements(request)
+        return EntitlementVerificationResult(
+            status=EntitlementVerificationStatus.FAILED_RETRYABLE,
+            observed_quantity=0,
+            external_entitlement_ids=(),
+            access_probe_verified=False,
+            adapter=self.descriptor,
             provider_confirmed=True,
         )
 
@@ -332,6 +353,13 @@ async def test_worker_persists_payment_fulfillment_receipt_and_staged_patch(
             idempotency_key="checkout-worker-contract",
         )
     )
+    await coordinator.verify_fulfillment(
+        VerifyFulfillmentActivityInput(
+            organization_id="org_consultco",
+            purchase_intent_id=str(intent["purchase_intent_id"]),
+            merchant_order_id=str(result.merchant_order_id),
+        )
+    )
 
     assert result.merchant_outcome is SafeMerchantOutcome.APPROVED
     assert result.provider_reported is True
@@ -419,11 +447,66 @@ async def test_provider_failure_after_dispatch_enters_reconciliation_and_recover
             transaction_reference=uncertain.transaction_reference,
         )
     )
+    await coordinator.verify_fulfillment(
+        VerifyFulfillmentActivityInput(
+            organization_id="org_consultco",
+            purchase_intent_id=intent_id,
+            merchant_order_id=str(recovered.merchant_order_id),
+        )
+    )
 
     assert recovered.merchant_outcome is SafeMerchantOutcome.APPROVED
     assert recovered.reconciliation_required is False
     status = await service.purchase_status("org_consultco", intent_id)
     assert status["payment_status"] == "PRAVA_COMPLETED"
+    assert status["fulfillment_status"] == "VERIFIED"
+
+
+@pytest.mark.asyncio
+async def test_paid_fulfillment_failure_retries_without_repeating_checkout(
+    checkout_database: Database,
+) -> None:
+    service, intent = await prepare_approved_checkout(checkout_database)
+    intent_id = str(intent["purchase_intent_id"])
+    merchant = FlakyEntitlementMerchant()
+    prava = FakePrava()
+    coordinator = PersistentCheckoutCoordinator(
+        database=checkout_database,
+        prava=prava,
+        merchant=merchant,
+        merchant_adapter_id="merchant_fixture_d",
+    )
+    checkout = await coordinator.execute_isolated_checkout(
+        IsolatedCheckoutActivityInput(
+            organization_id="org_consultco",
+            purchase_intent_id=intent_id,
+            intent_hash=str(intent["intent_hash"]),
+            prava_session_id="prava_session_real_contract",
+            merchant_adapter_id="merchant_fixture_d",
+            idempotency_key="checkout-flaky-fulfillment",
+        )
+    )
+    fulfillment_input = VerifyFulfillmentActivityInput(
+        organization_id="org_consultco",
+        purchase_intent_id=intent_id,
+        merchant_order_id=str(checkout.merchant_order_id),
+    )
+
+    with pytest.raises(ProviderError) as first:
+        await coordinator.verify_fulfillment(fulfillment_input)
+
+    assert first.value.retryable is True
+    assert prava.execute_calls == 1
+    status = await service.purchase_status("org_consultco", intent_id)
+    assert status["payment_status"] == "PRAVA_COMPLETED"
+    assert status["fulfillment_status"] == "FAILED_RETRYABLE"
+
+    merchant.fail_verification = False
+    fulfilled = await coordinator.verify_fulfillment(fulfillment_input)
+
+    assert fulfilled.status is SafeFulfillmentStatus.VERIFIED
+    assert prava.execute_calls == 1
+    status = await service.purchase_status("org_consultco", intent_id)
     assert status["fulfillment_status"] == "VERIFIED"
 
 

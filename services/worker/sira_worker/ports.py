@@ -6,8 +6,11 @@ from typing import Protocol
 
 from sira_worker.contracts import (
     CheckoutActivityResult,
+    FulfillmentActivityResult,
     IsolatedCheckoutActivityInput,
     ReconcileActivityInput,
+    VerifyFulfillmentActivityInput,
+    WorkflowFailureActivityInput,
 )
 
 
@@ -23,3 +26,13 @@ class CheckoutActivityCoordinator(Protocol):
         self,
         request: ReconcileActivityInput,
     ) -> CheckoutActivityResult: ...
+
+    async def verify_fulfillment(
+        self,
+        request: VerifyFulfillmentActivityInput,
+    ) -> FulfillmentActivityResult: ...
+
+    async def fail_checkout_workflow(
+        self,
+        request: WorkflowFailureActivityInput,
+    ) -> None: ...

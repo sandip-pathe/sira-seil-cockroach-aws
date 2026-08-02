@@ -10,9 +10,13 @@ from temporalio.common import RetryPolicy
 with workflow.unsafe.imports_passed_through():
     from sira_worker.contracts import (
         CheckoutActivityResult,
+        FulfillmentActivityResult,
         PurchaseCheckoutWorkflowInput,
         PurchaseCheckoutWorkflowResult,
         ReconcileActivityInput,
+        SafeMerchantOutcome,
+        VerifyFulfillmentActivityInput,
+        WorkflowFailureActivityInput,
         assert_credential_free_contract,
     )
 
@@ -60,6 +64,42 @@ class PurchaseCheckoutWorkflow:
                 ),
             )
             assert_credential_free_contract(checkout)
+        if (
+            checkout.merchant_outcome is SafeMerchantOutcome.APPROVED
+            and checkout.provider_reported
+            and not checkout.reconciliation_required
+            and checkout.merchant_order_id is not None
+        ):
+            try:
+                fulfillment = await workflow.execute_activity(
+                    "sira.verify_fulfillment",
+                    VerifyFulfillmentActivityInput(
+                        organization_id=request.organization_id,
+                        purchase_intent_id=request.purchase_intent_id,
+                        merchant_order_id=checkout.merchant_order_id,
+                    ),
+                    result_type=FulfillmentActivityResult,
+                    start_to_close_timeout=timedelta(seconds=30),
+                    retry_policy=RetryPolicy(
+                        initial_interval=timedelta(seconds=2),
+                        backoff_coefficient=2.0,
+                        maximum_interval=timedelta(seconds=30),
+                        maximum_attempts=5,
+                    ),
+                )
+                assert_credential_free_contract(fulfillment)
+            except Exception:
+                await workflow.execute_activity(
+                    "sira.fail_checkout_workflow",
+                    WorkflowFailureActivityInput(
+                        organization_id=request.organization_id,
+                        purchase_intent_id=request.purchase_intent_id,
+                        safe_code="FULFILLMENT_RETRY_EXHAUSTED",
+                    ),
+                    start_to_close_timeout=timedelta(seconds=15),
+                    retry_policy=RetryPolicy(maximum_attempts=3),
+                )
+                raise
         return PurchaseCheckoutWorkflowResult(
             purchase_intent_id=request.purchase_intent_id,
             merchant_outcome=checkout.merchant_outcome,

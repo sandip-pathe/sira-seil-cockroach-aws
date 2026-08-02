@@ -9,10 +9,14 @@ from sira_worker import activities, temporal, workflows
 from sira_worker import main as worker_main
 from sira_worker.contracts import (
     CheckoutActivityResult,
+    FulfillmentActivityResult,
     IsolatedCheckoutActivityInput,
     PurchaseCheckoutWorkflowInput,
     ReconcileActivityInput,
+    SafeFulfillmentStatus,
     SafeMerchantOutcome,
+    VerifyFulfillmentActivityInput,
+    WorkflowFailureActivityInput,
 )
 from temporalio.exceptions import ApplicationError
 
@@ -59,6 +63,10 @@ def _checkout_result(
         provider_reported=not reconciliation_required,
         reconciliation_required=reconciliation_required,
     )
+
+
+def _fulfillment_result() -> FulfillmentActivityResult:
+    return FulfillmentActivityResult("pi_demo", SafeFulfillmentStatus.VERIFIED)
 
 
 def _configured_settings() -> worker_main.WorkerSettings:
@@ -282,6 +290,8 @@ def test_temporal_worker_builds_registered_workflow_and_activities(
     assert [item.__name__ for item in captured["activities"]] == [
         "execute_isolated_checkout",
         "reconcile_checkout",
+        "verify_fulfillment",
+        "fail_checkout_workflow",
     ]
 
 
@@ -314,9 +324,13 @@ async def test_workflow_returns_direct_checkout_without_reconciliation(
 ) -> None:
     calls: list[tuple[str, object, dict[str, Any]]] = []
 
-    async def fake_execute(name: str, request: object, **kwargs: Any) -> CheckoutActivityResult:
+    async def fake_execute(name: str, request: object, **kwargs: Any) -> object:
         calls.append((name, request, kwargs))
-        return _checkout_result()
+        return (
+            _fulfillment_result()
+            if name == "sira.verify_fulfillment"
+            else _checkout_result()
+        )
 
     monkeypatch.setattr(workflows.workflow, "execute_activity", fake_execute)
     request = PurchaseCheckoutWorkflowInput(
@@ -333,9 +347,56 @@ async def test_workflow_returns_direct_checkout_without_reconciliation(
     assert result.merchant_outcome is SafeMerchantOutcome.APPROVED
     assert result.merchant_order_id == "merchant_order_demo"
     assert result.reconciliation_required is False
-    assert [call[0] for call in calls] == ["sira.execute_isolated_checkout"]
+    assert [call[0] for call in calls] == [
+        "sira.execute_isolated_checkout",
+        "sira.verify_fulfillment",
+    ]
     assert calls[0][1] == request.activity_input()
     assert calls[0][2]["retry_policy"].maximum_attempts == 1
+    assert calls[1][1] == VerifyFulfillmentActivityInput(
+        organization_id="org_consultco",
+        purchase_intent_id="pi_demo",
+        merchant_order_id="merchant_order_demo",
+    )
+
+
+@pytest.mark.asyncio
+async def test_workflow_records_safe_failure_after_fulfillment_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, object, dict[str, Any]]] = []
+
+    async def fake_execute(name: str, request: object, **kwargs: Any) -> object:
+        calls.append((name, request, kwargs))
+        if name == "sira.execute_isolated_checkout":
+            return _checkout_result()
+        if name == "sira.verify_fulfillment":
+            raise ApplicationError("safe failure", non_retryable=False)
+        return None
+
+    monkeypatch.setattr(workflows.workflow, "execute_activity", fake_execute)
+    request = PurchaseCheckoutWorkflowInput(
+        organization_id="org_consultco",
+        purchase_intent_id="pi_demo",
+        intent_hash="sha256:demo",
+        prava_session_id="ses_demo",
+        merchant_adapter_id="merchant_demo",
+        idempotency_key="checkout_demo_v1",
+    )
+
+    with pytest.raises(ApplicationError):
+        await workflows.PurchaseCheckoutWorkflow().run(request)
+
+    assert [call[0] for call in calls] == [
+        "sira.execute_isolated_checkout",
+        "sira.verify_fulfillment",
+        "sira.fail_checkout_workflow",
+    ]
+    assert calls[-1][1] == WorkflowFailureActivityInput(
+        organization_id="org_consultco",
+        purchase_intent_id="pi_demo",
+        safe_code="FULFILLMENT_RETRY_EXHAUSTED",
+    )
 
 
 @pytest.mark.asyncio
@@ -353,8 +414,10 @@ async def test_workflow_reconciles_uncertain_checkout_before_returning(
         ]
     )
 
-    async def fake_execute(name: str, request: object, **kwargs: Any) -> CheckoutActivityResult:
+    async def fake_execute(name: str, request: object, **kwargs: Any) -> object:
         calls.append((name, request, kwargs))
+        if name == "sira.verify_fulfillment":
+            return _fulfillment_result()
         return next(results)
 
     monkeypatch.setattr(workflows.workflow, "execute_activity", fake_execute)
@@ -373,6 +436,7 @@ async def test_workflow_reconciles_uncertain_checkout_before_returning(
     assert [call[0] for call in calls] == [
         "sira.execute_isolated_checkout",
         "sira.reconcile_checkout",
+        "sira.verify_fulfillment",
     ]
     assert calls[1][1] == _reconcile_input()
     assert calls[1][2]["retry_policy"].maximum_attempts == 5

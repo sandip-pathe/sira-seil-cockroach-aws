@@ -37,9 +37,13 @@ from persistence.models import (
 from persistence.repositories import WorkflowRepository, new_id
 from sira_worker.contracts import (
     CheckoutActivityResult,
+    FulfillmentActivityResult,
     IsolatedCheckoutActivityInput,
     ReconcileActivityInput,
+    SafeFulfillmentStatus,
     SafeMerchantOutcome,
+    VerifyFulfillmentActivityInput,
+    WorkflowFailureActivityInput,
     assert_credential_free_contract,
 )
 
@@ -104,17 +108,9 @@ class PersistentCheckoutCoordinator:
             result=result,
         )
         if (
-            result.merchant.outcome is MerchantOutcome.APPROVED
-            and result.provider_reported
-            and not result.reconciliation_required
-            and result.merchant.merchant_order_id is not None
+            not output.reconciliation_required
+            and output.merchant_outcome is not SafeMerchantOutcome.APPROVED
         ):
-            await self._verify_fulfillment(
-                organization_id=request.organization_id,
-                intent_id=request.purchase_intent_id,
-                merchant_order_id=result.merchant.merchant_order_id,
-            )
-        if not output.reconciliation_required:
             await self._finish_workflow_run(
                 organization_id=request.organization_id,
                 intent_id=request.purchase_intent_id,
@@ -163,30 +159,71 @@ class PersistentCheckoutCoordinator:
             result=result,
         )
         if (
-            merchant_outcome.outcome is MerchantOutcome.APPROVED
-            and provider_reported
-            and merchant_outcome.merchant_order_id is not None
+            output.reconciliation_required
+            or output.merchant_outcome is not SafeMerchantOutcome.APPROVED
         ):
-            await self._verify_fulfillment(
+            await self._finish_workflow_run(
                 organization_id=request.organization_id,
                 intent_id=request.purchase_intent_id,
-                merchant_order_id=merchant_outcome.merchant_order_id,
+                status="FAILED" if output.reconciliation_required else "COMPLETED",
+                safe_error_code=(
+                    "CHECKOUT_RECONCILIATION_INCOMPLETE"
+                    if output.reconciliation_required
+                    else None
+                ),
+                message=(
+                    "Checkout reconciliation remains incomplete"
+                    if output.reconciliation_required
+                    else f"Checkout finished with {output.merchant_outcome.value}"
+                ),
             )
+        assert_credential_free_contract(output)
+        return output
+
+    async def verify_fulfillment(
+        self, request: VerifyFulfillmentActivityInput
+    ) -> FulfillmentActivityResult:
+        assert_credential_free_contract(request)
+        status = await self._verify_fulfillment(
+            organization_id=request.organization_id,
+            intent_id=request.purchase_intent_id,
+            merchant_order_id=request.merchant_order_id,
+        )
+        if status is SafeFulfillmentStatus.VERIFIED:
+            await self._finish_workflow_run(
+                organization_id=request.organization_id,
+                intent_id=request.purchase_intent_id,
+                status="COMPLETED",
+                safe_error_code=None,
+                message="Payment and fulfillment verified",
+            )
+            return FulfillmentActivityResult(request.purchase_intent_id, status)
+        if status is SafeFulfillmentStatus.FAILED_FINAL:
+            await self._finish_workflow_run(
+                organization_id=request.organization_id,
+                intent_id=request.purchase_intent_id,
+                status="FAILED",
+                safe_error_code="FULFILLMENT_FAILED_FINAL",
+                message="Fulfillment verification failed",
+            )
+        raise ProviderError(
+            provider="controlled_merchant",
+            operation="verify_fulfillment",
+            code=ProviderErrorCode.INVALID_STATE
+            if status is SafeFulfillmentStatus.FAILED_FINAL
+            else ProviderErrorCode.UNAVAILABLE,
+            retryable=status is not SafeFulfillmentStatus.FAILED_FINAL,
+        ) from None
+
+    async def fail_checkout_workflow(self, request: WorkflowFailureActivityInput) -> None:
+        assert_credential_free_contract(request)
         await self._finish_workflow_run(
             organization_id=request.organization_id,
             intent_id=request.purchase_intent_id,
-            status="FAILED" if output.reconciliation_required else "COMPLETED",
-            safe_error_code=(
-                "CHECKOUT_RECONCILIATION_INCOMPLETE" if output.reconciliation_required else None
-            ),
-            message=(
-                "Checkout reconciliation remains incomplete"
-                if output.reconciliation_required
-                else f"Checkout finished with {output.merchant_outcome.value}"
-            ),
+            status="FAILED",
+            safe_error_code=request.safe_code,
+            message="Checkout workflow stopped after safe retry limits",
         )
-        assert_credential_free_contract(output)
-        return output
 
     async def _prepare_attempt(
         self, request: IsolatedCheckoutActivityInput
@@ -613,12 +650,12 @@ class PersistentCheckoutCoordinator:
 
     async def _verify_fulfillment(
         self, *, organization_id: str, intent_id: str, merchant_order_id: str
-    ) -> None:
+    ) -> SafeFulfillmentStatus:
         async with self._database.transaction(organization_id) as session:
             repository = WorkflowRepository(session, organization_id)
             intent = await repository.get_purchase_intent(intent_id, lock=True)
             if intent.fulfillment_status == "VERIFIED":
-                return
+                return SafeFulfillmentStatus.VERIFIED
             if intent.fulfillment_status == "NOT_STARTED":
                 await repository.transition_purchase_intent(
                     intent_id=intent_id,
@@ -653,7 +690,19 @@ class PersistentCheckoutCoordinator:
             result.status is EntitlementVerificationStatus.VERIFIED for _, result in observations
         )
         any_observed = any(result.observed_quantity > 0 for _, result in observations)
-        target = "VERIFIED" if all_verified else ("PARTIAL" if any_observed else "FAILED_RETRYABLE")
+        any_final = any(
+            result.status is EntitlementVerificationStatus.FAILED_FINAL
+            for _, result in observations
+        )
+        target = (
+            "VERIFIED"
+            if all_verified
+            else "FAILED_FINAL"
+            if any_final
+            else "PARTIAL"
+            if any_observed
+            else "FAILED_RETRYABLE"
+        )
         async with self._database.transaction(organization_id) as session:
             repository = WorkflowRepository(session, organization_id)
             intent = await repository.get_purchase_intent(intent_id, lock=True)
@@ -724,6 +773,7 @@ class PersistentCheckoutCoordinator:
                     order=order,
                     entitlement_ids=entitlement_ids,
                 )
+        return SafeFulfillmentStatus(target)
 
     async def _create_receipt(
         self,

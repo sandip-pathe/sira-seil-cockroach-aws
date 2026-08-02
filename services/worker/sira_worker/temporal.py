@@ -30,6 +30,8 @@ def build_worker(
         activities=[
             activities.execute_isolated_checkout,
             activities.reconcile_checkout,
+            activities.verify_fulfillment,
+            activities.fail_checkout_workflow,
         ],
     )
 

@@ -26,6 +26,13 @@ class SafeMerchantOutcome(StrEnum):
     UNKNOWN = "UNKNOWN"
 
 
+class SafeFulfillmentStatus(StrEnum):
+    VERIFIED = "VERIFIED"
+    PARTIAL = "PARTIAL"
+    FAILED_RETRYABLE = "FAILED_RETRYABLE"
+    FAILED_FINAL = "FAILED_FINAL"
+
+
 @dataclass(frozen=True, slots=True)
 class IsolatedCheckoutActivityInput:
     """Only durable identifiers needed to load canonical state inside the activity."""
@@ -59,6 +66,26 @@ class ReconcileActivityInput:
     merchant_adapter_id: str
     idempotency_key: str
     transaction_reference: str
+
+
+@dataclass(frozen=True, slots=True)
+class VerifyFulfillmentActivityInput:
+    organization_id: str
+    purchase_intent_id: str
+    merchant_order_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class FulfillmentActivityResult:
+    purchase_intent_id: str
+    status: SafeFulfillmentStatus
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowFailureActivityInput:
+    organization_id: str
+    purchase_intent_id: str
+    safe_code: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +157,9 @@ def assert_all_contract_schemas_are_credential_free() -> None:
         IsolatedCheckoutActivityInput,
         CheckoutActivityResult,
         ReconcileActivityInput,
+        VerifyFulfillmentActivityInput,
+        FulfillmentActivityResult,
+        WorkflowFailureActivityInput,
         PurchaseCheckoutWorkflowInput,
         PurchaseCheckoutWorkflowResult,
     )
