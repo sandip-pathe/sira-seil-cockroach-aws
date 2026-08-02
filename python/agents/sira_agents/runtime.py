@@ -51,6 +51,7 @@ class AgentRunRequest:
 class AgentRunResult:
     output: object
     tool_calls: tuple[str, ...] = ()
+    proposals: tuple[Mapping[str, Any], ...] = ()
     runtime: str = "openai-agents"
     advisory_only: bool = True
     ranking_effect: bool = False
@@ -72,6 +73,7 @@ class _SdkFacade(Protocol):
 class _SdkRunOutcome:
     output: object
     tool_calls: tuple[str, ...]
+    proposals: tuple[Mapping[str, Any], ...]
 
     async def run(
         self,
@@ -117,7 +119,7 @@ class _OpenAISdkFacade:
         max_turns: int,
         workflow_name: str,
     ) -> object:
-        from agents import RunConfig, Runner, ToolCallItem
+        from agents import RunConfig, Runner, ToolCallItem, ToolCallOutputItem
 
         sdk_runner: Any = Runner
         result: Any = await sdk_runner.run(
@@ -137,7 +139,33 @@ class _OpenAISdkFacade:
             for item in result.new_items
             if isinstance(item, ToolCallItem) and item.tool_name is not None
         )
-        return _SdkRunOutcome(output=output, tool_calls=tool_calls)
+        proposals: list[Mapping[str, Any]] = []
+        for item in result.new_items:
+            if not isinstance(item, ToolCallOutputItem):
+                continue
+            candidate = item.output
+            model_dump = getattr(candidate, "model_dump", None)
+            if callable(model_dump):
+                candidate = model_dump(mode="json")
+            elif isinstance(candidate, str):
+                try:
+                    candidate = json.loads(candidate)
+                except json.JSONDecodeError:
+                    continue
+            if not isinstance(candidate, Mapping):
+                continue
+            if {
+                "proposal_type",
+                "proposal_hash",
+                "payload",
+                "requires_human_action",
+            }.issubset(candidate):
+                proposals.append(dict(candidate))
+        return _SdkRunOutcome(
+            output=output,
+            tool_calls=tool_calls,
+            proposals=tuple(proposals),
+        )
 
 
 @dataclass(slots=True)
@@ -179,5 +207,9 @@ class OpenAIAgentsRuntime:
             workflow_name=f"sira-seil-{request.role.value.lower()}",
         )
         if isinstance(outcome, _SdkRunOutcome):
-            return AgentRunResult(output=outcome.output, tool_calls=outcome.tool_calls)
+            return AgentRunResult(
+                output=outcome.output,
+                tool_calls=outcome.tool_calls,
+                proposals=outcome.proposals,
+            )
         return AgentRunResult(output=outcome)

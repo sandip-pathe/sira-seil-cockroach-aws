@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  ActionDescriptor,
   DecisionIndexView,
   DecisionRequestView,
   DecisionStage,
@@ -356,13 +357,13 @@ function OptionsStage({
   );
 }
 
-function ActionStage({ view, optionsHref }: { view: DecisionView; optionsHref: string }) {
+function ActionStage({ view, optionsHref, onExecute, pending }: { view: DecisionView; optionsHref: string; onExecute: (action: ActionDescriptor) => void; pending: boolean }) {
   const plan = view.selected_action_plan;
   const steps = plan?.execution_steps ?? [];
   return (
     <section className={styles.stageSection}>
       <div className={styles.stageIntro}><p>04 · Action</p><h2>{plan ? "Execute the selected action safely" : "Select an action plan first"}</h2><span>Review, required authority, execution or assignment, and verification remain separate.</span></div>
-      {!plan ? <div className={styles.emptyStage}><FileCheck2 aria-hidden="true" /><h3>No plan is selected in this version</h3><p>Return to Options and select the exact plan/version/hash. A fixture preview never creates approval or payment authority.</p><Link className={styles.primaryButton} href={optionsHref}>Review options</Link></div> : <div className={styles.executionGrid}><ol className={styles.executionTimeline}>{steps.map((step, index) => <li key={step.id} data-status={step.status.toLowerCase()}><span>{step.status === "COMPLETED" ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{step.type.replaceAll("_", " ").toLowerCase()}</strong><small>{step.owner_role.replaceAll("_", " ")} · {step.status.replaceAll("_", " ")}</small>{step.blocker ? <p>{step.blocker}</p> : null}</div>{step.available_action ? <button type="button" disabled title="Execution needs the connected action contract">{step.available_action.label}</button> : null}</li>)}</ol><aside className={styles.authorityPanel}><p>Authority</p><dl><div><dt>Plan selection</dt><dd>{plan.selected_by_role.replaceAll("_", " ")}</dd></div><div><dt>Approval</dt><dd>{view.approval?.status ?? "Not requested"}</dd></div><div><dt>Payment</dt><dd>{view.payment?.status ?? "Not required"}</dd></div><div><dt>Fulfillment</dt><dd>{view.fulfillment?.status ?? "Not started"}</dd></div></dl></aside></div>}
+      {!plan ? <div className={styles.emptyStage}><FileCheck2 aria-hidden="true" /><h3>No plan is selected in this version</h3><p>Return to Options and select the exact plan/version/hash. A fixture preview never creates approval or payment authority.</p><Link className={styles.primaryButton} href={optionsHref}>Review options</Link></div> : <div className={styles.executionGrid}><ol className={styles.executionTimeline}>{steps.map((step, index) => <li key={step.id} data-status={step.status.toLowerCase()}><span>{step.status === "COMPLETED" ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{step.type.replaceAll("_", " ").toLowerCase()}</strong><small>{step.owner_role.replaceAll("_", " ")} · {step.status.replaceAll("_", " ")}</small>{step.blocker ? <p>{step.blocker}</p> : null}</div>{step.available_action ? <button type="button" disabled={pending || WEB_DATA_MODE === "fixture" || !step.available_action.href.includes("/action-runs")} onClick={() => onExecute(step.available_action!)}>{pending ? "Starting…" : step.available_action.label}</button> : null}</li>)}</ol><aside className={styles.authorityPanel}><p>Authority</p><dl><div><dt>Plan selection</dt><dd>{plan.selected_by_role.replaceAll("_", " ")}</dd></div><div><dt>Approval</dt><dd>{view.approval?.status ?? "Not requested"}</dd></div><div><dt>Payment</dt><dd>{view.payment?.status ?? "Not required"}</dd></div><div><dt>Fulfillment</dt><dd>{view.fulfillment?.status ?? "Not started"}</dd></div></dl></aside></div>}
     </section>
   );
 }
@@ -385,10 +386,12 @@ function StageCanvas(props: {
   onSelect: (option: SolutionOption) => void;
   onFeedback: (option: SolutionOption, action: OptionFeedbackAction) => void;
   pendingFeedback: boolean;
+  onExecute: (action: ActionDescriptor) => void;
+  pendingExecution: boolean;
 }) {
   if (props.stage === "need") return <NeedStage view={props.view} />;
   if (props.stage === "company-fit") return <CompanyFitStage view={props.view} />;
-  if (props.stage === "action") return <ActionStage view={props.view} optionsHref={props.optionsHref} />;
+  if (props.stage === "action") return <ActionStage view={props.view} optionsHref={props.optionsHref} onExecute={props.onExecute} pending={props.pendingExecution} />;
   if (props.stage === "result") return <ResultStage view={props.view} />;
   return <OptionsStage view={props.view} onLedger={props.onLedger} onSelect={props.onSelect} onFeedback={props.onFeedback} pendingFeedback={props.pendingFeedback} />;
 }
@@ -486,6 +489,30 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
     onError: () => setToast("The plan was not selected. No approval, payment, or action run was created."),
   });
 
+  const executionMutation = useMutation({
+    mutationFn: async (action: ActionDescriptor) => {
+      if (!view?.selected_action_plan) throw new Error("No selected plan");
+      const decisionId = action.href.match(/\/v1\/decisions\/([^/]+)\/action-runs/)?.[1];
+      if (!decisionId) throw new Error("Unsupported execution action");
+      const plan = view.selected_action_plan;
+      return getBrowserApiClient().request("start_action_run", {
+        pathParams: { decision_id: decisionId },
+        body: {
+          decision_hash: plan.decision_hash,
+          decision_version: plan.decision_version,
+          solution_plan_id: plan.id,
+        },
+        idempotencyKey: createIdempotencyKey(`action-${plan.selection_id}`),
+        headers: buyerDevelopmentHeaders,
+      });
+    },
+    onSuccess: () => {
+      setToast("Action workflow started. Approval, payment, and fulfillment remain separate.");
+      void queryClient.invalidateQueries({ queryKey: ["decision-view", requestId] });
+    },
+    onError: () => setToast("The action workflow was not started. No approval or payment was created."),
+  });
+
   const activeStage = stages.some((item) => item.slug === stage) ? stage : "options";
   const title = view?.request.intent ?? "Decision Room";
 
@@ -511,7 +538,7 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
           <ConversationPanel onReviewSources={() => setLedgerOpen(true)} />
           <div className={styles.structuredCanvas} id="main-content">
             {query.isPending && WEB_DATA_MODE === "api" ? <div className={styles.canvasLoading}><i /><i /><i /></div> : null}
-            {view ? <StageCanvas stage={activeStage} optionsHref={`/decisions/${requestId}/versions/${version}/options`} view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>The last verified state cannot be loaded. Retry after the local API is available.</p></div> : versionMismatch || fixtureRequestMissing ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Nothing was substituted</h2><p>The requested immutable decision record is not available in this data mode.</p></div> : null}
+            {view ? <StageCanvas stage={activeStage} optionsHref={`/decisions/${requestId}/versions/${version}/options`} view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} onExecute={(action) => executionMutation.mutate(action)} pendingExecution={executionMutation.isPending} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>The last verified state cannot be loaded. Retry after the local API is available.</p></div> : versionMismatch || fixtureRequestMissing ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Nothing was substituted</h2><p>The requested immutable decision record is not available in this data mode.</p></div> : null}
           </div>
         </div>
       </main>

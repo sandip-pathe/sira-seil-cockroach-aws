@@ -125,6 +125,7 @@ def create_app(
             model=resolved_settings.openai_model,
             workflow_service=workflow_service,
             seller_evidence_service=seller_evidence_service,
+            database=resolved_database,
         )
         yield
         close_identity = getattr(resolved_identity_adapter, "aclose", None)

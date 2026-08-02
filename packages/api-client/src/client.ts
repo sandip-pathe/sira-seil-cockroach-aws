@@ -53,6 +53,7 @@ const operations = {
   workspace_catalog: { method: "GET", path: "/v1/workspace/catalog", responseMediaType: "application/json" },
   workspace_chat: { method: "POST", path: "/v1/workspace/chat", responseMediaType: "application/json" },
   workspace_connectors: { method: "GET", path: "/v1/workspace/connectors", responseMediaType: "application/json" },
+  workspace_conversations: { method: "GET", path: "/v1/workspace/conversations", responseMediaType: "application/json" },
   workspace_product: { method: "GET", path: "/v1/workspace/catalog/{product_id}", responseMediaType: "application/json" },
 } as const;
 

@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from openai import AuthenticationError, RateLimitError
 from pydantic import BaseModel, ValidationError
+from sqlalchemy import select
+from persistence.database import Database
+from persistence.models import WorkflowRun
 from sira_agents.commerce_tools import SEIL_TOOL_NAMES, SIRA_TOOL_NAMES, commerce_tool_registry
 from sira_agents.runtime import AgentRole, AgentRunContext, AgentRunRequest, OpenAIAgentsRuntime
 from sira_agents.workspace_tools import workspace_tool_registry
@@ -32,11 +37,13 @@ class WorkspaceService:
         model: str,
         workflow_service: object | None = None,
         seller_evidence_service: object | None = None,
+        database: Database | None = None,
     ) -> None:
         self.fixtures = fixtures
         self.api_key = api_key
         self.workflow_service = workflow_service
         self.seller_evidence_service = seller_evidence_service
+        self.database = database
         tools = {**workspace_tool_registry(), **commerce_tool_registry()}
         self.runtime = OpenAIAgentsRuntime(model=model, tools=tools)
 
@@ -102,6 +109,9 @@ class WorkspaceService:
             "budget, "
             "and approval path are sufficiently clear. Never claim to rank, approve, buy, pay, or "
             "activate anything. Use catalogue tools for product facts and never invent products. "
+            "When the context is sufficient and the user explicitly asks to create or start the "
+            "buying work, call propose_purchase_request. Tell the user that nothing is created "
+            "until they confirm the returned proposal. "
             "When the user asks to browse, compare, buy, find, or see products, set "
             "show_catalog true. "
             "Return only JSON with message, follow_up_required, panel, and show_catalog."
@@ -110,7 +120,8 @@ class WorkspaceService:
             "context one question "
             "at a time. Use seller tools for product, evidence, Pack, and sanitized buyer facts. "
             "Tool proposals are advisory drafts requiring human review. Never publish, approve, "
-            "or invent claims. Return only JSON with message, "
+            "or invent claims. When the user asks to change claims, fit rules, anti-fit rules, or "
+            "request review, use the matching proposal tool. Return only JSON with message, "
             "follow_up_required, panel, and show_catalog=false."
         )
         try:
@@ -120,7 +131,10 @@ class WorkspaceService:
                     instructions=instructions,
                     prompt=body.message,
                     model_context={
-                        "recent_history": [item.model_dump() for item in body.history[-12:]],
+                        "recent_history": [
+                            {"role": item.role, "content": item.content}
+                            for item in body.history[-12:]
+                        ],
                     },
                     run_context=run_context,
                     allowed_tools=SIRA_TOOL_NAMES if body.mode == "sira" else SEIL_TOOL_NAMES,
@@ -175,11 +189,115 @@ class WorkspaceService:
         panel = "catalog" if answer.show_catalog else answer.panel
         if panel not in {"run", "catalog", "connectors", "decisions", "inbox"}:
             panel = "run"
+        conversation_id = body.conversation_id or f"wc_{uuid4().hex}"
+        messages = [item.model_dump(mode="json") for item in body.history]
+        messages.extend(
+            [
+                {"role": "user", "content": body.message},
+                {
+                    "role": "assistant",
+                    "content": answer.message,
+                    "tool_calls": list(dict.fromkeys(result.tool_calls)),
+                    "proposals": list(result.proposals),
+                },
+            ]
+        )
+        await self._save_conversation(
+            run_context=run_context,
+            conversation_id=conversation_id,
+            mode=body.mode,
+            messages=messages[-40:],
+        )
         return {
+            "conversation_id": conversation_id,
             "message": answer.message,
             "follow_up_required": answer.follow_up_required,
             "panel": panel,
             "products": self.catalog() if answer.show_catalog else [],
             "tool_calls": list(dict.fromkeys(result.tool_calls)),
+            "proposals": list(result.proposals),
             "advisory_only": True,
         }
+
+    async def conversations(
+        self, *, run_context: AgentRunContext, mode: str
+    ) -> list[dict[str, Any]]:
+        if self.database is None:
+            return []
+        async with self.database.transaction(run_context.organization_id) as session:
+            records = list(
+                (
+                    await session.execute(
+                        select(WorkflowRun)
+                        .where(
+                            WorkflowRun.organization_id == run_context.organization_id,
+                            WorkflowRun.aggregate_type == "WORKSPACE_CONVERSATION",
+                            WorkflowRun.operation == f"workspace.chat.{mode}",
+                        )
+                        .order_by(WorkflowRun.updated_at.desc())
+                    )
+                ).scalars()
+            )
+        results: list[dict[str, Any]] = []
+        for record in records:
+            metadata = record.event_log[0] if record.event_log else {}
+            if metadata.get("actor_id") != run_context.actor_id:
+                continue
+            messages = [item for item in record.event_log[1:] if item.get("role")]
+            first_user = next(
+                (str(item.get("content", "")) for item in messages if item.get("role") == "user"),
+                "New chat",
+            )
+            results.append(
+                {
+                    "id": record.aggregate_id,
+                    "mode": mode,
+                    "title": first_user[:46] or "New chat",
+                    "messages": messages,
+                    "updated_at": record.updated_at.astimezone(UTC).isoformat(),
+                }
+            )
+        return results
+
+    async def _save_conversation(
+        self,
+        *,
+        run_context: AgentRunContext,
+        conversation_id: str,
+        mode: str,
+        messages: list[dict[str, Any]],
+    ) -> None:
+        if self.database is None:
+            return
+        async with self.database.transaction(run_context.organization_id) as session:
+            record = (
+                await session.execute(
+                    select(WorkflowRun).where(
+                        WorkflowRun.organization_id == run_context.organization_id,
+                        WorkflowRun.aggregate_type == "WORKSPACE_CONVERSATION",
+                        WorkflowRun.aggregate_id == conversation_id,
+                        WorkflowRun.operation == f"workspace.chat.{mode}",
+                    )
+                )
+            ).scalar_one_or_none()
+            event_log = [{"actor_id": run_context.actor_id}, *messages]
+            if record is None:
+                session.add(
+                    WorkflowRun(
+                        id=f"wrun_{uuid4().hex}",
+                        organization_id=run_context.organization_id,
+                        aggregate_type="WORKSPACE_CONVERSATION",
+                        aggregate_id=conversation_id,
+                        operation=f"workspace.chat.{mode}",
+                        status="COMPLETED",
+                        result_reference=None,
+                        safe_error_code=None,
+                        event_log=event_log,
+                    )
+                )
+            else:
+                metadata = record.event_log[0] if record.event_log else {}
+                if metadata.get("actor_id") != run_context.actor_id:
+                    raise PermissionError("conversation belongs to another actor")
+                record.event_log = event_log
+                record.updated_at = datetime.now(UTC)

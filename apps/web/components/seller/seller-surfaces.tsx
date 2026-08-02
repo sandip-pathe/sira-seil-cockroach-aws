@@ -370,13 +370,15 @@ function sellerRequestHeaders(): Record<string, string> {
   return { ...(configured as Record<string, string>) };
 }
 
-function useSellerProducts() {
+function useSellerProducts(search = "") {
+  const normalizedSearch = search.trim();
   return useQuery({
-    queryKey: ["seller", "products", WEB_DATA_MODE],
+    queryKey: ["seller", "products", WEB_DATA_MODE, normalizedSearch],
     queryFn: async ({ signal }) => {
       if (IS_FIXTURE_MODE) return FIXTURE_SEARCH;
       return getBrowserApiClient().request("seller_evidence_search_products", {
         headers: sellerRequestHeaders(),
+        query: normalizedSearch ? { q: normalizedSearch } : {},
         signal,
       });
     },
@@ -691,18 +693,9 @@ export function SellerHome() {
 }
 
 export function SellerProductSearch() {
-  const products = useSellerProducts();
   const [query, setQuery] = useState("");
-  const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return products.data?.results ?? [];
-    return (products.data?.results ?? []).filter((item) =>
-      [item.name, item.category, item.public_summary]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalized),
-    );
-  }, [products.data, query]);
+  const products = useSellerProducts(query);
+  const filtered = products.data?.results ?? [];
 
   return (
     <SellerShell active="search">

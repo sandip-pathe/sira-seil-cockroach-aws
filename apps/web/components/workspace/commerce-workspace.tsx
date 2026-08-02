@@ -45,6 +45,8 @@ import {
   type RefObject,
 } from "react";
 import { prepareWithSegments, walkLineRanges } from "@chenglou/pretext";
+import { useQuery } from "@tanstack/react-query";
+import type { AgentProposalView } from "@sira/api-client";
 
 import {
   buyerDevelopmentHeaders,
@@ -92,6 +94,7 @@ type ChatMessage = {
   meta?: string;
   products?: CatalogProduct[];
   toolCalls?: string[];
+  proposals?: AgentProposalView[];
 };
 
 type Conversation = {
@@ -850,6 +853,16 @@ function SeilWorkPanel() {
 
 function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const query = useQuery({
+    queryKey: ["workspace-connectors", mode],
+    enabled: WEB_DATA_MODE === "api" && mode === "sira",
+    queryFn: () => getBrowserApiClient().request("workspace_connectors", { headers: buyerDevelopmentHeaders }),
+  });
+  const connectors: Connector[] = WEB_DATA_MODE === "fixture"
+    ? CONNECTORS[mode]
+    : mode === "sira"
+      ? query.data ?? []
+      : [];
   return (
     <div className={styles.contextBody}>
       <section className={styles.documentHeader}>
@@ -859,7 +872,7 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
       </section>
 
       <section className={styles.connectorList}>
-        {CONNECTORS[mode].map((connector) => (
+        {connectors.map((connector) => (
           <article data-status={connector.status.toLowerCase().replace(" ", "-")} key={connector.name}>
             <button type="button" onClick={() => setExpanded((current) => current === connector.name ? null : connector.name)}>
               <span className={styles.connectorIcon}><Plug aria-hidden="true" /></span>
@@ -878,6 +891,9 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
             ) : null}
           </article>
         ))}
+        {query.isPending && mode === "sira" ? <p className={styles.sectionCopy}>Loading connector status…</p> : null}
+        {query.isError ? <p className={styles.sectionCopy}>Connector status is temporarily unavailable.</p> : null}
+        {mode === "seil" && WEB_DATA_MODE === "api" ? <p className={styles.sectionCopy}>Seller connector status is not exposed by the backend yet.</p> : null}
       </section>
 
       <div className={styles.contextNote}>
@@ -889,6 +905,14 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
 }
 
 function DecisionsPanel({ onStart }: { onStart: () => void }) {
+  const query = useQuery({
+    queryKey: ["decision-index"],
+    enabled: WEB_DATA_MODE === "api",
+    queryFn: () => getBrowserApiClient().request("list_decision_requests", { headers: buyerDevelopmentHeaders }),
+  });
+  const decisions = WEB_DATA_MODE === "api"
+    ? [...(query.data?.active ?? []), ...(query.data?.history ?? [])]
+    : [];
   return (
     <div className={styles.contextBody}>
       <section className={styles.documentHeader}>
@@ -896,11 +920,21 @@ function DecisionsPanel({ onStart }: { onStart: () => void }) {
         <h2>Decisions</h2>
         <p>Buying work starts in chat. SIRA keeps asking for material context and turns it into structured decision state.</p>
       </section>
-      <section className={styles.contextSection}>
-        <div className={styles.sectionHeading}><div><span>Current</span><h3>No separate intake form</h3></div><MessageSquare aria-hidden="true" /></div>
-        <p className={styles.sectionCopy}>Describe what you need, who will use it, and when. Missing details are collected in the conversation.</p>
-        <button className={styles.fullViewLink} type="button" onClick={onStart}>Start in chat <ArrowRight aria-hidden="true" /></button>
-      </section>
+      {decisions.length ? (
+        <section className={styles.contextSection}>
+          <div className={styles.sectionHeading}><div><span>Backend records</span><h3>{decisions.length} decision{decisions.length === 1 ? "" : "s"}</h3></div><Layers3 aria-hidden="true" /></div>
+          <div className={styles.decisionMiniList}>
+            {decisions.slice(0, 5).map((decision) => <Link href={decision.href} key={decision.id}><span>{decision.current_stage.replaceAll("_", " ")}</span><strong>{decision.intent}</strong><ArrowRight aria-hidden="true" /></Link>)}
+          </div>
+          <Link className={styles.fullViewLink} href="/sira/decisions">View all decisions <ArrowRight aria-hidden="true" /></Link>
+        </section>
+      ) : (
+        <section className={styles.contextSection}>
+          <div className={styles.sectionHeading}><div><span>Current</span><h3>{query.isPending ? "Loading decisions" : "No decisions yet"}</h3></div><MessageSquare aria-hidden="true" /></div>
+          <p className={styles.sectionCopy}>{query.isError ? "Decision records are temporarily unavailable." : "Describe what you need, who will use it, and when. SIRA will create a decision only after confirmation."}</p>
+          {!query.isPending ? <button className={styles.fullViewLink} type="button" onClick={onStart}>Start in chat <ArrowRight aria-hidden="true" /></button> : null}
+        </section>
+      )}
     </div>
   );
 }
@@ -1108,9 +1142,18 @@ export function CommerceWorkspace({
   const [contextTab, setContextTab] = useState<CommerceContextTab>(initialContextTab);
   const [contextExpanded, setContextExpanded] = useState(false);
   const [running, setRunning] = useState(false);
+  const [confirmingProposal, setConfirmingProposal] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>(() => WEB_DATA_MODE === "fixture" ? FIXTURE_CATALOG : []);
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
+  const conversationsQuery = useQuery({
+    queryKey: ["workspace-conversations", mode],
+    enabled: WEB_DATA_MODE === "api",
+    queryFn: () => getBrowserApiClient().request("workspace_conversations", {
+      headers: mode === "seil" ? sellerEditorDevelopmentHeaders : buyerDevelopmentHeaders,
+      query: { mode },
+    }),
+  });
   const compact = useIsCompact();
   const messageRootRef = useRef<HTMLDivElement>(null);
   const messageViewportRef = useRef<HTMLDivElement>(null);
@@ -1128,6 +1171,35 @@ export function CommerceWorkspace({
   const messageVersion = `${mode}:${selectedConversation?.id ?? "new"}:${messages.map((message) => `${message.id}:${message.content.length}`).join("|")}`;
 
   usePretextMessages(messageRootRef, messageVersion);
+
+  useEffect(() => {
+    if (WEB_DATA_MODE !== "api" || !conversationsQuery.data) return;
+    const restored: Conversation[] = conversationsQuery.data.map((conversation) => ({
+      id: conversation.id,
+      mode: conversation.mode,
+      title: conversation.title,
+      updatedLabel: "Saved",
+      messages: conversation.messages.map((message) => ({
+        id: `${message.role}-${crypto.randomUUID()}`,
+        role: message.role,
+        content: message.content,
+        toolCalls: message.tool_calls,
+        proposals: message.proposals,
+      })),
+    }));
+    const next = restored.length ? restored : [{
+      id: `${mode}-new-${crypto.randomUUID()}`,
+      mode,
+      title: "New chat",
+      updatedLabel: "Now",
+      messages: [],
+    }];
+    setConversations((current) => ({ ...current, [mode]: next }));
+    setSelectedByMode((current) => ({
+      ...current,
+      [mode]: next.some((item) => item.id === current[mode]) ? current[mode] : next[0].id,
+    }));
+  }, [conversationsQuery.data, mode]);
 
   useEffect(() => {
     if (shouldAutoScrollRef.current) {
@@ -1256,7 +1328,12 @@ export function CommerceWorkspace({
             ? sellerEditorDevelopmentHeaders
             : buyerDevelopmentHeaders),
         },
-        body: { mode: targetMode, message: value, history },
+        body: {
+          conversation_id: conversationId.startsWith("wc_") ? conversationId : undefined,
+          mode: targetMode,
+          message: value,
+          history,
+        },
         signal: controller.signal,
       });
       const panel = payload.panel as CommerceContextTab;
@@ -1264,8 +1341,10 @@ export function CommerceWorkspace({
       if (products.length) setCatalogProducts(products);
       updateConversation(targetMode, conversationId, (conversation) => ({
         ...conversation,
-        messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: payload.message ?? "I need a little more context.", meta: "Context updated", products, toolCalls: payload.tool_calls ?? [] } : message),
+        id: payload.conversation_id,
+        messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: payload.message ?? "I need a little more context.", meta: "Context updated", products, toolCalls: payload.tool_calls ?? [], proposals: payload.proposals ?? [] } : message),
       }));
+      setSelectedByMode((current) => ({ ...current, [targetMode]: payload.conversation_id }));
       if (panel) openContext(panel);
     } catch (error) {
       if (!controller.signal.aborted) {
@@ -1277,6 +1356,50 @@ export function CommerceWorkspace({
     } finally {
       if (responseAbortRef.current === controller) responseAbortRef.current = null;
       if (targetMode === mode) setRunning(false);
+    }
+  }
+
+  async function confirmProposal(messageId: string, proposal: AgentProposalView) {
+    if (proposal.proposal_type !== "PURCHASE_REQUEST" || confirmingProposal) return;
+    const intent = proposal.payload.intent;
+    if (typeof intent !== "string" || intent.trim().length < 10) return;
+    const visibility = proposal.payload.visibility === "PRIVATE" ? "PRIVATE" : "SELECTIVE";
+    setConfirmingProposal(proposal.proposal_hash);
+    try {
+      const created = await getBrowserApiClient().request("create_decision_request", {
+        headers: buyerDevelopmentHeaders,
+        idempotencyKey: `agent-proposal-${proposal.proposal_hash.replace("sha256:", "")}`,
+        body: { intent: intent.trim(), visibility },
+      });
+      await getBrowserApiClient().request("discover_decision_request", {
+        headers: buyerDevelopmentHeaders,
+        pathParams: { request_id: created.id },
+        idempotencyKey: `discover-${created.id}`,
+      });
+      if (selectedConversation) {
+        updateConversation("sira", selectedConversation.id, (conversation) => ({
+          ...conversation,
+          messages: conversation.messages.map((message) => message.id === messageId ? {
+            ...message,
+            meta: "Decision created",
+            proposals: message.proposals?.filter((item) => item.proposal_hash !== proposal.proposal_hash),
+          } : message),
+        }));
+      }
+      setContextTab("decisions");
+      setContextOpen(true);
+    } catch (error) {
+      if (selectedConversation) {
+        updateConversation("sira", selectedConversation.id, (conversation) => ({
+          ...conversation,
+          messages: conversation.messages.map((message) => message.id === messageId ? {
+            ...message,
+            meta: error instanceof Error ? error.message : "Could not create decision",
+          } : message),
+        }));
+      }
+    } finally {
+      setConfirmingProposal(null);
     }
   }
 
@@ -1402,6 +1525,23 @@ export function CommerceWorkspace({
                       {message.products.map((product) => <ProductCard key={product.id} product={product} compact onSelect={(selected) => { setSelectedProduct(selected); openContext("product"); }} />)}
                     </div>
                   ) : null}
+                  {message.proposals?.map((proposal) => (
+                    <section className={styles.proposalCard} key={proposal.proposal_hash}>
+                      <div>
+                        <span>Requires your confirmation</span>
+                        <strong>{proposal.proposal_type === "PURCHASE_REQUEST" ? "Create this buying decision" : proposal.proposal_type.replaceAll("_", " ")}</strong>
+                        {typeof proposal.payload.intent === "string" ? <p>{proposal.payload.intent}</p> : null}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={proposal.proposal_type !== "PURCHASE_REQUEST" || confirmingProposal !== null}
+                        onClick={() => void confirmProposal(message.id, proposal)}
+                      >
+                        {confirmingProposal === proposal.proposal_hash ? "Creating…" : "Confirm and create"}
+                        <ArrowRight aria-hidden="true" />
+                      </button>
+                    </section>
+                  ))}
                 </article>
               )
             ))}
@@ -1427,10 +1567,14 @@ export function CommerceWorkspace({
             />
             <div className={styles.composerToolbar}>
               <div>
-                <input className={styles.hiddenFileInput} ref={fileInputRef} type="file" onChange={handleFile} />
-                <button type="button" onClick={() => fileInputRef.current?.click()} aria-label="Add company context" title="Add company context">
-                  <Paperclip aria-hidden="true" />
-                </button>
+                {WEB_DATA_MODE === "fixture" ? (
+                  <>
+                    <input className={styles.hiddenFileInput} ref={fileInputRef} type="file" onChange={handleFile} />
+                    <button type="button" onClick={() => fileInputRef.current?.click()} aria-label="Preview company context attachment" title="Preview company context attachment">
+                      <Paperclip aria-hidden="true" />
+                    </button>
+                  </>
+                ) : null}
               </div>
               <div className={styles.composerActions}>
                 {modeLocked ? (

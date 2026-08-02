@@ -56,6 +56,15 @@ export interface ActiveOperation {
 
 export type ActorRole = "REQUESTER" | "DECISION_MAKER" | "POLICY_REVIEWER" | "BUDGET_OWNER" | "PROCUREMENT" | "CARDHOLDER" | "IT_OPERATIONS" | "AUDITOR" | "SELLER_EDITOR" | "SELLER_REVIEWER" | "PLATFORM_OPERATOR";
 
+export interface AgentProposalView {
+  advisory_only?: boolean;
+  payload: { [key: string]: unknown; };
+  proposal_hash: string;
+  proposal_type: string;
+  ranking_effect?: boolean;
+  requires_human_action?: boolean;
+}
+
 export interface ApprovalCreate {
   actor_role: string;
   intent_hash: string;
@@ -1376,6 +1385,7 @@ export interface WorkflowView {
 }
 
 export interface WorkspaceChatCreate {
+  conversation_id?: string | null;
   history?: WorkspaceMessage[];
   message: string;
   mode?: "sira" | "seil";
@@ -1383,16 +1393,28 @@ export interface WorkspaceChatCreate {
 
 export interface WorkspaceChatView {
   advisory_only?: boolean;
+  conversation_id: string;
   follow_up_required?: boolean;
   message: string;
   panel?: "run" | "catalog" | "connectors" | "decisions" | "inbox";
   products?: CatalogProductView[];
+  proposals?: AgentProposalView[];
   tool_calls?: string[];
+}
+
+export interface WorkspaceConversationView {
+  id: string;
+  messages: WorkspaceMessage[];
+  mode: "sira" | "seil";
+  title: string;
+  updated_at: string;
 }
 
 export interface WorkspaceMessage {
   content: string;
+  proposals?: AgentProposalView[];
   role: "user" | "assistant";
+  tool_calls?: string[];
 }
 
 export interface Operations {
@@ -1446,6 +1468,7 @@ export interface Operations {
   workspace_catalog: { method: "GET"; path: "/v1/workspace/catalog"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: CatalogProductView[]; requiresIdempotency: false; };
   workspace_chat: { method: "POST"; path: "/v1/workspace/chat"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: WorkspaceChatCreate; response: WorkspaceChatView; requiresIdempotency: false; };
   workspace_connectors: { method: "GET"; path: "/v1/workspace/connectors"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: ConnectorView[]; requiresIdempotency: false; };
+  workspace_conversations: { method: "GET"; path: "/v1/workspace/conversations"; pathParams: Record<never, never>; queryParams: { mode: "sira" | "seil"; }; body: never; response: WorkspaceConversationView[]; requiresIdempotency: false; };
   workspace_product: { method: "GET"; path: "/v1/workspace/catalog/{product_id}"; pathParams: { product_id: string; }; queryParams: Record<never, never>; body: never; response: CatalogProductView; requiresIdempotency: false; };
 }
 
