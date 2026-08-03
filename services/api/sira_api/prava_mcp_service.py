@@ -44,12 +44,23 @@ class PravaMcpConnectionService:
         self.redirect_uri = f"{web_base_url.rstrip('/')}/prava/connect/return"
         del public_base_url
 
-    async def begin(self, *, organization_id: str, actor_id: str) -> dict[str, str]:
+    async def begin(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        loopback_port: int | None = None,
+    ) -> dict[str, str]:
+        redirect_uri = (
+            f"http://127.0.0.1:{loopback_port}/callback"
+            if loopback_port is not None
+            else self.redirect_uri
+        )
         pkce = PkceAuthorization.create()
         oauth = PravaMcpOAuthClient()
         try:
             try:
-                client_id = await oauth.register(redirect_uri=self.redirect_uri)
+                client_id = await oauth.register(redirect_uri=redirect_uri)
             except ProviderError:
                 raise ApiProblem(
                     code="PRAVA_OAUTH_CALLBACK_NOT_ALLOWLISTED",
@@ -71,14 +82,14 @@ class PravaMcpConnectionService:
                     encrypted_code_verifier=self.cipher.encrypt_json(
                         {"verifier": pkce.verifier}
                     ),
-                    redirect_uri=self.redirect_uri,
+                    redirect_uri=redirect_uri,
                     expires_at=datetime.now(UTC) + timedelta(minutes=10),
                     consumed_at=None,
                 )
             )
         authorization_url = oauth.authorization_url(
             client_id=client_id,
-            redirect_uri=self.redirect_uri,
+            redirect_uri=redirect_uri,
             pkce=PkceAuthorization(
                 state=state,
                 verifier=pkce.verifier,

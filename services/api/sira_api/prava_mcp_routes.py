@@ -24,6 +24,10 @@ class PravaConnectView(BaseModel):
     authorization_url: str
 
 
+class PravaConnectCreate(BaseModel):
+    loopback_port: int | None = Field(default=None, ge=1024, le=65535)
+
+
 class PravaCallbackCreate(BaseModel):
     state: str = Field(min_length=16, max_length=256)
     code: str = Field(min_length=8, max_length=2048)
@@ -56,13 +60,14 @@ def _service(request: Request) -> PravaMcpConnectionService:
 
 @router.post("/v1/connectors/prava/connect", response_model=PravaConnectView, tags=["commerce"])
 async def connect_prava(
-    request: Request, context: ContextDependency
+    body: PravaConnectCreate, request: Request, context: ContextDependency
 ) -> dict[str, str]:
     require_human_identity(context)
     require_permission(context, "can_execute_purchase", require_step_up=True)
     return await _service(request).begin(
         organization_id=context.organization_id,
         actor_id=context.actor_id,
+        loopback_port=body.loopback_port,
     )
 
 

@@ -900,6 +900,7 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
                       void fetch("/v1/connectors/prava/connect", {
                         method: "POST",
                         headers: { "Content-Type": "application/json", ...buyerDevelopmentHeaders },
+                        body: "{}",
                       })
                         .then(async (response) => {
                           if (!response.ok) throw new Error("Prava connection failed");
