@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
 import { buyerDevelopmentHeaders, getBrowserApiClient } from "@/lib/api";
 
 export default function PravaReturnPage() {
-  const search = useSearchParams();
   const [message, setMessage] = useState("Confirming Prava authorization…");
 
   useEffect(() => {
+    const search = new URLSearchParams(window.location.search);
     const state = search.get("state");
     const returnUrl = search.get("return_url");
     if (!state || !returnUrl) {
@@ -23,7 +22,7 @@ export default function PravaReturnPage() {
       })
       .then(() => window.location.replace(returnUrl))
       .catch(() => setMessage("Prava authorization could not be confirmed. Return to SIRA and retry."));
-  }, [search]);
+  }, []);
 
   return (
     <main style={{ display: "grid", minHeight: "100vh", placeItems: "center", padding: "2rem" }}>
