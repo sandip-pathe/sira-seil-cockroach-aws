@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 
 import psycopg
 from psycopg import sql
 
-from persistence.database import EXPECTED_ALEMBIC_HEADS, _POSTGRES_RUNTIME_ROLE_QUERY
+from persistence.database import (
+    EXPECTED_ALEMBIC_HEADS,
+    Database,
+    DatabaseSettings,
+    _POSTGRES_RUNTIME_ROLE_QUERY,
+)
 
 
 ROLE_NAME = "sira_runtime"
@@ -84,6 +90,16 @@ def main() -> None:
                 raise RuntimeError(
                     f"unexpected Alembic heads: {sorted(revisions)}"
                 )
+
+    async def verify_async_runtime() -> None:
+        database = Database(DatabaseSettings(database_url=os.environ["DATABASE_URL"]))
+        try:
+            if not await database.is_ready():
+                raise RuntimeError("async runtime database verification failed")
+        finally:
+            await database.close()
+
+    asyncio.run(verify_async_runtime())
 
 
 if __name__ == "__main__":
