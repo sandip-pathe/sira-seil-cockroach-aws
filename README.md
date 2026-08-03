@@ -1,193 +1,99 @@
-# SIRA + SEIL
+# Seilnsara
 
-SIRA + SEIL is a pair of B2B commerce agents that help companies buy and sell.
+> **SIRA represents the buyer. SEIL represents the seller. Together they find the right fit and complete the deal.**
 
-- **SIRA is the buying agent.** It helps a company describe what it needs, compare the
-  available options for that company, choose an action, get the right approvals, and
-  complete the purchase or other next step.
-- **SEIL is the selling agent.** It helps a B2B company present what it sells, answer buyer
-  questions, prove where the product fits, and move qualified buyers toward a sale.
+Seilnsara is a two-sided agentic marketplace for B2B software.
 
-The product vision covers B2B products and services. This repository currently implements
-the first software-commerce demo: buyer decisions, seller product evidence, approval,
-controlled checkout, fulfillment verification, receipts, and company software-stack updates.
-The `consultco_v1` development data is deterministic and explicitly non-production.
-PostgreSQL is canonical, and purchase authority remains bound to exact immutable hashes.
+- **SIRA** learns what a company needs, protects its private context, finds relevant products, and decides for the buyer.
+- **SEIL** learns a product's positioning, capabilities, evidence, pricing, and limitations. It makes the strongest honest case—or returns `PASS` when the product is wrong for that buyer.
+- **Together**, the agents exchange permitted requirements, evidence, questions, and offers. Once the buyer approves a match, Prava gives the exact transaction bounded payment authority.
 
-`docs/BUILD_SPEC.md` controls this build sequence. `docs/PRD.md` controls product meaning
-and security boundaries.
+## Why two agents?
 
-## Product and implementation documents
+The buyer understands the company. The seller understands the product. Today, both sides waste time reconstructing the missing half through search, forms, sales calls, and generic demos.
 
-- [UI redesign and outsourcing specification](docs/UI_OUTSOURCING_SPEC.md) — page inventory,
-  target user flows, endpoint reference, frontend requirements, and acceptance criteria.
-- [Build specification](docs/BUILD_SPEC.md) — first-build execution contract.
-- [Product requirements](docs/PRD.md) — product meaning, authority, and privacy boundaries.
-- [Design background](DESIGN.md) — semantic and interaction background; the current visual
-  treatment is not the required reference for the UI redesign.
+Buyer agents still have to infer the product. Seller agents still have to guess the buyer. Seilnsara gives each side an agent with a clear loyalty—and a shared path from understanding to transaction.
 
-## Prerequisites on Windows
+## Product flow
 
-- Git
-- Node.js 22 or newer with Corepack
+1. The buyer tells SIRA what the company is trying to solve.
+2. SIRA creates a requirement brief containing only what the buyer permits it to share.
+3. Relevant SEILs respond with product evidence, limitations, questions, pricing, and terms.
+4. SIRA compares the responses and recommends the best-supported fit for that company.
+5. The buyer approves the exact offer, and Prava enables the approved transaction.
+
+No paid ranking. No seller access to private buyer context. SEIL gets a voice; SIRA keeps the buyer's vote.
+
+## Demo status
+
+The repository includes a deterministic, fictional `consultco_v1` demo that shows company-aware evaluation, seller `PASS`, comparison, approval, and the purchase-authority flow.
+
+It is not evidence of a production deployment or a real-money purchase. Live Prava completion, live Senso retrieval, real seller-maintained product knowledge, and outcome learning must be demonstrated separately before they are claimed.
+
+## Run locally
+
+### Requirements
+
+- Node.js 22+
 - Python 3.12 or 3.13
-- Docker Desktop for the recommended backend setup, or PostgreSQL 17 for a manual setup
+- Docker Desktop with Compose
 
-## Recommended Docker backend
-
-Docker provisions PostgreSQL, the administrative owner, the restricted runtime login, both
-local databases, Alembic migrations, and the API in dependency order. From PowerShell:
+### Start the complete local stack
 
 ```powershell
-Set-Location <path-to-repository>
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 docker compose up --build -d --wait api
-docker compose ps
-Invoke-RestMethod http://127.0.0.1:8000/health
-```
-
-Health is ready only when the API connects directly as `sira_runtime`, that login is neither
-superuser nor `BYPASSRLS`, it owns no tenant tables/schema/database, and PostgreSQL is at the
-committed Alembic head. Compose publishes PostgreSQL and the API on `127.0.0.1` only.
-
-If port 8000 is occupied, select another host port without changing the container:
-
-```powershell
-$env:SIRA_API_PORT = "18000"
-docker compose up -d --wait api
-Invoke-RestMethod http://127.0.0.1:18000/health
-```
-
-The defaults in `.env.example` are local-development credentials. Set
-`POSTGRES_BOOTSTRAP_PASSWORD` before PostgreSQL initializes its named volume, and override
-the owner/runtime passwords before sharing an environment. When changing an owner/runtime
-role, password, or database name, update the paired `SIRA_DOCKER_DATABASE_ADMIN_URL` and
-`SIRA_DOCKER_DATABASE_URL`; percent-encode passwords in URLs. Keep administrative URLs
-limited to migration/test commands; the API and worker always use the separate runtime login.
-
-On an initialized volume, `POSTGRES_BOOTSTRAP_PASSWORD` must continue to match the password
-stored by PostgreSQL. To rotate it, first run the following command, complete the interactive
-prompt, then update `.env`:
-
-```powershell
-docker compose exec postgres psql -U sira -d postgres -c '\password sira'
-```
-
-Changing only the environment value cannot rotate an existing PostgreSQL role.
-
-`docker compose down` stops the stack and preserves PostgreSQL data. Do not add `--volumes`
-unless you intentionally want to erase the local databases.
-
-## Fresh setup without Docker
-
-Run these commands from PowerShell after cloning or copying the repository:
-
-```powershell
-Set-Location <path-to-repository>
-git switch core-backend
 corepack prepare pnpm@11.9.0 --activate
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup.ps1
-```
-
-The setup script installs the frozen Node and Python dependencies and creates `.env` from
-`.env.example`. In pgAdmin, create a local application database named `sira` and a separate
-test database named `sira_test`. Use different logins for runtime and administration:
-
-```dotenv
-DATABASE_URL=postgresql+asyncpg://<restricted-runtime>:<url-encoded-password>@localhost:5432/sira
-DATABASE_ADMIN_URL=postgresql+psycopg://<owner-admin>:<url-encoded-password>@localhost:5432/sira
-```
-
-For a non-development deployment, also set `BROWSER_RETURN_SIGNING_KEY` to a stable,
-cryptographically random value of at least 32 bytes. Rotating it invalidates outstanding
-hosted-checkout returns. `WORKER_ORGANIZATION_IDS` is the comma-separated allowlist of tenants
-whose RLS-scoped checkout outbox the worker may dispatch.
-
-Apply all migrations:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\migrate.ps1
-```
-
-## Start locally
-
-Open one PowerShell window for each process:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-api.ps1
-```
-
-```powershell
+corepack pnpm install --frozen-lockfile
 corepack pnpm dev:web
 ```
 
-The API is at `http://127.0.0.1:8000`, interactive API documentation is at
-`http://127.0.0.1:8000/docs`, and the intentionally minimal web shell is at
-`http://localhost:3000`.
+Open:
 
-The deterministic development flow runs with `DEVELOPMENT_FIXTURE_MODE=true`. Only the labelled
-fixture quote uses its fixed as-of time so it cannot expire merely because the demo is run later;
-approval, provider-session, browser-return, reversal, and outcome clocks continue to use real
-UTC time. Start the durable checkout worker only after Temporal and the real provider settings
-are configured:
+- Web app: <http://localhost:3000>
+- API: <http://127.0.0.1:8000>
+- API documentation: <http://127.0.0.1:8000/docs>
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-worker.ps1
-```
+The default local experience uses clearly labelled fictional data. Provider-backed execution requires the corresponding credentials and services configured in `.env`.
 
-The equivalent container is opt-in and intentionally fails closed when Temporal or provider
-configuration is missing:
-
-```powershell
-docker compose --profile worker up -d worker
-```
-
-Compose passes configured Prava and controlled-merchant values to the API so hosted-session
-creation can run, and to the optional worker for checkout execution. The worker still requires
-a reachable Temporal service; the repository deliberately does not start one.
-
-## Verify
-
-Run every environment-independent check:
+### Verify the repository
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1
 ```
 
-This runs Python lint and formatting checks, strict type checking, tests with the 75%
-coverage gate, OpenAPI drift detection, web/client checks, and a credential scan. With no
-database or provider credentials, deterministic tests still run and the live PostgreSQL
-test is reported as skipped.
+This runs formatting, linting, type checks, tests, contract checks, coverage checks, and credential scanning. PostgreSQL and provider-dependent checks report their exact blockers when their required services are unavailable.
 
-To run all eight live PostgreSQL tests against Docker's dedicated test database:
+## Product
 
-```powershell
-$env:SIRA_TEST_DATABASE_ADMIN_URL = "postgresql+psycopg://sira:<url-encoded-bootstrap-password>@127.0.0.1:5432/sira_test"
-.\.venv\Scripts\python.exe -m pytest tests\integration\test_persistence.py -m postgres -q
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1
-Remove-Item Env:SIRA_TEST_DATABASE_ADMIN_URL
-```
+### SIRA — buyer workspace
 
-The test refuses non-PostgreSQL URLs and any database not named `sira_test` or
-`sira_test_*`. It migrates and writes fixtures but never creates or drops a database.
+![SIRA buyer workspace gathering company context and protecting the buyer boundary](docs/screenshots/sira-buyer-workspace.png)
 
-Running the repository directly on the PostgreSQL laptop is the simplest arrangement. If
-this machine must connect to PostgreSQL on that laptop, use an SSH or Tailscale tunnel and
-point both database URLs at the tunnel; do not expose port 5432 to the public internet.
+### SEIL — seller workspace
 
-## Live integration setup still required
+![SEIL seller workspace showing product evidence readiness](docs/screenshots/seil-seller-workspace.png)
 
-Real execution requires the empty provider values in `.env.example`: four separately
-scoped Senso keys, Prava hosted-checkout configuration, controlled-merchant credentials,
-an OpenAI key for the optional agent adapter, and Temporal. A production identity adapter
-must also be supplied by the deployment. Fixture adapters never claim production success,
-and Prava's one-time payment credential exists only inside the isolated checkout call.
+Read the concise [product one-pager](docs/business/ONE_PAGER.md).
 
-When the OpenAPI surface changes, regenerate and verify the frozen contract and client:
+## How the marketplace works
 
-```powershell
-.\.venv\Scripts\python.exe scripts\generate_openapi.py
-corepack pnpm generate:client
-.\.venv\Scripts\python.exe scripts\generate_openapi.py --check
-corepack pnpm check:web
-```
+![SIRA and SEIL product-company fit workflow](diagrams/product-company-fit-workflow.svg)
+
+## Product knowledge flywheel
+
+![SIRA and SEIL product-company fit flywheel](diagrams/product-company-fit-flywheel.svg)
+
+## Technology
+
+Next.js and React power the two workspaces. FastAPI and PostgreSQL hold the product and transaction state. OpenAI supports structured agent reasoning, Senso supplies evidence retrieval, Prava provides payment authority, and Temporal coordinates durable execution.
+
+The model may propose and explain. Deterministic application code owns eligibility, ranking, approval, and payment boundaries.
+
+## Current scope
+
+The initial product is for B2B software decisions:
+
+- **Buyers:** operations, IT, finance, and functional leaders choosing software.
+- **Sellers:** software companies that want their product represented accurately to qualified buyers.
+- **Business model:** buyer-paid assisted purchasing first; seller workspaces and integrations later, never pay-to-rank.
