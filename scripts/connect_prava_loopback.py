@@ -19,7 +19,7 @@ def _request(url: str, *, headers: dict[str, str], body: dict[str, object]) -> d
         headers={"Content-Type": "application/json", **headers},
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
+    with urllib.request.urlopen(request, timeout=30) as response:
         payload = json.load(response)
     if not isinstance(payload, dict):
         raise RuntimeError("SIRA returned an invalid response")
