@@ -95,7 +95,15 @@ def main() -> None:
                 )
 
     async def verify_async_runtime() -> None:
-        database = Database(DatabaseSettings(database_url=os.environ["DATABASE_URL"]))
+        database = Database(
+            DatabaseSettings(
+                database_url=os.environ["DATABASE_URL"],
+                allow_unsafe_database_role=(
+                    os.environ.get("ALLOW_UNSAFE_DATABASE_ROLE", "false").lower()
+                    == "true"
+                ),
+            )
+        )
         try:
             if not await database.is_ready():
                 raise RuntimeError("async runtime database verification failed")
