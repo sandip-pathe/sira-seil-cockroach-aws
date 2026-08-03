@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+import logging
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,6 +17,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 EXPECTED_ALEMBIC_HEADS = frozenset({"f8c1d2e3a4b5"})
+logger = logging.getLogger(__name__)
 
 _POSTGRES_RUNTIME_ROLE_QUERY = text(
     """
@@ -232,6 +234,7 @@ class Database:
 
                 role_state = (await connection.execute(_POSTGRES_RUNTIME_ROLE_QUERY)).one_or_none()
                 if role_state is None or any(bool(value) for value in role_state):
+                    logger.error("Database runtime role safety verification failed")
                     return False
 
                 revisions = frozenset(
@@ -242,6 +245,10 @@ class Database:
                         )
                     ).scalars()
                 )
-                return revisions == expected_alembic_heads
+                ready = revisions == expected_alembic_heads
+                if not ready:
+                    logger.error("Database schema revision verification failed")
+                return ready
         except Exception:
+            logger.exception("Database readiness check failed")
             return False
