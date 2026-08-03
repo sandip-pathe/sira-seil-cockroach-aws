@@ -28,6 +28,62 @@ class _AgentAnswer(BaseModel):
     show_catalog: bool = False
 
 
+_CATALOG_PRESENTATION: dict[str, dict[str, str]] = {
+    "product_fixture_d": {
+        "category": "Meeting intelligence",
+        "deployment": "1 business day",
+        "fit": "Best company fit",
+        "why_company": "Fits a ten-consultant team, keeps client conversations private, and works with the tools already in use.",
+        "admin_effort": "Low",
+        "evidence_freshness": "Reviewed 2 days ago",
+        "requirement_coverage": "4 of 4 key needs",
+        "limitation": "Advanced retention policies and SCIM require the Enterprise edition.",
+        "logo_url": "/product-logos/northstar.svg",
+        "logo_tone": "teal",
+        "seats": "10–50 seats",
+    },
+    "product_fixture_c": {
+        "category": "Conversation intelligence",
+        "deployment": "3–5 business days",
+        "fit": "Supported alternative",
+        "why_company": "Covers the current stack and privacy needs, but needs a named workspace administrator for rollout and policy changes.",
+        "admin_effort": "Medium",
+        "evidence_freshness": "Reviewed 6 days ago",
+        "requirement_coverage": "4 of 4 key needs",
+        "limitation": "Implementation includes a two-hour admin setup session and ongoing workspace ownership.",
+        "logo_url": "/product-logos/relayiq.svg",
+        "logo_tone": "blue",
+        "seats": "10–100 seats",
+    },
+    "product_fixture_b": {
+        "category": "AI meeting assistant",
+        "deployment": "1 business day",
+        "fit": "Internal teams only",
+        "why_company": "The lowest-friction option for internal meetings, but it cannot isolate access for shared client workspaces.",
+        "admin_effort": "Low",
+        "evidence_freshness": "Reviewed 12 days ago",
+        "requirement_coverage": "3 of 4 key needs",
+        "limitation": "Restricted external-client workspaces are not available on the Team plan.",
+        "logo_url": "/product-logos/briefly.svg",
+        "logo_tone": "plum",
+        "seats": "5–50 seats",
+    },
+    "product_fixture_a": {
+        "category": "AI meeting notes",
+        "deployment": "Same day",
+        "fit": "Policy mismatch",
+        "why_company": "Affordable and quick to roll out, but its model-improvement terms conflict with the client-data requirement.",
+        "admin_effort": "Low",
+        "evidence_freshness": "Reviewed 8 days ago",
+        "requirement_coverage": "2 of 4 key needs",
+        "limitation": "The Starter terms allow customer content to be used for general model improvement.",
+        "logo_url": "/product-logos/memoflow.svg",
+        "logo_tone": "gold",
+        "seats": "Up to 25 seats",
+    },
+}
+
+
 class WorkspaceService:
     def __init__(
         self,
@@ -83,20 +139,20 @@ class WorkspaceService:
             ][:4]
             angles = pack.get("positioning_angles", [])
             summary = str(angles[0]["text"]) if angles else "Published seller Product Evidence."
-            products.append(
-                {
-                    "id": str(pack["product_id"]),
-                    "name": str(identity["product_name"]),
-                    "seller": str(identity["seller_name"]),
-                    "edition": str(identity.get("edition", "")),
-                    "price": f"{offer['currency']} {offer['amount']}",
-                    "billing_unit": str(offer["billing_unit"]),
-                    "status": str(pack["status"]),
-                    "summary": summary,
-                    "claims": claims,
-                    "integrations": integrations,
-                }
-            )
+            product = {
+                "id": str(pack["product_id"]),
+                "name": str(identity["product_name"]),
+                "seller": str(identity["seller_name"]),
+                "edition": str(identity.get("edition", "")),
+                "price": f"{offer['currency']} {offer['amount']}",
+                "billing_unit": str(offer["billing_unit"]),
+                "status": str(pack["status"]),
+                "summary": summary,
+                "claims": claims,
+                "integrations": integrations,
+            }
+            product.update(_CATALOG_PRESENTATION.get(str(pack["product_id"]), {}))
+            products.append(product)
         return products
 
     def product(self, product_id: str) -> dict[str, Any] | None:

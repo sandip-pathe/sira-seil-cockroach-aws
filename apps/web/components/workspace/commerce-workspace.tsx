@@ -37,6 +37,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   useEffect,
   useRef,
@@ -82,6 +83,7 @@ type CatalogProduct = {
   evidence_freshness?: string;
   requirement_coverage?: string;
   limitation?: string;
+  logo_url?: string;
   logo?: string;
   logo_tone?: "blue" | "gold" | "plum" | "teal";
   seats?: string;
@@ -152,7 +154,7 @@ const FIXTURE_CATALOG: CatalogProduct[] = [
     evidence_freshness: "Reviewed 2 days ago",
     requirement_coverage: "4 of 4 key needs",
     limitation: "Advanced governance controls require the Enterprise edition.",
-    logo: "N",
+    logo_url: "/product-logos/northstar.svg",
     logo_tone: "teal",
     seats: "Up to 50 seats",
   },
@@ -180,7 +182,7 @@ const FIXTURE_CATALOG: CatalogProduct[] = [
     evidence_freshness: "Reviewed 6 days ago",
     requirement_coverage: "4 of 4 key needs",
     limitation: "Ongoing administration is heavier than the preferred operating model.",
-    logo: "R",
+    logo_url: "/product-logos/relayiq.svg",
     logo_tone: "blue",
     seats: "Up to 100 seats",
   },
@@ -208,7 +210,7 @@ const FIXTURE_CATALOG: CatalogProduct[] = [
     evidence_freshness: "Reviewed 12 days ago",
     requirement_coverage: "3 of 4 key needs",
     limitation: "Restricted shared client workspaces are not supported.",
-    logo: "B",
+    logo_url: "/product-logos/briefly.svg",
     logo_tone: "plum",
     seats: "Up to 50 seats",
   },
@@ -236,7 +238,7 @@ const FIXTURE_CATALOG: CatalogProduct[] = [
     evidence_freshness: "Reviewed 8 days ago",
     requirement_coverage: "2 of 4 key needs",
     limitation: "Customer content may be used for general model improvement.",
-    logo: "M",
+    logo_url: "/product-logos/memoflow.svg",
     logo_tone: "gold",
     seats: "Up to 25 seats",
   },
@@ -1023,7 +1025,14 @@ function ProductLogo({ product, large = false }: { product: CatalogProduct; larg
       data-tone={product.logo_tone ?? "teal"}
       aria-hidden="true"
     >
-      {product.logo ?? fallback}
+      {product.logo_url ? (
+        <Image
+          src={product.logo_url}
+          alt={`${product.name} logo`}
+          width={large ? 58 : 42}
+          height={large ? 58 : 42}
+        />
+      ) : product.logo ?? fallback}
     </span>
   );
 }

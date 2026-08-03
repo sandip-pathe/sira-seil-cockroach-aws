@@ -32,6 +32,17 @@ class CatalogProductView(BaseModel):
     summary: str
     claims: list[str]
     integrations: list[str]
+    category: str | None = None
+    deployment: str | None = None
+    fit: str | None = None
+    why_company: str | None = None
+    admin_effort: str | None = None
+    evidence_freshness: str | None = None
+    requirement_coverage: str | None = None
+    limitation: str | None = None
+    logo_url: str | None = None
+    logo_tone: Literal["blue", "gold", "plum", "teal"] | None = None
+    seats: str | None = None
 
 
 class AgentProposalView(BaseModel):
