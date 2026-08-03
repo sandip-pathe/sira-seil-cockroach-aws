@@ -3,8 +3,5 @@
   "build": {
     "builder": "DOCKERFILE",
     "dockerfilePath": "Dockerfile"
-  },
-  "deploy": {
-    "preDeployCommand": "if [ -n \"$DATABASE_ADMIN_URL\" ]; then alembic upgrade head && python scripts/prepare_railway_database.py; fi"
   }
 }
