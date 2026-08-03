@@ -5,6 +5,6 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "preDeployCommand": "alembic upgrade head"
+    "preDeployCommand": "alembic upgrade head && python scripts/prepare_railway_database.py"
   }
 }
