@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 
 from sqlalchemy import select
 
+from integrations.errors import ProviderError
 from integrations.prava.mcp import (
     ConnectorCipher,
     PkceAuthorization,
@@ -47,7 +48,15 @@ class PravaMcpConnectionService:
         pkce = PkceAuthorization.create()
         oauth = PravaMcpOAuthClient()
         try:
-            client_id = await oauth.register(redirect_uri=self.redirect_uri)
+            try:
+                client_id = await oauth.register(redirect_uri=self.redirect_uri)
+            except ProviderError:
+                raise ApiProblem(
+                    code="PRAVA_OAUTH_CALLBACK_NOT_ALLOWLISTED",
+                    message="Prava has not allowlisted this application's secure callback yet.",
+                    status_code=409,
+                    next_action="allowlist_prava_callback",
+                ) from None
         finally:
             await oauth.aclose()
         state = self.signer.issue()

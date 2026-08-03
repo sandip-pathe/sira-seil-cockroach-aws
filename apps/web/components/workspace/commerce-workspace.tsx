@@ -855,6 +855,7 @@ function SeilWorkPanel() {
 function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [connectingPrava, setConnectingPrava] = useState(false);
+  const [pravaError, setPravaError] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ["workspace-connectors", mode],
     enabled: WEB_DATA_MODE === "api" && mode === "sira",
@@ -895,6 +896,7 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
                     disabled={connectingPrava}
                     onClick={() => {
                       setConnectingPrava(true);
+                      setPravaError(null);
                       void fetch("/v1/connectors/prava/connect", {
                         method: "POST",
                         headers: { "Content-Type": "application/json", ...buyerDevelopmentHeaders },
@@ -904,12 +906,16 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
                           const payload = await response.json() as { authorization_url: string };
                           window.location.assign(payload.authorization_url);
                         })
-                        .catch(() => setConnectingPrava(false));
+                        .catch(() => {
+                          setConnectingPrava(false);
+                          setPravaError("Prava must allowlist https://sira-seil.vercel.app/prava/connect/return before secure connection can open.");
+                        });
                     }}
                   >
                     {connectingPrava ? "Opening Prava…" : "Connect Prava securely"}
                   </button>
                 ) : null}
+                {mode === "sira" && connector.name === "Prava" && pravaError ? <p>{pravaError}</p> : null}
               </div>
             ) : null}
           </article>
