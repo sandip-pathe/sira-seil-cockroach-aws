@@ -7,6 +7,8 @@ import os
 import psycopg
 from psycopg import sql
 
+from persistence.database import EXPECTED_ALEMBIC_HEADS, _POSTGRES_RUNTIME_ROLE_QUERY
+
 
 ROLE_NAME = "sira_runtime"
 
@@ -60,6 +62,28 @@ def main() -> None:
                 "GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {}"
             ).format(role)
         )
+
+    runtime_url = os.environ["DATABASE_URL"].replace(
+        "postgresql+asyncpg://", "postgresql://", 1
+    )
+    with psycopg.connect(runtime_url) as runtime_connection:
+        with runtime_connection.cursor() as cursor:
+            cursor.execute(str(_POSTGRES_RUNTIME_ROLE_QUERY))
+            role_state = cursor.fetchone()
+            assert role_state is not None
+            unsafe = [
+                column.name
+                for column, value in zip(cursor.description or (), role_state, strict=True)
+                if bool(value)
+            ]
+            if unsafe:
+                raise RuntimeError("unsafe runtime database role: " + ", ".join(unsafe))
+            cursor.execute("SELECT version_num FROM public.alembic_version")
+            revisions = frozenset(str(row[0]) for row in cursor.fetchall())
+            if revisions != EXPECTED_ALEMBIC_HEADS:
+                raise RuntimeError(
+                    f"unexpected Alembic heads: {sorted(revisions)}"
+                )
 
 
 if __name__ == "__main__":
