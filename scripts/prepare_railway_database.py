@@ -24,6 +24,9 @@ def main() -> None:
         "postgresql+psycopg://", "postgresql://", 1
     )
     password = os.environ["SIRA_DB_RUNTIME_PASSWORD"]
+    rotate_password = (
+        os.environ.get("ROTATE_RUNTIME_DATABASE_PASSWORD", "false").lower() == "true"
+    )
 
     with psycopg.connect(admin_url, autocommit=True) as connection:
         exists = connection.execute(
@@ -36,7 +39,7 @@ def main() -> None:
                     "NOCREATEROLE NOINHERIT NOBYPASSRLS"
                 ).format(sql.Identifier(ROLE_NAME), sql.Literal(password))
             )
-        else:
+        elif rotate_password:
             connection.execute(
                 sql.SQL(
                     "ALTER ROLE {} WITH LOGIN PASSWORD {} NOSUPERUSER NOCREATEDB "
