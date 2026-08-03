@@ -43,6 +43,10 @@ class WorkerSettings(BaseSettings):
     database_url: str = Field(default="", validation_alias="DATABASE_URL")
     temporal_address: str = Field(default="", validation_alias="TEMPORAL_ADDRESS")
     temporal_namespace: str = Field(default="default", validation_alias="TEMPORAL_NAMESPACE")
+    temporal_api_key: SecretStr = Field(
+        default=SecretStr(""), validation_alias="TEMPORAL_API_KEY"
+    )
+    temporal_tls: bool = Field(default=False, validation_alias="TEMPORAL_TLS")
     temporal_task_queue: str = Field(
         default="sira-checkout", validation_alias="TEMPORAL_TASK_QUEUE"
     )
@@ -82,6 +86,8 @@ class WorkerSettings(BaseSettings):
             database_backend = "invalid"
         if self.database_url.strip() and database_backend != "postgresql":
             missing.append("DATABASE_URL_POSTGRESQL")
+        if self.temporal_tls and not self.temporal_api_key.get_secret_value().strip():
+            missing.append("TEMPORAL_API_KEY")
         if missing:
             raise WorkerSetupError(missing)
 
@@ -129,6 +135,8 @@ async def run_worker() -> None:
         temporal = await connect_temporal(
             settings.temporal_address,
             namespace=settings.temporal_namespace,
+            api_key=settings.temporal_api_key.get_secret_value(),
+            tls=settings.temporal_tls,
         )
         coordinator = PersistentCheckoutCoordinator(
             database=database,

@@ -227,8 +227,10 @@ async def test_run_worker_assembles_production_boundaries_and_always_closes(
         async def run(self) -> None:
             events.append("dispatcher.run")
 
-    async def fake_connect(target: str, *, namespace: str) -> object:
-        captured["temporal_connect"] = (target, namespace)
+    async def fake_connect(
+        target: str, *, namespace: str, api_key: str | None, tls: bool
+    ) -> object:
+        captured["temporal_connect"] = (target, namespace, api_key, tls)
         return object()
 
     def fake_coordinator(**kwargs: Any) -> object:
@@ -251,7 +253,12 @@ async def test_run_worker_assembles_production_boundaries_and_always_closes(
     with pytest.raises(RuntimeError, match="worker stopped"):
         await worker_main.run_worker()
 
-    assert captured["temporal_connect"] == ("temporal.test:7233", "test-namespace")
+    assert captured["temporal_connect"] == (
+        "temporal.test:7233",
+        "test-namespace",
+        "",
+        False,
+    )
     assert captured["prava"]["api_hosts"] == frozenset({"api.prava.test"})
     assert captured["prava"]["merchant_hosts"] == frozenset({"merchant.prava.test"})
     assert captured["prava"]["callback_hosts"] == frozenset({"callback.sira.test"})
@@ -335,13 +342,19 @@ def test_temporal_worker_builds_registered_workflow_and_activities(
 async def test_temporal_connection_validates_names_and_delegates(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[tuple[str, str]] = []
+    calls: list[tuple[str, str, str | None, bool]] = []
     sentinel = object()
 
     class FakeClient:
         @staticmethod
-        async def connect(target: str, *, namespace: str) -> object:
-            calls.append((target, namespace))
+        async def connect(
+            target: str,
+            *,
+            namespace: str,
+            api_key: str | None,
+            tls: bool,
+        ) -> object:
+            calls.append((target, namespace, api_key, tls))
             return sentinel
 
     monkeypatch.setattr(temporal, "Client", FakeClient)
@@ -351,7 +364,16 @@ async def test_temporal_connection_validates_names_and_delegates(
             await temporal.connect_temporal(target, namespace=namespace)
 
     assert await temporal.connect_temporal("temporal.test:7233", namespace="testing") is sentinel
-    assert calls == [("temporal.test:7233", "testing")]
+    assert await temporal.connect_temporal(
+        "cloud.temporal.io:7233",
+        namespace="production",
+        api_key="secret",
+        tls=True,
+    ) is sentinel
+    assert calls == [
+        ("temporal.test:7233", "testing", None, False),
+        ("cloud.temporal.io:7233", "production", "secret", True),
+    ]
 
 
 @pytest.mark.asyncio

@@ -38,9 +38,20 @@ def build_worker(
     )
 
 
-async def connect_temporal(target: str, *, namespace: str = "default") -> Client:
-    """Create a Temporal client using only non-secret connection identifiers."""
+async def connect_temporal(
+    target: str,
+    *,
+    namespace: str = "default",
+    api_key: str | None = None,
+    tls: bool = False,
+) -> Client:
+    """Create a Temporal client for self-hosted or Temporal Cloud endpoints."""
 
     if not target.strip() or not namespace.strip():
         raise ValueError("Temporal target and namespace are required")
-    return await Client.connect(target, namespace=namespace)
+    return await Client.connect(
+        target,
+        namespace=namespace,
+        api_key=api_key or None,
+        tls=tls,
+    )
