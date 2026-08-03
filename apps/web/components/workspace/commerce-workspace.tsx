@@ -1391,7 +1391,7 @@ export function CommerceWorkspace({
     const controller = new AbortController();
     responseAbortRef.current = controller;
     try {
-      const history = selectedConversation.messages.slice(-12).map(({ role, content }) => ({ role, content }));
+      const history = selectedConversation.messages.slice(-20).map(({ role, content }) => ({ role, content }));
       const payload = await getBrowserApiClient().request("workspace_chat", {
         headers: {
           ...(targetMode === "seil"
@@ -1412,7 +1412,7 @@ export function CommerceWorkspace({
       updateConversation(targetMode, conversationId, (conversation) => ({
         ...conversation,
         id: payload.conversation_id,
-        messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: payload.message ?? "I need a little more context.", meta: "Context updated", products, toolCalls: payload.tool_calls ?? [], proposals: payload.proposals ?? [] } : message),
+        messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: payload.message ?? "I need a little more context.", meta: products.length ? "Matches ready" : "Context updated", products, toolCalls: payload.tool_calls ?? [], proposals: payload.proposals ?? [] } : message),
       }));
       setSelectedByMode((current) => ({ ...current, [targetMode]: payload.conversation_id }));
       if (panel) openContext(panel);

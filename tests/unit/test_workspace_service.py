@@ -34,6 +34,18 @@ class _CaptureRuntime:
         )
 
 
+class _LoopingRuntime:
+    async def run(self, request: AgentRunRequest) -> AgentRunResult:
+        return AgentRunResult(
+            output={
+                "message": "Who will submit the purchase request?",
+                "follow_up_required": True,
+                "panel": "run",
+                "show_catalog": False,
+            }
+        )
+
+
 def test_catalog_is_derived_from_published_product_evidence() -> None:
     service = WorkspaceService(DemoFixtureBundle.load(), api_key="unused", model="test")
 
@@ -100,3 +112,29 @@ async def test_chat_uses_the_role_specific_tool_allowlist(
     assert runtime.request is not None
     assert runtime.request.allowed_tools == expected_tools
     assert runtime.request.run_context is context
+
+
+@pytest.mark.asyncio
+async def test_sira_stops_discovery_loop_and_shows_results() -> None:
+    service = WorkspaceService(DemoFixtureBundle.load(), api_key="configured", model="test")
+    service.runtime = _LoopingRuntime()  # type: ignore[assignment]
+    history = [
+        {"role": "user", "content": "Meeting notes for ten people"},
+        {"role": "assistant", "content": "What integrations?"},
+        {"role": "user", "content": "HubSpot"},
+        {"role": "assistant", "content": "What timeline?"},
+        {"role": "user", "content": "No deadline"},
+        {"role": "assistant", "content": "What budget?"},
+        {"role": "user", "content": "$100 per seat per month"},
+        {"role": "assistant", "content": "Who approves?"},
+    ]
+
+    result = await service.chat(
+        WorkspaceChatCreate(message="VP Sales", history=history),
+        run_context=_run_context(service),
+    )
+
+    assert result["panel"] == "catalog"
+    assert result["follow_up_required"] is False
+    assert len(result["products"]) == 4
+    assert "enough to show useful options" in result["message"]

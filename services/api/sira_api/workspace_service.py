@@ -9,12 +9,13 @@ from uuid import uuid4
 
 from openai import AuthenticationError, RateLimitError
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import select
-from persistence.database import Database
-from persistence.models import WorkflowRun
 from sira_agents.commerce_tools import SEIL_TOOL_NAMES, SIRA_TOOL_NAMES, commerce_tool_registry
 from sira_agents.runtime import AgentRole, AgentRunContext, AgentRunRequest, OpenAIAgentsRuntime
 from sira_agents.workspace_tools import workspace_tool_registry
+from sqlalchemy import select
+
+from persistence.database import Database
+from persistence.models import WorkflowRun
 
 from .errors import ApiProblem
 from .fixtures import DemoFixtureBundle
@@ -28,55 +29,81 @@ class _AgentAnswer(BaseModel):
     show_catalog: bool = False
 
 
+_SIRA_RESULTS_MESSAGE = (
+    "## I have enough to show useful options\n\n"
+    "I matched the published catalogue against what you shared. I will treat anything still "
+    "unknown as an assumption instead of holding up the search.\n\n"
+    "Open a product to review pricing, fit, evidence, and limitations. From here, I can **compare "
+    "the strongest options** or **prepare a purchase request for your approval**."
+)
+
+
 _CATALOG_PRESENTATION: dict[str, dict[str, str]] = {
     "product_fixture_d": {
         "category": "Meeting intelligence",
         "deployment": "1 business day",
         "fit": "Best company fit",
-        "why_company": "Fits a ten-consultant team, keeps client conversations private, and works with the tools already in use.",
+        "why_company": (
+            "Fits a ten-consultant team, keeps client conversations private, and works "
+            "with the tools already in use."
+        ),
         "admin_effort": "Low",
         "evidence_freshness": "Reviewed 2 days ago",
         "requirement_coverage": "4 of 4 key needs",
         "limitation": "Advanced retention policies and SCIM require the Enterprise edition.",
         "logo_url": "/product-logos/northstar.svg",
         "logo_tone": "teal",
-        "seats": "10–50 seats",
+        "seats": "10-50 seats",
     },
     "product_fixture_c": {
         "category": "Conversation intelligence",
-        "deployment": "3–5 business days",
+        "deployment": "3-5 business days",
         "fit": "Supported alternative",
-        "why_company": "Covers the current stack and privacy needs, but needs a named workspace administrator for rollout and policy changes.",
+        "why_company": (
+            "Covers the current stack and privacy needs, but needs a named workspace "
+            "administrator for rollout and policy changes."
+        ),
         "admin_effort": "Medium",
         "evidence_freshness": "Reviewed 6 days ago",
         "requirement_coverage": "4 of 4 key needs",
-        "limitation": "Implementation includes a two-hour admin setup session and ongoing workspace ownership.",
+        "limitation": (
+            "Implementation includes a two-hour admin setup session and ongoing workspace "
+            "ownership."
+        ),
         "logo_url": "/product-logos/relayiq.svg",
         "logo_tone": "blue",
-        "seats": "10–100 seats",
+        "seats": "10-100 seats",
     },
     "product_fixture_b": {
         "category": "AI meeting assistant",
         "deployment": "1 business day",
         "fit": "Internal teams only",
-        "why_company": "The lowest-friction option for internal meetings, but it cannot isolate access for shared client workspaces.",
+        "why_company": (
+            "The lowest-friction option for internal meetings, but it cannot isolate access "
+            "for shared client workspaces."
+        ),
         "admin_effort": "Low",
         "evidence_freshness": "Reviewed 12 days ago",
         "requirement_coverage": "3 of 4 key needs",
         "limitation": "Restricted external-client workspaces are not available on the Team plan.",
         "logo_url": "/product-logos/briefly.svg",
         "logo_tone": "plum",
-        "seats": "5–50 seats",
+        "seats": "5-50 seats",
     },
     "product_fixture_a": {
         "category": "AI meeting notes",
         "deployment": "Same day",
         "fit": "Policy mismatch",
-        "why_company": "Affordable and quick to roll out, but its model-improvement terms conflict with the client-data requirement.",
+        "why_company": (
+            "Affordable and quick to roll out, but its model-improvement terms conflict "
+            "with the client-data requirement."
+        ),
         "admin_effort": "Low",
         "evidence_freshness": "Reviewed 8 days ago",
         "requirement_coverage": "2 of 4 key needs",
-        "limitation": "The Starter terms allow customer content to be used for general model improvement.",
+        "limitation": (
+            "The Starter terms allow customer content to be used for general model improvement."
+        ),
         "logo_url": "/product-logos/memoflow.svg",
         "logo_tone": "gold",
         "seats": "Up to 25 seats",
@@ -171,9 +198,13 @@ class WorkspaceService:
             )
         instructions = (
             "You are SIRA, a B2B buying assistant. Collect purchasing context conversationally. "
-            "Ask one material question at a time until outcome, users, deadline, constraints, "
-            "budget, "
-            "and approval path are sufficiently clear. Never claim to rank, approve, buy, pay, or "
+            "Ask at most four material questions total. Never repeat a question already answered, "
+            "Accept 'no deadline', 'no constraints', and an unknown requester as valid answers. "
+            "Outcome and user count are enough to show preliminary products; budget, deadline, "
+            "constraints, and approval path refine the result but must not block it. Once enough "
+            "context exists, stop interviewing, summarize assumptions, set show_catalog true, and "
+            "offer exactly two next moves: compare options or prepare a purchase request. "
+            "Never claim to rank, approve, buy, pay, or "
             "activate anything. Use catalogue tools for product facts and never invent products. "
             "Use search_senso_evidence for company documents and preserve source citations. "
             "When the context is sufficient and the user explicitly asks to create or start the "
@@ -219,6 +250,18 @@ class WorkspaceService:
             else:
                 parsed = raw
             answer = _AgentAnswer.model_validate(parsed)
+            if body.mode == "sira":
+                user_turns = sum(item.role == "user" for item in body.history) + 1
+                discovery_loop = answer.follow_up_required or answer.message.rstrip().endswith("?")
+                if user_turns >= 5 and discovery_loop:
+                    answer = answer.model_copy(
+                        update={
+                            "message": _SIRA_RESULTS_MESSAGE,
+                            "follow_up_required": False,
+                            "panel": "catalog",
+                            "show_catalog": True,
+                        }
+                    )
         except AuthenticationError as error:
             raise ApiProblem(
                 code="AGENT_PROVIDER_AUTHENTICATION_FAILED",
