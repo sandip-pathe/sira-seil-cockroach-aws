@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
-import logging
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -37,9 +36,6 @@ from .senso_runtime import activate_senso, close_senso
 from .service import WorkflowService, translate_persistence_conflict
 from .workspace_routes import workspace_router
 from .workspace_service import WorkspaceService
-
-
-logger = logging.getLogger(__name__)
 
 
 def operation_id(route: APIRoute) -> str:
@@ -231,7 +227,7 @@ def create_app(
 
     @application.exception_handler(SQLAlchemyError)
     async def database_problem(request: Request, error: SQLAlchemyError) -> JSONResponse:
-        logger.exception("Database request failed", exc_info=error)
+        del error
         return JSONResponse(
             status_code=503,
             content={

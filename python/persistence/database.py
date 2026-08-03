@@ -177,9 +177,6 @@ class DatabaseSettings(BaseSettings):
         default="postgresql+asyncpg://localhost:5432/sira",
         validation_alias="DATABASE_URL",
     )
-    allow_unsafe_database_role: bool = Field(
-        default=False, validation_alias="ALLOW_UNSAFE_DATABASE_ROLE"
-    )
     sql_echo: bool = Field(default=False, validation_alias="SQL_ECHO")
 
 
@@ -236,10 +233,7 @@ class Database:
                     return True
 
                 role_state = (await connection.execute(_POSTGRES_RUNTIME_ROLE_QUERY)).one_or_none()
-                if (
-                    not self.settings.allow_unsafe_database_role
-                    and (role_state is None or any(bool(value) for value in role_state))
-                ):
+                if role_state is None or any(bool(value) for value in role_state):
                     logger.error("Database runtime role safety verification failed")
                     return False
 
