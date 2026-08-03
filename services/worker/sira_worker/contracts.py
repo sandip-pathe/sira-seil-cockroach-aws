@@ -174,6 +174,27 @@ class PurchaseCheckoutWorkflowResult:
     reconciliation_required: bool
 
 
+@dataclass(frozen=True, slots=True)
+class PravaShoppingWorkflowInput:
+    organization_id: str
+    shopping_run_id: str
+    checkout_session_id: str
+    payment_session_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class PravaPaymentStatusResult:
+    shopping_run_id: str
+    status: str
+
+
+@dataclass(frozen=True, slots=True)
+class PravaShoppingWorkflowResult:
+    shopping_run_id: str
+    status: str
+    order_id: str | None
+
+
 def assert_credential_free_contract(value: object) -> None:
     """Fail closed if a Temporal contract ever gains a credential-like field.
 
@@ -223,6 +244,9 @@ def assert_all_contract_schemas_are_credential_free() -> None:
         RefundActivityResult,
         PurchaseReversalWorkflowInput,
         PurchaseReversalWorkflowResult,
+        PravaShoppingWorkflowInput,
+        PravaPaymentStatusResult,
+        PravaShoppingWorkflowResult,
     )
     for contract_type in contract_types:
         for field in fields(contract_type):

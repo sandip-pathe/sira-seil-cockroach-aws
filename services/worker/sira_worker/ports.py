@@ -8,6 +8,9 @@ from sira_worker.contracts import (
     CheckoutActivityResult,
     FulfillmentActivityResult,
     IsolatedCheckoutActivityInput,
+    PravaPaymentStatusResult,
+    PravaShoppingWorkflowInput,
+    PravaShoppingWorkflowResult,
     ReconcileActivityInput,
     RefundActivityInput,
     RefundActivityResult,
@@ -48,3 +51,15 @@ class CheckoutActivityCoordinator(Protocol):
         self,
         request: RefundActivityInput,
     ) -> RefundActivityResult: ...
+
+
+class PravaShoppingCoordinator(Protocol):
+    async def payment_status(
+        self, request: PravaShoppingWorkflowInput
+    ) -> PravaPaymentStatusResult: ...
+
+    async def checkout(
+        self, request: PravaShoppingWorkflowInput
+    ) -> PravaShoppingWorkflowResult: ...
+
+    async def fail(self, request: PravaShoppingWorkflowInput, status: str) -> None: ...

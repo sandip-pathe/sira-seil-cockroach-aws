@@ -1363,6 +1363,88 @@ class PaymentSession(Base, TenantOwned, Timestamped):
     )
 
 
+class PravaMcpConnection(Base, TenantOwned, Timestamped):
+    """Encrypted, revocable Prava Pay OAuth connection owned by one organization."""
+
+    __tablename__ = "prava_mcp_connections"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    client_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    encrypted_tokens: Mapped[str] = mapped_column(Text, nullable=False)
+    scopes: Mapped[list[str]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    access_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", name="uq_prava_mcp_connection_org"),
+        CheckConstraint(
+            "status IN ('CONNECTED','REFRESH_REQUIRED','REVOKED')",
+            name="ck_prava_mcp_connection_status",
+        ),
+    )
+
+
+class PravaMcpAuthorization(Base, TenantOwned, Timestamped):
+    """One-time PKCE authorization state; verifier is encrypted at rest."""
+
+    __tablename__ = "prava_mcp_authorizations"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    state_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    client_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    encrypted_code_verifier: Mapped[str] = mapped_column(Text, nullable=False)
+    redirect_uri: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "state_hash", name="uq_prava_mcp_oauth_state"),
+    )
+
+
+class PravaShoppingRun(Base, TenantOwned, Timestamped):
+    """Canonical identifiers for one real Prava quote-to-order chain."""
+
+    __tablename__ = "prava_shopping_runs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    purchase_intent_id: Mapped[str | None] = mapped_column(
+        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=True
+    )
+    product_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    variant_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    merchant: Mapped[str] = mapped_column(String(255), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    checkout_session_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    payment_session_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    payment_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    quote_payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    order_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    safe_error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "checkout_session_id", name="uq_prava_shopping_checkout"
+        ),
+        CheckConstraint("quantity >= 1", name="ck_prava_shopping_quantity"),
+        CheckConstraint("amount > 0", name="ck_prava_shopping_amount"),
+        CheckConstraint("currency = upper(currency)", name="ck_prava_shopping_currency"),
+        CheckConstraint(
+            "status IN ('QUOTED','AWAITING_APPROVAL','QUEUED','RUNNING','PAID','FAILED')",
+            name="ck_prava_shopping_status",
+        ),
+    )
+
+
 class BrowserReturnBinding(Base, TenantOwned, Timestamped):
     __tablename__ = "browser_return_bindings"
 

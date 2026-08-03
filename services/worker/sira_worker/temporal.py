@@ -5,36 +5,58 @@ from __future__ import annotations
 from temporalio.client import Client
 from temporalio.worker import Worker
 
-from sira_worker.activities import CheckoutActivities
+from sira_worker.activities import CheckoutActivities, PravaShoppingActivities
 from sira_worker.contracts import assert_all_contract_schemas_are_credential_free
-from sira_worker.ports import CheckoutActivityCoordinator
-from sira_worker.workflows import PurchaseCheckoutWorkflow, PurchaseReversalWorkflow
+from sira_worker.ports import CheckoutActivityCoordinator, PravaShoppingCoordinator
+from sira_worker.workflows import (
+    PravaShoppingWorkflow,
+    PurchaseCheckoutWorkflow,
+    PurchaseReversalWorkflow,
+)
 
 
 def build_worker(
     *,
     client: Client,
     task_queue: str,
-    coordinator: CheckoutActivityCoordinator,
+    coordinator: CheckoutActivityCoordinator | None,
+    prava_coordinator: PravaShoppingCoordinator | None = None,
 ) -> Worker:
     """Build, but do not start, the checkout worker."""
 
     if not task_queue.strip():
         raise ValueError("task_queue must not be empty")
     assert_all_contract_schemas_are_credential_free()
-    activities = CheckoutActivities(coordinator)
+    workflows: list[type] = []
+    registered_activities = []
+    if coordinator is not None:
+        activities = CheckoutActivities(coordinator)
+        workflows.extend([PurchaseCheckoutWorkflow, PurchaseReversalWorkflow])
+        registered_activities.extend(
+            [
+                activities.execute_isolated_checkout,
+                activities.reconcile_checkout,
+                activities.verify_fulfillment,
+                activities.fail_checkout_workflow,
+                activities.execute_refund,
+                activities.reconcile_refund,
+            ]
+        )
+    if prava_coordinator is not None:
+        prava_activities = PravaShoppingActivities(prava_coordinator)
+        workflows.append(PravaShoppingWorkflow)
+        registered_activities.extend(
+            [
+                prava_activities.payment_status,
+                prava_activities.checkout,
+                prava_activities.fail,
+            ]
+        )
     return Worker(
         client,
         task_queue=task_queue,
-        workflows=[PurchaseCheckoutWorkflow, PurchaseReversalWorkflow],
-        activities=[
-            activities.execute_isolated_checkout,
-            activities.reconcile_checkout,
-            activities.verify_fulfillment,
-            activities.fail_checkout_workflow,
-            activities.execute_refund,
-            activities.reconcile_refund,
-        ],
+        workflows=workflows,
+        activities=registered_activities,
     )
 
 

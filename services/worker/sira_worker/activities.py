@@ -10,6 +10,9 @@ from sira_worker.contracts import (
     CheckoutActivityResult,
     FulfillmentActivityResult,
     IsolatedCheckoutActivityInput,
+    PravaPaymentStatusResult,
+    PravaShoppingWorkflowInput,
+    PravaShoppingWorkflowResult,
     ReconcileActivityInput,
     RefundActivityInput,
     RefundActivityResult,
@@ -17,7 +20,56 @@ from sira_worker.contracts import (
     WorkflowFailureActivityInput,
     assert_credential_free_contract,
 )
-from sira_worker.ports import CheckoutActivityCoordinator
+from sira_worker.ports import CheckoutActivityCoordinator, PravaShoppingCoordinator
+
+
+class PravaShoppingActivities:
+    def __init__(self, coordinator: PravaShoppingCoordinator) -> None:
+        self._coordinator = coordinator
+
+    @activity.defn(name="sira.prava_payment_status")
+    async def payment_status(
+        self, request: PravaShoppingWorkflowInput
+    ) -> PravaPaymentStatusResult:
+        assert_credential_free_contract(request)
+        try:
+            result = await self._coordinator.payment_status(request)
+        except Exception:
+            raise ApplicationError(
+                "Prava payment status unavailable",
+                type="PRAVA_STATUS_REDACTED_FAILURE",
+                non_retryable=False,
+            ) from None
+        assert_credential_free_contract(result)
+        return result
+
+    @activity.defn(name="sira.prava_shop_checkout")
+    async def checkout(
+        self, request: PravaShoppingWorkflowInput
+    ) -> PravaShoppingWorkflowResult:
+        assert_credential_free_contract(request)
+        try:
+            result = await self._coordinator.checkout(request)
+        except Exception:
+            raise ApplicationError(
+                "Prava checkout unavailable",
+                type="PRAVA_CHECKOUT_REDACTED_FAILURE",
+                non_retryable=False,
+            ) from None
+        assert_credential_free_contract(result)
+        return result
+
+    @activity.defn(name="sira.prava_checkout_failed")
+    async def fail(self, request: PravaShoppingWorkflowInput) -> None:
+        assert_credential_free_contract(request)
+        try:
+            await self._coordinator.fail(request, "APPROVAL_TIMEOUT")
+        except Exception:
+            raise ApplicationError(
+                "Prava failure checkpoint unavailable",
+                type="PRAVA_CHECKPOINT_REDACTED_FAILURE",
+                non_retryable=False,
+            ) from None
 
 
 class CheckoutActivities:

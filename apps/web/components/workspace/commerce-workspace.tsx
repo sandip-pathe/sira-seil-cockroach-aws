@@ -854,6 +854,7 @@ function SeilWorkPanel() {
 
 function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [connectingPrava, setConnectingPrava] = useState(false);
   const query = useQuery({
     queryKey: ["workspace-connectors", mode],
     enabled: WEB_DATA_MODE === "api" && mode === "sira",
@@ -888,6 +889,27 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
               <div className={styles.connectorDetail}>
                 <span>{connector.meta}</span>
                 <p>Connector credentials are never displayed in the browser. Setup and recovery use the server-authorized flow.</p>
+                {mode === "sira" && connector.name === "Prava" && connector.status !== "Healthy" ? (
+                  <button
+                    type="button"
+                    disabled={connectingPrava}
+                    onClick={() => {
+                      setConnectingPrava(true);
+                      void fetch("/v1/connectors/prava/connect", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", ...buyerDevelopmentHeaders },
+                      })
+                        .then(async (response) => {
+                          if (!response.ok) throw new Error("Prava connection failed");
+                          const payload = await response.json() as { authorization_url: string };
+                          window.location.assign(payload.authorization_url);
+                        })
+                        .catch(() => setConnectingPrava(false));
+                    }}
+                  >
+                    {connectingPrava ? "Opening Prava…" : "Connect Prava securely"}
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </article>

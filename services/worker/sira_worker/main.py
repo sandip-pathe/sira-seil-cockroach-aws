@@ -14,7 +14,13 @@ from integrations.merchants.rest import ControlledMerchantRestAdapter
 from integrations.prava.rest import DEFAULT_PRAVA_CHECKOUT_HOSTS, PravaHostedRestAdapter
 from persistence.database import Database, DatabaseSettings
 from sira_worker.coordinator import PersistentCheckoutCoordinator
-from sira_worker.outbox import CheckoutOutboxDispatcher
+from sira_worker.outbox import (
+    CHECKOUT_EVENT_TYPE,
+    PRAVA_MCP_CHECKOUT_EVENT_TYPE,
+    REVERSAL_EVENT_TYPE,
+    CheckoutOutboxDispatcher,
+)
+from sira_worker.prava_mcp_coordinator import PersistentPravaMcpCoordinator
 from sira_worker.temporal import build_worker, connect_temporal
 
 
@@ -63,6 +69,10 @@ class WorkerSettings(BaseSettings):
         default=SecretStr(""), validation_alias="CONTROLLED_MERCHANT_API_KEY"
     )
     merchant_id: str = Field(default="", validation_alias="CONTROLLED_MERCHANT_ID")
+    prava_execution_mode: str = Field(default="legacy", validation_alias="PRAVA_EXECUTION_MODE")
+    connector_encryption_key: SecretStr = Field(
+        default=SecretStr(""), validation_alias="CONNECTOR_ENCRYPTION_KEY"
+    )
 
     def require_configuration(self) -> None:
         values = {
@@ -71,14 +81,25 @@ class WorkerSettings(BaseSettings):
             "TEMPORAL_NAMESPACE": self.temporal_namespace,
             "TEMPORAL_TASK_QUEUE": self.temporal_task_queue,
             "WORKER_ORGANIZATION_IDS": self.worker_organization_ids,
-            "PRAVA_BASE_URL": self.prava_base_url,
-            "PRAVA_SECRET_KEY": self.prava_secret_key.get_secret_value(),
-            "PRAVA_MERCHANT_URL": self.prava_merchant_url,
-            "PRAVA_CALLBACK_URL": self.prava_callback_url,
-            "CONTROLLED_MERCHANT_BASE_URL": self.merchant_base_url,
-            "CONTROLLED_MERCHANT_API_KEY": self.merchant_api_key.get_secret_value(),
-            "CONTROLLED_MERCHANT_ID": self.merchant_id,
         }
+        if self.prava_execution_mode == "mcp":
+            values["CONNECTOR_ENCRYPTION_KEY"] = (
+                self.connector_encryption_key.get_secret_value()
+            )
+        elif self.prava_execution_mode == "legacy":
+            values.update(
+                {
+                    "PRAVA_BASE_URL": self.prava_base_url,
+                    "PRAVA_SECRET_KEY": self.prava_secret_key.get_secret_value(),
+                    "PRAVA_MERCHANT_URL": self.prava_merchant_url,
+                    "PRAVA_CALLBACK_URL": self.prava_callback_url,
+                    "CONTROLLED_MERCHANT_BASE_URL": self.merchant_base_url,
+                    "CONTROLLED_MERCHANT_API_KEY": self.merchant_api_key.get_secret_value(),
+                    "CONTROLLED_MERCHANT_ID": self.merchant_id,
+                }
+            )
+        else:
+            values["PRAVA_EXECUTION_MODE_MCP_OR_LEGACY"] = ""
         missing = [name for name, value in values.items() if not value.strip()]
         try:
             database_backend = make_url(self.database_url).get_backend_name()
@@ -103,34 +124,12 @@ class WorkerSettings(BaseSettings):
 async def run_worker() -> None:
     settings = WorkerSettings()
     settings.require_configuration()
-    api_host = _https_host(settings.prava_base_url, "PRAVA_BASE_URL")
-    merchant_host = _https_host(settings.prava_merchant_url, "PRAVA_MERCHANT_URL")
-    callback_host = _https_host(settings.prava_callback_url, "PRAVA_CALLBACK_URL")
-    controlled_host = _https_host(settings.merchant_base_url, "CONTROLLED_MERCHANT_BASE_URL")
-    configured_checkout_hosts = {
-        item.strip().lower()
-        for item in settings.prava_hosted_checkout_hosts.split(",")
-        if item.strip()
-    }
     database = Database(DatabaseSettings(database_url=settings.database_url))
     if database.engine.dialect.name != "postgresql":
         await database.close()
         raise WorkerSetupError(["DATABASE_ENGINE_POSTGRESQL"])
-    prava = PravaHostedRestAdapter(
-        secret_key=settings.prava_secret_key.get_secret_value(),
-        base_url=settings.prava_base_url,
-        api_hosts=frozenset({api_host}),
-        merchant_hosts=frozenset({merchant_host}),
-        callback_hosts=frozenset({callback_host}),
-        hosted_checkout_hosts=frozenset(
-            configured_checkout_hosts.union(DEFAULT_PRAVA_CHECKOUT_HOSTS)
-        ),
-    )
-    merchant = ControlledMerchantRestAdapter(
-        base_url=settings.merchant_base_url,
-        api_key=settings.merchant_api_key.get_secret_value(),
-        allowed_hosts=frozenset({controlled_host}),
-    )
+    prava = None
+    merchant = None
     try:
         temporal = await connect_temporal(
             settings.temporal_address,
@@ -138,23 +137,66 @@ async def run_worker() -> None:
             api_key=settings.temporal_api_key.get_secret_value(),
             tls=settings.temporal_tls,
         )
-        coordinator = PersistentCheckoutCoordinator(
-            database=database,
-            prava=prava,
-            merchant=merchant,
-            merchant_adapter_id=settings.merchant_id,
+        if settings.prava_execution_mode == "legacy":
+            api_host = _https_host(settings.prava_base_url, "PRAVA_BASE_URL")
+            merchant_host = _https_host(settings.prava_merchant_url, "PRAVA_MERCHANT_URL")
+            callback_host = _https_host(settings.prava_callback_url, "PRAVA_CALLBACK_URL")
+            controlled_host = _https_host(
+                settings.merchant_base_url, "CONTROLLED_MERCHANT_BASE_URL"
+            )
+            configured_checkout_hosts = {
+                item.strip().lower()
+                for item in settings.prava_hosted_checkout_hosts.split(",")
+                if item.strip()
+            }
+            prava = PravaHostedRestAdapter(
+                secret_key=settings.prava_secret_key.get_secret_value(),
+                base_url=settings.prava_base_url,
+                api_hosts=frozenset({api_host}),
+                merchant_hosts=frozenset({merchant_host}),
+                callback_hosts=frozenset({callback_host}),
+                hosted_checkout_hosts=frozenset(
+                    configured_checkout_hosts.union(DEFAULT_PRAVA_CHECKOUT_HOSTS)
+                ),
+            )
+            merchant = ControlledMerchantRestAdapter(
+                base_url=settings.merchant_base_url,
+                api_key=settings.merchant_api_key.get_secret_value(),
+                allowed_hosts=frozenset({controlled_host}),
+            )
+            coordinator = PersistentCheckoutCoordinator(
+                database=database,
+                prava=prava,
+                merchant=merchant,
+                merchant_adapter_id=settings.merchant_id,
+            )
+        else:
+            coordinator = None
+        prava_mcp = (
+            PersistentPravaMcpCoordinator(
+                database=database,
+                root_secret=settings.connector_encryption_key.get_secret_value(),
+            )
+            if settings.prava_execution_mode == "mcp"
+            else None
         )
         worker = build_worker(
             client=temporal,
             task_queue=settings.temporal_task_queue,
             coordinator=coordinator,
+            prava_coordinator=prava_mcp,
         )
         dispatcher = CheckoutOutboxDispatcher(
             database=database,
             temporal=temporal,
             task_queue=settings.temporal_task_queue,
-            merchant_adapter_id=settings.merchant_id,
+            merchant_adapter_id=settings.merchant_id or "legacy-disabled",
             organization_ids=settings.organization_ids(),
+            event_types=(
+                (CHECKOUT_EVENT_TYPE, REVERSAL_EVENT_TYPE)
+                if settings.prava_execution_mode == "legacy"
+                else (PRAVA_MCP_CHECKOUT_EVENT_TYPE,)
+            ),
         )
         runtime_tasks = [
             asyncio.create_task(worker.run()),
@@ -167,8 +209,10 @@ async def run_worker() -> None:
                 task.cancel()
             await asyncio.gather(*runtime_tasks, return_exceptions=True)
     finally:
-        await prava.aclose()
-        await merchant.aclose()
+        if prava is not None:
+            await prava.aclose()
+        if merchant is not None:
+            await merchant.aclose()
         await database.close()
 
 

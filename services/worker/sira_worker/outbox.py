@@ -15,14 +15,20 @@ from temporalio.exceptions import WorkflowAlreadyStartedError
 from persistence.database import Database
 from persistence.models import OutboxEvent, WorkflowRun
 from sira_worker.contracts import (
+    PravaShoppingWorkflowInput,
     PurchaseCheckoutWorkflowInput,
     PurchaseReversalWorkflowInput,
     assert_credential_free_contract,
 )
-from sira_worker.workflows import PurchaseCheckoutWorkflow, PurchaseReversalWorkflow
+from sira_worker.workflows import (
+    PravaShoppingWorkflow,
+    PurchaseCheckoutWorkflow,
+    PurchaseReversalWorkflow,
+)
 
 CHECKOUT_EVENT_TYPE = "purchase_checkout.requested"
 REVERSAL_EVENT_TYPE = "purchase_reversal.requested"
+PRAVA_MCP_CHECKOUT_EVENT_TYPE = "prava_mcp_checkout.requested"
 
 
 class CheckoutOutboxDispatcher:
@@ -36,6 +42,7 @@ class CheckoutOutboxDispatcher:
         task_queue: str,
         merchant_adapter_id: str,
         organization_ids: tuple[str, ...],
+        event_types: tuple[str, ...] | None = None,
         poll_interval_seconds: float = 1.0,
     ) -> None:
         if not task_queue.strip() or not merchant_adapter_id.strip() or not organization_ids:
@@ -49,6 +56,11 @@ class CheckoutOutboxDispatcher:
         self._task_queue = task_queue
         self._merchant_adapter_id = merchant_adapter_id
         self._organization_ids = organization_ids
+        self._event_types = event_types or (
+            CHECKOUT_EVENT_TYPE,
+            REVERSAL_EVENT_TYPE,
+            PRAVA_MCP_CHECKOUT_EVENT_TYPE,
+        )
         self._poll_interval_seconds = poll_interval_seconds
 
     async def run(self) -> None:
@@ -76,7 +88,7 @@ class CheckoutOutboxDispatcher:
                     select(OutboxEvent)
                     .where(
                         OutboxEvent.organization_id == organization_id,
-                        OutboxEvent.event_type.in_([CHECKOUT_EVENT_TYPE, REVERSAL_EVENT_TYPE]),
+                        OutboxEvent.event_type.in_(self._event_types),
                         OutboxEvent.published_at.is_(None),
                     )
                     .order_by(OutboxEvent.occurred_at, OutboxEvent.id)
@@ -90,14 +102,21 @@ class CheckoutOutboxDispatcher:
             payload = deepcopy(event.payload)
 
         try:
+            prava_request = None
             if event_type == CHECKOUT_EVENT_TYPE:
                 workflow_id, checkout_request = self._workflow_request(organization_id, payload)
                 reversal_request = None
-            else:
+            elif event_type == REVERSAL_EVENT_TYPE:
                 workflow_id, reversal_request = self._reversal_workflow_request(
                     organization_id, payload
                 )
                 checkout_request = None
+            else:
+                workflow_id, prava_request = self._prava_workflow_request(
+                    organization_id, payload
+                )
+                checkout_request = None
+                reversal_request = None
         except ValueError:
             await self._quarantine_invalid_event(organization_id, event_id)
             return True
@@ -110,11 +129,20 @@ class CheckoutOutboxDispatcher:
                     task_queue=self._task_queue,
                     id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
                 )
-            else:
+            elif reversal_request is not None:
                 assert reversal_request is not None
                 await self._temporal.start_workflow(
                     PurchaseReversalWorkflow.run,
                     reversal_request,
+                    id=workflow_id,
+                    task_queue=self._task_queue,
+                    id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
+                )
+            else:
+                assert prava_request is not None
+                await self._temporal.start_workflow(
+                    PravaShoppingWorkflow.run,
+                    prava_request,
                     id=workflow_id,
                     task_queue=self._task_queue,
                     id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
@@ -158,7 +186,11 @@ class CheckoutOutboxDispatcher:
                         "message": (
                             "Checkout workflow accepted"
                             if event_type == CHECKOUT_EVENT_TYPE
-                            else "Refund workflow accepted"
+                            else (
+                                "Refund workflow accepted"
+                                if event_type == REVERSAL_EVENT_TYPE
+                                else "Prava checkout workflow accepted"
+                            )
                         ),
                     },
                 ]
@@ -260,6 +292,33 @@ class CheckoutOutboxDispatcher:
             purchase_intent_id=str(payload["purchase_intent_id"]),
             intent_hash=str(payload["intent_hash"]),
             idempotency_key=workflow_id,
+        )
+        assert_credential_free_contract(payload)
+        assert_credential_free_contract(request)
+        return workflow_id, request
+
+    def _prava_workflow_request(
+        self, organization_id: str, payload: dict[str, Any]
+    ) -> tuple[str, PravaShoppingWorkflowInput]:
+        required = {
+            "workflow_id",
+            "shopping_run_id",
+            "checkout_session_id",
+            "payment_session_id",
+        }
+        if set(payload) != required or not all(
+            isinstance(payload[name], str) and payload[name] for name in required
+        ):
+            raise ValueError("Prava outbox payload does not match the safe contract")
+        shopping_run_id = str(payload["shopping_run_id"])
+        workflow_id = str(payload["workflow_id"])
+        if workflow_id != f"wf_prava_shop_{shopping_run_id}":
+            raise ValueError("Prava workflow identity is not deterministic")
+        request = PravaShoppingWorkflowInput(
+            organization_id=organization_id,
+            shopping_run_id=shopping_run_id,
+            checkout_session_id=str(payload["checkout_session_id"]),
+            payment_session_id=str(payload["payment_session_id"]),
         )
         assert_credential_free_contract(payload)
         assert_credential_free_contract(request)

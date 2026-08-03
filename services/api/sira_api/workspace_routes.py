@@ -129,9 +129,15 @@ async def workspace_product(
 @workspace_router.get(
     "/v1/workspace/connectors", response_model=list[ConnectorView], tags=["workspace"]
 )
-async def workspace_connectors(context: ContextDependency, service: ServiceDependency) -> list[dict[str, str]]:
+async def workspace_connectors(
+    request: Request, context: ContextDependency, service: ServiceDependency
+) -> list[dict[str, str]]:
     require_permission(context, "can_view_context")
     senso_ready, senso_meta = service.senso_status()
+    prava_status = await request.app.state.prava_mcp_service.status(
+        organization_id=context.organization_id
+    )
+    prava_connected = prava_status["status"] == "connected"
     return [
         {
             "id": "business-context",
@@ -146,6 +152,17 @@ async def workspace_connectors(context: ContextDependency, service: ServiceDepen
             "purpose": "Company files and decision evidence",
             "status": "Healthy" if senso_ready else "Needs setup",
             "meta": senso_meta,
+        },
+        {
+            "id": "prava",
+            "name": "Prava",
+            "purpose": "Private approval and gateway-side checkout",
+            "status": "Healthy" if prava_connected else "Needs setup",
+            "meta": (
+                "OAuth connected; card and delivery credentials stay inside Prava"
+                if prava_connected
+                else "Connect Prava Pay with OAuth; no card details enter SIRA"
+            ),
         },
         {
             "id": "datahub",

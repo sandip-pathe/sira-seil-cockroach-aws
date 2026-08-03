@@ -29,6 +29,8 @@ from .marketplace import (
 )
 from .routes import public_router, router
 from .routes_v2 import router_v2
+from .prava_mcp_routes import router as prava_mcp_router
+from .prava_mcp_service import PravaMcpConnectionService
 from .schemas import ErrorEnvelope
 from .seller_routes import seller_router
 from .seller_service import SellerEvidenceService
@@ -130,6 +132,12 @@ def create_app(
             database=resolved_database,
             senso_providers=senso_providers,
             senso_error=senso_error,
+        )
+        application.state.prava_mcp_service = PravaMcpConnectionService(
+            resolved_database,
+            root_secret=resolved_settings.browser_return_signing_secret(),
+            public_base_url=resolved_settings.public_base_url,
+            web_base_url=resolved_settings.web_base_url,
         )
         yield
         await close_senso(senso_providers)
@@ -246,6 +254,7 @@ def create_app(
     application.include_router(seller_router)
     application.include_router(router_v2)
     application.include_router(workspace_router)
+    application.include_router(prava_mcp_router)
     application.include_router(router)
     return application
 

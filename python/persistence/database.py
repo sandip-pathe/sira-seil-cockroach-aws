@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-EXPECTED_ALEMBIC_HEADS = frozenset({"f8c1d2e3a4b5"})
+EXPECTED_ALEMBIC_HEADS = frozenset({"a1d4e7f9b203"})
 logger = logging.getLogger(__name__)
 
 _POSTGRES_RUNTIME_ROLE_QUERY = text(

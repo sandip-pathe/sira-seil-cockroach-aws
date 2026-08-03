@@ -11,6 +11,9 @@ with workflow.unsafe.imports_passed_through():
     from sira_worker.contracts import (
         CheckoutActivityResult,
         FulfillmentActivityResult,
+        PravaPaymentStatusResult,
+        PravaShoppingWorkflowInput,
+        PravaShoppingWorkflowResult,
         PurchaseCheckoutWorkflowInput,
         PurchaseCheckoutWorkflowResult,
         PurchaseReversalWorkflowInput,
@@ -24,6 +27,53 @@ with workflow.unsafe.imports_passed_through():
     )
 
 _RECONCILIATION_DELAYS_SECONDS = (0, 15, 60, 300, 900)
+
+
+@workflow.defn(name="sira.prava_shop_checkout")
+class PravaShoppingWorkflow:
+    """Wait for Prava-hosted approval and place the quoted order without card data."""
+
+    @workflow.run
+    async def run(
+        self, request: PravaShoppingWorkflowInput
+    ) -> PravaShoppingWorkflowResult:
+        assert_credential_free_contract(request)
+        for attempt in range(60):
+            status = await workflow.execute_activity(
+                "sira.prava_payment_status",
+                request,
+                result_type=PravaPaymentStatusResult,
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(maximum_attempts=3),
+            )
+            normalized = status.status.upper()
+            if normalized in {"COMPLETED", "APPROVED", "PAID", "SUCCESS"}:
+                return await workflow.execute_activity(
+                    "sira.prava_shop_checkout",
+                    request,
+                    result_type=PravaShoppingWorkflowResult,
+                    start_to_close_timeout=timedelta(seconds=90),
+                    retry_policy=RetryPolicy(maximum_attempts=3),
+                )
+            if normalized in {"FAILED", "DECLINED", "CANCELLED", "EXPIRED"}:
+                return PravaShoppingWorkflowResult(
+                    shopping_run_id=request.shopping_run_id,
+                    status=normalized,
+                    order_id=None,
+                )
+            if attempt < 59:
+                await workflow.sleep(timedelta(seconds=10))
+        await workflow.execute_activity(
+            "sira.prava_checkout_failed",
+            request,
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=RetryPolicy(maximum_attempts=3),
+        )
+        return PravaShoppingWorkflowResult(
+            shopping_run_id=request.shopping_run_id,
+            status="APPROVAL_TIMEOUT",
+            order_id=None,
+        )
 
 
 @workflow.defn(name="sira.purchase_checkout")
