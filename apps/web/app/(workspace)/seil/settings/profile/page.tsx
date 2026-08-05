@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "SEIL settings" };
 export default function SeilProfilePage() {
   return (
     <>
-      <CommerceWorkspace initialMode="seil" initialContextTab="run" modeLocked />
+      <CommerceWorkspace initialMode="seil" initialContextTab="catalog" modeLocked />
       <ProfileSettingsModal workspace="seil" />
     </>
   );

@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="RelayIQ">
+  <rect width="64" height="64" rx="16" fill="#4568bd"/>
+  <path d="M16 20h20c8 0 13 4 13 11 0 5-3 9-9 10l10 11H38L27 40v12H16V20zm11 8v7h8c3 0 4-1 4-3.5S38 28 35 28h-8z" fill="#fff"/>
+</svg>

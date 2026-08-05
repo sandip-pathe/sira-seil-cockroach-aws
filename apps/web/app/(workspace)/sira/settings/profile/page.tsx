@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "SIRA settings" };
 export default function SiraProfilePage() {
   return (
     <>
-      <CommerceWorkspace initialMode="sira" initialContextTab="run" modeLocked />
+      <CommerceWorkspace initialMode="sira" initialContextTab="decisions" modeLocked />
       <ProfileSettingsModal workspace="sira" />
     </>
   );

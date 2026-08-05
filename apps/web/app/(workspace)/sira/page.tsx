@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function SiraPage() {
-  return <CommerceWorkspace initialMode="sira" initialContextTab="run" modeLocked />;
+  return <CommerceWorkspace initialMode="sira" initialContextTab="decisions" modeLocked />;
 }
