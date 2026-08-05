@@ -134,7 +134,7 @@ def _product_option(candidate: dict[str, Any]) -> dict[str, Any]:
         "reason_code": candidate.get("reason_code"),
         "reason": str(candidate["reason"]),
         "default_comparison": {
-            "cost": {**_money(amount), "horizon_days": 30},
+            "cost": {**_money(amount), "horizon_days": 365},
             "stack_change": "Replace the meeting-intelligence incumbent; retain dependencies",
             "next_action": "Review plan" if executable else "Review blocker",
         },
@@ -228,7 +228,7 @@ def _current_stack_option(
         "reason_code": None,
         "reason": "Constructed from the frozen incumbent contract, usage, outcome, and Stack state",
         "default_comparison": {
-            "cost": {**_money(amount), "horizon_days": 30},
+            "cost": {**_money(amount), "horizon_days": 365},
             "stack_change": "Retain or change the current meeting-intelligence instance",
             "next_action": "Review plan" if executable else "Resolve dependency",
         },
@@ -396,7 +396,7 @@ def _ledger_solution_option(
         "reason_code": reason_code,
         "reason": reason,
         "default_comparison": {
-            "cost": {**base_cost, "horizon_days": 30},
+            "cost": {**base_cost, "horizon_days": 365},
             "stack_change": stack_change,
             "next_action": "Review plan" if executable else "Review blocker",
         },
@@ -460,7 +460,7 @@ def solution_options(ledger: dict[str, Any]) -> list[dict[str, Any]]:
             action_type="RESIZE",
             label="Resize the incumbent to observed usage",
             score=70,
-            amount="89.00",
+            amount="990.00",
             quote_required=True,
         ),
         _current_stack_option(
@@ -717,14 +717,14 @@ def project_decision_room(
                 "status": intent.payment_status if intent is not None else "NOT_STARTED",
                 "currency": "USD",
                 "line_items": [
-                    {"type": "MERCHANT_SUBTOTAL", "amount": "87.00"},
+                    {"type": "MERCHANT_SUBTOTAL", "amount": "980.00"},
                     {
                         "type": "SIRA_TRANSACTION_FEE",
-                        "amount": "2.00",
+                        "amount": "10.00",
                         "schedule_version": "buyer_txn_demo_v1",
                     },
                 ],
-                "landed_total": "89.00",
+                "landed_total": "990.00",
                 "purchase_intent_id": intent.id if intent is not None else None,
                 "last_checkpoint_at": None,
                 "href": (

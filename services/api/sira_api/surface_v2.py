@@ -479,7 +479,13 @@ class DecisionRoomSurface:
                     status_code=409,
                     next_action="resolve_option_blocker",
                 )
-            if projected["rank_stability"]["status"] != "STABLE":
+            # This mutation is the buyer's explicit, confirmed choice, not an
+            # autonomous agent selection. Keep uncertainty visible in the ledger,
+            # but do not prevent an authorized human from choosing a supported plan.
+            if (
+                projected["rank_stability"]["status"] != "STABLE"
+                and party != "BUYER"
+            ):
                 raise ApiProblem(
                     code="RANK_NOT_STABLE",
                     message="An unstable or undetermined Decision cannot be selected autonomously.",

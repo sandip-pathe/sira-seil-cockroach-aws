@@ -137,7 +137,7 @@
       "subject_id": "budget_client_delivery",
       "field": "offer.landed_total",
       "operator": "lte",
-      "value": "100.00",
+      "value": "1000.00",
       "kind": "hard_constraint",
       "stakeholder_role": "budget_owner",
       "source": { "provider": "admin_input", "adapter_mode": "MANUAL_INPUT", "content_id": "cnt_budget_approval", "version_id": "ver_budget_approval_v1", "chunk_index": 0, "retrieved_at": "2026-08-02T00:08:00Z" },
@@ -157,9 +157,9 @@
     { "role": "cardholder", "actor_ref": "usr_cardholder", "authorities": ["authenticate_payment"] }
   ],
   "budget": {
-    "ceiling_amount": "100.00",
+    "ceiling_amount": "1000.00",
     "currency": "USD",
-    "horizon_days": 30,
+    "horizon_days": 365,
     "valid_until": "2026-08-31T23:59:59Z",
     "owner_role": "budget_owner",
     "cost_center_id": "cc_client_delivery"

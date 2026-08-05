@@ -1401,7 +1401,11 @@ export function CommerceWorkspace({
       const created = await getBrowserApiClient().request("create_decision_request", {
         headers: buyerDevelopmentHeaders,
         idempotencyKey: `agent-proposal-${proposal.proposal_hash.replace("sha256:", "")}`,
-        body: { intent: intent.trim(), visibility },
+        body: {
+          intent: intent.trim(),
+          visibility,
+          scenario_id: "consultco_meeting_intelligence_v1",
+        },
       });
       await getBrowserApiClient().request("discover_decision_request", {
         headers: buyerDevelopmentHeaders,
@@ -1420,6 +1424,7 @@ export function CommerceWorkspace({
       }
       setContextTab("decisions");
       setContextOpen(true);
+      window.location.assign(`/decisions/${created.id}/versions/1/options`);
     } catch (error) {
       if (selectedConversation) {
         updateConversation("sira", selectedConversation.id, (conversation) => ({

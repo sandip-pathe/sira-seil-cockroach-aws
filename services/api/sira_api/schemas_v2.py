@@ -378,7 +378,7 @@ class MerchantSubtotalPaymentLineItem(StrictModel):
 
 class TransactionFeePaymentLineItem(StrictModel):
     type: Literal["SIRA_TRANSACTION_FEE"]
-    amount: Literal["2.00"]
+    amount: Literal["10.00"]
     schedule_version: Literal["buyer_txn_demo_v1"]
 
 
@@ -419,12 +419,12 @@ class PaymentProjection(StrictModel):
         subtotals = [item for item in self.line_items if item.type == "MERCHANT_SUBTOTAL"]
         if (
             self.currency != "USD"
-            or self.landed_total != "89.00"
+            or self.landed_total != "990.00"
             or len(fees) != 1
             or len(subtotals) != 1
-            or subtotals[0].amount != "87.00"
+            or subtotals[0].amount != "980.00"
         ):
-            raise ValueError("charge-bearing demo payment must be USD 87.00 plus one USD 2.00 fee")
+            raise ValueError("charge-bearing demo payment must be USD 980.00 plus one USD 10.00 fee")
         return self
 
 
@@ -488,8 +488,8 @@ class ReceiptLineItem(StrictModel):
         if self.type == "SIRA_TRANSACTION_FEE":
             if (
                 self.quantity != 1
-                or self.unit_amount != "2.00"
-                or self.total_amount != "2.00"
+                or self.unit_amount != "10.00"
+                or self.total_amount != "10.00"
                 or self.schedule_version != "buyer_txn_demo_v1"
                 or self.demo_policy_label != "DEMO_ONLY"
             ):
@@ -523,11 +523,11 @@ class ReceiptProjection(StrictModel):
     merchant_order_id: Identifier
     merchant: MerchantView
     line_items: list[ReceiptLineItem] = Field(min_length=2)
-    merchant_subtotal: Literal["87.00"]
-    buyer_transaction_fee: Literal["2.00"]
+    merchant_subtotal: Literal["980.00"]
+    buyer_transaction_fee: Literal["10.00"]
     fee_schedule_version: Literal["buyer_txn_demo_v1"]
     tax_amount: Literal["0.00"]
-    amount: Literal["89.00"]
+    amount: Literal["990.00"]
     currency: Currency
     payment_status: Literal["PRAVA_COMPLETED"]
     fulfillment_status: Literal["VERIFIED"]
@@ -543,7 +543,7 @@ class ReceiptProjection(StrictModel):
     def validate_fee_and_fixture_provenance(self) -> ReceiptProjection:
         fees = [item for item in self.line_items if item.type == "SIRA_TRANSACTION_FEE"]
         subtotals = [item for item in self.line_items if item.type == "MERCHANT_SUBTOTAL"]
-        if len(fees) != 1 or len(subtotals) != 1 or subtotals[0].total_amount != "87.00":
+        if len(fees) != 1 or len(subtotals) != 1 or subtotals[0].total_amount != "980.00":
             raise ValueError("receipt must itemize one merchant subtotal and one buyer fee")
         if self.environment == "fixture" and (
             self.adapter_label != "DEVELOPMENT_FIXTURE_NOT_PRODUCTION" or self.production_success

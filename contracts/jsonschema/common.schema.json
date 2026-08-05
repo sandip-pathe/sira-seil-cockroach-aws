@@ -159,8 +159,8 @@
           "then": {
             "properties": {
               "quantity": { "const": 1 },
-              "unit_amount": { "const": "2.00" },
-              "total_amount": { "const": "2.00" },
+              "unit_amount": { "const": "10.00" },
+              "total_amount": { "const": "10.00" },
               "schedule_version": { "const": "buyer_txn_demo_v1" },
               "demo_policy_label": { "const": "DEMO_ONLY" }
             }

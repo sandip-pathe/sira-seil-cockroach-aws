@@ -844,10 +844,10 @@ export interface ReceiptLineItem {
 
 export interface ReceiptProjection {
   adapter_label: string;
-  amount: "89.00";
+  amount: "990.00";
   approval_intent_hash: string;
   approval_request_id: string;
-  buyer_transaction_fee: "2.00";
+  buyer_transaction_fee: "10.00";
   currency: string;
   decision_hash: string;
   decision_id: string;
@@ -860,7 +860,7 @@ export interface ReceiptProjection {
   line_items: ReceiptLineItem[];
   merchant: MerchantView;
   merchant_order_id: string;
-  merchant_subtotal: "87.00";
+  merchant_subtotal: "980.00";
   offer_id: string;
   offer_version: number;
   pack_id: string;
@@ -1339,7 +1339,7 @@ export interface TotalCostBounds {
 }
 
 export interface TransactionFeePaymentLineItem {
-  amount: "2.00";
+  amount: "10.00";
   schedule_version: "buyer_txn_demo_v1";
   type: "SIRA_TRANSACTION_FEE";
 }

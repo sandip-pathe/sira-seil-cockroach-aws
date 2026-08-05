@@ -4,7 +4,7 @@
   "seller_id": "seller_fixture_c",
   "product_id": "product_fixture_c",
   "version": 1,
-  "public_identity": { "seller_name": "Fictional Seller C", "product_name": "Fixture C", "edition": "Business", "geographies": ["US"] },
+  "public_identity": { "seller_name": "Atlas Works", "product_name": "Atlas Minutes", "edition": "Business", "geographies": ["US"] },
   "source_material": [
     { "source_id": "src_fixture_c_internal", "classification": "seller_private", "title": "Fixture C deployment operations", "internal_location": "seller-private://fixture-c/deployment-v1", "owner_role": "product_owner" }
   ],

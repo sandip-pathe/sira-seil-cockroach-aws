@@ -23,10 +23,10 @@ def _assert_fee_split(document: dict[str, Any], *, total_field: str) -> None:
 
     assert len(merchant) == 1
     assert len(fees) == 1
-    assert merchant[0]["total_amount"] == "87.00"
+    assert merchant[0]["total_amount"] == "980.00"
     assert merchant[0]["schedule_version"] is None
     assert merchant[0]["demo_policy_label"] is None
-    assert fees[0]["total_amount"] == "2.00"
+    assert fees[0]["total_amount"] == "10.00"
     assert fees[0]["schedule_version"] == "buyer_txn_demo_v1"
     assert fees[0]["demo_policy_label"] == "DEMO_ONLY"
     assert sum(Decimal(item["total_amount"]) for item in line_items) == Decimal(
@@ -44,17 +44,17 @@ def test_charge_bearing_demo_fixtures_bind_one_disclosed_buyer_fee() -> None:
     _assert_fee_split(intent, total_field="landed_total")
     _assert_fee_split(receipt, total_field="amount")
 
-    assert quote["fee_amount"] == intent["fee_amount"] == "2.00"
-    assert intent["merchant_subtotal"] == receipt["merchant_subtotal"] == "87.00"
-    assert receipt["buyer_transaction_fee"] == "2.00"
+    assert quote["fee_amount"] == intent["fee_amount"] == "10.00"
+    assert intent["merchant_subtotal"] == receipt["merchant_subtotal"] == "980.00"
+    assert receipt["buyer_transaction_fee"] == "10.00"
     assert intent["fee_schedule_version"] == receipt["fee_schedule_version"]
     assert intent["fee_schedule_version"] == "buyer_txn_demo_v1"
-    assert intent["amount"] == quote["amount"] == receipt["amount"] == "89.00"
+    assert intent["amount"] == quote["amount"] == receipt["amount"] == "990.00"
 
     selected_offer = next(
         item for item in offers["offers"] if item["offer_id"] == "offer_fixture_d_monthly"
     )
-    assert selected_offer["amount"] == "89.00"
+    assert selected_offer["amount"] == "990.00"
 
 
 def test_fee_fixture_hashes_and_links_are_exact_and_non_production() -> None:

@@ -8,16 +8,16 @@
   "merchant_chain_id": "smc_fixture_d",
   "merchant": { "merchant_id": "merchant_fixture_d", "name": "Fixture Merchant D", "url": "https://merchant-d.example.test", "country": "US" },
   "line_items": [
-    { "line_item_id": "li_fixture_d_team", "type": "MERCHANT_SUBTOTAL", "description": "Fixture D Team workspace with ten seats for one month", "quantity": 1, "unit_amount": "87.00", "total_amount": "87.00", "schedule_version": null, "demo_policy_label": null },
-    { "line_item_id": "li_sira_transaction_fee", "type": "SIRA_TRANSACTION_FEE", "description": "SIRA buyer transaction fee under the sandbox demo policy", "quantity": 1, "unit_amount": "2.00", "total_amount": "2.00", "schedule_version": "buyer_txn_demo_v1", "demo_policy_label": "DEMO_ONLY" }
+    { "line_item_id": "li_fixture_d_team", "type": "MERCHANT_SUBTOTAL", "description": "LumaMeet annual pilot for ten seats", "quantity": 1, "unit_amount": "980.00", "total_amount": "980.00", "schedule_version": null, "demo_policy_label": null },
+    { "line_item_id": "li_sira_transaction_fee", "type": "SIRA_TRANSACTION_FEE", "description": "SIRA buyer transaction fee under the sandbox demo policy", "quantity": 1, "unit_amount": "10.00", "total_amount": "10.00", "schedule_version": "buyer_txn_demo_v1", "demo_policy_label": "DEMO_ONLY" }
   ],
-  "amount": "89.00",
+  "amount": "990.00",
   "tax_amount": "0.00",
-  "fee_amount": "2.00",
-  "landed_total": "89.00",
+  "fee_amount": "10.00",
+  "landed_total": "990.00",
   "currency": "USD",
   "is_live": true,
   "issued_at": "2026-08-02T01:00:00Z",
   "expires_at": "2026-08-02T12:00:00Z",
-  "content_hash": "sha256:7c35ca3fa370f3008437630213e149fb5326e9e7268ffc41ae7903cbc45e2f3f"
+  "content_hash": "sha256:9b69299114b7266cf1e4af6e6c94817a509002f372c9f4ca71c5127a867f7a0c"
 }

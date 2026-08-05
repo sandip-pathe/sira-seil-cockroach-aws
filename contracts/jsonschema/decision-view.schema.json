@@ -567,7 +567,7 @@
           "if": { "properties": { "type": { "const": "SIRA_TRANSACTION_FEE" } }, "required": ["type"] },
           "then": {
             "required": ["schedule_version"],
-            "properties": { "amount": { "const": "2.00" }, "schedule_version": { "const": "buyer_txn_demo_v1" } }
+            "properties": { "amount": { "const": "10.00" }, "schedule_version": { "const": "buyer_txn_demo_v1" } }
           },
           "else": { "not": { "required": ["schedule_version"] } }
         }
@@ -613,7 +613,7 @@
           "else": {
             "properties": {
               "currency": { "const": "USD" },
-              "landed_total": { "const": "89.00" },
+              "landed_total": { "const": "990.00" },
               "line_items": {
                 "minItems": 2,
                 "uniqueItems": true,
@@ -621,7 +621,7 @@
                   {
                     "contains": {
                       "type": "object",
-                      "properties": { "type": { "const": "SIRA_TRANSACTION_FEE" }, "amount": { "const": "2.00" }, "schedule_version": { "const": "buyer_txn_demo_v1" } },
+                      "properties": { "type": { "const": "SIRA_TRANSACTION_FEE" }, "amount": { "const": "10.00" }, "schedule_version": { "const": "buyer_txn_demo_v1" } },
                       "required": ["type", "amount", "schedule_version"]
                     },
                     "minContains": 1,
@@ -630,7 +630,7 @@
                   {
                     "contains": {
                       "type": "object",
-                      "properties": { "type": { "const": "MERCHANT_SUBTOTAL" }, "amount": { "const": "87.00" } },
+                      "properties": { "type": { "const": "MERCHANT_SUBTOTAL" }, "amount": { "const": "980.00" } },
                       "required": ["type", "amount"]
                     },
                     "minContains": 1,

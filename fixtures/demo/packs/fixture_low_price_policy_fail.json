@@ -5,7 +5,7 @@
   "status": "published",
   "seller_id": "seller_fixture_a",
   "product_id": "product_fixture_a",
-  "identity": { "seller_name": "Fictional Seller A", "product_name": "Fixture A", "edition": "Starter", "geographies": ["US"] },
+  "identity": { "seller_name": "Pine Labs", "product_name": "EchoNote", "edition": "Starter", "geographies": ["US"] },
   "offer_ids": ["offer_fixture_a_monthly"],
   "category_ids": ["meeting_intelligence_client_services_v1"],
   "jtbd_ids": ["capture_meeting_decisions"],

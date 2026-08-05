@@ -741,10 +741,15 @@ class WorkflowService:
             )
             await repository.add_purchase_request(record)
             if self.fixtures is not None and scenario_id == DEMO_SCENARIO_ID:
+                # These records are referenced by the frozen decision-source snapshot below.
+                # Flush explicitly because the models do not declare ORM relationships that
+                # would otherwise give SQLAlchemy a dependency order for the inserts.
+                await session.flush()
                 brief, requirement = await self._add_request_briefs(
                     session, organization_id, record
                 )
                 stack_snapshot = await self._ensure_demo_stack_snapshot(session, organization_id)
+                await session.flush()
                 await self._add_demo_decision_source(
                     repository=repository,
                     organization_id=organization_id,

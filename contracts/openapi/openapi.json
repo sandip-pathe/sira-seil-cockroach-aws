@@ -5253,7 +5253,7 @@
             "type": "string"
           },
           "amount": {
-            "const": "89.00",
+            "const": "990.00",
             "title": "Amount",
             "type": "string"
           },
@@ -5270,7 +5270,7 @@
             "type": "string"
           },
           "buyer_transaction_fee": {
-            "const": "2.00",
+            "const": "10.00",
             "title": "Buyer Transaction Fee",
             "type": "string"
           },
@@ -5350,7 +5350,7 @@
             "type": "string"
           },
           "merchant_subtotal": {
-            "const": "87.00",
+            "const": "980.00",
             "title": "Merchant Subtotal",
             "type": "string"
           },
@@ -8310,7 +8310,7 @@
         "additionalProperties": false,
         "properties": {
           "amount": {
-            "const": "2.00",
+            "const": "10.00",
             "title": "Amount",
             "type": "string"
           },
