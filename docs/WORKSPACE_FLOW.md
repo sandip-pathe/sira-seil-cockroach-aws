@@ -28,7 +28,7 @@ Settings and user details open as a modal over this layout. Old SIRA URLs such a
 
 ## Agent boundary
 
-The model is a conversational context collector and explainer. It may ask for outcome, users, deadline, constraints, budget, approval path, and missing evidence. It receives only recent authorized conversation context and published catalogue facts. It cannot rank candidates, make a Decision Record, approve, purchase, pay, publish seller claims, or activate software. Those actions remain deterministic, permission-checked, idempotent backend workflows.
+The model is the adaptive control plane of a persistent mission. It can plan, search authorized sources, delegate bounded research, evaluate and rank candidates, create evidence artifacts, and recommend a next action. It asks the user only when a material ambiguity or authority boundary blocks useful work. It cannot issue capability grants or directly approve, charge, send, publish, sign, or activate. Those protected effects remain deterministic, permission-checked, idempotent backend workflows.
 
 ## Current persistence boundary
 

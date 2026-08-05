@@ -678,6 +678,43 @@
         "title": "ApprovalStatus",
         "type": "string"
       },
+      "AttentionView": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "question",
+              "approval",
+              "credential",
+              "choice",
+              "blocked"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "prompt",
+          "reason"
+        ],
+        "title": "AttentionView",
+        "type": "object"
+      },
       "BlockingTask": {
         "additionalProperties": false,
         "properties": {
@@ -868,6 +905,52 @@
         "title": "CalibrationRunView",
         "type": "object"
       },
+      "CapabilityView": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "reason_code": {
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remediation"
+          },
+          "status": {
+            "enum": [
+              "disabled",
+              "misconfigured",
+              "ready",
+              "degraded",
+              "offline"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "status",
+          "reason_code"
+        ],
+        "title": "CapabilityView",
+        "type": "object"
+      },
       "CatalogProductView": {
         "properties": {
           "billing_unit": {
@@ -885,6 +968,17 @@
             "title": "Edition",
             "type": "string"
           },
+          "evidence_freshness": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Freshness"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -895,6 +989,17 @@
             },
             "title": "Integrations",
             "type": "array"
+          },
+          "logo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo"
           },
           "name": {
             "title": "Name",
@@ -908,6 +1013,14 @@
             "title": "Seller",
             "type": "string"
           },
+          "source_refs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -915,6 +1028,17 @@
           "summary": {
             "title": "Summary",
             "type": "string"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
           }
         },
         "required": [
@@ -1829,6 +1953,20 @@
             "minLength": 10,
             "title": "Intent",
             "type": "string"
+          },
+          "mission_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 3,
+                "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mission Id"
           },
           "scenario_id": {
             "anyOf": [
@@ -3693,6 +3831,202 @@
         "title": "MerchantView",
         "type": "object"
       },
+      "MissionArtifactView": {
+        "properties": {
+          "authority": {
+            "title": "Authority",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "source_refs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "status": {
+            "default": "READY",
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "authority",
+          "payload"
+        ],
+        "title": "MissionArtifactView",
+        "type": "object"
+      },
+      "MissionEventView": {
+        "properties": {
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "verified": {
+            "default": false,
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "sequence",
+          "type",
+          "summary"
+        ],
+        "title": "MissionEventView",
+        "type": "object"
+      },
+      "MissionSnapshotView": {
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/MissionArtifactView"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/MissionEventView"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "handoffs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Handoffs",
+            "type": "array"
+          },
+          "mission": {
+            "$ref": "#/components/schemas/MissionSummaryView"
+          },
+          "open_tasks": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Open Tasks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mission",
+          "events",
+          "artifacts"
+        ],
+        "title": "MissionSnapshotView",
+        "type": "object"
+      },
+      "MissionSummaryView": {
+        "properties": {
+          "goal": {
+            "title": "Goal",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "sira",
+              "seil"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "plan": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Plan",
+            "type": "array"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Reason"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "mode",
+          "goal",
+          "state",
+          "version"
+        ],
+        "title": "MissionSummaryView",
+        "type": "object"
+      },
       "MoneyViewV2": {
         "additionalProperties": false,
         "properties": {
@@ -4388,6 +4722,163 @@
           "state"
         ],
         "title": "PlanSelectionView",
+        "type": "object"
+      },
+      "PravaCallbackCreate": {
+        "properties": {
+          "code": {
+            "maxLength": 2048,
+            "minLength": 8,
+            "title": "Code",
+            "type": "string"
+          },
+          "state": {
+            "maxLength": 256,
+            "minLength": 16,
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "code"
+        ],
+        "title": "PravaCallbackCreate",
+        "type": "object"
+      },
+      "PravaCheckoutCreate": {
+        "properties": {
+          "checkout_session_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Checkout Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkout_session_id"
+        ],
+        "title": "PravaCheckoutCreate",
+        "type": "object"
+      },
+      "PravaConnectCreate": {
+        "properties": {
+          "loopback_port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1024.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loopback Port"
+          }
+        },
+        "title": "PravaConnectCreate",
+        "type": "object"
+      },
+      "PravaConnectView": {
+        "properties": {
+          "authorization_url": {
+            "title": "Authorization Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorization_url"
+        ],
+        "title": "PravaConnectView",
+        "type": "object"
+      },
+      "PravaConnectionStatus": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PravaConnectionStatus",
+        "type": "object"
+      },
+      "PravaQuoteCreate": {
+        "properties": {
+          "address_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Id"
+          },
+          "merchant": {
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Merchant",
+            "type": "string"
+          },
+          "product_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "default": 1,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "variant_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Variant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "variant_id",
+          "merchant"
+        ],
+        "title": "PravaQuoteCreate",
+        "type": "object"
+      },
+      "PravaSearchCreate": {
+        "properties": {
+          "merchant": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant"
+          },
+          "query": {
+            "maxLength": 500,
+            "minLength": 2,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "PravaSearchCreate",
         "type": "object"
       },
       "PravaSessionCreate": {
@@ -5253,7 +5744,7 @@
             "type": "string"
           },
           "amount": {
-            "const": "89.00",
+            "const": "990.00",
             "title": "Amount",
             "type": "string"
           },
@@ -5270,7 +5761,7 @@
             "type": "string"
           },
           "buyer_transaction_fee": {
-            "const": "2.00",
+            "const": "10.00",
             "title": "Buyer Transaction Fee",
             "type": "string"
           },
@@ -5350,7 +5841,7 @@
             "type": "string"
           },
           "merchant_subtotal": {
-            "const": "87.00",
+            "const": "980.00",
             "title": "Merchant Subtotal",
             "type": "string"
           },
@@ -8310,7 +8801,7 @@
         "additionalProperties": false,
         "properties": {
           "amount": {
-            "const": "2.00",
+            "const": "10.00",
             "title": "Amount",
             "type": "string"
           },
@@ -8585,7 +9076,7 @@
           "conversation_id": {
             "anyOf": [
               {
-                "pattern": "^wc_[a-f0-9]{32}$",
+                "pattern": "^(?:wc_[a-f0-9]{32}|msn_[a-f0-9]{32})$",
                 "type": "string"
               },
               {
@@ -8608,6 +9099,18 @@
             "title": "Message",
             "type": "string"
           },
+          "mission_id": {
+            "anyOf": [
+              {
+                "pattern": "^msn_[a-f0-9]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mission Id"
+          },
           "mode": {
             "default": "sira",
             "enum": [
@@ -8627,13 +9130,37 @@
       "WorkspaceChatView": {
         "properties": {
           "advisory_only": {
-            "default": true,
+            "default": false,
             "title": "Advisory Only",
             "type": "boolean"
+          },
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/MissionArtifactView"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "attention": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttentionView"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "conversation_id": {
             "title": "Conversation Id",
             "type": "string"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/MissionEventView"
+            },
+            "title": "Events",
+            "type": "array"
           },
           "follow_up_required": {
             "default": false,
@@ -8644,17 +9171,29 @@
             "title": "Message",
             "type": "string"
           },
-          "panel": {
-            "default": "run",
-            "enum": [
-              "run",
-              "catalog",
-              "connectors",
-              "decisions",
-              "inbox"
-            ],
-            "title": "Panel",
+          "mission": {
+            "$ref": "#/components/schemas/MissionSummaryView"
+          },
+          "mission_id": {
+            "title": "Mission Id",
             "type": "string"
+          },
+          "panel": {
+            "anyOf": [
+              {
+                "enum": [
+                  "catalog",
+                  "connectors",
+                  "decisions",
+                  "inbox"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Panel"
           },
           "products": {
             "items": {
@@ -8680,13 +9219,29 @@
         },
         "required": [
           "conversation_id",
-          "message"
+          "mission_id",
+          "message",
+          "mission"
         ],
         "title": "WorkspaceChatView",
         "type": "object"
       },
       "WorkspaceConversationView": {
         "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/MissionArtifactView"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/MissionEventView"
+            },
+            "title": "Events",
+            "type": "array"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -8698,6 +9253,9 @@
             "title": "Messages",
             "type": "array"
           },
+          "mission": {
+            "$ref": "#/components/schemas/MissionSummaryView"
+          },
           "mode": {
             "enum": [
               "sira",
@@ -8705,6 +9263,14 @@
             ],
             "title": "Mode",
             "type": "string"
+          },
+          "open_tasks": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Open Tasks",
+            "type": "array"
           },
           "title": {
             "title": "Title",
@@ -8720,7 +9286,8 @@
           "mode",
           "title",
           "messages",
-          "updated_at"
+          "updated_at",
+          "mission"
         ],
         "title": "WorkspaceConversationView",
         "type": "object"
@@ -8982,6 +9549,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -9188,6 +9771,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -9420,6 +10019,22 @@
           },
           {
             "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
@@ -9648,6 +10263,22 @@
           },
           {
             "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
@@ -9771,6 +10402,2233 @@
         ]
       }
     },
+    "/v1/capabilities": {
+      "get": {
+        "operationId": "workspace_capabilities",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CapabilityView"
+                  },
+                  "title": "Response Workspace Capabilities",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Workspace Capabilities",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/connectors/prava/callback": {
+      "post": {
+        "operationId": "complete_prava_connection",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PravaCallbackCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PravaConnectionStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Complete Prava Connection",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/v1/connectors/prava/checkout": {
+      "post": {
+        "operationId": "queue_prava_checkout",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PravaCheckoutCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Queue Prava Checkout",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Queue Prava Checkout",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/v1/connectors/prava/connect": {
+      "post": {
+        "operationId": "connect_prava",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PravaConnectCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PravaConnectView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Connect Prava",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/v1/connectors/prava/payment-session": {
+      "post": {
+        "operationId": "create_prava_payment_session",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PravaCheckoutCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Prava Payment Session",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Prava Payment Session",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/v1/connectors/prava/ping": {
+      "post": {
+        "operationId": "ping_prava",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Ping Prava",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ping Prava",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/v1/connectors/prava/quote": {
+      "post": {
+        "operationId": "quote_prava",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PravaQuoteCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Quote Prava",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Quote Prava",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/v1/connectors/prava/runs/{shopping_run_id}": {
+      "get": {
+        "operationId": "prava_run_status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shopping_run_id",
+            "required": true,
+            "schema": {
+              "title": "Shopping Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Prava Run Status",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Prava Run Status",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/v1/connectors/prava/search": {
+      "post": {
+        "operationId": "search_prava",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PravaSearchCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Search Prava",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Search Prava",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/v1/connectors/prava/status": {
+      "get": {
+        "operationId": "prava_connection_status",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PravaConnectionStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Prava Connection Status",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
     "/v1/decision-requests": {
       "get": {
         "operationId": "list_decision_requests",
@@ -9863,6 +12721,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           }
         ],
@@ -10059,6 +12933,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -10288,6 +13178,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -10494,6 +13400,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -10723,6 +13645,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -10947,6 +13885,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -11153,6 +14107,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -11380,6 +14350,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -11621,6 +14607,22 @@
           },
           {
             "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
@@ -11858,6 +14860,22 @@
           },
           {
             "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
@@ -12083,6 +15101,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -12289,6 +15323,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -12518,6 +15568,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -12724,6 +15790,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -12956,6 +16038,22 @@
           },
           {
             "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
@@ -13184,6 +16282,22 @@
           },
           {
             "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
@@ -13400,6 +16514,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -13608,6 +16738,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -13837,6 +16983,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -14043,6 +17205,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           }
         ],
@@ -14265,6 +17443,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -14471,6 +17665,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -14703,6 +17913,22 @@
           },
           {
             "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
@@ -14927,6 +18153,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -15159,6 +18401,22 @@
           },
           {
             "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
@@ -15384,6 +18642,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -15590,6 +18864,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           }
         ],
@@ -15798,6 +19088,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -16005,6 +19311,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -16209,6 +19531,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -16441,6 +19779,22 @@
           },
           {
             "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
@@ -16665,6 +20019,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -16897,6 +20267,22 @@
           },
           {
             "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
@@ -17121,6 +20507,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -17350,6 +20752,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -17556,6 +20974,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -17794,6 +21228,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -18001,6 +21451,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -18207,6 +21673,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           },
           {
@@ -18436,6 +21918,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -18642,6 +22140,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           }
         ],
@@ -18850,6 +22364,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -19047,6 +22577,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           }
         ],
@@ -19259,6 +22805,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -19456,6 +23018,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           }
         ],
@@ -19664,6 +23242,22 @@
                 }
               ],
               "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
             }
           }
         ],
@@ -19880,6 +23474,22 @@
               ],
               "title": "X-Actor-Party"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
           }
         ],
         "responses": {
@@ -19984,6 +23594,229 @@
           }
         ],
         "summary": "Workspace Conversations",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/workspace/missions/{mission_id}": {
+      "get": {
+        "operationId": "workspace_mission",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mission_id",
+            "required": true,
+            "schema": {
+              "title": "Mission Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissionSnapshotView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Workspace Mission",
         "tags": [
           "workspace"
         ]

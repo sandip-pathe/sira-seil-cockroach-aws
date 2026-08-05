@@ -4,24 +4,24 @@ import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
-  Building2,
   Check,
   CircleDollarSign,
   CreditCard,
   FileBadge,
   Handshake,
   LockKeyhole,
-  PackageCheck,
   ReceiptText,
   Scale,
   ShieldCheck,
   TriangleAlert,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, type ReactNode, type RefObject } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { layout, prepare, type PreparedText } from "@chenglou/pretext";
 
 import { CombinedBrandLogo } from "@/components/brand/combined-brand-logo";
+import { useFirebaseAuth } from "@/components/auth/firebase-auth-provider";
 
 import styles from "./public-secondary-pages.module.css";
 
@@ -155,84 +155,144 @@ export function SignInPreview({
 }: {
   preferredWorkspace?: PreferredWorkspace;
 }) {
-  const workspaceOrder: PreferredWorkspace[] = preferredWorkspace
-    ? [preferredWorkspace]
-    : ["sira", "seil"];
-  const scoped = Boolean(preferredWorkspace);
-  const scopedName = preferredWorkspace?.toUpperCase();
+  const router = useRouter();
+  const auth = useFirebaseAuth();
+  const workspace = preferredWorkspace ?? "sira";
+  const workspaceName = workspace.toUpperCase();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState<"google" | "email" | "guest" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function finish() {
+    router.replace(`/${workspace}`);
+  }
+
+  async function run(kind: "google" | "email" | "guest", action: () => Promise<unknown>) {
+    setBusy(kind);
+    setError(null);
+    try {
+      await action();
+      finish();
+    } catch {
+      setError(
+        kind === "guest"
+          ? "Could not create a private guest workspace. Please try again."
+          : "Sign-in failed. Check your details or try another method.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function submitEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void run("email", () =>
+      creating
+        ? auth.createEmailAccount(email, password)
+        : auth.signInWithEmail(email, password),
+    );
+  }
 
   return (
     <PageFrame version={`sign-in:${preferredWorkspace ?? "none"}`}>
       <section className={styles.signInSection} aria-labelledby="sign-in-title">
         <div className={styles.narrowWidth}>
-          <div className={styles.previewBanner} role="status">
-            <TriangleAlert aria-hidden="true" />
-            <div>
-              <strong>Development preview</strong>
-              <p>
-                Authentication, SSO, invitation validation, and organization discovery
-                are not connected in this build. The links below open development
-                product surfaces; they do not create, restore, or verify a session.
-              </p>
-            </div>
-          </div>
-
           <div className={styles.signInIntro}>
             <Link className={styles.backLink} href="/">
               <ArrowLeft aria-hidden="true" /> Back to SIRA + SEIL
             </Link>
-            <p className={styles.eyebrow}>{scopedName ? `${scopedName} sign-in handoff` : "Choose a product"}</p>
-            <h1 id="sign-in-title" data-pretext>{scopedName ? `Sign in to ${scopedName}.` : "Choose the product you use."}</h1>
+            <p className={styles.eyebrow}>Private {workspaceName} workspace</p>
+            <h1 id="sign-in-title" data-pretext>Sign in and start working.</h1>
             <p data-pretext>
-              {scopedName
-                ? `${scopedName} has its own audience, private workspace, and sign-in boundary. This development page opens only that product preview.`
-                : "SIRA is for buying teams. SEIL is for B2B sellers. Choose the product that matches your work; this is not a workspace switch inside one shared account."}
+              Google and email accounts restore your work on any device. Guest access is
+              instant, private to this browser, and cannot authorize purchases.
             </p>
           </div>
 
-          <div className={styles.previewChoices} data-single={scoped || undefined}>
-            {workspaceOrder.map((workspace) => {
-              const sira = workspace === "sira";
-              const Icon = sira ? Building2 : PackageCheck;
-              const isPreferred = preferredWorkspace === workspace;
+          <div className={styles.authCard}>
+            {!auth.configured ? (
+              <div className={styles.authError} role="alert">
+                Firebase web credentials are missing from this build.
+              </div>
+            ) : null}
 
-              return (
-                <article
-                  className={styles.previewChoice}
-                  data-workspace={workspace}
-                  data-preferred={isPreferred || undefined}
-                  key={workspace}
-                >
-                  <div>
-                    <Icon aria-hidden="true" />
-                    <span>{sira ? "Buyer workspace" : "Seller workspace"}</span>
-                    {isPreferred ? <small>Requested entry</small> : null}
-                  </div>
-                  <h2>{workspace.toUpperCase()}</h2>
-                  <p>
-                    {sira
-                      ? "Preview the deterministic buyer decision flow and its versioned Decision Path."
-                      : "Preview the seller Product Evidence workflow and publication states."}
-                  </p>
-                  <Link href={sira ? "/sira" : "/seil"}>
-                    Continue to {workspace.toUpperCase()} <ArrowRight aria-hidden="true" />
-                  </Link>
-                </article>
-              );
-            })}
+            <button
+              className={styles.googleButton}
+              disabled={!auth.configured || busy !== null}
+              onClick={() => void run("google", auth.signInWithGoogle)}
+              type="button"
+            >
+              <span aria-hidden="true">G</span>
+              {busy === "google" ? "Opening Google…" : "Continue with Google"}
+            </button>
+
+            <div className={styles.authDivider}><span>or use email</span></div>
+
+            <form className={styles.emailForm} onSubmit={submitEmail}>
+              <label>
+                <span>Email</span>
+                <input
+                  autoComplete="email"
+                  disabled={!auth.configured || busy !== null}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                  type="email"
+                  value={email}
+                />
+              </label>
+              <label>
+                <span>Password</span>
+                <input
+                  autoComplete={creating ? "new-password" : "current-password"}
+                  disabled={!auth.configured || busy !== null}
+                  minLength={8}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  type="password"
+                  value={password}
+                />
+              </label>
+              <button disabled={!auth.configured || busy !== null} type="submit">
+                {busy === "email"
+                  ? "Please wait…"
+                  : creating
+                    ? "Create account"
+                    : "Sign in with email"}
+              </button>
+            </form>
+
+            <button
+              className={styles.authModeButton}
+              disabled={busy !== null}
+              onClick={() => setCreating((current) => !current)}
+              type="button"
+            >
+              {creating ? "Already have an account? Sign in" : "New here? Create an account"}
+            </button>
+
+            {error ? <p className={styles.authError} role="alert">{error}</p> : null}
+
+            <div className={styles.guestChoice}>
+              <div>
+                <strong>Just exploring?</strong>
+                <span>Get an isolated Firebase guest workspace without entering details.</span>
+              </div>
+              <button
+                disabled={!auth.configured || busy !== null}
+                onClick={() => void run("guest", auth.continueAsGuest)}
+                type="button"
+              >
+                {busy === "guest" ? "Creating workspace…" : "Continue as guest"}
+              </button>
+            </div>
           </div>
 
-          <aside className={styles.productionNote}>
-            <LockKeyhole aria-hidden="true" />
-            <div>
-              <strong>Production behavior</strong>
-              <p>
-                A valid sign-in never grants a role from a URL or product choice. The
-                server returns only the organization, role, and product access already
-                authorized for that user.
-              </p>
-            </div>
-          </aside>
+          <p className={styles.authBoundary}>
+            <LockKeyhole aria-hidden="true" /> Firebase verifies identity. SIRA derives
+            workspace access server-side; the browser cannot choose an organization or role.
+          </p>
         </div>
       </section>
     </PageFrame>

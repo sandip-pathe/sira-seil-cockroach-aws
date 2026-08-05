@@ -15,7 +15,7 @@
   "evaluation": {
     "evaluation_id": "eval_dec_consultco_v1",
     "evaluated_at": "2026-08-02T12:00:00Z",
-    "evaluation_payload_hash": "sha256:f74110af11e08a2034dc3916efa9bf4c996fdfdf5b1649dd7027167f4de3f26a",
+    "evaluation_payload_hash": "sha256:29e36bb06b52021f9d2b681084b344936a06802a0d26143d2c3c1088232f97df",
     "frozen_versions": {
       "request": "pb_consultco_v1:v1",
       "company_profile": "buyer_passport_v1",
@@ -32,11 +32,8 @@
     },
     "ranked_solution_plan_ids": [
       "plan_5a682ec42084ae355a2d",
-      "plan_c92be8bb233f6afdfdb8",
-      "plan_85c84ba1ca0ef55c0659",
       "plan_4dbe680e86cfb408b97e",
       "plan_93ec4b3649280de531a5",
-      "plan_f2835ba980ee39e9c11d",
       "plan_187dcea7fd15fb084a88"
     ],
     "ordering_frontier_plan_ids": [
@@ -65,13 +62,17 @@
   "component_results": [
     {
       "component_id": "product_fixture_c",
-      "name": "Fixture C",
+      "name": "Atlas Minutes",
       "pack_id": "fixture_eligible_runner_up",
       "pack_version": 1,
       "current_instance_id": null,
       "publisher_authority": "SELLER_SEALED",
-      "status": "ELIGIBLE",
-      "primary_reason": null,
+      "status": "SIRA_INELIGIBLE",
+      "primary_reason": {
+        "reason_code": "BUYER_POLICY_GATE_BUDGET",
+        "status": "SIRA_INELIGIBLE",
+        "detail": "Required predicate failed"
+      },
       "gate_results": [
         {
           "gate_id": "availability_canonical_7f082862a367a9550e4f",
@@ -93,8 +94,14 @@
         },
         {
           "gate_id": "gate_budget",
-          "truth": "TRUE",
-          "reasons": [],
+          "truth": "FALSE",
+          "reasons": [
+            {
+              "reason_code": "BUYER_POLICY_GATE_BUDGET",
+              "status": "SIRA_INELIGIBLE",
+              "detail": "Required predicate failed"
+            }
+          ],
           "evaluated_predicates": [
             "offer.landed_total"
           ],
@@ -334,7 +341,7 @@
     },
     {
       "component_id": "product_fixture_b",
-      "name": "Fixture B",
+      "name": "RelayNote",
       "pack_id": "fixture_honest_anti_fit",
       "pack_version": 1,
       "current_instance_id": null,
@@ -638,7 +645,7 @@
     },
     {
       "component_id": "product_fixture_a",
-      "name": "Fixture A",
+      "name": "EchoNote",
       "pack_id": "fixture_low_price_policy_fail",
       "pack_version": 1,
       "current_instance_id": null,
@@ -914,7 +921,7 @@
     },
     {
       "component_id": "product_fixture_d",
-      "name": "Fixture D",
+      "name": "LumaMeet",
       "pack_id": "fixture_selected_fit",
       "pack_version": 1,
       "current_instance_id": null,
@@ -1256,15 +1263,15 @@
         },
         "total_cost": {
           "low": {
-            "amount": "0.00",
+            "amount": "1400.00",
             "currency": "USD"
           },
           "base": {
-            "amount": "0.00",
+            "amount": "1500.00",
             "currency": "USD"
           },
           "high": {
-            "amount": "25.00",
+            "amount": "1600.00",
             "currency": "USD"
           }
         },
@@ -1272,15 +1279,15 @@
           {
             "type": "CONTRACT_COST",
             "low": {
-              "amount": "0.00",
+              "amount": "1400.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "0.00",
+              "amount": "1500.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "25.00",
+              "amount": "1600.00",
               "currency": "USD"
             },
             "schedule_version": null
@@ -1323,7 +1330,7 @@
         "cancel",
         "inst_meeting_intelligence_incumbent"
       ],
-      "rank": 7,
+      "rank": 4,
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
       "quote_required": false,
@@ -1554,15 +1561,15 @@
         },
         "total_cost": {
           "low": {
-            "amount": "8.00",
+            "amount": "96.00",
             "currency": "USD"
           },
           "base": {
-            "amount": "12.00",
+            "amount": "144.00",
             "currency": "USD"
           },
           "high": {
-            "amount": "18.00",
+            "amount": "216.00",
             "currency": "USD"
           }
         },
@@ -1570,15 +1577,15 @@
           {
             "type": "CONTRACT_COST",
             "low": {
-              "amount": "8.00",
+              "amount": "96.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "12.00",
+              "amount": "144.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "18.00",
+              "amount": "216.00",
               "currency": "USD"
             },
             "schedule_version": null
@@ -1621,11 +1628,11 @@
         "configure_existing",
         "inst_meeting_intelligence_incumbent"
       ],
-      "rank": 4,
+      "rank": 2,
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
       "quote_required": false,
-      "quote_policy_reason": "NONE",
+      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
       "permitted_resolution": null,
       "autonomous_execution_allowed": false,
       "stack_patch_id": null
@@ -1862,15 +1869,15 @@
         },
         "total_cost": {
           "low": {
-            "amount": "99.00",
+            "amount": "1188.00",
             "currency": "USD"
           },
           "base": {
-            "amount": "104.00",
+            "amount": "1248.00",
             "currency": "USD"
           },
           "high": {
-            "amount": "119.00",
+            "amount": "1428.00",
             "currency": "USD"
           }
         },
@@ -1878,15 +1885,15 @@
           {
             "type": "CONTRACT_COST",
             "low": {
-              "amount": "99.00",
+              "amount": "1188.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "104.00",
+              "amount": "1248.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "119.00",
+              "amount": "1428.00",
               "currency": "USD"
             },
             "schedule_version": null
@@ -1951,9 +1958,13 @@
       ],
       "component_hash": "sha256:b50f465e9b8f36e169a29eddc86559fa3cc7a483311d5e11a61fdaf563627b4c",
       "construction_lifecycle": "CANDIDATE",
-      "lifecycle": "EXECUTABLE",
-      "status": "ELIGIBLE",
-      "primary_reason": null,
+      "lifecycle": "BLOCKED",
+      "status": "SIRA_INELIGIBLE",
+      "primary_reason": {
+        "reason_code": "BUYER_POLICY_GATE_BUDGET",
+        "status": "SIRA_INELIGIBLE",
+        "detail": "Required predicate failed"
+      },
       "gate_results": [
         {
           "gate_id": "availability_current_renew",
@@ -1966,8 +1977,14 @@
         },
         {
           "gate_id": "gate_budget",
-          "truth": "TRUE",
-          "reasons": [],
+          "truth": "FALSE",
+          "reasons": [
+            {
+              "reason_code": "BUYER_POLICY_GATE_BUDGET",
+              "status": "SIRA_INELIGIBLE",
+              "detail": "Required predicate failed"
+            }
+          ],
           "evaluated_predicates": [
             "offer.landed_total"
           ],
@@ -2160,15 +2177,15 @@
         },
         "total_cost": {
           "low": {
-            "amount": "94.00",
+            "amount": "1128.00",
             "currency": "USD"
           },
           "base": {
-            "amount": "99.00",
+            "amount": "1188.00",
             "currency": "USD"
           },
           "high": {
-            "amount": "109.00",
+            "amount": "1308.00",
             "currency": "USD"
           }
         },
@@ -2176,15 +2193,15 @@
           {
             "type": "CONTRACT_COST",
             "low": {
-              "amount": "94.00",
+              "amount": "1128.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "99.00",
+              "amount": "1188.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "109.00",
+              "amount": "1308.00",
               "currency": "USD"
             },
             "schedule_version": null
@@ -2192,7 +2209,7 @@
         ],
         "payment_required": false,
         "hard_coverage": {
-          "numerator": 5,
+          "numerator": 4,
           "denominator": 5
         },
         "decision_material_coverage": {
@@ -2227,12 +2244,12 @@
         "renew",
         "inst_meeting_intelligence_incumbent"
       ],
-      "rank": 2,
+      "rank": null,
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
-      "quote_required": true,
-      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
-      "permitted_resolution": null,
+      "quote_required": false,
+      "quote_policy_reason": "NONE",
+      "permitted_resolution": "PROCUREMENT_GATE",
       "autonomous_execution_allowed": false,
       "stack_patch_id": null
     },
@@ -2472,15 +2489,15 @@
         },
         "total_cost": {
           "low": {
-            "amount": "49.00",
+            "amount": "598.00",
             "currency": "USD"
           },
           "base": {
-            "amount": "49.00",
+            "amount": "598.00",
             "currency": "USD"
           },
           "high": {
-            "amount": "69.00",
+            "amount": "618.00",
             "currency": "USD"
           }
         },
@@ -2488,15 +2505,15 @@
           {
             "type": "MERCHANT_SUBTOTAL",
             "low": {
-              "amount": "47.00",
+              "amount": "588.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "47.00",
+              "amount": "588.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "67.00",
+              "amount": "608.00",
               "currency": "USD"
             },
             "schedule_version": null
@@ -2504,15 +2521,15 @@
           {
             "type": "SIRA_TRANSACTION_FEE",
             "low": {
-              "amount": "2.00",
+              "amount": "10.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "2.00",
+              "amount": "10.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "2.00",
+              "amount": "10.00",
               "currency": "USD"
             },
             "schedule_version": "buyer_txn_demo_v1"
@@ -2804,15 +2821,15 @@
         },
         "total_cost": {
           "low": {
-            "amount": "79.00",
+            "amount": "958.00",
             "currency": "USD"
           },
           "base": {
-            "amount": "79.00",
+            "amount": "958.00",
             "currency": "USD"
           },
           "high": {
-            "amount": "99.00",
+            "amount": "978.00",
             "currency": "USD"
           }
         },
@@ -2820,15 +2837,15 @@
           {
             "type": "MERCHANT_SUBTOTAL",
             "low": {
-              "amount": "77.00",
+              "amount": "948.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "77.00",
+              "amount": "948.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "97.00",
+              "amount": "968.00",
               "currency": "USD"
             },
             "schedule_version": null
@@ -2836,15 +2853,15 @@
           {
             "type": "SIRA_TRANSACTION_FEE",
             "low": {
-              "amount": "2.00",
+              "amount": "10.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "2.00",
+              "amount": "10.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "2.00",
+              "amount": "10.00",
               "currency": "USD"
             },
             "schedule_version": "buyer_txn_demo_v1"
@@ -2909,9 +2926,13 @@
       ],
       "component_hash": "sha256:769150ec00078eb07932565e567477c916d8413c7a11602709a27d21f2d6ca03",
       "construction_lifecycle": "CANDIDATE",
-      "lifecycle": "EXECUTABLE",
-      "status": "ELIGIBLE",
-      "primary_reason": null,
+      "lifecycle": "BLOCKED",
+      "status": "SIRA_INELIGIBLE",
+      "primary_reason": {
+        "reason_code": "BUYER_POLICY_GATE_BUDGET",
+        "status": "SIRA_INELIGIBLE",
+        "detail": "Required predicate failed"
+      },
       "gate_results": [
         {
           "gate_id": "availability_canonical_7f082862a367a9550e4f",
@@ -2933,8 +2954,14 @@
         },
         {
           "gate_id": "gate_budget",
-          "truth": "TRUE",
-          "reasons": [],
+          "truth": "FALSE",
+          "reasons": [
+            {
+              "reason_code": "BUYER_POLICY_GATE_BUDGET",
+              "status": "SIRA_INELIGIBLE",
+              "detail": "Required predicate failed"
+            }
+          ],
           "evaluated_predicates": [
             "offer.landed_total"
           ],
@@ -3125,15 +3152,15 @@
         },
         "total_cost": {
           "low": {
-            "amount": "99.00",
+            "amount": "1174.00",
             "currency": "USD"
           },
           "base": {
-            "amount": "99.00",
+            "amount": "1174.00",
             "currency": "USD"
           },
           "high": {
-            "amount": "119.00",
+            "amount": "1194.00",
             "currency": "USD"
           }
         },
@@ -3141,15 +3168,15 @@
           {
             "type": "MERCHANT_SUBTOTAL",
             "low": {
-              "amount": "97.00",
+              "amount": "1164.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "97.00",
+              "amount": "1164.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "117.00",
+              "amount": "1184.00",
               "currency": "USD"
             },
             "schedule_version": null
@@ -3157,15 +3184,15 @@
           {
             "type": "SIRA_TRANSACTION_FEE",
             "low": {
-              "amount": "2.00",
+              "amount": "10.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "2.00",
+              "amount": "10.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "2.00",
+              "amount": "10.00",
               "currency": "USD"
             },
             "schedule_version": "buyer_txn_demo_v1"
@@ -3173,7 +3200,7 @@
         ],
         "payment_required": true,
         "hard_coverage": {
-          "numerator": 5,
+          "numerator": 4,
           "denominator": 5
         },
         "decision_material_coverage": {
@@ -3208,12 +3235,12 @@
         "replace",
         "product_fixture_c"
       ],
-      "rank": 6,
+      "rank": null,
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
       "quote_required": false,
       "quote_policy_reason": "NONE",
-      "permitted_resolution": null,
+      "permitted_resolution": "PROCUREMENT_GATE",
       "autonomous_execution_allowed": false,
       "stack_patch_id": null
     },
@@ -3446,15 +3473,15 @@
         },
         "total_cost": {
           "low": {
-            "amount": "89.00",
+            "amount": "990.00",
             "currency": "USD"
           },
           "base": {
-            "amount": "89.00",
+            "amount": "990.00",
             "currency": "USD"
           },
           "high": {
-            "amount": "109.00",
+            "amount": "1010.00",
             "currency": "USD"
           }
         },
@@ -3462,15 +3489,15 @@
           {
             "type": "MERCHANT_SUBTOTAL",
             "low": {
-              "amount": "87.00",
+              "amount": "980.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "87.00",
+              "amount": "980.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "107.00",
+              "amount": "1000.00",
               "currency": "USD"
             },
             "schedule_version": null
@@ -3478,15 +3505,15 @@
           {
             "type": "SIRA_TRANSACTION_FEE",
             "low": {
-              "amount": "2.00",
+              "amount": "10.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "2.00",
+              "amount": "10.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "2.00",
+              "amount": "10.00",
               "currency": "USD"
             },
             "schedule_version": "buyer_txn_demo_v1"
@@ -3760,15 +3787,15 @@
         },
         "total_cost": {
           "low": {
-            "amount": "76.00",
+            "amount": "912.00",
             "currency": "USD"
           },
           "base": {
-            "amount": "82.00",
+            "amount": "984.00",
             "currency": "USD"
           },
           "high": {
-            "amount": "92.00",
+            "amount": "1104.00",
             "currency": "USD"
           }
         },
@@ -3776,15 +3803,15 @@
           {
             "type": "CONTRACT_COST",
             "low": {
-              "amount": "76.00",
+              "amount": "912.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "82.00",
+              "amount": "984.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "92.00",
+              "amount": "1104.00",
               "currency": "USD"
             },
             "schedule_version": null
@@ -3827,11 +3854,11 @@
         "resize",
         "inst_meeting_intelligence_incumbent"
       ],
-      "rank": 5,
+      "rank": 3,
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
-      "quote_required": false,
-      "quote_policy_reason": "NONE",
+      "quote_required": true,
+      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
       "permitted_resolution": null,
       "autonomous_execution_allowed": false,
       "stack_patch_id": null
@@ -3849,9 +3876,13 @@
       ],
       "component_hash": "sha256:3641fe926f24fb377cb7b137fac33481b2a20a9c1264d4732df69f3515471359",
       "construction_lifecycle": "CANDIDATE",
-      "lifecycle": "EXECUTABLE",
-      "status": "ELIGIBLE",
-      "primary_reason": null,
+      "lifecycle": "BLOCKED",
+      "status": "SIRA_INELIGIBLE",
+      "primary_reason": {
+        "reason_code": "BUYER_POLICY_GATE_BUDGET",
+        "status": "SIRA_INELIGIBLE",
+        "detail": "Required predicate failed"
+      },
       "gate_results": [
         {
           "gate_id": "availability_current_reuse_existing",
@@ -3864,8 +3895,14 @@
         },
         {
           "gate_id": "gate_budget",
-          "truth": "TRUE",
-          "reasons": [],
+          "truth": "FALSE",
+          "reasons": [
+            {
+              "reason_code": "BUYER_POLICY_GATE_BUDGET",
+              "status": "SIRA_INELIGIBLE",
+              "detail": "Required predicate failed"
+            }
+          ],
           "evaluated_predicates": [
             "offer.landed_total"
           ],
@@ -4058,15 +4095,15 @@
         },
         "total_cost": {
           "low": {
-            "amount": "99.00",
+            "amount": "1188.00",
             "currency": "USD"
           },
           "base": {
-            "amount": "99.00",
+            "amount": "1188.00",
             "currency": "USD"
           },
           "high": {
-            "amount": "109.00",
+            "amount": "1308.00",
             "currency": "USD"
           }
         },
@@ -4074,15 +4111,15 @@
           {
             "type": "CONTRACT_COST",
             "low": {
-              "amount": "99.00",
+              "amount": "1188.00",
               "currency": "USD"
             },
             "base": {
-              "amount": "99.00",
+              "amount": "1188.00",
               "currency": "USD"
             },
             "high": {
-              "amount": "109.00",
+              "amount": "1308.00",
               "currency": "USD"
             },
             "schedule_version": null
@@ -4090,7 +4127,7 @@
         ],
         "payment_required": false,
         "hard_coverage": {
-          "numerator": 5,
+          "numerator": 4,
           "denominator": 5
         },
         "decision_material_coverage": {
@@ -4125,13 +4162,13 @@
         "reuse_existing",
         "inst_meeting_intelligence_incumbent"
       ],
-      "rank": 3,
+      "rank": null,
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
       "quote_required": false,
-      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
-      "permitted_resolution": null,
-      "autonomous_execution_allowed": true,
+      "quote_policy_reason": "NONE",
+      "permitted_resolution": "PROCUREMENT_GATE",
+      "autonomous_execution_allowed": false,
       "stack_patch_id": null
     }
   ],
@@ -4163,18 +4200,18 @@
         ]
       ],
       "tested_limit": 3,
-      "before_evaluation_payload_hash": "sha256:f74110af11e08a2034dc3916efa9bf4c996fdfdf5b1649dd7027167f4de3f26a",
-      "after_evaluation_payload_hash": "sha256:bfe1f055c3267d95a7e03a07011624330f949b35d04bace563a41487d15674bf",
-      "generic_evaluation_payload_hash": "sha256:281374d462b7bc9e62fd83f0a4b46dd6849599137510a5fadd54385a0bf7a5c0",
+      "before_evaluation_payload_hash": "sha256:29e36bb06b52021f9d2b681084b344936a06802a0d26143d2c3c1088232f97df",
+      "after_evaluation_payload_hash": "sha256:a76ae30e6406f5609a3c66a67f62c8df2929049276339c98e40789aae6882a01",
+      "generic_evaluation_payload_hash": "sha256:570628e0bc272192a4e63e7945ba589c72616b9855c449d7ac7acccc2f436192",
       "before_selected_plan_id": "plan_5a682ec42084ae355a2d",
       "after_selected_plan_id": "plan_3bf2f83ab61e5f63ae7c",
       "generic_selected_plan_id": "plan_15ed07224364e2feeb56",
       "changed_gate_ids": [
         "af_fixture_b_shared_client_data"
       ],
-      "record_hash": "sha256:c08d74199a5494d001bcbad43d5d682245ce94425e3078edbd4736677ddd4c12"
+      "record_hash": "sha256:e9ad5f585560c3010f3041eaaa8b02b9e2c5af149571023c292c73dee94cffee"
     }
   ],
   "created_at": "2026-08-02T12:00:00Z",
-  "decision_hash": "sha256:6ccfcb60b9689833a12860f1881fa98310939739be8528f3904d2559483c46da"
+  "decision_hash": "sha256:f84add454013606bb983619afb8a79d1e23dd2d64c9a810d113424a9e5f27b17"
 }

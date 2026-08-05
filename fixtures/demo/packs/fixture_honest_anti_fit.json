@@ -5,7 +5,7 @@
   "status": "published",
   "seller_id": "seller_fixture_b",
   "product_id": "product_fixture_b",
-  "identity": { "seller_name": "Fictional Seller B", "product_name": "Fixture B", "edition": "Team", "geographies": ["US"] },
+  "identity": { "seller_name": "Relay Systems", "product_name": "RelayNote", "edition": "Team", "geographies": ["US"] },
   "offer_ids": ["offer_fixture_b_monthly"],
   "category_ids": ["meeting_intelligence_client_services_v1"],
   "jtbd_ids": ["capture_meeting_decisions"],
@@ -20,7 +20,7 @@
     { "field": "product.native_integrations", "value": ["google_workspace", "slack", "zoom"], "evidence_claim_ids": ["claim_fixture_b_integrations"] }
   ],
   "fit_rules": [{ "rule_id": "fit_fixture_b_seats", "kind": "fit", "all": [{ "field": "buyer.seat_count", "op": "lte", "value": 50 }], "reason_code": "SEAT_RANGE_SUPPORTED", "display_reason": "The Team edition supports up to 50 seats.", "evidence_claim_ids": ["claim_fixture_b_seats"], "severity": "hard" }],
-  "anti_fit_rules": [{ "rule_id": "af_fixture_b_shared_client_data", "kind": "anti_fit", "all": [{ "field": "buyer.shared_client_workspace_required", "op": "eq", "value": true }, { "field": "buyer.client_conversations_restricted", "op": "eq", "value": true }], "reason_code": "SHARED_CLIENT_WORKSPACE_UNSUPPORTED", "display_reason": "Fixture B is not offered for restricted client conversations in shared external-client workspaces.", "evidence_claim_ids": ["claim_fixture_b_workspace"], "severity": "hard" }],
+  "anti_fit_rules": [{ "rule_id": "af_fixture_b_shared_client_data", "kind": "anti_fit", "all": [{ "field": "buyer.shared_client_workspace_required", "op": "eq", "value": true }, { "field": "buyer.client_conversations_restricted", "op": "eq", "value": true }], "reason_code": "SHARED_CLIENT_WORKSPACE_UNSUPPORTED", "display_reason": "RelayNote is not offered for restricted client conversations in shared external-client workspaces.", "evidence_claim_ids": ["claim_fixture_b_workspace"], "severity": "hard" }],
   "dependency_rules": [],
   "positioning_angles": [{ "angle_id": "angle_fixture_b_fast_setup", "text": "Fast setup for internal-only meeting workflows.", "claim_ids": ["claim_fixture_b_deploy"] }],
   "claims": [

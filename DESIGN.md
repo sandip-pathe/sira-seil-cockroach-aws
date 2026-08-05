@@ -36,7 +36,7 @@ Mutual contact consent reveals only the displayed contact scope; it never approv
 ## 2. Experience principles
 
 1. **One platform, two clear doors.** The landing page and signed-in home give SIRA and SEIL equal legitimacy.
-2. **Chat gathers; records govern.** Conversation can capture and propose. Structured, versioned records validate, rank, publish, approve, execute, and verify.
+2. **The agent acts; artifacts prove; authority gates effects.** Conversation is a projection of a persistent mission. The root agent can investigate, evaluate, rank, and recommend; structured evidence makes that work inspectable, while the server alone approves and executes protected effects.
 3. **Ask only material questions.** Gather the minimum context needed to change eligibility, ranking, disclosure, publication, or execution. Do not harvest context for its own sake.
 4. **Show the boundary.** Authorized actors who manage disclosure see Private, Shared in brief, Published, or Restricted. Other actors receive no restricted field or privacy mark at all.
 5. **Truth before persuasion.** Evidence, uncertainty, fit, and anti-fit appear before seller positioning. Positioning is always labelled and never styled like rank evidence.

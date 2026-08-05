@@ -5,7 +5,7 @@
   "status": "published",
   "seller_id": "seller_fixture_d",
   "product_id": "product_fixture_d",
-  "identity": { "seller_name": "Fictional Seller D", "product_name": "Fixture D", "edition": "Team", "geographies": ["US"] },
+  "identity": { "seller_name": "Luma Labs", "product_name": "LumaMeet", "edition": "Team", "geographies": ["US"] },
   "offer_ids": ["offer_fixture_d_monthly"],
   "category_ids": ["meeting_intelligence_client_services_v1"],
   "jtbd_ids": ["capture_meeting_decisions"],

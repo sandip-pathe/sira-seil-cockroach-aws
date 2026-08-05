@@ -27,7 +27,7 @@
     "quote_expires_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
     "merchant": { "$ref": "common.schema.json#/$defs/Merchant" },
     "approved_merchant_chain_id": { "$ref": "common.schema.json#/$defs/Identifier" },
-    "amount": { "const": "89.00" },
+    "amount": { "const": "990.00" },
     "currency": { "const": "USD" },
     "line_items": {
       "type": "array",
@@ -40,7 +40,7 @@
             "type": "object",
             "properties": {
               "type": { "const": "SIRA_TRANSACTION_FEE" },
-              "total_amount": { "const": "2.00" },
+              "total_amount": { "const": "10.00" },
               "schedule_version": { "const": "buyer_txn_demo_v1" }
             },
             "required": ["type", "total_amount", "schedule_version"]
@@ -53,7 +53,7 @@
             "type": "object",
             "properties": {
               "type": { "const": "MERCHANT_SUBTOTAL" },
-              "total_amount": { "const": "87.00" }
+              "total_amount": { "const": "980.00" }
             },
             "required": ["type", "total_amount"]
           },
@@ -69,12 +69,12 @@
     "billing_identity_id": { "$ref": "common.schema.json#/$defs/Identifier" },
     "cost_center_id": { "$ref": "common.schema.json#/$defs/Identifier" },
     "purchase_order_ref": { "type": ["string", "null"], "maxLength": 100 },
-    "merchant_subtotal": { "const": "87.00" },
+    "merchant_subtotal": { "const": "980.00" },
     "tax_amount": { "const": "0.00" },
-    "fee_amount": { "const": "2.00" },
+    "fee_amount": { "const": "10.00" },
     "fee_schedule_version": { "const": "buyer_txn_demo_v1" },
     "contract_version_id": { "$ref": "common.schema.json#/$defs/Identifier" },
-    "landed_total": { "const": "89.00" },
+    "landed_total": { "const": "990.00" },
     "approval_policy_version": { "type": "integer", "minimum": 1 },
     "approval_requirement_set_id": { "$ref": "common.schema.json#/$defs/Identifier" },
     "approval_plan_hash": { "$ref": "common.schema.json#/$defs/Sha256" },

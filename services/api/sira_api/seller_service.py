@@ -1065,7 +1065,7 @@ class SellerEvidenceService:
         product = SellerProduct(
             id="product_fixture_d",
             organization_id=organization_id,
-            name="Fixture D",
+            name="LumaMeet",
             category="meeting-intelligence",
             public_summary=(
                 "Fictional development Product Evidence fixture; no production seller "
@@ -1100,7 +1100,7 @@ class SellerEvidenceService:
             updated_at=now,
         )
         initial_claims: list[dict[str, Any]] = [
-            {"field": "product_name", "value": "Fixture D", "evidence_ids": []},
+            {"field": "product_name", "value": "LumaMeet", "evidence_ids": []},
             {
                 "field": "public_summary",
                 "value": "Meeting intelligence for governed enterprise workflows.",
@@ -1195,7 +1195,7 @@ class SellerEvidenceService:
             "version": 1,
             "publisher_authority": PackAuthority.SELLER_SEALED.value,
             "claims": [
-                {"field": "product_name", "value": "Fixture D", "evidence_ids": []},
+                {"field": "product_name", "value": "LumaMeet", "evidence_ids": []},
                 {
                     "field": "public_summary",
                     "value": "Fictional development Product Evidence fixture.",

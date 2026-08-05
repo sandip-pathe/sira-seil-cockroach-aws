@@ -6,7 +6,7 @@ from typing import Any, Literal, Protocol, cast
 
 from pydantic import BaseModel
 
-from agents import RunContextWrapper, function_tool
+from agents import RunContextWrapper, WebSearchTool, function_tool
 from domain import content_hash
 from sira_agents.runtime import AgentRunContext
 
@@ -123,6 +123,8 @@ def _seller_role(context: AgentRunContext) -> str:
     if "seller_reviewer" in normalized_roles:
         return "SELLER_REVIEWER"
     if "seller_editor" in normalized_roles:
+        return "SELLER_EDITOR"
+    if "seller_viewer" in normalized_roles:
         return "SELLER_EDITOR"
     raise PermissionError("SEIL tools require seller_editor or seller_reviewer")
 
@@ -433,6 +435,7 @@ SIRA_TOOL_NAMES = (
 )
 
 SEIL_TOOL_NAMES = (
+    "web_search",
     "search_senso_evidence",
     "search_seller_products",
     "get_seller_product_view",
@@ -448,6 +451,7 @@ SEIL_TOOL_NAMES = (
 
 def commerce_tool_registry() -> dict[str, object]:
     return {
+        "web_search": WebSearchTool(search_context_size="medium", external_web_access=True),
         "get_purchase_request": get_purchase_request,
         "get_purchase_brief": get_purchase_brief,
         "get_stack_snapshot": get_stack_snapshot,

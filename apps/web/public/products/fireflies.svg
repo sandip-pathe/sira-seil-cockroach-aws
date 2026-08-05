@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Fireflies.ai">
+  <rect width="64" height="64" rx="15" fill="#15123a"/>
+  <path d="M32 9l5.2 15.8L53 30l-15.8 5.2L32 51l-5.2-15.8L11 30l15.8-5.2z" fill="#8b5cf6"/>
+  <circle cx="32" cy="30" r="7" fill="#f7d94c"/>
+</svg>

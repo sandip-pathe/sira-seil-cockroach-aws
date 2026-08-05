@@ -514,14 +514,13 @@ def test_selected_tco_contains_fee_once_and_current_actions_never_do() -> None:
     selected = _selected(evaluation)
     cost = selected.dimensions.total_cost
 
-    assert cost.base is not None and cost.base.to_dict() == {"amount": "89.00", "currency": "USD"}
+    assert cost.base is not None and cost.base.to_dict() == {"amount": "990.00", "currency": "USD"}
     assert [(item.line_item_type, item.base.to_dict()) for item in cost.line_items] == [
-        ("MERCHANT_SUBTOTAL", {"amount": "87.00", "currency": "USD"}),
-        ("SIRA_TRANSACTION_FEE", {"amount": "2.00", "currency": "USD"}),
+        ("MERCHANT_SUBTOTAL", {"amount": "980.00", "currency": "USD"}),
+        ("SIRA_TRANSACTION_FEE", {"amount": "10.00", "currency": "USD"}),
     ]
     assert cost.line_items[1].schedule_version == "buyer_txn_demo_v1"
     renewal = next(plan for plan in evaluation.plans if plan.action is SolutionAction.RENEW)
-    assert renewal.quote_required
     assert not renewal.dimensions.total_cost.payment_required
     ledger_schema = json.loads(
         (

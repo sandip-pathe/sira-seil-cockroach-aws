@@ -12,7 +12,7 @@ export default function PravaConnectReturnPage() {
     const state = search.get("state");
     const code = search.get("code");
     if (!state || !code) {
-      setMessage("Prava did not return a complete authorization response.");
+      queueMicrotask(() => setMessage("Prava did not return a complete authorization response."));
       return;
     }
     void fetch("/v1/connectors/prava/callback", {

@@ -12,7 +12,7 @@ export default function PravaReturnPage() {
     const state = search.get("state");
     const returnUrl = search.get("return_url");
     if (!state || !returnUrl) {
-      setMessage("This Prava return link is incomplete.");
+      queueMicrotask(() => setMessage("This Prava return link is incomplete."));
       return;
     }
     void getBrowserApiClient()

@@ -4,7 +4,7 @@
   "seller_id": "seller_fixture_d",
   "product_id": "product_fixture_d",
   "version": 1,
-  "public_identity": { "seller_name": "Fictional Seller D", "product_name": "Fixture D", "edition": "Team", "geographies": ["US"] },
+  "public_identity": { "seller_name": "Luma Labs", "product_name": "LumaMeet", "edition": "Team", "geographies": ["US"] },
   "source_material": [
     { "source_id": "src_fixture_d_internal", "classification": "seller_confidential", "title": "Fixture D internal product dossier", "internal_location": "seller-private://fixture-d/dossier-v1", "owner_role": "product_owner" }
   ],

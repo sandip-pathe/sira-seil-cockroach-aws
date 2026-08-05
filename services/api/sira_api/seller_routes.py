@@ -61,12 +61,25 @@ def _seller_role(context: RequestContext) -> SellerActorRole:
         return "SELLER_REVIEWER"
     if "seller_editor" in roles:
         return "SELLER_EDITOR"
+    if "seller_viewer" in roles:
+        return "SELLER_EDITOR"
     raise ApiProblem(
         code="SELLER_ROLE_REQUIRED",
         message="The seller identity has no Product Evidence role.",
         status_code=403,
         next_action="request_seller_role",
     )
+
+
+def _require_verified_seller(context: RequestContext) -> None:
+    require_human_identity(context)
+    if context.guest_identity:
+        raise ApiProblem(
+            code="VERIFIED_SELLER_REQUIRED",
+            message="Sign in with a verified account to change Product Evidence.",
+            status_code=403,
+            next_action="link_guest_account",
+        )
 
 
 def _require_step_up(context: RequestContext) -> None:
@@ -115,7 +128,7 @@ async def claim_seller_product(
     service: SellerServiceDependency,
     idempotency_key: IdempotencyDependency,
 ) -> dict[str, object]:
-    require_human_identity(context)
+    _require_verified_seller(context)
     code, payload = await service.claim_product(
         organization_id=context.organization_id,
         actor_id=context.actor_id,
@@ -180,7 +193,7 @@ async def patch_seller_pack_draft(
     service: SellerServiceDependency,
     idempotency_key: IdempotencyDependency,
 ) -> dict[str, object]:
-    require_human_identity(context)
+    _require_verified_seller(context)
     code, payload = await service.patch_draft(
         organization_id=context.organization_id,
         actor_id=context.actor_id,
@@ -209,7 +222,7 @@ async def attach_seller_evidence(
     service: SellerServiceDependency,
     idempotency_key: IdempotencyDependency,
 ) -> dict[str, object]:
-    require_human_identity(context)
+    _require_verified_seller(context)
     code, payload = await service.attach_evidence(
         organization_id=context.organization_id,
         actor_id=context.actor_id,
@@ -236,7 +249,7 @@ async def submit_seller_pack_review(
     service: SellerServiceDependency,
     idempotency_key: IdempotencyDependency,
 ) -> dict[str, object]:
-    require_human_identity(context)
+    _require_verified_seller(context)
     code, payload = await service.submit_review(
         organization_id=context.organization_id,
         actor_id=context.actor_id,
@@ -264,7 +277,7 @@ async def record_seller_review_decision(
     service: SellerServiceDependency,
     idempotency_key: IdempotencyDependency,
 ) -> dict[str, object]:
-    require_human_identity(context)
+    _require_verified_seller(context)
     code, payload = await service.review_decision(
         organization_id=context.organization_id,
         actor_id=context.actor_id,
@@ -292,7 +305,7 @@ async def publish_seller_pack(
     service: SellerServiceDependency,
     idempotency_key: IdempotencyDependency,
 ) -> dict[str, object]:
-    require_human_identity(context)
+    _require_verified_seller(context)
     _require_step_up(context)
     code, payload = await service.publish(
         organization_id=context.organization_id,
@@ -320,7 +333,7 @@ async def suspend_seller_pack(
     service: SellerServiceDependency,
     idempotency_key: IdempotencyDependency,
 ) -> dict[str, object]:
-    require_human_identity(context)
+    _require_verified_seller(context)
     _require_step_up(context)
     code, payload = await service.suspend(
         organization_id=context.organization_id,

@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Fathom">
+  <rect width="64" height="64" rx="15" fill="#fff"/>
+  <path d="M12 17h40v9H31v8h17v9H31v15H20V26h-8z" fill="#4b35f2"/>
+</svg>

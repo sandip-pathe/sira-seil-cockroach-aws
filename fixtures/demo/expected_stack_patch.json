@@ -25,7 +25,7 @@
           "consultants"
         ],
         "cost": {
-          "amount": "89.00",
+          "amount": "82.50",
           "currency": "USD",
           "interval": "monthly"
         },
@@ -84,11 +84,11 @@
     "Revoke the staged instance and integration edges after a confirmed full refund."
   ],
   "cost_impact": {
-    "monthly_delta": "89.00",
+    "monthly_delta": "82.50",
     "currency": "USD"
   },
   "risk": "LOW",
   "expected_outcome": "Consultants can retrieve an agreed client decision, owner, and source moment within 120 seconds.",
   "created_at": "2026-08-02T01:05:00Z",
-  "content_hash": "sha256:880d32891bd88aa9c11ff30a01d7e8591410f4085cfc0e7ea1a28d21e059cdbb"
+  "content_hash": "sha256:746ab735b5abd978c5e85d336edb1590ee52e87d9e81c3320470483d90ff4ef4"
 }

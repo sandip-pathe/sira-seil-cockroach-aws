@@ -13,8 +13,10 @@ from .dependencies import (
 )
 from .errors import ApiProblem
 from .workspace_schemas import (
+    CapabilityView,
     CatalogProductView,
     ConnectorView,
+    MissionSnapshotView,
     WorkspaceChatCreate,
     WorkspaceChatView,
     WorkspaceConversationView,
@@ -32,7 +34,9 @@ def get_workspace_service(request: Request) -> WorkspaceService:
 ServiceDependency = Annotated[WorkspaceService, Depends(get_workspace_service)]
 
 
-def _agent_context(request: Request, context: RequestContext, service: WorkspaceService) -> AgentRunContext:
+def _agent_context(
+    request: Request, context: RequestContext, service: WorkspaceService
+) -> AgentRunContext:
     return AgentRunContext(
         organization_id=context.organization_id,
         actor_id=context.actor_id,
@@ -43,6 +47,14 @@ def _agent_context(request: Request, context: RequestContext, service: Workspace
         request_id=request.state.request_id,
         services=service.agent_services(),
     )
+
+
+@workspace_router.get("/v1/capabilities", response_model=list[CapabilityView], tags=["workspace"])
+async def workspace_capabilities(
+    context: ContextDependency, service: ServiceDependency
+) -> list[dict[str, str | None]]:
+    require_permission(context, "can_view_context")
+    return service.capabilities()
 
 
 @workspace_router.post("/v1/workspace/chat", response_model=WorkspaceChatView, tags=["workspace"])
@@ -100,6 +112,24 @@ async def workspace_conversations(
 
 
 @workspace_router.get(
+    "/v1/workspace/missions/{mission_id}",
+    response_model=MissionSnapshotView,
+    tags=["workspace"],
+)
+async def workspace_mission(
+    mission_id: str,
+    request: Request,
+    context: ContextDependency,
+    service: ServiceDependency,
+) -> dict[str, object]:
+    require_permission(context, "can_view_context")
+    return await service.mission(
+        run_context=_agent_context(request, context, service),
+        mission_id=mission_id,
+    )
+
+
+@workspace_router.get(
     "/v1/workspace/catalog", response_model=list[CatalogProductView], tags=["workspace"]
 )
 async def workspace_catalog(
@@ -130,14 +160,10 @@ async def workspace_product(
     "/v1/workspace/connectors", response_model=list[ConnectorView], tags=["workspace"]
 )
 async def workspace_connectors(
-    request: Request, context: ContextDependency, service: ServiceDependency
+    context: ContextDependency, service: ServiceDependency
 ) -> list[dict[str, str]]:
     require_permission(context, "can_view_context")
     senso_ready, senso_meta = service.senso_status()
-    prava_status = await request.app.state.prava_mcp_service.status(
-        organization_id=context.organization_id
-    )
-    prava_connected = prava_status["status"] == "connected"
     return [
         {
             "id": "business-context",
@@ -152,17 +178,6 @@ async def workspace_connectors(
             "purpose": "Company files and decision evidence",
             "status": "Healthy" if senso_ready else "Needs setup",
             "meta": senso_meta,
-        },
-        {
-            "id": "prava",
-            "name": "Prava",
-            "purpose": "Private approval and gateway-side checkout",
-            "status": "Healthy" if prava_connected else "Needs setup",
-            "meta": (
-                "OAuth connected; card and delivery credentials stay inside Prava"
-                if prava_connected
-                else "Connect Prava Pay with OAuth; no card details enter SIRA"
-            ),
         },
         {
             "id": "datahub",

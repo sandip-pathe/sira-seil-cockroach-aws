@@ -5,7 +5,7 @@
   "status": "published",
   "seller_id": "seller_fixture_c",
   "product_id": "product_fixture_c",
-  "identity": { "seller_name": "Fictional Seller C", "product_name": "Fixture C", "edition": "Business", "geographies": ["US"] },
+  "identity": { "seller_name": "Atlas Works", "product_name": "Atlas Minutes", "edition": "Business", "geographies": ["US"] },
   "offer_ids": ["offer_fixture_c_monthly"],
   "category_ids": ["meeting_intelligence_client_services_v1"],
   "jtbd_ids": ["capture_meeting_decisions"],

@@ -408,6 +408,26 @@
   font-size: 11px;
 }
 
+.accountAction,
+.accountActionSecondary {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 14px;
+  border: 1px solid var(--settings-accent);
+  border-radius: 10px;
+  background: var(--settings-accent);
+  color: white;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.accountActionSecondary {
+  margin-top: 8px;
+  background: transparent;
+  color: var(--settings-accent);
+}
+
 @media (max-width: 640px) {
   .overlay {
     padding: 0;

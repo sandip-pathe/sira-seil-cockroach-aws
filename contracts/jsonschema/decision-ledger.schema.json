@@ -281,9 +281,9 @@
           "if": { "properties": { "type": { "const": "SIRA_TRANSACTION_FEE" } }, "required": ["type"] },
           "then": {
             "properties": {
-              "low": { "type": "object", "properties": { "amount": { "const": "2.00" }, "currency": { "const": "USD" } }, "required": ["amount", "currency"] },
-              "base": { "type": "object", "properties": { "amount": { "const": "2.00" }, "currency": { "const": "USD" } }, "required": ["amount", "currency"] },
-              "high": { "type": "object", "properties": { "amount": { "const": "2.00" }, "currency": { "const": "USD" } }, "required": ["amount", "currency"] },
+              "low": { "type": "object", "properties": { "amount": { "const": "10.00" }, "currency": { "const": "USD" } }, "required": ["amount", "currency"] },
+              "base": { "type": "object", "properties": { "amount": { "const": "10.00" }, "currency": { "const": "USD" } }, "required": ["amount", "currency"] },
+              "high": { "type": "object", "properties": { "amount": { "const": "10.00" }, "currency": { "const": "USD" } }, "required": ["amount", "currency"] },
               "schedule_version": { "const": "buyer_txn_demo_v1" }
             }
           }

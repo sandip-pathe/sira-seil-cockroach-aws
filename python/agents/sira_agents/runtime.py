@@ -16,6 +16,11 @@ class AgentRole(StrEnum):
     SEIL = "SEIL"
 
 
+class AuthorityMode(StrEnum):
+    ADVISORY = "ADVISORY"
+    MISSION_OPERATOR = "MISSION_OPERATOR"
+
+
 @dataclass(frozen=True, slots=True)
 class AgentRunContext:
     """Private application state available to tools, never serialized for the model."""
@@ -45,6 +50,8 @@ class AgentRunRequest:
     run_context: AgentRunContext | None = None
     allowed_tools: tuple[str, ...] = ()
     output_type: type[Any] | None = None
+    authority_mode: AuthorityMode = AuthorityMode.ADVISORY
+    api_key: str = field(default="", repr=False, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,7 +72,7 @@ class _SdkFacade(Protocol):
         instructions: str,
         model: str,
         tools: list[object],
-        output_type: type[Any] | None,
+        output_type: object | None,
     ) -> object: ...
 
 
@@ -83,6 +90,7 @@ class _SdkRunOutcome:
         context: AgentRunContext | None,
         max_turns: int,
         workflow_name: str,
+        api_key: str,
     ) -> object: ...
 
 
@@ -96,7 +104,7 @@ class _OpenAISdkFacade:
         instructions: str,
         model: str,
         tools: list[object],
-        output_type: type[Any] | None,
+        output_type: object | None,
     ) -> object:
         from agents import Agent
 
@@ -118,7 +126,10 @@ class _OpenAISdkFacade:
         context: AgentRunContext | None,
         max_turns: int,
         workflow_name: str,
+        api_key: str,
     ) -> object:
+        from agents.models.openai_provider import OpenAIProvider
+
         from agents import RunConfig, Runner, ToolCallItem, ToolCallOutputItem
 
         sdk_runner: Any = Runner
@@ -128,17 +139,28 @@ class _OpenAISdkFacade:
             context=context,
             max_turns=max_turns,
             run_config=RunConfig(
+                model_provider=OpenAIProvider(api_key=api_key or None),
                 tracing_disabled=True,
                 trace_include_sensitive_data=False,
                 workflow_name=workflow_name,
             ),
         )
         output: object = result.final_output
-        tool_calls = tuple(
-            item.tool_name
-            for item in result.new_items
-            if isinstance(item, ToolCallItem) and item.tool_name is not None
-        )
+        tool_names: list[str] = []
+        for item in result.new_items:
+            if not isinstance(item, ToolCallItem):
+                continue
+            name = item.tool_name
+            raw_type = (
+                item.raw_item.get("type")
+                if isinstance(item.raw_item, dict)
+                else getattr(item.raw_item, "type", None)
+            )
+            if name is None and raw_type == "web_search_call":
+                name = "web_search"
+            if name is not None:
+                tool_names.append(name)
+        tool_calls = tuple(tool_names)
         proposals: list[Mapping[str, Any]] = []
         for item in result.new_items:
             if not isinstance(item, ToolCallOutputItem):
@@ -170,11 +192,11 @@ class _OpenAISdkFacade:
 
 @dataclass(slots=True)
 class OpenAIAgentsRuntime:
-    """Thin model adapter; it has no authority to decide, approve, pay, or activate."""
+    """Model control-plane adapter; protected effects remain server-authorized."""
 
     model: str
     tools: Mapping[str, object] = field(default_factory=dict)
-    max_turns: int = 4
+    max_turns: int = 16
     _sdk: _SdkFacade = field(default_factory=_OpenAISdkFacade, repr=False)
 
     async def run(self, request: AgentRunRequest) -> AgentRunResult:
@@ -192,12 +214,20 @@ class OpenAIAgentsRuntime:
             raise ValueError(f"agent request contains unregistered tools: {joined}")
 
         resolved_tools = [self.tools[name] for name in request.allowed_tools]
+        output_type: object | None = request.output_type
+        if request.output_type is not None:
+            from agents import AgentOutputSchema
+
+            output_type = AgentOutputSchema(
+                request.output_type,
+                strict_json_schema=False,
+            )
         agent = self._sdk.create_agent(
             name=request.role.value,
             instructions=request.instructions,
             model=self.model,
             tools=resolved_tools,
-            output_type=request.output_type,
+            output_type=output_type,
         )
         outcome = await self._sdk.run(
             agent,
@@ -205,11 +235,16 @@ class OpenAIAgentsRuntime:
             context=request.run_context,
             max_turns=self.max_turns,
             workflow_name=f"sira-seil-{request.role.value.lower()}",
+            api_key=request.api_key,
         )
         if isinstance(outcome, _SdkRunOutcome):
             return AgentRunResult(
                 output=outcome.output,
                 tool_calls=outcome.tool_calls,
                 proposals=outcome.proposals,
+                advisory_only=request.authority_mode is AuthorityMode.ADVISORY,
             )
-        return AgentRunResult(output=outcome)
+        return AgentRunResult(
+            output=outcome,
+            advisory_only=request.authority_mode is AuthorityMode.ADVISORY,
+        )

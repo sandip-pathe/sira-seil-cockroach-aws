@@ -342,13 +342,13 @@ def test_decision_view_is_action_neutral_and_server_owned() -> None:
 def test_fee_contract_is_one_versioned_buyer_line_item() -> None:
     common = load(SCHEMAS / "common.schema.json")
     fee_rule = common["$defs"]["LineItem"]["allOf"][0]["then"]["properties"]
-    assert fee_rule["unit_amount"]["const"] == "2.00"
-    assert fee_rule["total_amount"]["const"] == "2.00"
+    assert fee_rule["unit_amount"]["const"] == "10.00"
+    assert fee_rule["total_amount"]["const"] == "10.00"
     assert fee_rule["schedule_version"]["const"] == "buyer_txn_demo_v1"
 
     for name in ("purchase-intent.schema.json", "receipt.schema.json"):
         schema = load(SCHEMAS / name)
-        assert schema["properties"]["amount"]["const"] == "89.00"
+        assert schema["properties"]["amount"]["const"] == "990.00"
         assert schema["properties"]["currency"]["const"] == "USD"
         line_items = schema["properties"]["line_items"]
         fee_constraints = line_items.get("allOf", [line_items])

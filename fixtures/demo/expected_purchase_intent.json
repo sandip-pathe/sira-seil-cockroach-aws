@@ -4,7 +4,7 @@
   "organization_id": "org_consultco",
   "decision_id": "dec_consultco_v1",
   "decision_version": 1,
-  "decision_hash": "sha256:6ccfcb60b9689833a12860f1881fa98310939739be8528f3904d2559483c46da",
+  "decision_hash": "sha256:f84add454013606bb983619afb8a79d1e23dd2d64c9a810d113424a9e5f27b17",
   "selection_id": "selection_consultco_fixture_d",
   "solution_plan_id": "plan_5a682ec42084ae355a2d",
   "stack_patch_id": "patch_consultco_fixture_d",
@@ -25,16 +25,16 @@
     "country": "US"
   },
   "approved_merchant_chain_id": "smc_fixture_d",
-  "amount": "89.00",
+  "amount": "990.00",
   "currency": "USD",
   "line_items": [
     {
       "line_item_id": "li_fixture_d_team",
       "type": "MERCHANT_SUBTOTAL",
-      "description": "Fixture D Team workspace with ten seats for one month",
+      "description": "LumaMeet annual pilot for ten seats",
       "quantity": 1,
-      "unit_amount": "87.00",
-      "total_amount": "87.00",
+      "unit_amount": "980.00",
+      "total_amount": "980.00",
       "schedule_version": null,
       "demo_policy_label": null
     },
@@ -43,8 +43,8 @@
       "type": "SIRA_TRANSACTION_FEE",
       "description": "SIRA buyer transaction fee under the sandbox demo policy",
       "quantity": 1,
-      "unit_amount": "2.00",
-      "total_amount": "2.00",
+      "unit_amount": "10.00",
+      "total_amount": "10.00",
       "schedule_version": "buyer_txn_demo_v1",
       "demo_policy_label": "DEMO_ONLY"
     }
@@ -79,15 +79,15 @@
   "billing_identity_id": "billing_consultco",
   "cost_center_id": "cc_client_delivery",
   "purchase_order_ref": null,
-  "merchant_subtotal": "87.00",
+  "merchant_subtotal": "980.00",
   "tax_amount": "0.00",
-  "fee_amount": "2.00",
+  "fee_amount": "10.00",
   "fee_schedule_version": "buyer_txn_demo_v1",
   "contract_version_id": "contract_fixture_d_v1",
-  "landed_total": "89.00",
+  "landed_total": "990.00",
   "approval_policy_version": 1,
   "approval_requirement_set_id": "aprs_consultco_v1",
   "approval_plan_hash": "sha256:674fd172cfafb42bbf8c31b0272d8e9c34b53cb191ac739784362034dde89cfe",
-  "intent_hash": "sha256:13a8a51154a004d42b91666503d317b57505ac3895cb963fabb55b034b3e7512",
+  "intent_hash": "sha256:277a71a69813260c8651d6572cd17572478ba9bba17e9b525ac639904d9e211d",
   "locked_at": "2026-08-02T01:10:00Z"
 }
