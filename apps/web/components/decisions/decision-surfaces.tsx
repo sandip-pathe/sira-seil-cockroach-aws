@@ -574,19 +574,15 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
         pathParams: { approval_id: approval.id },
         body: { intent_hash: approval.intent_hash, actor_role: role },
         idempotencyKey: `approve-${approval.id}-${role}`,
-        headers: {
-          ...buyerDevelopmentHeaders,
-          "X-Actor-Id": `usr_${role}`,
-          "X-Actor-Roles": `${role},can_approve_purchase`,
-          "X-Step-Up-Verified": "true",
-        },
+        headers: buyerDevelopmentHeaders,
       });
     },
     onSuccess: (result) => {
       setApproval(result);
       setToast(result.status === "APPROVED" ? "Exact offer approved." : "Approval recorded. Next owner is required.");
     },
-    onError: () => setToast("Approval was not recorded. The exact offer remains unchanged."),
+    onError: () =>
+      setToast("A verified buyer account is required to record purchase approval."),
   });
 
   const pravaMutation = useMutation({

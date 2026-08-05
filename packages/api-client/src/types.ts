@@ -152,13 +152,17 @@ export interface CatalogProductView {
   billing_unit: string;
   claims: string[];
   edition: string;
+  evidence_freshness?: string | null;
   id: string;
   integrations: string[];
+  logo?: string | null;
   name: string;
   price: string;
   seller: string;
+  source_refs?: { [key: string]: unknown; }[];
   status: string;
   summary: string;
+  website?: string | null;
 }
 
 export interface CompanyContextProjection {
@@ -294,6 +298,7 @@ export interface DecisionRequestCreate {
   desired_outcome?: string | null;
   incumbent_instance_id?: string | null;
   intent: string;
+  mission_id?: string | null;
   scenario_id?: string | null;
   visibility?: RequestVisibility;
 }
@@ -622,11 +627,13 @@ export interface MissionEventView {
   sequence: number;
   summary: string;
   type: string;
+  verified?: boolean;
 }
 
 export interface MissionSnapshotView {
   artifacts: MissionArtifactView[];
   events: MissionEventView[];
+  handoffs?: { [key: string]: unknown; }[];
   mission: MissionSummaryView;
   open_tasks?: { [key: string]: unknown; }[];
 }
@@ -1452,9 +1459,13 @@ export interface WorkspaceChatView {
 }
 
 export interface WorkspaceConversationView {
+  artifacts?: MissionArtifactView[];
+  events?: MissionEventView[];
   id: string;
   messages: WorkspaceMessage[];
+  mission: MissionSummaryView;
   mode: "sira" | "seil";
+  open_tasks?: { [key: string]: unknown; }[];
   title: string;
   updated_at: string;
 }

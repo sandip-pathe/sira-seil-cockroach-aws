@@ -8,7 +8,6 @@ import {
   CircleAlert,
   Clock3,
   Expand,
-  Eye,
   FileCheck2,
   FileSearch,
   FolderKanban,
@@ -39,6 +38,7 @@ import { useQuery } from "@tanstack/react-query";
 import type {
   AgentProposalView,
   AttentionView,
+  CatalogProductView,
   MissionArtifactView,
   MissionEventView,
   MissionSummaryView,
@@ -50,8 +50,8 @@ import {
   sellerEditorDevelopmentHeaders,
   WEB_DATA_MODE,
 } from "@/lib/api";
-import { WORKSPACE_ACCOUNTS } from "@/components/home/workspace-account";
 import { ProfileSettingsModal } from "@/components/home/profile-preview";
+import { useFirebaseAuth } from "@/components/auth/firebase-auth-provider";
 
 import { ChatMessageBody } from "./chat-message";
 import styles from "./commerce-workspace.module.css";
@@ -88,6 +88,8 @@ type CatalogProduct = {
   logo?: string;
   logo_tone?: "blue" | "gold" | "plum" | "teal";
   seats?: string;
+  website?: string;
+  source_refs?: { [key: string]: unknown }[];
 };
 
 type ChatMessage = {
@@ -102,6 +104,9 @@ type ChatMessage = {
   events?: MissionEventView[];
   artifacts?: MissionArtifactView[];
   attention?: AttentionView;
+  openTasks?: { [key: string]: unknown }[];
+  handoffs?: { [key: string]: unknown }[];
+  retryText?: string;
 };
 
 type Conversation = {
@@ -257,12 +262,126 @@ const FIXTURE_CATALOG: CatalogProduct[] = [
   },
 ];
 
+const REAL_PRODUCT_BRANDS: Record<string, Partial<CatalogProduct>> = {
+  product_fixture_d: {
+    name: "Fathom",
+    seller: "Fathom",
+    edition: "Team",
+    price: "USD 19",
+    billing_unit: "seat_month",
+    status: "Vendor evidence",
+    summary: "Meeting recording, AI notes, action items, and team CRM sync.",
+    claims: [
+      "Team plans include shared recordings and AI summaries.",
+      "CRM sync supports HubSpot, Salesforce, and Close.",
+      "A 14-day Team trial is publicly offered.",
+    ],
+    integrations: ["hubspot", "salesforce", "close", "zoom", "google_meet", "teams"],
+    category: "Meeting intelligence",
+    deployment: "Trial available",
+    fit: "Strong candidate",
+    why_company: "Within budget for ten seats, with native HubSpot sync and a runnable team trial.",
+    admin_effort: "Low",
+    evidence_freshness: "Official pricing checked 5 Aug 2026",
+    requirement_coverage: "Notes, actions, HubSpot",
+    limitation: "Security and retention controls vary by plan and need trial verification.",
+    logo: "/products/fathom.svg",
+    website: "https://fathom.video/pricing",
+  },
+  product_fixture_c: {
+    name: "Fireflies.ai",
+    seller: "Fireflies.ai",
+    edition: "Business",
+    price: "USD 29",
+    billing_unit: "seat_month_annual",
+    status: "Vendor evidence",
+    summary: "AI meeting notes, action items, search, coaching, and CRM synchronization.",
+    claims: [
+      "Business includes HubSpot and Salesforce CRM sync.",
+      "Business includes AI coaching and team interaction metrics.",
+      "Advanced AI notes and action items are supported.",
+    ],
+    integrations: ["hubspot", "salesforce", "slack", "zapier"],
+    category: "Conversation intelligence",
+    deployment: "Trial evaluation",
+    fit: "Strong alternative",
+    why_company: "Meets the budget and HubSpot requirement, with deeper coaching than the brief requires.",
+    admin_effort: "Medium",
+    evidence_freshness: "Official product material checked 5 Aug 2026",
+    requirement_coverage: "Notes, actions, HubSpot",
+    limitation: "HubSpot sync requires the Business tier.",
+    logo: "/products/fireflies.svg",
+    website: "https://fireflies.ai/pricing",
+  },
+  product_fixture_b: {
+    name: "Otter.ai",
+    seller: "Otter.ai",
+    edition: "Enterprise",
+    price: "Quote required",
+    billing_unit: "workspace",
+    status: "Vendor evidence",
+    summary: "Live transcription, meeting summaries, action items, and enterprise CRM autofill.",
+    claims: [
+      "HubSpot can be installed for an Enterprise workspace.",
+      "Admins can map insights to HubSpot custom fields.",
+      "CRM Autofill can sync meeting conversations into HubSpot.",
+    ],
+    integrations: ["hubspot", "zoom", "google_meet", "teams"],
+    category: "Meeting assistant",
+    deployment: "Sales-assisted",
+    fit: "Needs price evidence",
+    why_company: "The HubSpot workflow fits, but a live quote is required before it can pass budget.",
+    admin_effort: "Medium",
+    evidence_freshness: "Official help center checked 5 Aug 2026",
+    requirement_coverage: "Notes, actions, HubSpot",
+    limitation: "Current public pricing is insufficient for a budget decision.",
+    logo: "/products/otter.svg",
+    website: "https://otter.ai/pricing",
+  },
+  product_fixture_a: {
+    name: "tl;dv",
+    seller: "tl;dv",
+    edition: "Business",
+    price: "Verify current price",
+    billing_unit: "seat_month",
+    status: "Research evidence",
+    summary: "Multilingual meeting recording, AI notes, and sales workflow integrations.",
+    claims: [
+      "Supports Zoom, Google Meet, and Microsoft Teams.",
+      "Offers CRM-oriented workflows and HubSpot integration.",
+      "Current plan eligibility requires live revalidation.",
+    ],
+    integrations: ["hubspot", "zoom", "google_meet", "teams"],
+    category: "Meeting intelligence",
+    deployment: "Self-serve evaluation",
+    fit: "Evidence incomplete",
+    why_company: "Functionally relevant, but current price and exact HubSpot plan eligibility need verification.",
+    admin_effort: "Low",
+    evidence_freshness: "Requires live price revalidation",
+    requirement_coverage: "Notes, actions, HubSpot",
+    limitation: "Do not rank as purchase-ready until pricing is revalidated.",
+    logo: "/products/tldv.svg",
+    website: "https://tldv.io/pricing/",
+  },
+};
+
 const PRODUCT_LOGOS: Record<string, string> = Object.fromEntries(
-  FIXTURE_CATALOG.flatMap((product) => (product.logo ? [[product.id, product.logo]] : [])),
+  Object.entries(REAL_PRODUCT_BRANDS).flatMap(([id, product]) =>
+    product.logo ? [[id, product.logo]] : [],
+  ),
 );
 
-function withProductBrand(product: CatalogProduct): CatalogProduct {
-  return { ...product, logo: product.logo ?? PRODUCT_LOGOS[product.id] };
+function withProductBrand(product: CatalogProduct | CatalogProductView): CatalogProduct {
+  const brand = REAL_PRODUCT_BRANDS[product.id];
+  return {
+    ...product,
+    ...(brand ?? {}),
+    logo: brand?.logo ?? product.logo ?? PRODUCT_LOGOS[product.id],
+    website: brand?.website ?? product.website ?? undefined,
+    evidence_freshness:
+      brand?.evidence_freshness ?? product.evidence_freshness ?? undefined,
+    source_refs: brand?.source_refs ?? product.source_refs ?? undefined,
+  };
 }
 
 const SEED_CONVERSATIONS: Record<CommerceWorkspaceMode, Conversation[]> = {
@@ -285,7 +404,7 @@ const SEED_CONVERSATIONS: Record<CommerceWorkspaceMode, Conversation[]> = {
           meta: "Decision plan updated",
           content:
             "## I have started the decision\n\nThe goal is clear: keep client conversations private while making source-linked answers easy for ten consultants.\n\n**What I am checking now**\n\n- your current contract and stack dependencies\n- company requirements that can block an option\n- reuse, resize, renew, and replacement actions\n- the exact approval path if money needs to move\n\nI found **4 published products** that could support this need. Open any product to review its evidence, pricing, and stack fit.",
-          products: FIXTURE_CATALOG,
+          products: FIXTURE_CATALOG.map(withProductBrand),
         },
       ],
     },
@@ -446,7 +565,7 @@ function cloneSeedConversations() {
 
 function buildConversationTitle(prompt: string) {
   const words = prompt.replace(/\s+/g, " ").trim().split(" ").slice(0, 7).join(" ");
-  return words.length > 46 ? `${words.slice(0, 43).trim()}...` : words || "New chat";
+  return words.length > 46 ? `${words.slice(0, 43).trim()}...` : words || "New mission";
 }
 
 function responseFor(mode: CommerceWorkspaceMode, prompt: string) {
@@ -565,6 +684,7 @@ function Sidebar({
   onCloseContext,
   onOpenContext,
   onOpenSettings,
+  account,
 }: {
   mode: CommerceWorkspaceMode;
   modeLocked: boolean;
@@ -578,14 +698,13 @@ function Sidebar({
   onCloseContext: () => void;
   onOpenContext: (tab: CommerceContextTab) => void;
   onOpenSettings: () => void;
+  account: { initials: string; name: string; detail: string };
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const visibleConversations = conversations.filter((conversation) =>
     conversation.title.toLowerCase().includes(searchQuery.trim().toLowerCase()),
   );
-  const account = WORKSPACE_ACCOUNTS[mode];
-
   return (
     <aside className={styles.sidebar} aria-label={`${MODE_COPY[mode].name} navigation`}>
       <div className={styles.sidebarHeader}>
@@ -643,13 +762,13 @@ function Sidebar({
 
         <button className={styles.newChatButton} type="button" onClick={onNewChat}>
           <Plus aria-hidden="true" />
-          New chat
+          New mission
         </button>
       </div>
 
       <nav className={styles.sidebarNav} aria-label="Workspace">
         <button type="button" onClick={onCloseContext}>
-          <MessageSquare aria-hidden="true" /> Chats
+          <FolderKanban aria-hidden="true" /> Missions
         </button>
         <button
           className={
@@ -715,7 +834,7 @@ function Sidebar({
           <span className={styles.avatar}>{account.initials}</span>
           <span>
             <strong>{account.name}</strong>
-            <small>{account.roleShort}</small>
+            <small>{account.detail}</small>
           </span>
           <Settings2 aria-hidden="true" />
         </button>
@@ -1309,7 +1428,7 @@ function CatalogPanel({
         {!products.length ? (
           <p className={styles.sectionCopy}>
             Ask SIRA to show products. Catalogue results will appear in this pane and in the
-            conversation.
+            mission stream.
           </p>
         ) : null}
       </section>
@@ -1417,6 +1536,11 @@ function ProductPanel({ product, onBack }: { product: CatalogProduct | null; onB
             <span key={item}>{item.replaceAll("_", " ")}</span>
           ))}
         </div>
+        {product.website ? (
+          <a className={styles.evidenceLink} href={product.website} target="_blank" rel="noreferrer">
+            Open current vendor evidence <ArrowRight aria-hidden="true" />
+          </a>
+        ) : null}
       </section>
     </div>
   );
@@ -1429,12 +1553,13 @@ function ArtifactPanel({ artifact }: { artifact: MissionArtifactView | null }) {
         <section className={styles.documentHeader}>
           <span>Mission artifact</span>
           <h2>Nothing selected</h2>
-          <p>Open an evidence artifact from the conversation to inspect its sources and limits.</p>
+          <p>Open an artifact from the mission stream to inspect its evidence and limits.</p>
         </section>
       </div>
     );
   }
   const sources = artifact.source_refs ?? [];
+  const entries = Object.entries(artifact.payload);
   return (
     <div className={styles.contextBody}>
       <section className={styles.documentHeader}>
@@ -1448,12 +1573,53 @@ function ArtifactPanel({ artifact }: { artifact: MissionArtifactView | null }) {
       <section className={styles.contextSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <span>Evidence</span>
-            <h3>Inspectable output</h3>
+            <span>{artifact.kind.includes("experiment") ? "Observed work" : "Mission output"}</span>
+            <h3>
+              {artifact.kind === "comparison"
+                ? "Compared options"
+                : artifact.kind === "candidate_set"
+                  ? "Candidate set"
+                  : artifact.kind === "purchase_proposal"
+                    ? "Authority path"
+                    : artifact.kind === "recommendation"
+                      ? "Recommendation and uncertainty"
+                      : artifact.kind.includes("experiment")
+                        ? "Procedure and observations"
+                        : "Structured evidence"}
+            </h3>
           </div>
           <FileCheck2 aria-hidden="true" />
         </div>
-        <pre className={styles.artifactPayload}>{JSON.stringify(artifact.payload, null, 2)}</pre>
+        <dl className={styles.artifactFields}>
+          {entries.map(([key, value]) => (
+            <div key={key}>
+              <dt>{key.replaceAll("_", " ")}</dt>
+              <dd>
+                {Array.isArray(value) ? (
+                  <ul>
+                    {value.map((item, index) => (
+                      <li key={`${key}-${index}`}>
+                        {typeof item === "object" && item !== null
+                          ? Object.entries(item)
+                              .map(([itemKey, itemValue]) => `${itemKey.replaceAll("_", " ")}: ${String(itemValue)}`)
+                              .join(" · ")
+                          : String(item)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : typeof value === "object" && value !== null ? (
+                  <span>
+                    {Object.entries(value)
+                      .map(([itemKey, itemValue]) => `${itemKey.replaceAll("_", " ")}: ${String(itemValue)}`)
+                      .join(" · ")}
+                  </span>
+                ) : (
+                  String(value)
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </section>
       <section className={styles.contextSection}>
         <div className={styles.sectionHeading}>
@@ -1466,7 +1632,17 @@ function ArtifactPanel({ artifact }: { artifact: MissionArtifactView | null }) {
         {sources.length ? (
           <ul className={styles.artifactSources}>
             {sources.map((source, index) => (
-              <li key={`${artifact.id}-source-${index}`}>{JSON.stringify(source)}</li>
+              <li key={`${artifact.id}-source-${index}`}>
+                {typeof source.url === "string" ? (
+                  <a href={source.url} target="_blank" rel="noreferrer">
+                    {String(source.title ?? source.url)}
+                  </a>
+                ) : (
+                  Object.entries(source)
+                    .map(([key, value]) => `${key.replaceAll("_", " ")}: ${String(value)}`)
+                    .join(" · ")
+                )}
+              </li>
             ))}
           </ul>
         ) : (
@@ -1507,19 +1683,10 @@ function ContextPanel({
   return (
     <aside
       className={`${styles.contextPanel} ${expanded ? styles.contextPanelExpanded : ""}`}
-      aria-label="Workspace details"
+      aria-label="Object inspector"
     >
       <header className={styles.contextHeader}>
-        <div className={styles.contextHeaderTools}>
-          <button
-            className={tab === "work" ? styles.activeTool : undefined}
-            type="button"
-            onClick={() => onTabChange("work")}
-            aria-label="Show detailed view"
-          >
-            <Eye aria-hidden="true" />
-          </button>
-        </div>
+        <div className={styles.contextHeaderTools} aria-hidden="true" />
         <div className={styles.contextTitle}>
           {tab === "artifact"
             ? (selectedArtifact?.title ?? "Mission artifact")
@@ -1530,11 +1697,11 @@ function ContextPanel({
                 : tab === "catalog"
                   ? "Catalogue"
                   : tab === "product"
-                    ? "Product details"
+                    ? (selectedProduct?.name ?? "Product")
                     : tab === "work"
                       ? mode === "sira"
-                        ? "Decision details"
-                        : "Product details"
+                        ? "Buying decision"
+                        : "Product evidence"
                       : "Connectors"}
         </div>
         <div className={styles.contextHeaderActions}>
@@ -1546,30 +1713,11 @@ function ContextPanel({
           >
             <Expand aria-hidden="true" />
           </button>
-          <button type="button" onClick={onClose} aria-label="Close details" title="Close details">
+          <button type="button" onClick={onClose} aria-label="Close inspector" title="Close inspector">
             <X aria-hidden="true" />
           </button>
         </div>
       </header>
-
-      <div className={styles.contextTabs} role="tablist" aria-label="Detail views">
-        <button
-          aria-selected={tab === (mode === "sira" ? "decisions" : "catalog")}
-          onClick={() => onTabChange(mode === "sira" ? "decisions" : "catalog")}
-          role="tab"
-          type="button"
-        >
-          {mode === "sira" ? "Decisions" : "Products"}
-        </button>
-        <button
-          aria-selected={tab === "connectors"}
-          onClick={() => onTabChange("connectors")}
-          role="tab"
-          type="button"
-        >
-          Connectors
-        </button>
-      </div>
 
       <div className={styles.contextScroller}>
         {tab === "artifact" ? <ArtifactPanel artifact={selectedArtifact} /> : null}
@@ -1596,6 +1744,14 @@ export function CommerceWorkspace({
   initialContextTab?: CommerceContextTab;
   modeLocked?: boolean;
 }) {
+  const firebaseAuth = useFirebaseAuth();
+  const firebaseUser = firebaseAuth.user;
+  const accountName = firebaseUser?.isAnonymous
+    ? "Private guest"
+    : firebaseUser?.displayName || firebaseUser?.email || "Verified account";
+  const accountInitials = firebaseUser?.isAnonymous
+    ? "G"
+    : accountName.trim().slice(0, 1).toUpperCase() || "U";
   const [mode, setMode] = useState<CommerceWorkspaceMode>(initialMode);
   const [conversations, setConversations] = useState(cloneSeedConversations);
   const [selectedByMode, setSelectedByMode] = useState<Record<CommerceWorkspaceMode, string>>({
@@ -1611,7 +1767,7 @@ export function CommerceWorkspace({
   const [confirmingProposal, setConfirmingProposal] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>(() =>
-    WEB_DATA_MODE === "fixture" ? FIXTURE_CATALOG : [],
+    WEB_DATA_MODE === "fixture" ? FIXTURE_CATALOG.map(withProductBrand) : [],
   );
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
   const [selectedArtifact, setSelectedArtifact] = useState<MissionArtifactView | null>(null);
@@ -1631,6 +1787,7 @@ export function CommerceWorkspace({
   const shouldAutoScrollRef = useRef(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const responseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const missionPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const responseAbortRef = useRef<AbortController | null>(null);
 
   const modeConversations = conversations[mode];
@@ -1644,26 +1801,41 @@ export function CommerceWorkspace({
 
   useEffect(() => {
     if (WEB_DATA_MODE !== "api" || !conversationsQuery.data) return;
-    const restored: Conversation[] = conversationsQuery.data.map((conversation) => ({
-      id: conversation.id,
-      mode: conversation.mode,
-      title: conversation.title,
-      updatedLabel: "Saved",
-      messages: conversation.messages.map((message) => ({
+    const restored: Conversation[] = conversationsQuery.data.map((conversation) => {
+      const restoredMessages: ChatMessage[] = conversation.messages.map((message) => ({
         id: `${message.role}-${crypto.randomUUID()}`,
         role: message.role,
         content: message.content,
         toolCalls: message.tool_calls,
         proposals: message.proposals,
-      })),
-    }));
+      }));
+      const lastAssistant = restoredMessages.findLastIndex((message) => message.role === "assistant");
+      if (lastAssistant >= 0) {
+        restoredMessages[lastAssistant] = {
+          ...restoredMessages[lastAssistant],
+          mission: conversation.mission,
+          events: (conversation.events ?? []).filter(
+            (event) => !["user.message", "assistant.message"].includes(event.type),
+          ),
+          artifacts: conversation.artifacts ?? [],
+          openTasks: conversation.open_tasks ?? [],
+        };
+      }
+      return {
+        id: conversation.id,
+        mode: conversation.mode,
+        title: conversation.title,
+        updatedLabel: "Checkpoint saved",
+        messages: restoredMessages,
+      };
+    });
     const next = restored.length
       ? restored
       : [
           {
             id: `${mode}-new-${crypto.randomUUID()}`,
             mode,
-            title: "New chat",
+            title: "New mission",
             updatedLabel: "Now",
             messages: [],
           },
@@ -1694,6 +1866,7 @@ export function CommerceWorkspace({
   useEffect(
     () => () => {
       if (responseTimerRef.current) clearTimeout(responseTimerRef.current);
+      if (missionPollRef.current) clearInterval(missionPollRef.current);
       responseAbortRef.current?.abort();
     },
     [],
@@ -1727,7 +1900,7 @@ export function CommerceWorkspace({
     const conversation: Conversation = {
       id,
       mode,
-      title: "New chat",
+      title: "New mission",
       updatedLabel: "Now",
       messages: [],
     };
@@ -1740,11 +1913,46 @@ export function CommerceWorkspace({
     if (compact) setSidebarOpen(false);
   }
 
+  async function restoreMission(id: string, targetMode = mode) {
+    if (WEB_DATA_MODE !== "api" || !id.startsWith("msn_")) return;
+    try {
+      const snapshot = await getBrowserApiClient().request("workspace_mission", {
+        headers: targetMode === "seil" ? sellerEditorDevelopmentHeaders : buyerDevelopmentHeaders,
+        pathParams: { mission_id: id },
+      });
+      updateConversation(targetMode, id, (conversation) => {
+        const assistantIndex = conversation.messages.findLastIndex(
+          (message) => message.role === "assistant",
+        );
+        const missionMessage: ChatMessage = {
+          id: `checkpoint-${snapshot.mission.version}`,
+          role: "assistant",
+          content: assistantIndex >= 0 ? conversation.messages[assistantIndex].content : "",
+          meta: "Checkpoint restored",
+          mission: snapshot.mission,
+          events: snapshot.events.filter(
+            (event) => !["user.message", "assistant.message"].includes(event.type),
+          ),
+          artifacts: snapshot.artifacts,
+          openTasks: snapshot.open_tasks,
+          handoffs: snapshot.handoffs,
+        };
+        const messages = [...conversation.messages];
+        if (assistantIndex >= 0) messages[assistantIndex] = { ...messages[assistantIndex], ...missionMessage };
+        else messages.push(missionMessage);
+        return { ...conversation, messages, updatedLabel: "Checkpoint restored" };
+      });
+    } catch {
+      // Keep the last safe local projection. The inline retry path remains available.
+    }
+  }
+
   function selectConversation(id: string) {
     setSelectedByMode((current) => ({ ...current, [mode]: id }));
     setComposer("");
     setRunning(false);
     if (compact) setSidebarOpen(false);
+    void restoreMission(id);
   }
 
   function openContext(tab: CommerceContextTab) {
@@ -1757,6 +1965,10 @@ export function CommerceWorkspace({
     if (!value || running || !selectedConversation) return;
     const targetMode = mode;
     const conversationId = selectedConversation.id;
+    const missionId = conversationId.startsWith("msn_")
+      ? conversationId
+      : `msn_${crypto.randomUUID().replaceAll("-", "")}`;
+    const activeConversationId = WEB_DATA_MODE === "api" ? missionId : conversationId;
     const userMessage: ChatMessage = {
       id: `user-${crypto.randomUUID()}`,
       role: "user",
@@ -1772,10 +1984,15 @@ export function CommerceWorkspace({
 
     updateConversation(targetMode, conversationId, (conversation) => ({
       ...conversation,
-      title: conversation.title === "New chat" ? buildConversationTitle(value) : conversation.title,
+      id: activeConversationId,
+      title:
+        conversation.title === "New mission" ? buildConversationTitle(value) : conversation.title,
       updatedLabel: "Now",
       messages: [...conversation.messages, userMessage, assistantMessage],
     }));
+    if (WEB_DATA_MODE === "api") {
+      setSelectedByMode((current) => ({ ...current, [targetMode]: missionId }));
+    }
     setComposer("");
     setRunning(true);
 
@@ -1784,7 +2001,7 @@ export function CommerceWorkspace({
         const response = responseFor(targetMode, value);
         const products = fixtureProductsForPrompt(targetMode, value).map(withProductBrand);
         if (products.length) setCatalogProducts(products);
-        updateConversation(targetMode, conversationId, (conversation) => ({
+        updateConversation(targetMode, activeConversationId, (conversation) => ({
           ...conversation,
           messages: conversation.messages.map((message) =>
             message.id === assistantId
@@ -1800,6 +2017,7 @@ export function CommerceWorkspace({
 
     const controller = new AbortController();
     responseAbortRef.current = controller;
+    missionPollRef.current = setInterval(() => void restoreMission(missionId, targetMode), 900);
     try {
       const history = selectedConversation.messages
         .slice(-12)
@@ -1809,7 +2027,7 @@ export function CommerceWorkspace({
           ...(targetMode === "seil" ? sellerEditorDevelopmentHeaders : buyerDevelopmentHeaders),
         },
         body: {
-          mission_id: conversationId.startsWith("msn_") ? conversationId : undefined,
+          mission_id: missionId,
           mode: targetMode,
           message: value,
           history,
@@ -1818,7 +2036,7 @@ export function CommerceWorkspace({
       });
       const products = (payload.products ?? []).map(withProductBrand);
       if (products.length) setCatalogProducts(products);
-      updateConversation(targetMode, conversationId, (conversation) => ({
+      updateConversation(targetMode, activeConversationId, (conversation) => ({
         ...conversation,
         id: payload.conversation_id,
         messages: conversation.messages.map((message) =>
@@ -1834,6 +2052,7 @@ export function CommerceWorkspace({
                 events: payload.events,
                 artifacts: payload.artifacts,
                 attention: payload.attention ?? undefined,
+                retryText: undefined,
               }
             : message,
         ),
@@ -1841,7 +2060,7 @@ export function CommerceWorkspace({
       setSelectedByMode((current) => ({ ...current, [targetMode]: payload.conversation_id }));
     } catch (error) {
       if (!controller.signal.aborted) {
-        updateConversation(targetMode, conversationId, (conversation) => ({
+        updateConversation(targetMode, activeConversationId, (conversation) => ({
           ...conversation,
           messages: conversation.messages.map((message) =>
             message.id === assistantId
@@ -1850,12 +2069,17 @@ export function CommerceWorkspace({
                   content:
                     error instanceof Error ? error.message : "SIRA is temporarily unavailable.",
                   meta: "Could not complete",
+                  retryText: value,
                 }
               : message,
           ),
         }));
       }
     } finally {
+      if (missionPollRef.current) {
+        clearInterval(missionPollRef.current);
+        missionPollRef.current = null;
+      }
       if (responseAbortRef.current === controller) responseAbortRef.current = null;
       if (targetMode === mode) setRunning(false);
     }
@@ -1875,6 +2099,9 @@ export function CommerceWorkspace({
           intent: intent.trim(),
           visibility,
           scenario_id: "consultco_meeting_intelligence_v1",
+          mission_id: selectedConversation.id.startsWith("msn_")
+            ? selectedConversation.id
+            : undefined,
         },
       });
       await getBrowserApiClient().request("discover_decision_request", {
@@ -1900,6 +2127,9 @@ export function CommerceWorkspace({
       }
       setContextTab("decisions");
       setContextOpen(true);
+      if (selectedConversation.id.startsWith("msn_")) {
+        await restoreMission(selectedConversation.id, "sira");
+      }
     } catch (error) {
       if (selectedConversation) {
         updateConversation("sira", selectedConversation.id, (conversation) => ({
@@ -1961,7 +2191,7 @@ export function CommerceWorkspace({
   return (
     <main className={shellClass} data-mode={mode}>
       <a className={styles.skipLink} href="#chat-thread">
-        Skip to conversation
+        Skip to mission
       </a>
 
       {sidebarOpen ? (
@@ -1981,10 +2211,15 @@ export function CommerceWorkspace({
           }}
           onOpenContext={openContext}
           onOpenSettings={() => setSettingsOpen(true)}
+          account={{
+            initials: accountInitials,
+            name: accountName,
+            detail: firebaseUser?.isAnonymous ? "Isolated workspace" : "Firebase account",
+          }}
         />
       ) : null}
 
-      <section className={styles.chatPanel} aria-label={`${MODE_COPY[mode].name} conversation`}>
+      <section className={styles.chatPanel} aria-label={`${MODE_COPY[mode].name} mission`}>
         <header className={styles.chatHeader}>
           <div className={styles.chatHeaderLeft}>
             {!sidebarOpen ? (
@@ -2001,7 +2236,7 @@ export function CommerceWorkspace({
               </button>
             ) : null}
             <div>
-              <strong>{selectedConversation?.title ?? "New chat"}</strong>
+              <strong>{selectedConversation?.title ?? "New mission"}</strong>
               <small>
                 <span />{" "}
                 {WEB_DATA_MODE === "fixture"
@@ -2017,8 +2252,8 @@ export function CommerceWorkspace({
                 setContextOpen(true);
                 if (compact) setSidebarOpen(false);
               }}
-              aria-label="Open work panel"
-              title="Open work panel"
+              aria-label="Open inspector"
+              title="Open inspector"
             >
               <PanelRightOpen aria-hidden="true" />
             </button>
@@ -2092,11 +2327,48 @@ export function CommerceWorkspace({
                         <ol>
                           {message.events.map((event) => (
                             <li key={event.id}>
-                              <Check aria-hidden="true" />
-                              <span>{event.summary}</span>
+                              {event.verified ? (
+                                <Check aria-hidden="true" />
+                              ) : (
+                                <Clock3 aria-hidden="true" />
+                              )}
+                              <span>
+                                {event.summary}
+                                <small>{event.verified ? "runtime verified" : "agent reported"}</small>
+                              </span>
                             </li>
                           ))}
                         </ol>
+                      ) : null}
+                      {message.openTasks?.length ? (
+                        <div className={styles.missionTasks}>
+                          <span>Next work</span>
+                          {message.openTasks.slice(0, 4).map((task, index) => (
+                            <p key={String(task.id ?? index)}>
+                              <strong>{String(task.title ?? task.kind ?? "Mission task")}</strong>
+                              <small>{String(task.status ?? "pending").toLowerCase()}</small>
+                            </p>
+                          ))}
+                        </div>
+                      ) : null}
+                      {message.handoffs?.length ? (
+                        <div className={styles.missionHandoffs}>
+                          <span>Authority and execution</span>
+                          {message.handoffs.map((handoff, index) => {
+                            const workflow = handoff.workflow as { status?: unknown } | null;
+                            return (
+                              <p key={String(handoff.request_id ?? index)}>
+                                <ShieldCheck aria-hidden="true" />
+                                <strong>Buying decision {String(handoff.status ?? "created")}</strong>
+                                <small>
+                                  {workflow
+                                    ? `Temporal workflow ${String(workflow.status ?? "pending")}`
+                                    : "Approval comes before Prava and checkout"}
+                                </small>
+                              </p>
+                            );
+                          })}
+                        </div>
                       ) : null}
                       {message.artifacts?.length ? (
                         <div className={styles.missionArtifacts}>
@@ -2136,6 +2408,16 @@ export function CommerceWorkspace({
                         </div>
                       ) : null}
                     </section>
+                  ) : null}
+                  {message.retryText ? (
+                    <button
+                      className={styles.inlineRetry}
+                      type="button"
+                      disabled={running}
+                      onClick={() => void submitMessage(message.retryText)}
+                    >
+                      Retry from the saved checkpoint
+                    </button>
                   ) : null}
                   {message.products?.length ? (
                     <div className={styles.messageProductShelf} aria-label="Matching products">
@@ -2190,7 +2472,7 @@ export function CommerceWorkspace({
         <div className={styles.composerDock}>
           <div className={styles.composer}>
             <textarea
-              aria-label={`Message ${MODE_COPY[mode].name}`}
+              aria-label={`Direct ${MODE_COPY[mode].name}`}
               onChange={(event) => setComposer(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
@@ -2199,7 +2481,7 @@ export function CommerceWorkspace({
                   else submitMessage();
                 }
               }}
-              placeholder="Write a message..."
+              placeholder="Direct the mission..."
               rows={1}
               value={composer}
             />
@@ -2286,7 +2568,17 @@ export function CommerceWorkspace({
       ) : null}
 
       {settingsOpen ? (
-        <ProfileSettingsModal workspace={mode} onClose={() => setSettingsOpen(false)} />
+        <ProfileSettingsModal
+          workspace={mode}
+          onClose={() => setSettingsOpen(false)}
+          identity={{
+            displayName: firebaseUser?.displayName ?? null,
+            email: firebaseUser?.email ?? null,
+            isAnonymous: firebaseUser?.isAnonymous ?? true,
+          }}
+          onSignOut={firebaseAuth.signOut}
+          onUpgradeGuest={firebaseAuth.upgradeGuestWithGoogle}
+        />
       ) : null}
 
       {compact && (sidebarOpen || contextOpen) ? (

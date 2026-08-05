@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -21,7 +22,8 @@ from .callback_state import BrowserReturnStateSigner
 from .config import ApiSettings, get_settings
 from .errors import ApiProblem
 from .fixtures import DemoFixtureBundle
-from .identity import IdentityAdapter, IntrospectionIdentityAdapter
+from .guest_security import FixedWindowLimiter, GuestSessionSigner, RateLimitDecision
+from .identity import FirebaseIdentityAdapter, IdentityAdapter, IntrospectionIdentityAdapter
 from .marketplace import (
     SellerOrganizationDirectory,
     SellerPrincipalBinding,
@@ -44,6 +46,36 @@ def operation_id(route: APIRoute) -> str:
     return route.name
 
 
+def _origin(value: str) -> str | None:
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _rate_limited_response(request: Request, decision: RateLimitDecision) -> JSONResponse:
+    retry_after = max(1, int(decision.reset_at - datetime.now().timestamp()))
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": {
+                "code": "RATE_LIMITED",
+                "message": "This guest workspace has reached its request limit. Try again shortly.",
+                "request_id": request.state.request_id,
+                "retryable": True,
+                "next_action": "retry_after_cooldown",
+                "details": {"retry_after_seconds": retry_after},
+            }
+        },
+        headers={
+            "Retry-After": str(retry_after),
+            "RateLimit-Limit": str(decision.limit),
+            "RateLimit-Remaining": str(decision.remaining),
+            "RateLimit-Reset": str(decision.reset_at),
+        },
+    )
+
+
 def create_app(
     *,
     settings: ApiSettings | None = None,
@@ -62,7 +94,16 @@ def create_app(
     ):
         raise ValueError("production requires a PostgreSQL database engine with RLS support")
     resolved_identity_adapter = identity_adapter
-    if not resolved_settings.is_development and resolved_identity_adapter is None:
+    if resolved_identity_adapter is None and resolved_settings.firebase_project_id:
+        resolved_identity_adapter = FirebaseIdentityAdapter(
+            project_id=resolved_settings.firebase_project_id,
+            step_up_max_age_seconds=resolved_settings.identity_step_up_max_age_seconds,
+        )
+    if (
+        not resolved_settings.is_development
+        and not resolved_settings.guest_session_enabled
+        and resolved_identity_adapter is None
+    ):
         resolved_settings.assert_identity_configuration()
         resolved_identity_adapter = IntrospectionIdentityAdapter(
             introspection_url=resolved_settings.identity_introspection_url,
@@ -74,12 +115,24 @@ def create_app(
             step_up_acr_values=resolved_settings.identity_step_up_values(),
             step_up_max_age_seconds=resolved_settings.identity_step_up_max_age_seconds,
         )
+    guest_signer = (
+        GuestSessionSigner(
+            resolved_settings.guest_session_signing_secret(),
+            ttl_seconds=resolved_settings.guest_session_ttl_seconds,
+        )
+        if resolved_settings.guest_session_enabled
+        else None
+    )
+    abuse_limiter = FixedWindowLimiter()
+    guest_cookie_name = "sira_guest" if resolved_settings.is_development else "__Host-sira_guest"
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         application.state.settings = resolved_settings
         application.state.database = resolved_database
         application.state.identity_adapter = resolved_identity_adapter
+        application.state.guest_signer = guest_signer
+        application.state.guest_cookie_name = guest_cookie_name
         fixtures = DemoFixtureBundle.load() if resolved_settings.development_fixture_mode else None
         fixture_quote_clock: Callable[[], datetime] | None = None
         if fixtures is not None:
@@ -106,7 +159,9 @@ def create_app(
         workflow_service = WorkflowService(
             resolved_database,
             fixtures,
-            allow_development_tenant_bootstrap=resolved_settings.is_development,
+            allow_development_tenant_bootstrap=(
+                resolved_settings.is_development or resolved_settings.guest_session_enabled
+            ),
             browser_return_signer=BrowserReturnStateSigner(
                 resolved_settings.browser_return_signing_secret()
             ),
@@ -181,8 +236,140 @@ def create_app(
         supplied = request.headers.get("X-Request-Id", "")
         safe_supplied = supplied if supplied and supplied.replace("-", "").isalnum() else None
         request.state.request_id = safe_supplied or f"rq_{uuid4().hex}"
-        response = await call_next(request)
+        new_guest_token: str | None = None
+        active_subject: str | None = None
+        credential_subject: str | None = None
+        protected_request = request.url.path.startswith("/v1/")
+        authorization = request.headers.get("authorization", "")
+        if protected_request and authorization:
+            credential_subject = f"bearer:{authorization}"
+        elif protected_request and guest_signer is not None:
+            raw_token = request.cookies.get(guest_cookie_name, "")
+            guest = guest_signer.verify(raw_token) if raw_token else None
+            if guest is None:
+                network_subject = request.client.host if request.client else "unknown"
+                bootstrap = await abuse_limiter.check(
+                    subject=f"network:{network_subject}",
+                    scope="guest-bootstrap",
+                    limit=60,
+                    window_seconds=3_600,
+                )
+                if not bootstrap.allowed:
+                    return _rate_limited_response(request, bootstrap)
+                guest, new_guest_token = guest_signer.issue()
+            request.state.guest_session = guest
+            credential_subject = f"guest:{guest.session_id}"
+
+        if protected_request:
+            origin = request.headers.get("origin")
+            if request.method not in {"GET", "HEAD", "OPTIONS"} and origin:
+                allowed_origins = {
+                    item
+                    for item in (
+                        _origin(resolved_settings.web_base_url),
+                        _origin(resolved_settings.public_base_url),
+                    )
+                    if item
+                }
+                if resolved_settings.is_development:
+                    allowed_origins.update(
+                        {"http://localhost:3000", "http://127.0.0.1:3000"}
+                    )
+                if origin.rstrip("/") not in allowed_origins:
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "error": {
+                                "code": "ORIGIN_FORBIDDEN",
+                                "message": "This request did not originate from the SIRA workspace.",
+                                "request_id": request.state.request_id,
+                                "retryable": False,
+                                "next_action": "reload_workspace",
+                                "details": {},
+                            }
+                        },
+                    )
+
+            content_length = request.headers.get("content-length")
+            if content_length and content_length.isdigit() and int(content_length) > 131_072:
+                return JSONResponse(
+                    status_code=413,
+                    content={
+                        "error": {
+                            "code": "REQUEST_TOO_LARGE",
+                            "message": "Request bodies are limited to 128 KB.",
+                            "request_id": request.state.request_id,
+                            "retryable": False,
+                            "next_action": "send_less_context",
+                            "details": {},
+                        }
+                    },
+                )
+
+        if credential_subject is not None:
+            checks = [("api:minute", 120, 60)]
+            if request.url.path == "/v1/workspace/chat" and request.method == "POST":
+                checks.extend(
+                    (
+                        ("chat:minute", 8, 60),
+                        ("chat:hour", 40, 3_600),
+                        ("chat:day", 100, 86_400),
+                    )
+                )
+            elif request.method not in {"GET", "HEAD", "OPTIONS"}:
+                checks.append(("mutation:minute", 30, 60))
+            for scope, limit, window_seconds in checks:
+                decision = await abuse_limiter.check(
+                    subject=credential_subject,
+                    scope=scope,
+                    limit=limit,
+                    window_seconds=window_seconds,
+                )
+                if not decision.allowed:
+                    return _rate_limited_response(request, decision)
+
+            if request.url.path == "/v1/workspace/chat" and request.method == "POST":
+                if not await abuse_limiter.acquire(
+                    subject=credential_subject, scope="active-chat"
+                ):
+                    return JSONResponse(
+                        status_code=429,
+                        content={
+                            "error": {
+                                "code": "CHAT_ALREADY_RUNNING",
+                                "message": "This workspace already has an agent run in progress.",
+                                "request_id": request.state.request_id,
+                                "retryable": True,
+                                "next_action": "wait_for_current_run",
+                                "details": {},
+                            }
+                        },
+                        headers={"Retry-After": "2"},
+                    )
+                active_subject = credential_subject
+        try:
+            response = await call_next(request)
+        finally:
+            if active_subject is not None:
+                await abuse_limiter.release(subject=active_subject, scope="active-chat")
         response.headers["X-Request-Id"] = request.state.request_id
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["X-Frame-Options"] = "DENY"
+        if request.url.path.startswith("/v1/"):
+            response.headers["Cache-Control"] = "private, no-store"
+            response.headers["Vary"] = "Cookie, Authorization, X-Workspace-Mode"
+        if new_guest_token is not None:
+            response.set_cookie(
+                guest_cookie_name,
+                new_guest_token,
+                max_age=resolved_settings.guest_session_ttl_seconds,
+                httponly=True,
+                secure=not resolved_settings.is_development,
+                samesite="lax",
+                path="/",
+            )
         return response
 
     @application.exception_handler(ApiProblem)

@@ -35,6 +35,10 @@ class CatalogProductView(BaseModel):
     summary: str
     claims: list[str]
     integrations: list[str]
+    website: str | None = None
+    logo: str | None = None
+    evidence_freshness: str | None = None
+    source_refs: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AgentProposalView(BaseModel):
@@ -53,6 +57,7 @@ class MissionEventView(BaseModel):
     summary: str
     details: dict[str, Any] = Field(default_factory=dict)
     occurred_at: str | None = None
+    verified: bool = False
 
 
 class MissionArtifactView(BaseModel):
@@ -103,6 +108,7 @@ class MissionSnapshotView(BaseModel):
     events: list[MissionEventView]
     artifacts: list[MissionArtifactView]
     open_tasks: list[dict[str, Any]] = Field(default_factory=list)
+    handoffs: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class WorkspaceConversationView(BaseModel):
@@ -111,6 +117,10 @@ class WorkspaceConversationView(BaseModel):
     title: str
     messages: list[WorkspaceMessage]
     updated_at: str
+    mission: MissionSummaryView
+    events: list[MissionEventView] = Field(default_factory=list)
+    artifacts: list[MissionArtifactView] = Field(default_factory=list)
+    open_tasks: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ConnectorView(BaseModel):

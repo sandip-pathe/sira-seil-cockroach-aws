@@ -787,6 +787,7 @@ class DecisionRequestCreate(StrictModel):
     deadline: date | None = None
     visibility: RequestVisibility = RequestVisibility.SELECTIVE
     incumbent_instance_id: Identifier | None = None
+    mission_id: Identifier | None = None
 
 
 class DecisionRequestView(StrictModel):

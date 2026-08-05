@@ -19,6 +19,16 @@ class ApiSettings(BaseSettings):
         default=True, validation_alias="DEVELOPMENT_FIXTURE_MODE"
     )
     demo_reset_enabled: bool = Field(default=True, validation_alias="DEMO_RESET_ENABLED")
+    guest_session_enabled: bool = Field(default=False, validation_alias="GUEST_SESSION_ENABLED")
+    guest_session_signing_key: SecretStr = Field(
+        default=SecretStr(""), validation_alias="GUEST_SESSION_SIGNING_KEY"
+    )
+    guest_session_ttl_seconds: int = Field(
+        default=604_800,
+        ge=3_600,
+        le=2_592_000,
+        validation_alias="GUEST_SESSION_TTL_SECONDS",
+    )
     public_base_url: str = Field(
         default="http://localhost:8000", validation_alias="PUBLIC_BASE_URL"
     )
@@ -57,6 +67,7 @@ class ApiSettings(BaseSettings):
         le=3600,
         validation_alias="IDENTITY_STEP_UP_MAX_AGE_SECONDS",
     )
+    firebase_project_id: str = Field(default="", validation_alias="FIREBASE_PROJECT_ID")
     openai_api_key: SecretStr = Field(default=SecretStr(""), validation_alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-5-mini", validation_alias="OPENAI_MODEL")
     senso_base_url: str = Field(default="https://apiv2.senso.ai/api/v1", validation_alias="SENSO_BASE_URL")
@@ -87,6 +98,8 @@ class ApiSettings(BaseSettings):
         if backend != "postgresql":
             raise ValueError("production requires a PostgreSQL DATABASE_URL")
         self.browser_return_signing_secret()
+        if self.guest_session_enabled:
+            self.guest_session_signing_secret()
 
     def browser_return_signing_secret(self) -> str:
         value = self.browser_return_signing_key.get_secret_value()
@@ -95,6 +108,14 @@ class ApiSettings(BaseSettings):
         if self.is_development:
             return "development-only-browser-return-key"  # pragma: allowlist secret
         raise ValueError("production requires a 32-byte BROWSER_RETURN_SIGNING_KEY")
+
+    def guest_session_signing_secret(self) -> str:
+        value = self.guest_session_signing_key.get_secret_value()
+        if len(value.encode("utf-8")) >= 32:
+            return value
+        if self.is_development:
+            return "development-only-guest-session-signing-key"
+        raise ValueError("production guest sessions require a 32-byte GUEST_SESSION_SIGNING_KEY")
 
     @staticmethod
     def _csv_set(value: str) -> frozenset[str]:

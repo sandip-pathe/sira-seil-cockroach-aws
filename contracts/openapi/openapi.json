@@ -922,6 +922,17 @@
             "title": "Edition",
             "type": "string"
           },
+          "evidence_freshness": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Freshness"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -932,6 +943,17 @@
             },
             "title": "Integrations",
             "type": "array"
+          },
+          "logo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo"
           },
           "name": {
             "title": "Name",
@@ -945,6 +967,14 @@
             "title": "Seller",
             "type": "string"
           },
+          "source_refs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -952,6 +982,17 @@
           "summary": {
             "title": "Summary",
             "type": "string"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
           }
         },
         "required": [
@@ -1866,6 +1907,20 @@
             "minLength": 10,
             "title": "Intent",
             "type": "string"
+          },
+          "mission_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 3,
+                "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mission Id"
           },
           "scenario_id": {
             "anyOf": [
@@ -3810,6 +3865,11 @@
           "type": {
             "title": "Type",
             "type": "string"
+          },
+          "verified": {
+            "default": false,
+            "title": "Verified",
+            "type": "boolean"
           }
         },
         "required": [
@@ -3835,6 +3895,14 @@
               "$ref": "#/components/schemas/MissionEventView"
             },
             "title": "Events",
+            "type": "array"
+          },
+          "handoffs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Handoffs",
             "type": "array"
           },
           "mission": {
@@ -8957,6 +9025,20 @@
       },
       "WorkspaceConversationView": {
         "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/MissionArtifactView"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/MissionEventView"
+            },
+            "title": "Events",
+            "type": "array"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -8968,6 +9050,9 @@
             "title": "Messages",
             "type": "array"
           },
+          "mission": {
+            "$ref": "#/components/schemas/MissionSummaryView"
+          },
           "mode": {
             "enum": [
               "sira",
@@ -8975,6 +9060,14 @@
             ],
             "title": "Mode",
             "type": "string"
+          },
+          "open_tasks": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Open Tasks",
+            "type": "array"
           },
           "title": {
             "title": "Title",
@@ -8990,7 +9083,8 @@
           "mode",
           "title",
           "messages",
-          "updated_at"
+          "updated_at",
+          "mission"
         ],
         "title": "WorkspaceConversationView",
         "type": "object"

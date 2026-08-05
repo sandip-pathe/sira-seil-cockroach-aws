@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .config import ApiSettings
 from .errors import ApiProblem
+from .guest_security import GuestSession
 from .identity import IdentityAdapter, IdentityKind, IdentityProviderUnavailable
 from .service import DEMO_ACTOR_ID, DEMO_ORGANIZATION_ID, WorkflowService
 
@@ -23,6 +24,7 @@ class RequestContext:
     identity_kind: IdentityKind
     party: Literal["BUYER", "SELLER"] | None
     fixture_identity: bool
+    guest_identity: bool = False
 
 
 _bearer = HTTPBearer(auto_error=False)
@@ -65,10 +67,12 @@ async def get_request_context(
     step_up_verified: Annotated[bool, Header(alias="X-Step-Up-Verified")] = False,
     identity_kind: Annotated[str | None, Header(alias="X-Identity-Kind")] = None,
     actor_party: Annotated[str | None, Header(alias="X-Actor-Party")] = None,
+    workspace_mode: Annotated[str | None, Header(alias="X-Workspace-Mode")] = None,
     bearer: Annotated[HTTPAuthorizationCredentials | None, Security(_bearer)] = None,
 ) -> RequestContext:
     settings: ApiSettings = request.app.state.settings
-    if not settings.is_development:
+    guest = cast(GuestSession | None, getattr(request.state, "guest_session", None))
+    if bearer is not None:
         adapter = cast(IdentityAdapter | None, request.app.state.identity_adapter)
         if adapter is None:
             raise ApiProblem(
@@ -76,13 +80,6 @@ async def get_request_context(
                 message="A verified server-side identity is required in production.",
                 status_code=503,
                 next_action="configure_identity_adapter",
-            )
-        if bearer is None:
-            raise ApiProblem(
-                code="AUTHENTICATION_REQUIRED",
-                message="A bearer credential is required.",
-                status_code=401,
-                next_action="authenticate",
             )
         try:
             principal = await adapter.authenticate(bearer.credentials)
@@ -101,6 +98,38 @@ async def get_request_context(
                 status_code=401,
                 next_action="authenticate",
             )
+        if principal.firebase_identity:
+            mode = (workspace_mode or "sira").lower()
+            if mode not in {"sira", "seil"}:
+                raise ApiProblem(
+                    code="INVALID_WORKSPACE_MODE",
+                    message="Workspace mode must be sira or seil.",
+                    status_code=400,
+                )
+            if mode == "seil":
+                roles = frozenset({"seller_editor", "seller_reviewer"})
+                firebase_party: Literal["BUYER", "SELLER"] = "SELLER"
+            else:
+                buyer_roles = {
+                    "can_submit_request",
+                    "can_view_context",
+                    "can_select_recommendation",
+                    "can_manage_procurement_gate",
+                }
+                if principal.verified_identity:
+                    buyer_roles.update({"can_approve_purchase", "can_execute_purchase"})
+                roles = frozenset(buyer_roles)
+                firebase_party = "BUYER"
+            return RequestContext(
+                organization_id=principal.organization_id,
+                actor_id=f"{principal.actor_id}_{mode}",
+                roles=roles,
+                step_up_verified=principal.step_up_verified,
+                identity_kind="HUMAN",
+                party=firebase_party,
+                fixture_identity=False,
+                guest_identity=principal.anonymous,
+            )
         return RequestContext(
             organization_id=principal.organization_id,
             actor_id=principal.actor_id,
@@ -109,6 +138,47 @@ async def get_request_context(
             identity_kind=principal.identity_kind,
             party=principal.party,
             fixture_identity=False,
+            guest_identity=False,
+        )
+
+    if guest is not None:
+        mode = (workspace_mode or "sira").lower()
+        if mode not in {"sira", "seil"}:
+            raise ApiProblem(
+                code="INVALID_WORKSPACE_MODE",
+                message="Guest workspace mode must be sira or seil.",
+                status_code=400,
+            )
+        if mode == "seil":
+            roles = frozenset({"seller_editor", "seller_reviewer"})
+            party: Literal["BUYER", "SELLER"] = "SELLER"
+        else:
+            roles = frozenset(
+                {
+                    "can_submit_request",
+                    "can_view_context",
+                    "can_select_recommendation",
+                    "can_manage_procurement_gate",
+                }
+            )
+            party = "BUYER"
+        return RequestContext(
+            organization_id=guest.organization_id,
+            actor_id=guest.actor_id(mode),
+            roles=roles,
+            step_up_verified=False,
+            identity_kind="HUMAN",
+            party=party,
+            fixture_identity=settings.development_fixture_mode,
+            guest_identity=True,
+        )
+
+    if not settings.is_development:
+        raise ApiProblem(
+            code="AUTHENTICATION_REQUIRED",
+            message="A guest session or bearer credential is required.",
+            status_code=401,
+            next_action="authenticate",
         )
 
     del bearer
@@ -136,6 +206,7 @@ async def get_request_context(
         identity_kind=cast(IdentityKind, identity_kind or "HUMAN"),
         party=verified_party,
         fixture_identity=True,
+        guest_identity=False,
     )
 
 

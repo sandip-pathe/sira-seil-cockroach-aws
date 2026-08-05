@@ -132,6 +132,7 @@ class PurchaseRequestCreate(StrictModel):
     desired_outcome: DesiredOutcomeInput | None = None
     deadline: date | None = None
     visibility: RequestVisibility = RequestVisibility.SELECTIVE
+    mission_id: Identifier | None = None
 
 
 class PurchaseRequestView(StrictModel):

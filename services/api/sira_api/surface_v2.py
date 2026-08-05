@@ -105,6 +105,7 @@ class DecisionRoomSurface:
             ),
             "deadline": body.get("deadline"),
             "visibility": body["visibility"],
+            "mission_id": body.get("mission_id"),
         }
         status_code, created = await self.service.create_purchase_request(
             organization_id=organization_id,

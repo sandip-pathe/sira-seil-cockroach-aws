@@ -26,6 +26,7 @@ from integrations.prava.models import (
     PravaSessionRequest,
 )
 from persistence.database import Database
+from persistence.mission_repository import MissionRepository
 from persistence.models import (
     ActionRun,
     ApprovalEvent,
@@ -740,6 +741,56 @@ class WorkflowService:
                 request_hash=request_hash,
             )
             await repository.add_purchase_request(record)
+            mission_id = body.get("mission_id")
+            if mission_id:
+                mission_repository = MissionRepository(session, organization_id)
+                try:
+                    mission = await mission_repository.get_for_actor(
+                        str(mission_id), actor_id, lock=True
+                    )
+                except RecordNotFound as error:
+                    raise ApiProblem(
+                        code="MISSION_NOT_FOUND",
+                        message="The originating mission is unavailable.",
+                        status_code=404,
+                        next_action="restore_mission",
+                    ) from error
+                await mission_repository.append_event(
+                    mission,
+                    event_type="authority.decision.created",
+                    event_key=f"decision-created:{request_id}",
+                    actor_type="SYSTEM",
+                    actor_id="authority-kernel",
+                    payload={
+                        "summary": "Created a governed buying decision",
+                        "details": {
+                            "request_id": request_id,
+                            "status": "DRAFT",
+                            "next": "evaluation",
+                        },
+                    },
+                )
+                await mission_repository.add_artifact(
+                    mission,
+                    kind="purchase_proposal",
+                    title="Governed buying decision",
+                    authority="VERIFIED",
+                    payload={
+                        "request_id": request_id,
+                        "intent": body["intent"],
+                        "status": "DRAFT",
+                        "authority_path": [
+                            "evaluation",
+                            "exact approval",
+                            "Prava authorization",
+                            "Temporal checkout",
+                            "fulfillment verification",
+                        ],
+                    },
+                    source_refs=[{"type": "decision_request", "id": request_id}],
+                    created_by="authority-kernel",
+                )
+                await mission_repository.checkpoint(mission)
             if self.fixtures is not None and scenario_id == DEMO_SCENARIO_ID:
                 # These records are referenced by the frozen decision-source snapshot below.
                 # Flush explicitly because the models do not declare ORM relationships that

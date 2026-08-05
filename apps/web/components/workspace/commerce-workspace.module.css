@@ -802,6 +802,62 @@
   color: var(--workspace-accent);
 }
 
+.missionUpdate li span {
+  display: grid;
+  gap: 1px;
+}
+
+.missionUpdate li span small {
+  color: #8a8378;
+  font-size: 10px;
+}
+
+.missionTasks,
+.missionHandoffs {
+  display: grid;
+  gap: 7px;
+  padding-top: 10px;
+  border-top: 1px solid #ded8cb;
+}
+
+.missionTasks > span,
+.missionHandoffs > span {
+  color: #817a70;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.missionTasks p,
+.missionHandoffs p {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  margin: 0;
+  color: #403c35;
+  font-size: 12px;
+}
+
+.missionHandoffs p {
+  grid-template-columns: auto 1fr;
+}
+
+.missionHandoffs p small {
+  grid-column: 2;
+}
+
+.missionHandoffs svg {
+  width: 16px;
+  height: 16px;
+  color: var(--workspace-accent);
+}
+
+.missionTasks small,
+.missionHandoffs small {
+  color: #817a70;
+}
+
 .missionArtifacts {
   display: grid;
   gap: 8px;
@@ -848,18 +904,42 @@
   font-size: 13px;
 }
 
-.artifactPayload {
-  overflow: auto;
-  max-height: 420px;
+.artifactFields {
+  display: grid;
+  gap: 0;
   margin: 0;
-  padding: 13px;
-  border: 1px solid #ded8cb;
-  border-radius: 10px;
-  background: #f4f1e9;
+  border-top: 1px solid #ded8cb;
+}
+
+.artifactFields > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.35fr) 1fr;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e7e1d6;
+}
+
+.artifactFields dt {
+  color: #817a70;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.artifactFields dd {
+  min-width: 0;
+  margin: 0;
   color: #3e3a34;
-  font-size: 12px;
-  line-height: 1.55;
-  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.artifactFields ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 17px;
 }
 
 .artifactSources {
@@ -870,6 +950,38 @@
   color: #5f594f;
   font-size: 12px;
   overflow-wrap: anywhere;
+}
+
+.artifactSources a,
+.evidenceLink {
+  color: var(--workspace-accent-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.evidenceLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.evidenceLink svg {
+  width: 14px;
+  height: 14px;
+}
+
+.inlineRetry {
+  margin-top: 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--workspace-accent);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--workspace-accent-dark);
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .attentionCard {

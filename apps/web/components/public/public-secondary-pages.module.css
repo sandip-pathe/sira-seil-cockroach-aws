@@ -266,6 +266,166 @@
   line-height: 1.65;
 }
 
+.authCard {
+  width: min(100%, 520px);
+  padding: 28px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 18px 50px rgb(38 35 29 / 8%);
+}
+
+.authCard button,
+.emailForm input {
+  min-height: 46px;
+  border-radius: 7px;
+  font: inherit;
+}
+
+.authCard button {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.authCard button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.googleButton {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  color: var(--ink);
+}
+
+.googleButton span {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: #4285f4;
+  color: #fff;
+  font-size: 13px;
+}
+
+.authDivider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.authDivider::before,
+.authDivider::after {
+  height: 1px;
+  flex: 1;
+  background: var(--border);
+  content: "";
+}
+
+.emailForm {
+  display: grid;
+  gap: 14px;
+}
+
+.emailForm label {
+  display: grid;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.emailForm input {
+  width: 100%;
+  padding: 0 13px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  color: var(--ink);
+}
+
+.emailForm input:focus {
+  border-color: var(--sira);
+  outline: 3px solid rgb(8 127 112 / 14%);
+}
+
+.emailForm button {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: #fff;
+}
+
+.authModeButton {
+  width: 100%;
+  min-height: 38px !important;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.authError {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #d9a29a;
+  border-radius: 7px;
+  background: #fff0ed;
+  color: #8a2f24;
+  font-size: 13px;
+}
+
+.guestChoice {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.guestChoice div {
+  display: grid;
+  gap: 3px;
+}
+
+.guestChoice span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.guestChoice button {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.authBoundary {
+  display: flex;
+  width: min(100%, 520px);
+  align-items: flex-start;
+  gap: 9px;
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.authBoundary svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--sira);
+}
+
 .previewChoices {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

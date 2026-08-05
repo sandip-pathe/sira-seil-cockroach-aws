@@ -96,6 +96,10 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DEVELOPMENT_FIXTURE_MODE: "true"
       DEMO_RESET_ENABLED: "true"
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      GUEST_SESSION_ENABLED: ${GUEST_SESSION_ENABLED:-false}
+      GUEST_SESSION_SIGNING_KEY: ${GUEST_SESSION_SIGNING_KEY:-}
+      GUEST_SESSION_TTL_SECONDS: ${GUEST_SESSION_TTL_SECONDS:-604800}
       PUBLIC_BASE_URL: http://localhost:${SIRA_API_PORT:-8000}
       WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:${SIRA_WEB_PORT:-3000}}
       DATABASE_URL: ${SIRA_DOCKER_DATABASE_URL:-postgresql+asyncpg://sira_runtime:change-me@postgres:5432/sira} # pragma: allowlist secret -- local development only

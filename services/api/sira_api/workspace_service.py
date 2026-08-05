@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from openai import AuthenticationError, RateLimitError
 from pydantic import ValidationError
+from sqlalchemy import select
 from sira_agents.commerce_tools import SEIL_TOOL_NAMES, SIRA_TOOL_NAMES, commerce_tool_registry
 from sira_agents.mission_models import MissionTurnOutput
 from sira_agents.runtime import (
@@ -22,6 +23,8 @@ from sira_agents.workspace_tools import workspace_tool_registry
 
 from persistence.database import Database
 from persistence.mission_repository import MissionRepository, MissionSnapshot
+from persistence.models import Organization, PurchaseRequest, WorkflowRun
+from persistence.repositories import RecordNotFound
 
 from .errors import ApiProblem
 from .fixtures import DemoFixtureBundle
@@ -29,6 +32,89 @@ from .workspace_schemas import WorkspaceChatCreate
 
 
 class WorkspaceService:
+    _REAL_PRODUCT_EVIDENCE: dict[str, dict[str, Any]] = {
+        "product_fixture_d": {
+            "name": "Fathom",
+            "seller": "Fathom",
+            "edition": "Team",
+            "price": "USD 19",
+            "billing_unit": "seat_month",
+            "summary": "Meeting recording, transcription, summaries, action items, and team CRM sync.",
+            "claims": [
+                "Team plans include shared recordings and AI summaries.",
+                "CRM sync supports HubSpot, Salesforce, and Close.",
+                "A 14-day Team trial is publicly offered.",
+            ],
+            "integrations": ["hubspot", "salesforce", "close", "zoom", "google_meet", "teams"],
+            "website": "https://fathom.video/pricing",
+            "logo": "/products/fathom.svg",
+            "evidence_freshness": "Official pricing checked 5 Aug 2026",
+            "source_refs": [
+                {"title": "Fathom pricing", "url": "https://fathom.video/pricing", "authority": "VENDOR"},
+                {"title": "Fathom for teams", "url": "https://fathom.video/for/teams", "authority": "VENDOR"},
+            ],
+        },
+        "product_fixture_c": {
+            "name": "Fireflies.ai",
+            "seller": "Fireflies.ai",
+            "edition": "Business",
+            "price": "USD 29",
+            "billing_unit": "seat_month_annual",
+            "summary": "AI meeting notes, action items, search, coaching, and CRM synchronization.",
+            "claims": [
+                "Business includes HubSpot and Salesforce CRM sync.",
+                "Business includes AI coaching and team interaction metrics.",
+                "Meeting notes and action items are available across paid plans.",
+            ],
+            "integrations": ["hubspot", "salesforce", "slack", "zapier"],
+            "website": "https://fireflies.ai/pricing",
+            "logo": "/products/fireflies.svg",
+            "evidence_freshness": "Official product material checked 5 Aug 2026",
+            "source_refs": [
+                {"title": "Fireflies meeting transcription guide", "url": "https://fireflies.ai/blog/meeting-transcription-software/", "authority": "VENDOR"}
+            ],
+        },
+        "product_fixture_b": {
+            "name": "Otter.ai",
+            "seller": "Otter.ai",
+            "edition": "Enterprise",
+            "price": "Quote required",
+            "billing_unit": "workspace",
+            "summary": "Live transcription, meeting summaries, action items, and enterprise CRM autofill.",
+            "claims": [
+                "HubSpot can be installed for an entire Enterprise workspace.",
+                "Admins can map meeting insights to HubSpot custom fields.",
+                "CRM Autofill can sync meeting conversations into HubSpot.",
+            ],
+            "integrations": ["hubspot", "zoom", "google_meet", "teams"],
+            "website": "https://otter.ai/pricing",
+            "logo": "/products/otter.svg",
+            "evidence_freshness": "Official help center checked 5 Aug 2026",
+            "source_refs": [
+                {"title": "Otter HubSpot for Enterprise", "url": "https://help.otter.ai/hc/en-us/articles/40426498007959-Otter-HubSpot-for-Enterprise", "authority": "VENDOR"}
+            ],
+        },
+        "product_fixture_a": {
+            "name": "tl;dv",
+            "seller": "tl;dv",
+            "edition": "Business",
+            "price": "Verify current price",
+            "billing_unit": "seat_month",
+            "summary": "Meeting recording, multilingual transcription, AI notes, and sales workflow integrations.",
+            "claims": [
+                "Supports Zoom, Google Meet, and Microsoft Teams.",
+                "Offers CRM-oriented workflows and HubSpot integration.",
+                "Pricing and plan eligibility must be revalidated before purchase.",
+            ],
+            "integrations": ["hubspot", "zoom", "google_meet", "teams"],
+            "website": "https://tldv.io/pricing/",
+            "logo": "/products/tldv.svg",
+            "evidence_freshness": "Requires live price revalidation",
+            "source_refs": [
+                {"title": "tl;dv pricing", "url": "https://tldv.io/pricing/", "authority": "VENDOR"}
+            ],
+        },
+    }
     def __init__(
         self,
         fixtures: DemoFixtureBundle | None,
@@ -83,8 +169,7 @@ class WorkspaceService:
             ][:4]
             angles = pack.get("positioning_angles", [])
             summary = str(angles[0]["text"]) if angles else "Published seller Product Evidence."
-            products.append(
-                {
+            product = {
                     "id": str(pack["product_id"]),
                     "name": str(identity["product_name"]),
                     "seller": str(identity["seller_name"]),
@@ -96,7 +181,8 @@ class WorkspaceService:
                     "claims": claims,
                     "integrations": integrations,
                 }
-            )
+            product.update(self._REAL_PRODUCT_EVIDENCE.get(candidate_id, {}))
+            products.append(product)
         return products
 
     def product(self, product_id: str) -> dict[str, Any] | None:
@@ -117,6 +203,39 @@ class WorkspaceService:
             body=body,
             run_context=run_context,
         )
+        if self._is_lightweight_message(body.message):
+            answer = MissionTurnOutput(
+                message=(
+                    "Hey. Tell me what you want to buy, compare, renew, or evaluate, and I’ll take it from there."
+                    if body.mode == "sira"
+                    else "Hey. Tell me which product, buyer question, or evidence gap you want to work on."
+                ),
+                mission_state="ORIENTING",
+                stop_reason="LIGHTWEIGHT_REPLY",
+            )
+            persisted = await self._persist_turn(
+                mission_id=mission_id,
+                answer=answer,
+                run_context=run_context,
+                tool_calls=(),
+                proposals=(),
+                turn_key=run_context.request_id,
+            )
+            return {
+                "conversation_id": mission_id,
+                "mission_id": mission_id,
+                "message": answer.message,
+                "follow_up_required": False,
+                "panel": None,
+                "products": [],
+                "tool_calls": [],
+                "proposals": [],
+                "mission": persisted["mission"],
+                "events": persisted["events"],
+                "artifacts": persisted["artifacts"],
+                "attention": None,
+                "advisory_only": False,
+            }
         instructions = self._root_agent_instructions(body.mode)
         try:
             result = await self.runtime.run(
@@ -244,6 +363,11 @@ class WorkspaceService:
         return MissionTurnOutput.model_validate(raw)
 
     @staticmethod
+    def _is_lightweight_message(message: str) -> bool:
+        normalized = " ".join(message.casefold().strip().split()).rstrip("!?.")
+        return normalized in {"hi", "hey", "hello", "yo", "good morning", "good evening"}
+
+    @staticmethod
     def _root_agent_instructions(mode: str) -> str:
         shared = (
             "You are the persistent root commerce agent for one mission. Infer intent, maintain a "
@@ -296,6 +420,22 @@ class WorkspaceService:
                 ],
             }
         async with self.database.transaction(run_context.organization_id) as session:
+            organization = await session.get(Organization, run_context.organization_id)
+            if organization is None and run_context.organization_id.startswith(
+                ("org_guest_", "org_user_")
+            ):
+                session.add(
+                    Organization(
+                        id=run_context.organization_id,
+                        name=(
+                            "Private guest workspace"
+                            if run_context.organization_id.startswith("org_guest_")
+                            else "Private Firebase workspace"
+                        ),
+                        version=1,
+                    )
+                )
+                await session.flush()
             repository = MissionRepository(session, run_context.organization_id)
             if mission_id is None:
                 mission_id = f"msn_{uuid4().hex}"
@@ -311,11 +451,27 @@ class WorkspaceService:
                     },
                 )
             else:
-                mission = await repository.get_for_actor(
-                    mission_id, run_context.actor_id, lock=True
-                )
+                try:
+                    mission = await repository.get_for_actor(
+                        mission_id, run_context.actor_id, lock=True
+                    )
+                except RecordNotFound:
+                    mission = await repository.create(
+                        mission_id=mission_id,
+                        actor_id=run_context.actor_id,
+                        mode=body.mode.upper(),
+                        goal=body.message,
+                        budget={
+                            "model_turns_remaining": 16,
+                            "worker_tasks_remaining": 8,
+                            "experiments_remaining": 4,
+                        },
+                    )
                 if mission.mode != body.mode.upper():
                     raise PermissionError("mission mode does not match this workspace")
+            mission.state = (
+                "ORIENTING" if self._is_lightweight_message(body.message) else "PLANNING"
+            )
             await repository.append_event(
                 mission,
                 event_type="user.message",
@@ -324,6 +480,18 @@ class WorkspaceService:
                 actor_id=run_context.actor_id,
                 payload={"message": body.message},
             )
+            if not self._is_lightweight_message(body.message):
+                await repository.append_event(
+                    mission,
+                    event_type="agent.accepted",
+                    event_key=f"agent-accepted:{mission.id}:{run_context.request_id or uuid4().hex}",
+                    actor_type="SYSTEM",
+                    actor_id="mission-runtime",
+                    payload={
+                        "summary": "Mission accepted; choosing the next evidence-backed action",
+                        "details": {"safe_to_leave": True, "checkpoint": "request_received"},
+                    },
+                )
             snapshot = await repository.snapshot(mission)
             return mission.id, snapshot.model_context()
 
@@ -357,6 +525,7 @@ class WorkspaceService:
                     "title": record.goal[:46] or "New mission",
                     "messages": messages,
                     "updated_at": record.updated_at.astimezone(UTC).isoformat(),
+                    **self._snapshot_view(snapshot),
                 }
             )
         return results
@@ -375,9 +544,73 @@ class WorkspaceService:
             )
         async with self.database.transaction(run_context.organization_id) as session:
             repository = MissionRepository(session, run_context.organization_id)
-            mission = await repository.get_for_actor(mission_id, run_context.actor_id)
+            try:
+                mission = await repository.get_for_actor(mission_id, run_context.actor_id)
+            except RecordNotFound:
+                raise ApiProblem(
+                    code="MISSION_NOT_FOUND",
+                    message="That mission is unavailable in this workspace.",
+                    status_code=404,
+                ) from None
             snapshot = await repository.snapshot(mission)
-        return self._snapshot_view(snapshot)
+        response = self._snapshot_view(snapshot)
+        response["handoffs"] = await self._mission_handoffs(
+            run_context.organization_id, mission_id
+        )
+        return response
+
+    async def _mission_handoffs(
+        self, organization_id: str, mission_id: str
+    ) -> list[dict[str, Any]]:
+        if self.database is None:
+            return []
+        async with self.database.transaction(organization_id) as session:
+            requests = tuple(
+                (
+                    await session.execute(
+                        select(PurchaseRequest).where(
+                            PurchaseRequest.organization_id == organization_id,
+                            PurchaseRequest.payload["mission_id"].as_string() == mission_id,
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if not requests:
+                return []
+            request_ids = [item.id for item in requests]
+            workflows = tuple(
+                (
+                    await session.execute(
+                        select(WorkflowRun).where(
+                            WorkflowRun.organization_id == organization_id,
+                            WorkflowRun.aggregate_id.in_(request_ids),
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        workflow_by_request = {item.aggregate_id: item for item in workflows}
+        return [
+            {
+                "kind": "decision",
+                "request_id": item.id,
+                "status": item.status,
+                "workflow": (
+                    {
+                        "id": workflow_by_request[item.id].id,
+                        "operation": workflow_by_request[item.id].operation,
+                        "status": workflow_by_request[item.id].status,
+                        "safe_error_code": workflow_by_request[item.id].safe_error_code,
+                    }
+                    if item.id in workflow_by_request
+                    else None
+                ),
+            }
+            for item in requests
+        ]
 
     async def _persist_turn(
         self,
@@ -453,6 +686,18 @@ class WorkspaceService:
                     "proposals": list(proposals),
                 },
             )
+            for index, tool_name in enumerate(tool_calls):
+                await repository.append_event(
+                    mission,
+                    event_type="agent.tool.completed",
+                    event_key=f"tool-completed:{mission.id}:{event_turn_key}:{index}:{tool_name}",
+                    actor_type="SYSTEM",
+                    actor_id="mission-runtime",
+                    payload={
+                        "summary": f"Used {tool_name.replace('_', ' ')}",
+                        "details": {"tool": tool_name, "verified": True},
+                    },
+                )
             for index, event in enumerate(answer.events):
                 await repository.append_event(
                     mission,
@@ -474,12 +719,15 @@ class WorkspaceService:
                 )
             persisted_artifacts = []
             for artifact in answer.artifacts:
+                authority = artifact.authority
+                if authority in {"OBSERVED", "VERIFIED"} and not artifact.source_refs:
+                    authority = "INFERRED"
                 persisted_artifacts.append(
                     await repository.add_artifact(
                         mission,
                         kind=artifact.kind,
                         title=artifact.title,
-                        authority=artifact.authority,
+                        authority=authority,
                         payload=artifact.payload,
                         source_refs=artifact.source_refs,
                         created_by="sira-root-agent",
@@ -488,7 +736,9 @@ class WorkspaceService:
             await repository.checkpoint(mission)
             snapshot = await repository.snapshot(mission)
             response = self._snapshot_view(snapshot)
-            response["events"] = response["events"][-(len(answer.events) + 1) :]
+            response["events"] = response["events"][
+                -(len(answer.events) + len(tool_calls) + 1) :
+            ]
             response["artifacts"] = [self._artifact_view(item) for item in persisted_artifacts]
             return response
 
@@ -545,6 +795,7 @@ class WorkspaceService:
                     ),
                     "details": event.payload.get("details", {}),
                     "occurred_at": event.occurred_at.astimezone(UTC).isoformat(),
+                    "verified": event.actor_type == "SYSTEM",
                 }
                 for event in snapshot.events
             ],
