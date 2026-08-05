@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import replace
 from datetime import UTC
 from typing import Any
 from uuid import uuid4
@@ -194,6 +195,10 @@ class WorkspaceService:
         self.fixtures = fixtures
         self.api_key = api_key
         self.seil_api_key = seil_api_key or api_key
+        self.seil_backup_api_key = (
+            api_key if api_key and self.seil_api_key and api_key != self.seil_api_key else ""
+        )
+        self._seil_backup_active = False
         self.workflow_service = workflow_service
         self.seller_evidence_service = seller_evidence_service
         self.database = database
@@ -229,9 +234,21 @@ class WorkspaceService:
             {
                 "id": "seil-agent",
                 "label": "SEIL reasoning and public research",
-                "status": "ready" if self.seil_api_key else "misconfigured",
-                "reason_code": "READY" if self.seil_api_key else "SEIL_KEY_MISSING",
-                "remediation": None if self.seil_api_key else "Configure SEIL_OPENAI_API_KEY",
+                "status": (
+                    "degraded"
+                    if self._seil_backup_active
+                    else "ready" if self.seil_api_key else "misconfigured"
+                ),
+                "reason_code": (
+                    "SEIL_BACKUP_KEY_ACTIVE"
+                    if self._seil_backup_active
+                    else "READY" if self.seil_api_key else "SEIL_KEY_MISSING"
+                ),
+                "remediation": (
+                    "Replace the expired SEIL primary key"
+                    if self._seil_backup_active
+                    else None if self.seil_api_key else "Configure SEIL_OPENAI_API_KEY"
+                ),
             },
             {
                 "id": "senso",
@@ -337,7 +354,7 @@ class WorkspaceService:
             }
         instructions = self._root_agent_instructions(body.mode)
         try:
-            result = await self.runtime.run(
+            result = await self._run_agent(
                 AgentRunRequest(
                     role=AgentRole.SIRA if body.mode == "sira" else AgentRole.SEIL,
                     instructions=instructions,
@@ -347,8 +364,8 @@ class WorkspaceService:
                     allowed_tools=SIRA_TOOL_NAMES if body.mode == "sira" else SEIL_TOOL_NAMES,
                     output_type=MissionTurnOutput,
                     authority_mode=AuthorityMode.MISSION_OPERATOR,
-                    api_key=selected_api_key,
-                )
+                ),
+                mode=body.mode,
             )
             answer = self._coerce_answer(result.output)
         except AuthenticationError as error:
@@ -410,7 +427,7 @@ class WorkspaceService:
             if not answer.continue_autonomously or answer.attention is not None:
                 break
             try:
-                continuation = await self.runtime.run(
+                continuation = await self._run_agent(
                     AgentRunRequest(
                         role=AgentRole.SIRA if body.mode == "sira" else AgentRole.SEIL,
                         instructions=instructions,
@@ -425,8 +442,8 @@ class WorkspaceService:
                         allowed_tools=(SIRA_TOOL_NAMES if body.mode == "sira" else SEIL_TOOL_NAMES),
                         output_type=MissionTurnOutput,
                         authority_mode=AuthorityMode.MISSION_OPERATOR,
-                        api_key=selected_api_key,
-                    )
+                    ),
+                    mode=body.mode,
                 )
                 answer = self._coerce_answer(continuation.output)
                 persisted = await self._persist_turn(
@@ -461,6 +478,26 @@ class WorkspaceService:
             "attention": answer.attention.model_dump(mode="json") if answer.attention else None,
             "advisory_only": False,
         }
+
+    async def _run_agent(
+        self, request: AgentRunRequest, *, mode: str
+    ) -> Any:
+        if mode != "seil":
+            return await self.runtime.run(replace(request, api_key=self.api_key))
+        selected = self.seil_backup_api_key if self._seil_backup_active else self.seil_api_key
+        try:
+            return await self.runtime.run(replace(request, api_key=selected))
+        except AuthenticationError:
+            if self._seil_backup_active or not self.seil_backup_api_key:
+                raise
+            self._seil_backup_active = True
+            logger.warning(
+                "SEIL primary credential rejected; activating configured backup",
+                extra={"agent_role": "seil", "reason_code": "SEIL_BACKUP_KEY_ACTIVE"},
+            )
+            return await self.runtime.run(
+                replace(request, api_key=self.seil_backup_api_key)
+            )
 
     @staticmethod
     def _coerce_answer(raw: object) -> MissionTurnOutput:

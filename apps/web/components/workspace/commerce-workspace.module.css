@@ -1,7 +1,7 @@
 .workspace {
-  --workspace-accent: #006b5f;
-  --workspace-accent-soft: #e4f2ef;
-  --workspace-accent-dark: #005348;
+  --workspace-accent: #0b5fff;
+  --workspace-accent-soft: #eaf0ff;
+  --workspace-accent-dark: #0847c7;
   display: grid;
   grid-template-columns: clamp(190px, 18vw, 220px) minmax(0, 1fr) 50%;
   width: 100%;
@@ -15,9 +15,9 @@
 }
 
 .workspace[data-mode="seil"] {
-  --workspace-accent: #8a4b16;
-  --workspace-accent-soft: #fbf0e8;
-  --workspace-accent-dark: #6f390d;
+  --workspace-accent: #7c3aed;
+  --workspace-accent-soft: #f3e8ff;
+  --workspace-accent-dark: #5b21b6;
 }
 
 .workspace.sidebarClosed {
