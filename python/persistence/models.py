@@ -1902,6 +1902,289 @@ class OutboxEvent(Base, TenantOwned):
     __table_args__ = (UniqueConstraint("organization_id", "event_key", name="uq_outbox_event_key"),)
 
 
+class AgentMission(Base, TenantOwned, Timestamped):
+    """Canonical, resumable unit of agent work.
+
+    Conversation and model context are projections of this record.  They are not
+    the source of truth for mission state, plans, budgets, or authority.
+    """
+
+    __tablename__ = "agent_missions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    mode: Mapped[str] = mapped_column(String(12), nullable=False)
+    goal: Mapped[str] = mapped_column(Text, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    budget: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False, default=dict)
+    plan: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False, default=dict)
+    world_model: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False, default=dict)
+    current_checkpoint_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    stop_reason: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    last_error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("mode IN ('SIRA','SEIL')", name="ck_agent_mission_mode"),
+        CheckConstraint(
+            "state IN ('CREATED','ORIENTING','PLANNING','EXPLORING','EXPERIMENTING',"
+            "'SYNTHESIZING','PROPOSING','AWAITING_AUTHORITY','EXECUTING','VERIFYING',"
+            "'MONITORING','COMPLETED','PAUSED','BLOCKED','FAILED','CANCELLED')",
+            name="ck_agent_mission_state",
+        ),
+        Index("ix_agent_mission_actor_state", "organization_id", "actor_id", "state"),
+    )
+
+
+class AgentMissionEvent(Base, TenantOwned):
+    """Append-only observation of a mission transition or real operation."""
+
+    __tablename__ = "agent_mission_events"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    mission_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_missions.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    event_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    actor_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "mission_id", "sequence", name="uq_agent_mission_event_sequence"
+        ),
+        UniqueConstraint("organization_id", "event_key", name="uq_agent_mission_event_key"),
+        Index("ix_agent_mission_event_stream", "organization_id", "mission_id", "sequence"),
+    )
+
+
+class AgentMissionTask(Base, TenantOwned, Timestamped):
+    """Bounded work item owned by the root agent, a worker, a human, or the system."""
+
+    __tablename__ = "agent_mission_tasks"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    mission_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_missions.id", ondelete="CASCADE"), nullable=False
+    )
+    parent_task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("agent_mission_tasks.id", ondelete="RESTRICT"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    owner_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    assigned_role: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    input_payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    budget: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False, default=dict)
+    output_artifact_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    safe_error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('PENDING','RUNNING','WAITING','COMPLETED','FAILED','CANCELLED')",
+            name="ck_agent_mission_task_status",
+        ),
+        CheckConstraint(
+            "owner_type IN ('ROOT_AGENT','SUBAGENT','HUMAN','SYSTEM')",
+            name="ck_agent_mission_task_owner",
+        ),
+        Index("ix_agent_mission_task_queue", "organization_id", "mission_id", "status"),
+    )
+
+
+class AgentMissionArtifact(Base, TenantOwned, Timestamped):
+    """Inspectable proof produced or collected during a mission."""
+
+    __tablename__ = "agent_mission_artifacts"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    mission_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_missions.id", ondelete="CASCADE"), nullable=False
+    )
+    task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("agent_mission_tasks.id", ondelete="SET NULL"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(48), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    authority: Mapped[str] = mapped_column(String(32), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    source_refs: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON_DOCUMENT, nullable=False, default=list
+    )
+    content_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('DRAFT','READY','STALE','FAILED','SUPERSEDED')",
+            name="ck_agent_mission_artifact_status",
+        ),
+        CheckConstraint(
+            "authority IN ('OBSERVED','VERIFIED','INFERRED','SELLER_ASSERTED','USER_ASSERTED')",
+            name="ck_agent_mission_artifact_authority",
+        ),
+        UniqueConstraint(
+            "organization_id", "mission_id", "content_hash", name="uq_agent_artifact_hash"
+        ),
+        Index("ix_agent_mission_artifact_kind", "organization_id", "mission_id", "kind"),
+    )
+
+
+class AgentMissionCheckpoint(Base, TenantOwned):
+    """Immutable compact projection used to resume after compaction or failure."""
+
+    __tablename__ = "agent_mission_checkpoints"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    mission_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_missions.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    mission_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    projection: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    unresolved_task_ids: Mapped[list[str]] = mapped_column(
+        JSON_DOCUMENT, nullable=False, default=list
+    )
+    content_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "mission_id", "sequence", name="uq_agent_checkpoint_sequence"
+        ),
+    )
+
+
+class AgentCapabilityGrant(Base, TenantOwned, Timestamped):
+    """Server-issued authority.  Agents cannot create or widen these rows."""
+
+    __tablename__ = "agent_capability_grants"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    mission_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_missions.id", ondelete="CASCADE"), nullable=False
+    )
+    subject_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    capability: Mapped[str] = mapped_column(String(100), nullable=False)
+    scope: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    granted_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    grant_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    max_uses: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    uses: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "subject_type IN ('ROOT_AGENT','SUBAGENT','USER','SYSTEM')",
+            name="ck_agent_capability_subject",
+        ),
+        CheckConstraint(
+            "status IN ('ACTIVE','REVOKED','EXPIRED','CONSUMED')",
+            name="ck_agent_capability_status",
+        ),
+        CheckConstraint(
+            "max_uses > 0 AND uses >= 0 AND uses <= max_uses", name="ck_agent_grant_uses"
+        ),
+        UniqueConstraint("organization_id", "grant_hash", name="uq_agent_capability_hash"),
+    )
+
+
+class AgentEffect(Base, TenantOwned, Timestamped):
+    """Protected external side effect with exact authority and recovery state."""
+
+    __tablename__ = "agent_effects"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    mission_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_missions.id", ondelete="RESTRICT"), nullable=False
+    )
+    task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("agent_mission_tasks.id", ondelete="SET NULL"), nullable=True
+    )
+    capability_grant_id: Mapped[str | None] = mapped_column(
+        ForeignKey("agent_capability_grants.id", ondelete="RESTRICT"), nullable=True
+    )
+    effect_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    request_payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    approval_reference: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    provider_reference: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    result_artifact_id: Mapped[str | None] = mapped_column(
+        ForeignKey("agent_mission_artifacts.id", ondelete="SET NULL"), nullable=True
+    )
+    safe_error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('PROPOSED','AUTHORIZED','DISPATCHING','ACKNOWLEDGED','VERIFIED',"
+            "'UNCERTAIN','RECONCILING','COMPENSATING','FAILED','CANCELLED')",
+            name="ck_agent_effect_status",
+        ),
+        UniqueConstraint(
+            "organization_id", "mission_id", "idempotency_key", name="uq_agent_effect_key"
+        ),
+    )
+
+
+class AgentExperiment(Base, TenantOwned, Timestamped):
+    """Reproducible product evaluation, never prose-only evidence."""
+
+    __tablename__ = "agent_experiments"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    mission_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_missions.id", ondelete="CASCADE"), nullable=False
+    )
+    task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("agent_mission_tasks.id", ondelete="SET NULL"), nullable=True
+    )
+    candidate_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    procedure: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    environment: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    success_signals: Mapped[list[dict[str, Any]]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    observations: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON_DOCUMENT, nullable=False, default=list
+    )
+    limitations: Mapped[list[str]] = mapped_column(JSON_DOCUMENT, nullable=False, default=list)
+    replay_spec: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    cost: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False, default=dict)
+    result_artifact_id: Mapped[str | None] = mapped_column(
+        ForeignKey("agent_mission_artifacts.id", ondelete="SET NULL"), nullable=True
+    )
+    content_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('PLANNED','PROVISIONING','RUNNING','COMPLETED','FAILED','CANCELLED')",
+            name="ck_agent_experiment_status",
+        ),
+        UniqueConstraint(
+            "organization_id", "mission_id", "content_hash", name="uq_agent_experiment_hash"
+        ),
+    )
+
+
 class WorkflowRun(Base, TenantOwned, Timestamped):
     __tablename__ = "workflow_runs"
 

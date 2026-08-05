@@ -2077,7 +2077,7 @@ The default visual direction is **operational cartography**: a cool mineral canv
 
 ### 20.1 SIRA buyer application
 
-The primary buyer surface is a continuous **SIRA conversation workspace**. Once a request becomes structured, an embedded **Decision Canvas** carries five persistent stages from intent to outcome. Chat gathers context, explains changes, and may invoke only actions explicitly authorized by the server; it cannot rank, approve, pay, publish seller claims, or activate software. The canvas owns canonical state, comparison, approval, and evidence. On desktop, chat and the contextual pane can appear together. On mobile, the user switches between Chat and Decision without losing state.
+The primary buyer surface is a continuous **SIRA mission workspace**. The root agent plans, investigates, evaluates, ranks, and recommends while producing a stream of inspectable evidence artifacts. Conversation is one projection of canonical mission state. An on-demand inspector opens inside the third workspace pane for artifacts or authority requests; there is no separate Decision Room or Agent Run application. The agent cannot grant itself authority or directly approve, pay, publish seller claims, or activate software. Protected effects remain server-owned.
 
 ```text
 SIRA workspace (persistent sidebar + chat + collapsible contextual pane)
@@ -2566,7 +2566,8 @@ Sensitive provider payloads and secrets never appear in errors.
 | `GET` | `/v1/company-profiles/{id}/versions/{version}` | Read exact Company Profile version |
 | `GET` | `/v1/agent-runs/{id}` | Read redacted run state/config/version references |
 | `GET` | `/v1/agent-runs/{id}/events` | Stream authorized run progress |
-| `POST` | `/v1/workspace/chat` | Collect buyer or seller context conversationally; advisory response only |
+| `POST` | `/v1/workspace/chat` | Advance a persistent buyer or seller mission and return new events/artifacts |
+| `GET` | `/v1/workspace/missions/{id}` | Resume the canonical mission, event, task, and artifact projection |
 | `GET` | `/v1/workspace/catalog` | Read published Product Evidence for inline catalogue cards |
 | `GET` | `/v1/workspace/catalog/{product_id}` | Read one product for the contextual detail pane |
 | `GET` | `/v1/workspace/connectors` | Read context-source setup states for the connectors pane |
