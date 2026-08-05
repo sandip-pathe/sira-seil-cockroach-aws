@@ -15,6 +15,7 @@ from .errors import ApiProblem
 from .workspace_schemas import (
     CatalogProductView,
     ConnectorView,
+    MissionSnapshotView,
     WorkspaceChatCreate,
     WorkspaceChatView,
     WorkspaceConversationView,
@@ -32,7 +33,9 @@ def get_workspace_service(request: Request) -> WorkspaceService:
 ServiceDependency = Annotated[WorkspaceService, Depends(get_workspace_service)]
 
 
-def _agent_context(request: Request, context: RequestContext, service: WorkspaceService) -> AgentRunContext:
+def _agent_context(
+    request: Request, context: RequestContext, service: WorkspaceService
+) -> AgentRunContext:
     return AgentRunContext(
         organization_id=context.organization_id,
         actor_id=context.actor_id,
@@ -100,6 +103,24 @@ async def workspace_conversations(
 
 
 @workspace_router.get(
+    "/v1/workspace/missions/{mission_id}",
+    response_model=MissionSnapshotView,
+    tags=["workspace"],
+)
+async def workspace_mission(
+    mission_id: str,
+    request: Request,
+    context: ContextDependency,
+    service: ServiceDependency,
+) -> dict[str, object]:
+    require_permission(context, "can_view_context")
+    return await service.mission(
+        run_context=_agent_context(request, context, service),
+        mission_id=mission_id,
+    )
+
+
+@workspace_router.get(
     "/v1/workspace/catalog", response_model=list[CatalogProductView], tags=["workspace"]
 )
 async def workspace_catalog(
@@ -129,7 +150,9 @@ async def workspace_product(
 @workspace_router.get(
     "/v1/workspace/connectors", response_model=list[ConnectorView], tags=["workspace"]
 )
-async def workspace_connectors(context: ContextDependency, service: ServiceDependency) -> list[dict[str, str]]:
+async def workspace_connectors(
+    context: ContextDependency, service: ServiceDependency
+) -> list[dict[str, str]]:
     require_permission(context, "can_view_context")
     senso_ready, senso_meta = service.senso_status()
     return [

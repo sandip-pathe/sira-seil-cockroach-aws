@@ -16,6 +16,11 @@ class AgentRole(StrEnum):
     SEIL = "SEIL"
 
 
+class AuthorityMode(StrEnum):
+    ADVISORY = "ADVISORY"
+    MISSION_OPERATOR = "MISSION_OPERATOR"
+
+
 @dataclass(frozen=True, slots=True)
 class AgentRunContext:
     """Private application state available to tools, never serialized for the model."""
@@ -45,6 +50,7 @@ class AgentRunRequest:
     run_context: AgentRunContext | None = None
     allowed_tools: tuple[str, ...] = ()
     output_type: type[Any] | None = None
+    authority_mode: AuthorityMode = AuthorityMode.ADVISORY
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,11 +176,11 @@ class _OpenAISdkFacade:
 
 @dataclass(slots=True)
 class OpenAIAgentsRuntime:
-    """Thin model adapter; it has no authority to decide, approve, pay, or activate."""
+    """Model control-plane adapter; protected effects remain server-authorized."""
 
     model: str
     tools: Mapping[str, object] = field(default_factory=dict)
-    max_turns: int = 4
+    max_turns: int = 16
     _sdk: _SdkFacade = field(default_factory=_OpenAISdkFacade, repr=False)
 
     async def run(self, request: AgentRunRequest) -> AgentRunResult:
@@ -211,5 +217,9 @@ class OpenAIAgentsRuntime:
                 output=outcome.output,
                 tool_calls=outcome.tool_calls,
                 proposals=outcome.proposals,
+                advisory_only=request.authority_mode is AuthorityMode.ADVISORY,
             )
-        return AgentRunResult(output=outcome)
+        return AgentRunResult(
+            output=outcome,
+            advisory_only=request.authority_mode is AuthorityMode.ADVISORY,
+        )

@@ -110,6 +110,13 @@ export interface ApprovalRevokeCreate {
 
 export type ApprovalStatus = "NOT_REQUIRED" | "NOT_REQUESTED" | "PENDING" | "APPROVED" | "REJECTED" | "REVOKED" | "EXPIRED" | "SUPERSEDED";
 
+export interface AttentionView {
+  kind: "question" | "approval" | "credential" | "choice" | "blocked";
+  options?: string[];
+  prompt: string;
+  reason: string;
+}
+
 export interface BlockingTask {
   due_at: string | null;
   expires_at: string | null;
@@ -596,6 +603,42 @@ export interface MerchantView {
   merchant_id: string;
   name: string;
   url: string;
+}
+
+export interface MissionArtifactView {
+  authority: string;
+  id: string;
+  kind: string;
+  payload: { [key: string]: unknown; };
+  source_refs?: { [key: string]: unknown; }[];
+  status?: string;
+  title: string;
+}
+
+export interface MissionEventView {
+  details?: { [key: string]: unknown; };
+  id: string;
+  occurred_at?: string | null;
+  sequence: number;
+  summary: string;
+  type: string;
+}
+
+export interface MissionSnapshotView {
+  artifacts: MissionArtifactView[];
+  events: MissionEventView[];
+  mission: MissionSummaryView;
+  open_tasks?: { [key: string]: unknown; }[];
+}
+
+export interface MissionSummaryView {
+  goal: string;
+  id: string;
+  mode: "sira" | "seil";
+  plan?: { [key: string]: unknown; }[];
+  state: string;
+  stop_reason?: string | null;
+  version: number;
 }
 
 export interface MoneyViewV2 {
@@ -1388,15 +1431,21 @@ export interface WorkspaceChatCreate {
   conversation_id?: string | null;
   history?: WorkspaceMessage[];
   message: string;
+  mission_id?: string | null;
   mode?: "sira" | "seil";
 }
 
 export interface WorkspaceChatView {
   advisory_only?: boolean;
+  artifacts?: MissionArtifactView[];
+  attention?: AttentionView | null;
   conversation_id: string;
+  events?: MissionEventView[];
   follow_up_required?: boolean;
   message: string;
-  panel?: "run" | "catalog" | "connectors" | "decisions" | "inbox";
+  mission: MissionSummaryView;
+  mission_id: string;
+  panel?: "catalog" | "connectors" | "decisions" | "inbox" | null;
   products?: CatalogProductView[];
   proposals?: AgentProposalView[];
   tool_calls?: string[];
@@ -1469,6 +1518,7 @@ export interface Operations {
   workspace_chat: { method: "POST"; path: "/v1/workspace/chat"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: WorkspaceChatCreate; response: WorkspaceChatView; requiresIdempotency: false; };
   workspace_connectors: { method: "GET"; path: "/v1/workspace/connectors"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: ConnectorView[]; requiresIdempotency: false; };
   workspace_conversations: { method: "GET"; path: "/v1/workspace/conversations"; pathParams: Record<never, never>; queryParams: { mode: "sira" | "seil"; }; body: never; response: WorkspaceConversationView[]; requiresIdempotency: false; };
+  workspace_mission: { method: "GET"; path: "/v1/workspace/missions/{mission_id}"; pathParams: { mission_id: string; }; queryParams: Record<never, never>; body: never; response: MissionSnapshotView; requiresIdempotency: false; };
   workspace_product: { method: "GET"; path: "/v1/workspace/catalog/{product_id}"; pathParams: { product_id: string; }; queryParams: Record<never, never>; body: never; response: CatalogProductView; requiresIdempotency: false; };
 }
 

@@ -27,9 +27,15 @@ class _CaptureRuntime:
         return AgentRunResult(
             output={
                 "message": "ok",
-                "follow_up_required": False,
-                "panel": "run",
-                "show_catalog": False,
+                "mission_state": "EXPLORING",
+                "plan": [],
+                "claims": [],
+                "events": [],
+                "artifacts": [],
+                "tasks": [],
+                "attention": None,
+                "continue_autonomously": False,
+                "show_product_ids": [],
             }
         )
 
@@ -100,3 +106,4 @@ async def test_chat_uses_the_role_specific_tool_allowlist(
     assert runtime.request is not None
     assert runtime.request.allowed_tools == expected_tools
     assert runtime.request.run_context is context
+    assert runtime.request.authority_mode.value == "MISSION_OPERATOR"
