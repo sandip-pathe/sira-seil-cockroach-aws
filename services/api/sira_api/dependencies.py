@@ -37,6 +37,9 @@ _SELLER_ROUTE_ALLOWLIST = frozenset(
     {
         ("POST", "/v1/workspace/chat"),
         ("GET", "/v1/workspace/conversations"),
+        ("GET", "/v1/workspace/missions/{mission_id}"),
+        ("GET", "/v1/workspace/connectors"),
+        ("GET", "/v1/capabilities"),
         ("GET", "/v1/requirement-briefs/{brief_id}"),
         ("POST", "/v1/engagements/{engagement_id}/consent"),
         ("GET", "/v1/seller/products/search"),
@@ -107,7 +110,7 @@ async def get_request_context(
                     status_code=400,
                 )
             if mode == "seil":
-                roles = frozenset({"seller_editor", "seller_reviewer"})
+                roles = frozenset({"seller_editor", "can_view_context"})
                 firebase_party: Literal["BUYER", "SELLER"] = "SELLER"
             else:
                 buyer_roles = {
@@ -150,7 +153,7 @@ async def get_request_context(
                 status_code=400,
             )
         if mode == "seil":
-            roles = frozenset({"seller_editor", "seller_reviewer"})
+            roles = frozenset({"seller_viewer", "can_view_context"})
             party: Literal["BUYER", "SELLER"] = "SELLER"
         else:
             roles = frozenset(

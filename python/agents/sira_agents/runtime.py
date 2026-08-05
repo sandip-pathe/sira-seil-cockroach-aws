@@ -145,11 +145,21 @@ class _OpenAISdkFacade:
             ),
         )
         output: object = result.final_output
-        tool_calls = tuple(
-            item.tool_name
-            for item in result.new_items
-            if isinstance(item, ToolCallItem) and item.tool_name is not None
-        )
+        tool_names: list[str] = []
+        for item in result.new_items:
+            if not isinstance(item, ToolCallItem):
+                continue
+            name = item.tool_name
+            raw_type = (
+                item.raw_item.get("type")
+                if isinstance(item.raw_item, dict)
+                else getattr(item.raw_item, "type", None)
+            )
+            if name is None and raw_type == "web_search_call":
+                name = "web_search"
+            if name is not None:
+                tool_names.append(name)
+        tool_calls = tuple(tool_names)
         proposals: list[Mapping[str, Any]] = []
         for item in result.new_items:
             if not isinstance(item, ToolCallOutputItem):

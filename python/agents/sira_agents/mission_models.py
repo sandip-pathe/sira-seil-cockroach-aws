@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 MissionState = Literal[
     "ORIENTING",
@@ -44,6 +44,13 @@ class MissionEventDraft(BaseModel):
     event_type: str = Field(pattern=r"^agent\.[a-z0-9_.-]+$", max_length=80)
     summary: str = Field(min_length=1, max_length=500)
     details: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("event_type", mode="before")
+    @classmethod
+    def namespace_agent_event(cls, value: object) -> object:
+        if isinstance(value, str) and not value.startswith("agent."):
+            return f"agent.{value}"
+        return value
 
 
 class MissionArtifactDraft(BaseModel):
@@ -94,3 +101,18 @@ class MissionTurnOutput(BaseModel):
     continue_autonomously: bool = False
     show_product_ids: list[str] = Field(default_factory=list, max_length=20)
     stop_reason: str | None = Field(default=None, max_length=120)
+
+    @model_validator(mode="before")
+    @classmethod
+    def wrap_artifact_only_output(cls, value: object) -> object:
+        if not isinstance(value, dict) or "message" in value or "mission_state" in value:
+            return value
+        if {"kind", "title", "payload"}.issubset(value):
+            return {
+                "message": "Research packet created with source-linked public evidence. Review and verify it before publication.",
+                "mission_state": "EVALUATING",
+                "artifacts": [value],
+                "continue_autonomously": False,
+                "stop_reason": "RESEARCH_PACKET_READY",
+            }
+        return value

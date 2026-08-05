@@ -50,6 +50,7 @@ const operations = {
   seller_evidence_suspend: { method: "POST", path: "/v1/seller/pack-versions/{version_id}/suspend", responseMediaType: "application/json" },
   simulate_decision: { method: "POST", path: "/v1/decisions/{decision_id}/simulations", responseMediaType: "application/json" },
   start_action_run: { method: "POST", path: "/v1/decisions/{decision_id}/action-runs", responseMediaType: "application/json" },
+  workspace_capabilities: { method: "GET", path: "/v1/capabilities", responseMediaType: "application/json" },
   workspace_catalog: { method: "GET", path: "/v1/workspace/catalog", responseMediaType: "application/json" },
   workspace_chat: { method: "POST", path: "/v1/workspace/chat", responseMediaType: "application/json" },
   workspace_connectors: { method: "GET", path: "/v1/workspace/connectors", responseMediaType: "application/json" },

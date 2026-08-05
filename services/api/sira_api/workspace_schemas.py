@@ -129,3 +129,11 @@ class ConnectorView(BaseModel):
     purpose: str
     status: Literal["Healthy", "Needs setup", "Not connected"]
     meta: str
+
+
+class CapabilityView(BaseModel):
+    id: str
+    label: str
+    status: Literal["disabled", "misconfigured", "ready", "degraded", "offline"]
+    reason_code: str
+    remediation: str | None = None

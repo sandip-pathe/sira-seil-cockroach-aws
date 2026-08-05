@@ -52,7 +52,12 @@ def search_catalog(
 
     normalized_query = query.strip().casefold()
     bounded_limit = min(max(limit, 1), 20)
-    matches: list[CatalogProductResult] = []
+    stop_words = {"a", "an", "and", "for", "in", "of", "or", "the", "to", "with"}
+    query_terms = {
+        term for term in normalized_query.replace("-", " ").split()
+        if len(term) > 2 and term not in stop_words
+    }
+    scored: list[tuple[int, CatalogProductResult]] = []
     for raw_product in _catalog(context).catalog():
         product = CatalogProductResult.model_validate(raw_product)
         searchable = " ".join(
@@ -65,12 +70,16 @@ def search_catalog(
                 *product.integrations,
             ]
         ).casefold()
-        if normalized_query and normalized_query not in searchable:
-            continue
-        matches.append(product)
-        if len(matches) == bounded_limit:
-            break
-    return matches
+        if not normalized_query:
+            score = 1
+        elif normalized_query in searchable:
+            score = len(query_terms) + 2
+        else:
+            score = sum(1 for term in query_terms if term in searchable)
+        if score:
+            scored.append((score, product))
+    scored.sort(key=lambda item: (-item[0], item[1].name.casefold()))
+    return [product for _, product in scored[:bounded_limit]]
 
 
 def get_catalog_product(

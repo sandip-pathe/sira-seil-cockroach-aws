@@ -35,6 +35,65 @@ from .workspace_schemas import WorkspaceChatCreate
 logger = logging.getLogger(__name__)
 
 
+def _canonical_agent_json(value: Any) -> Any:
+    """Normalize model output before it enters hashed domain state."""
+
+    if isinstance(value, float):
+        return format(value, ".15g")
+    if isinstance(value, dict):
+        return {str(key): _canonical_agent_json(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_canonical_agent_json(item) for item in value]
+    return value
+
+
+def _compile_research_only_packet(
+    payload: dict[str, Any], source_refs: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Project model research into SEIL's stable packet-shaped artifact boundary."""
+
+    identity = payload.get("identity")
+    if not isinstance(identity, dict):
+        identity = {
+            "product_name": payload.get("product_name") or payload.get("name") or "Unknown product",
+            "seller_name": payload.get("seller_name") or payload.get("vendor") or "Unknown seller",
+            "canonical_url": payload.get("canonical_url") or payload.get("website"),
+        }
+    evidence = []
+    for index, source in enumerate(source_refs, start=1):
+        if not isinstance(source, dict):
+            continue
+        evidence.append(
+            {
+                "id": f"public_source_{index}",
+                "source_reference": source.get("url"),
+                "title": source.get("title"),
+                "source_class": source.get("authority") or "PUBLIC_WEB",
+                "verification_state": "UNVERIFIED",
+            }
+        )
+    return {
+        "schema_version": "seil.product_evidence.research.v1",
+        "state": "RESEARCH_ONLY",
+        "publisher_authority": "PLATFORM_COMPILED",
+        "identity": identity,
+        "summary": payload.get("summary") or payload.get("public_summary"),
+        "claims": payload.get("claims") if isinstance(payload.get("claims"), list) else [],
+        "fit_rules": payload.get("fit_rules") if isinstance(payload.get("fit_rules"), list) else [],
+        "anti_fit_rules": payload.get("anti_fit_rules") if isinstance(payload.get("anti_fit_rules"), list) else [],
+        "evidence": evidence,
+        "unknowns": payload.get("unknowns") if isinstance(payload.get("unknowns"), list) else [],
+        "conflicts": payload.get("conflicts") if isinstance(payload.get("conflicts"), list) else [],
+        "qualification_blockers": (
+            payload.get("qualification_blockers")
+            if isinstance(payload.get("qualification_blockers"), list)
+            else []
+        ),
+        "seller_attested": False,
+        "publishable": False,
+    }
+
+
 class WorkspaceService:
     _REAL_PRODUCT_EVIDENCE: dict[str, dict[str, Any]] = {
         "product_fixture_d": {
@@ -156,6 +215,39 @@ class WorkspaceService:
         if {"senso_buyer", "senso_seller"}.issubset(self.senso_providers):
             return True, "Buyer and seller folder scopes verified"
         return False, self.senso_error or "Senso is not configured"
+
+    def capabilities(self) -> list[dict[str, str | None]]:
+        senso_ready, _ = self.senso_status()
+        return [
+            {
+                "id": "sira-agent",
+                "label": "SIRA reasoning and tools",
+                "status": "ready" if self.api_key else "misconfigured",
+                "reason_code": "READY" if self.api_key else "SIRA_KEY_MISSING",
+                "remediation": None if self.api_key else "Configure SIRA_OPENAI_API_KEY",
+            },
+            {
+                "id": "seil-agent",
+                "label": "SEIL reasoning and public research",
+                "status": "ready" if self.seil_api_key else "misconfigured",
+                "reason_code": "READY" if self.seil_api_key else "SEIL_KEY_MISSING",
+                "remediation": None if self.seil_api_key else "Configure SEIL_OPENAI_API_KEY",
+            },
+            {
+                "id": "senso",
+                "label": "Private evidence search",
+                "status": "ready" if senso_ready else "degraded",
+                "reason_code": "READY" if senso_ready else "SENSO_SCOPE_UNAVAILABLE",
+                "remediation": None if senso_ready else "Check the scoped Senso connector",
+            },
+            {
+                "id": "product-evidence",
+                "label": "Product Evidence lifecycle",
+                "status": "ready" if self.seller_evidence_service and self.database else "offline",
+                "reason_code": "READY" if self.seller_evidence_service and self.database else "PRODUCT_EVIDENCE_OFFLINE",
+                "remediation": None if self.seller_evidence_service and self.database else "Start PostgreSQL and the API",
+            },
+        ]
 
     def catalog(self) -> list[dict[str, Any]]:
         if self.fixtures is None:
@@ -395,7 +487,8 @@ class WorkspaceService:
             "Produce typed events and inspectable artifacts for meaningful work. Claims must name "
             "their authority and sources; label inference as inference. Delegate only bounded "
             "tasks with an explicit budget. You may evaluate, compare, rank, and recommend. "
-            "You may draft "
+            "Your final output must always use the MissionTurnOutput envelope. Never return an "
+            "artifact by itself; place it inside artifacts[]. You may draft "
             "protected actions, but you cannot grant yourself capabilities, approve, charge, send, "
             "publish, sign, or activate. Those effects require a server-issued grant and exact "
             "human authority. Do not expose secrets or raw private evidence."
@@ -410,7 +503,16 @@ class WorkspaceService:
         return (
             f"{shared} You are SEIL, operating for the seller. Build and improve evidence-backed "
             "product twins, resolve claim gaps, and prepare reviewable publication proposals. "
-            "Never invent product claims or expose seller-private sources to buyers."
+            "When no existing seller product is available and the user gives a product name or "
+            "website, use at most one web search call for the first draft. Prefer up to five "
+            "official product, pricing, documentation, "
+            "security, privacy, and integration pages. Create a seller_evidence artifact shaped as "
+            "a platform-compiled research-only packet: identity, summary, source-linked claims, fit "
+            "rules, anti-fit rules, unknowns, conflicts, freshness, and qualification blockers. "
+            "Every factual claim must include a direct URL in source_refs; search snippets alone "
+            "are discovery hints. Mark the packet INFERRED or OBSERVED, never seller-sealed, and "
+            "never propose publication before a verified seller claims and reviews it. Never invent "
+            "product claims or expose seller-private sources to buyers."
         )
 
     async def _prepare_mission(
@@ -677,11 +779,17 @@ class WorkspaceService:
             mission.state = answer.mission_state
             mission.version += 1
             mission.plan = {
-                "steps": [item.model_dump(mode="json") for item in answer.plan],
+                "steps": [
+                    _canonical_agent_json(item.model_dump(mode="json"))
+                    for item in answer.plan
+                ],
                 "updated_by": "root_agent",
             }
             mission.world_model = {
-                "claims": [item.model_dump(mode="json") for item in answer.claims],
+                "claims": [
+                    _canonical_agent_json(item.model_dump(mode="json"))
+                    for item in answer.claims
+                ],
                 "unknowns": [],
                 "contradictions": [],
             }
@@ -713,7 +821,7 @@ class WorkspaceService:
                     actor_id="mission-runtime",
                     payload={
                         "summary": f"Used {tool_name.replace('_', ' ')}",
-                        "details": {"tool": tool_name, "verified": True},
+                        "details": {"tool": tool_name, "verified": False},
                     },
                 )
             for index, event in enumerate(answer.events):
@@ -723,7 +831,10 @@ class WorkspaceService:
                     event_key=f"agent-event:{mission.id}:{event_turn_key}:{index}",
                     actor_type="ROOT_AGENT",
                     actor_id="sira-root-agent",
-                    payload={"summary": event.summary, "details": event.details},
+                    payload={
+                        "summary": event.summary,
+                        "details": _canonical_agent_json(event.details),
+                    },
                 )
             for task in answer.tasks:
                 await repository.add_task(
@@ -732,22 +843,27 @@ class WorkspaceService:
                     title=task.title,
                     owner_type=task.owner_type,
                     assigned_role=task.assigned_role,
-                    input_payload=task.input,
-                    budget=task.budget,
+                    input_payload=_canonical_agent_json(task.input),
+                    budget=_canonical_agent_json(task.budget),
                 )
             persisted_artifacts = []
             for artifact in answer.artifacts:
                 authority = artifact.authority
                 if authority in {"OBSERVED", "VERIFIED"} and not artifact.source_refs:
                     authority = "INFERRED"
+                artifact_payload = artifact.payload
+                if artifact.kind == "seller_evidence":
+                    artifact_payload = _compile_research_only_packet(
+                        artifact.payload, artifact.source_refs
+                    )
                 persisted_artifacts.append(
                     await repository.add_artifact(
                         mission,
                         kind=artifact.kind,
                         title=artifact.title,
                         authority=authority,
-                        payload=artifact.payload,
-                        source_refs=artifact.source_refs,
+                        payload=_canonical_agent_json(artifact_payload),
+                        source_refs=_canonical_agent_json(artifact.source_refs),
                         created_by="sira-root-agent",
                     )
                 )
@@ -813,7 +929,11 @@ class WorkspaceService:
                     ),
                     "details": event.payload.get("details", {}),
                     "occurred_at": event.occurred_at.astimezone(UTC).isoformat(),
-                    "verified": event.actor_type == "SYSTEM",
+                    "verified": bool(
+                        event.payload.get("details", {}).get(
+                            "verified", event.actor_type == "SYSTEM"
+                        )
+                    ),
                 }
                 for event in snapshot.events
             ],

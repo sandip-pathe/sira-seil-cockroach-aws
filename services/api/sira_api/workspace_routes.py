@@ -13,6 +13,7 @@ from .dependencies import (
 )
 from .errors import ApiProblem
 from .workspace_schemas import (
+    CapabilityView,
     CatalogProductView,
     ConnectorView,
     MissionSnapshotView,
@@ -46,6 +47,14 @@ def _agent_context(
         request_id=request.state.request_id,
         services=service.agent_services(),
     )
+
+
+@workspace_router.get("/v1/capabilities", response_model=list[CapabilityView], tags=["workspace"])
+async def workspace_capabilities(
+    context: ContextDependency, service: ServiceDependency
+) -> list[dict[str, str | None]]:
+    require_permission(context, "can_view_context")
+    return service.capabilities()
 
 
 @workspace_router.post("/v1/workspace/chat", response_model=WorkspaceChatView, tags=["workspace"])

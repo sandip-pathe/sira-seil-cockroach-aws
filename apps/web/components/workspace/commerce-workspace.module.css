@@ -2345,13 +2345,32 @@
   margin-bottom: 12px;
 }
 
-.decisionMiniList article {
+.decisionMiniList article,
+.decisionMiniList button {
   display: grid;
   gap: 3px;
   padding: 10px;
   border: 1px solid #e1ddd3;
   border-radius: 8px;
   color: #302f2b;
+}
+
+.decisionMiniList button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.decisionMiniList button:hover {
+  background: color-mix(in srgb, var(--workspace-accent) 6%, #fff);
+}
+
+.decisionMiniList button small {
+  color: #756f65;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .decisionMiniList span {

@@ -1123,12 +1123,22 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ["workspace-connectors", mode],
-    enabled: WEB_DATA_MODE === "api" && mode === "sira",
+    enabled: WEB_DATA_MODE === "api",
     queryFn: () =>
-      getBrowserApiClient().request("workspace_connectors", { headers: buyerDevelopmentHeaders }),
+      getBrowserApiClient().request("workspace_connectors", {
+        headers: mode === "seil" ? sellerEditorDevelopmentHeaders : buyerDevelopmentHeaders,
+      }),
+  });
+  const capabilityQuery = useQuery({
+    queryKey: ["workspace-capabilities", mode],
+    enabled: WEB_DATA_MODE === "api",
+    queryFn: () =>
+      getBrowserApiClient().request("workspace_capabilities", {
+        headers: mode === "seil" ? sellerEditorDevelopmentHeaders : buyerDevelopmentHeaders,
+      }),
   });
   const connectors: Connector[] =
-    WEB_DATA_MODE === "fixture" ? CONNECTORS[mode] : mode === "sira" ? (query.data ?? []) : [];
+    WEB_DATA_MODE === "fixture" ? CONNECTORS[mode] : (query.data ?? []);
   return (
     <div className={styles.contextBody}>
       <section className={styles.documentHeader}>
@@ -1138,6 +1148,22 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
       </section>
 
       <section className={styles.connectorList}>
+        {capabilityQuery.data?.map((capability) => (
+          <article
+            data-status={capability.status === "ready" ? "healthy" : "needs-setup"}
+            key={capability.id}
+          >
+            <button type="button" onClick={() => setExpanded((current) => current === capability.id ? null : capability.id)}>
+              <span className={styles.connectorIcon}><Sparkles aria-hidden="true" /></span>
+              <span className={styles.connectorCopy}><strong>{capability.label}</strong><small>{capability.reason_code.replaceAll("_", " ")}</small></span>
+              <span className={styles.connectorStatus}>{capability.status}</span>
+              <ChevronDown className={expanded === capability.id ? styles.rotated : undefined} aria-hidden="true" />
+            </button>
+            {expanded === capability.id && capability.remediation ? (
+              <div className={styles.connectorDetail}><span>{capability.remediation}</span></div>
+            ) : null}
+          </article>
+        ))}
         {connectors.map((connector) => (
           <article
             data-status={connector.status.toLowerCase().replace(" ", "-")}
@@ -1173,16 +1199,11 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
             ) : null}
           </article>
         ))}
-        {query.isPending && mode === "sira" ? (
+        {query.isPending ? (
           <p className={styles.sectionCopy}>Loading connector status…</p>
         ) : null}
         {query.isError ? (
           <p className={styles.sectionCopy}>Connector status is temporarily unavailable.</p>
-        ) : null}
-        {mode === "seil" && WEB_DATA_MODE === "api" ? (
-          <p className={styles.sectionCopy}>
-            Seller connector status is not exposed by the backend yet.
-          </p>
         ) : null}
       </section>
 
@@ -1432,6 +1453,106 @@ function CatalogPanel({
             Ask SIRA to show products. Catalogue results will appear in this pane and in the
             mission stream.
           </p>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
+function SellerProductsPanel({ onSelect }: { onSelect: (product: CatalogProduct) => void }) {
+  const query = useQuery({
+    queryKey: ["seil-products", WEB_DATA_MODE],
+    enabled: WEB_DATA_MODE === "api",
+    queryFn: () =>
+      getBrowserApiClient().request("seller_evidence_search_products", {
+        headers: sellerEditorDevelopmentHeaders,
+        query: {},
+      }),
+  });
+  const products: CatalogProduct[] = (query.data?.results ?? []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    seller: item.publisher_authority === "SELLER_SEALED" ? "Seller confirmed" : "Platform compiled",
+    edition: item.state.replaceAll("_", " "),
+    price: "Evidence packet",
+    billing_unit: "current state",
+    status: item.state.replaceAll("_", " "),
+    summary: item.public_summary,
+    claims: [],
+    integrations: [],
+    category: item.category,
+  }));
+
+  return (
+    <div className={styles.contextBody}>
+      <section className={styles.documentHeader}>
+        <span>Seller workspace</span>
+        <h2>Product Evidence</h2>
+        <p>Claim, strengthen, review, and publish evidence packets without leaving the mission.</p>
+      </section>
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <span>{products.length ? "Packets" : "Cold start"}</span>
+            <h3>{query.isPending ? "Loading products" : `${products.length} product${products.length === 1 ? "" : "s"}`}</h3>
+          </div>
+          <Package aria-hidden="true" />
+        </div>
+        {products.length ? (
+          <div className={styles.decisionMiniList}>
+            {products.map((product) => (
+              <button key={product.id} type="button" onClick={() => onSelect(product)}>
+                <span>{product.status}</span>
+                <strong>{product.name}</strong>
+                <small>{product.summary}</small>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.sectionCopy}>
+            {query.isError
+              ? "Product Evidence is temporarily unavailable."
+              : "Tell SEIL a product name or website. It will research public sources and prepare a cited draft."}
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function SellerProductPanel({ product, onBack }: { product: CatalogProduct | null; onBack: () => void }) {
+  const query = useQuery({
+    queryKey: ["seil-product", product?.id, WEB_DATA_MODE],
+    enabled: WEB_DATA_MODE === "api" && Boolean(product?.id),
+    queryFn: () =>
+      getBrowserApiClient().request("seller_evidence_product_view", {
+        headers: sellerEditorDevelopmentHeaders,
+        pathParams: { product_id: product!.id },
+      }),
+  });
+  if (!product) return <SellerProductsPanel onSelect={() => undefined} />;
+  const view = query.data;
+  const nextAction = view?.available_actions[0];
+  return (
+    <div className={styles.contextBody}>
+      <button className={styles.fullViewLink} type="button" onClick={onBack}>Back to products</button>
+      <section className={styles.documentHeader}>
+        <span>{product.status}</span>
+        <h2>{product.name}</h2>
+        <p>{product.summary}</p>
+      </section>
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}>
+          <div><span>Packet health</span><h3>{view?.pack_health.status.replaceAll("_", " ") ?? (query.isPending ? "Loading" : "Unavailable")}</h3></div>
+          <FileCheck2 aria-hidden="true" />
+        </div>
+        {view ? (
+          <dl className={styles.artifactFields}>
+            <div><dt>Claims</dt><dd>{view.pack_health.complete_claim_count} of {view.pack_health.required_claim_count}</dd></div>
+            <div><dt>Stale</dt><dd>{view.pack_health.stale_claim_count}</dd></div>
+            <div><dt>Conflicts</dt><dd>{view.pack_health.conflict_count}</dd></div>
+            <div><dt>Next action</dt><dd>{nextAction?.label ?? "Continue in chat"}</dd></div>
+          </dl>
         ) : null}
       </section>
     </div>
@@ -1839,9 +1960,15 @@ function ContextPanel({
         {tab === "work" && mode === "seil" ? <SeilWorkPanel /> : null}
         {tab === "decisions" ? <DecisionsPanel onStart={onStartChat} /> : null}
         {tab === "inbox" ? <InboxPanel mode={mode} /> : null}
-        {tab === "catalog" ? <CatalogPanel products={products} onSelect={onSelectProduct} /> : null}
+        {tab === "catalog" ? (
+          mode === "seil"
+            ? <SellerProductsPanel onSelect={onSelectProduct} />
+            : <CatalogPanel products={products} onSelect={onSelectProduct} />
+        ) : null}
         {tab === "product" ? (
-          <ProductPanel product={selectedProduct} onBack={() => onTabChange("catalog")} />
+          mode === "seil"
+            ? <SellerProductPanel product={selectedProduct} onBack={() => onTabChange("catalog")} />
+            : <ProductPanel product={selectedProduct} onBack={() => onTabChange("catalog")} />
         ) : null}
         {tab === "connectors" ? <ConnectorsPanel mode={mode} /> : null}
       </div>
@@ -2201,37 +2328,87 @@ export function CommerceWorkspace({
   }
 
   async function confirmProposal(messageId: string, proposal: AgentProposalView) {
-    if (proposal.proposal_type !== "PURCHASE_REQUEST" || confirmingProposal) return;
-    const intent = proposal.payload.intent;
-    if (typeof intent !== "string" || intent.trim().length < 10) return;
-    const visibility = proposal.payload.visibility === "PRIVATE" ? "PRIVATE" : "SELECTIVE";
+    if (confirmingProposal) return;
     setConfirmingProposal(proposal.proposal_hash);
     try {
-      const created = await getBrowserApiClient().request("create_decision_request", {
-        headers: buyerDevelopmentHeaders,
-        idempotencyKey: `agent-proposal-${proposal.proposal_hash.replace("sha256:", "")}`,
-        body: {
-          intent: intent.trim(),
-          visibility,
-          scenario_id: "consultco_meeting_intelligence_v1",
-          mission_id: selectedConversation.id.startsWith("msn_")
-            ? selectedConversation.id
-            : undefined,
-        },
-      });
-      await getBrowserApiClient().request("discover_decision_request", {
-        headers: buyerDevelopmentHeaders,
-        pathParams: { request_id: created.id },
-        idempotencyKey: `discover-${created.id}`,
-      });
+      if (proposal.proposal_type === "PURCHASE_REQUEST") {
+        const intent = proposal.payload.intent;
+        if (typeof intent !== "string" || intent.trim().length < 10) {
+          throw new Error("The proposed buying intent is incomplete.");
+        }
+        const visibility = proposal.payload.visibility === "PRIVATE" ? "PRIVATE" : "SELECTIVE";
+        const created = await getBrowserApiClient().request("create_decision_request", {
+          headers: buyerDevelopmentHeaders,
+          idempotencyKey: `agent-proposal-${proposal.proposal_hash.replace("sha256:", "")}`,
+          body: {
+            intent: intent.trim(),
+            visibility,
+            scenario_id: "consultco_meeting_intelligence_v1",
+            mission_id: selectedConversation.id.startsWith("msn_")
+              ? selectedConversation.id
+              : undefined,
+          },
+        });
+        await getBrowserApiClient().request("discover_decision_request", {
+          headers: buyerDevelopmentHeaders,
+          pathParams: { request_id: created.id },
+          idempotencyKey: `discover-${created.id}`,
+        });
+        setContextTab("decisions");
+      } else {
+        const draftId = proposal.payload.draft_id;
+        if (typeof draftId !== "string" || !draftId) {
+          throw new Error("The proposal has no authorized packet draft.");
+        }
+        const draft = await getBrowserApiClient().request("seller_evidence_get_draft", {
+          headers: sellerEditorDevelopmentHeaders,
+          pathParams: { draft_id: draftId },
+        });
+        const idempotencyKey = `agent-proposal-${proposal.proposal_hash.replace("sha256:", "")}`;
+        if (proposal.proposal_type === "PACK_REVIEW_REQUEST") {
+          await getBrowserApiClient().request("seller_evidence_submit_review", {
+            headers: sellerEditorDevelopmentHeaders,
+            pathParams: { draft_id: draftId },
+            idempotencyKey,
+            body: { revision_hash: draft.revision_hash },
+          });
+        } else if (["PACK_CLAIM", "FIT_RULE", "ANTI_FIT_RULE"].includes(proposal.proposal_type)) {
+          const field = proposal.payload.field;
+          const rawValue = proposal.payload.value;
+          if (typeof field !== "string" || typeof rawValue !== "string") {
+            throw new Error("The proposed packet change is incomplete.");
+          }
+          const value = proposal.proposal_type === "PACK_CLAIM"
+            ? rawValue
+            : `${typeof proposal.payload.operator === "string" ? proposal.payload.operator : "equals"} ${rawValue}`;
+          const evidenceIds = Array.isArray(proposal.payload.evidence_ids)
+            ? proposal.payload.evidence_ids.filter((item): item is string => typeof item === "string")
+            : [];
+          const change = { field, value, evidence_ids: evidenceIds };
+          await getBrowserApiClient().request("seller_evidence_patch_draft", {
+            headers: sellerEditorDevelopmentHeaders,
+            pathParams: { draft_id: draftId },
+            idempotencyKey,
+            body: {
+              base_revision: draft.revision,
+              ...(proposal.proposal_type === "PACK_CLAIM" ? { claims: [change] } : {}),
+              ...(proposal.proposal_type === "FIT_RULE" ? { fit_rules: [change] } : {}),
+              ...(proposal.proposal_type === "ANTI_FIT_RULE" ? { anti_fit_rules: [change] } : {}),
+            },
+          });
+        } else {
+          throw new Error("This proposed action is not supported.");
+        }
+        setContextTab("catalog");
+      }
       if (selectedConversation) {
-        updateConversation("sira", selectedConversation.id, (conversation) => ({
+        updateConversation(mode, selectedConversation.id, (conversation) => ({
           ...conversation,
           messages: conversation.messages.map((message) =>
             message.id === messageId
               ? {
                   ...message,
-                  meta: "Decision created",
+                  meta: proposal.proposal_type === "PURCHASE_REQUEST" ? "Decision created" : "Packet updated",
                   proposals: message.proposals?.filter(
                     (item) => item.proposal_hash !== proposal.proposal_hash,
                   ),
@@ -2240,20 +2417,19 @@ export function CommerceWorkspace({
           ),
         }));
       }
-      setContextTab("decisions");
       setContextOpen(true);
       if (selectedConversation.id.startsWith("msn_")) {
-        await restoreMission(selectedConversation.id, "sira");
+        await restoreMission(selectedConversation.id, mode);
       }
     } catch (error) {
       if (selectedConversation) {
-        updateConversation("sira", selectedConversation.id, (conversation) => ({
+        updateConversation(mode, selectedConversation.id, (conversation) => ({
           ...conversation,
           messages: conversation.messages.map((message) =>
             message.id === messageId
               ? {
                   ...message,
-                  meta: error instanceof Error ? error.message : "Could not create decision",
+                  meta: error instanceof Error ? error.message : "Could not apply proposal",
                 }
               : message,
           ),
@@ -2495,7 +2671,13 @@ export function CommerceWorkspace({
                         <strong>
                           {proposal.proposal_type === "PURCHASE_REQUEST"
                             ? "Create this buying decision"
-                            : proposal.proposal_type.replaceAll("_", " ")}
+                            : proposal.proposal_type === "PACK_REVIEW_REQUEST"
+                              ? "Submit this packet for review"
+                              : proposal.proposal_type === "PACK_CLAIM"
+                                ? "Add this evidence-backed claim"
+                                : proposal.proposal_type === "FIT_RULE"
+                                  ? "Add this fit rule"
+                                  : "Add this anti-fit rule"}
                         </strong>
                         {typeof proposal.payload.intent === "string" ? (
                           <p>{proposal.payload.intent}</p>
@@ -2503,15 +2685,14 @@ export function CommerceWorkspace({
                       </div>
                       <button
                         type="button"
-                        disabled={
-                          proposal.proposal_type !== "PURCHASE_REQUEST" ||
-                          confirmingProposal !== null
-                        }
+                        disabled={confirmingProposal !== null}
                         onClick={() => void confirmProposal(message.id, proposal)}
                       >
                         {confirmingProposal === proposal.proposal_hash
-                          ? "Creating…"
-                          : "Confirm and create"}
+                          ? "Applying…"
+                          : proposal.proposal_type === "PACK_REVIEW_REQUEST"
+                            ? "Confirm and submit"
+                            : "Confirm and apply"}
                         <ArrowRight aria-hidden="true" />
                       </button>
                     </section>
