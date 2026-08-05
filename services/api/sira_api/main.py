@@ -179,6 +179,7 @@ def create_app(
         application.state.workspace_service = WorkspaceService(
             fixtures,
             api_key=resolved_settings.openai_api_key.get_secret_value(),
+            seil_api_key=resolved_settings.resolved_seil_openai_api_key(),
             model=resolved_settings.openai_model,
             workflow_service=workflow_service,
             seller_evidence_service=seller_evidence_service,

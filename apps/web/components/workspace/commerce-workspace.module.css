@@ -654,6 +654,44 @@
   font-weight: 520;
 }
 
+.messageHeader {
+  display: flex;
+  min-height: 26px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.messageHeader .messageMeta {
+  margin: 0;
+}
+
+.messageInfoButton {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d8d2c6;
+  border-radius: 999px;
+  background: transparent;
+  color: #756f65;
+  cursor: pointer;
+}
+
+.messageInfoButton:hover {
+  border-color: var(--workspace-accent);
+  color: var(--workspace-accent-dark);
+  background: color-mix(in srgb, var(--workspace-accent) 6%, #fff);
+}
+
+.messageInfoButton svg {
+  width: 14px;
+  height: 14px;
+}
+
 .messageMeta svg {
   width: 13px;
   height: 13px;
@@ -886,6 +924,62 @@
   width: 17px;
   height: 17px;
   color: var(--workspace-accent);
+}
+
+.runTrace {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.runTrace li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 9px;
+  color: #403c35;
+}
+
+.runTrace li > svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--workspace-accent);
+}
+
+.runTrace li span {
+  display: grid;
+  gap: 2px;
+}
+
+.runTrace li strong {
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.45;
+}
+
+.runTrace li small,
+.runDetailRow small {
+  color: #817a70;
+  font-size: 10px;
+}
+
+.runDetailRow {
+  display: grid;
+  gap: 4px;
+  padding: 11px 0;
+  border-top: 1px solid #e5e0d5;
+}
+
+.runDetailRow:first-of-type {
+  border-top: 0;
+}
+
+.runDetailRow strong {
+  color: #403c35;
+  font-size: 13px;
+  font-weight: 620;
 }
 
 .missionArtifacts button span {

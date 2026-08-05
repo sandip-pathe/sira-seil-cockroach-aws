@@ -43,6 +43,7 @@ class FakeSdk:
         context: AgentRunContext | None,
         max_turns: int,
         workflow_name: str,
+        api_key: str,
     ) -> object:
         self.calls.append(
             (
@@ -53,6 +54,7 @@ class FakeSdk:
                     "context": context,
                     "max_turns": max_turns,
                     "workflow_name": workflow_name,
+                    "api_key_configured": bool(api_key),
                 },
             )
         )

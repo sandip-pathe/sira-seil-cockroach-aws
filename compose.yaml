@@ -118,6 +118,9 @@ services:
       # Deliberately use a project-scoped host variable. A globally inherited
       # OPENAI_API_KEY must never override this project's credential.
       OPENAI_API_KEY: ${SIRA_OPENAI_API_KEY:-}
+      SIRA_OPENAI_API_KEY: ${SIRA_OPENAI_API_KEY:-}
+      SEIL_OPENAI_API_KEY: ${SEIL_OPENAI_API_KEY:-}
+      EXTRA_OPENAI_API_KEYS: ${EXTRA_OPENAI_API_KEYS:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
       SENSO_BASE_URL: ${SENSO_BASE_URL:-https://apiv2.senso.ai/api/v1}
       SENSO_BUYER_QUERY_API_KEY: ${SENSO_BUYER_QUERY_API_KEY:-}

@@ -51,6 +51,7 @@ class AgentRunRequest:
     allowed_tools: tuple[str, ...] = ()
     output_type: type[Any] | None = None
     authority_mode: AuthorityMode = AuthorityMode.ADVISORY
+    api_key: str = field(default="", repr=False, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,7 +72,7 @@ class _SdkFacade(Protocol):
         instructions: str,
         model: str,
         tools: list[object],
-        output_type: type[Any] | None,
+        output_type: object | None,
     ) -> object: ...
 
 
@@ -89,6 +90,7 @@ class _SdkRunOutcome:
         context: AgentRunContext | None,
         max_turns: int,
         workflow_name: str,
+        api_key: str,
     ) -> object: ...
 
 
@@ -102,7 +104,7 @@ class _OpenAISdkFacade:
         instructions: str,
         model: str,
         tools: list[object],
-        output_type: type[Any] | None,
+        output_type: object | None,
     ) -> object:
         from agents import Agent
 
@@ -124,8 +126,10 @@ class _OpenAISdkFacade:
         context: AgentRunContext | None,
         max_turns: int,
         workflow_name: str,
+        api_key: str,
     ) -> object:
         from agents import RunConfig, Runner, ToolCallItem, ToolCallOutputItem
+        from agents.models.openai_provider import OpenAIProvider
 
         sdk_runner: Any = Runner
         result: Any = await sdk_runner.run(
@@ -134,6 +138,7 @@ class _OpenAISdkFacade:
             context=context,
             max_turns=max_turns,
             run_config=RunConfig(
+                model_provider=OpenAIProvider(api_key=api_key or None),
                 tracing_disabled=True,
                 trace_include_sensitive_data=False,
                 workflow_name=workflow_name,
@@ -198,12 +203,20 @@ class OpenAIAgentsRuntime:
             raise ValueError(f"agent request contains unregistered tools: {joined}")
 
         resolved_tools = [self.tools[name] for name in request.allowed_tools]
+        output_type: object | None = request.output_type
+        if request.output_type is not None:
+            from agents import AgentOutputSchema
+
+            output_type = AgentOutputSchema(
+                request.output_type,
+                strict_json_schema=False,
+            )
         agent = self._sdk.create_agent(
             name=request.role.value,
             instructions=request.instructions,
             model=self.model,
             tools=resolved_tools,
-            output_type=request.output_type,
+            output_type=output_type,
         )
         outcome = await self._sdk.run(
             agent,
@@ -211,6 +224,7 @@ class OpenAIAgentsRuntime:
             context=request.run_context,
             max_turns=self.max_turns,
             workflow_name=f"sira-seil-{request.role.value.lower()}",
+            api_key=request.api_key,
         )
         if isinstance(outcome, _SdkRunOutcome):
             return AgentRunResult(

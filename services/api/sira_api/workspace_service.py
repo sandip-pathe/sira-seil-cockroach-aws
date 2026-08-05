@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC
 from typing import Any
 from uuid import uuid4
@@ -29,6 +30,9 @@ from persistence.repositories import RecordNotFound
 from .errors import ApiProblem
 from .fixtures import DemoFixtureBundle
 from .workspace_schemas import WorkspaceChatCreate
+
+
+logger = logging.getLogger(__name__)
 
 
 class WorkspaceService:
@@ -120,6 +124,7 @@ class WorkspaceService:
         fixtures: DemoFixtureBundle | None,
         *,
         api_key: str,
+        seil_api_key: str | None = None,
         model: str,
         workflow_service: object | None = None,
         seller_evidence_service: object | None = None,
@@ -129,6 +134,7 @@ class WorkspaceService:
     ) -> None:
         self.fixtures = fixtures
         self.api_key = api_key
+        self.seil_api_key = seil_api_key or api_key
         self.workflow_service = workflow_service
         self.seller_evidence_service = seller_evidence_service
         self.database = database
@@ -191,7 +197,8 @@ class WorkspaceService:
     async def chat(
         self, body: WorkspaceChatCreate, *, run_context: AgentRunContext
     ) -> dict[str, Any]:
-        if not self.api_key:
+        selected_api_key = self.api_key if body.mode == "sira" else self.seil_api_key
+        if not selected_api_key:
             raise ApiProblem(
                 code="AGENT_PROVIDER_NOT_CONFIGURED",
                 message="The workspace agent is not configured on the server.",
@@ -248,6 +255,7 @@ class WorkspaceService:
                     allowed_tools=SIRA_TOOL_NAMES if body.mode == "sira" else SEIL_TOOL_NAMES,
                     output_type=MissionTurnOutput,
                     authority_mode=AuthorityMode.MISSION_OPERATOR,
+                    api_key=selected_api_key,
                 )
             )
             answer = self._coerce_answer(result.output)
@@ -279,6 +287,15 @@ class WorkspaceService:
                 next_action="retry_message",
             ) from error
         except Exception as error:
+            logger.exception(
+                "agent turn failed",
+                extra={
+                    "request_id": run_context.request_id,
+                    "mission_id": mission_id,
+                    "agent_role": body.mode,
+                    "error_type": type(error).__name__,
+                },
+            )
             raise ApiProblem(
                 code="AGENT_PROVIDER_UNAVAILABLE",
                 message="The workspace agent is temporarily unavailable.",
@@ -316,6 +333,7 @@ class WorkspaceService:
                         allowed_tools=(SIRA_TOOL_NAMES if body.mode == "sira" else SEIL_TOOL_NAMES),
                         output_type=MissionTurnOutput,
                         authority_mode=AuthorityMode.MISSION_OPERATOR,
+                        api_key=selected_api_key,
                     )
                 )
                 answer = self._coerce_answer(continuation.output)

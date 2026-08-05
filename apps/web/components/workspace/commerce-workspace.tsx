@@ -13,6 +13,7 @@ import {
   FolderKanban,
   Grid2X2,
   Inbox,
+  Info,
   Layers3,
   LockKeyhole,
   MessageSquare,
@@ -64,7 +65,8 @@ export type CommerceContextTab =
   | "inbox"
   | "catalog"
   | "product"
-  | "artifact";
+  | "artifact"
+  | "run";
 
 type CatalogProduct = {
   id: string;
@@ -1655,6 +1657,111 @@ function ArtifactPanel({ artifact }: { artifact: MissionArtifactView | null }) {
   );
 }
 
+function AgentRunPanel({
+  message,
+  onSelectArtifact,
+}: {
+  message: ChatMessage | null;
+  onSelectArtifact: (artifact: MissionArtifactView) => void;
+}) {
+  if (!message) {
+    return (
+      <div className={styles.emptyContext}>
+        <Info aria-hidden="true" />
+        <h3>No run selected</h3>
+        <p>Open the info button beside an agent response to inspect its run.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.contextStack}>
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <span>Agent run</span>
+            <h3>
+              {message.mission?.state.toLowerCase().replaceAll("_", " ") ??
+                message.meta ??
+                "Response details"}
+            </h3>
+          </div>
+          <Info aria-hidden="true" />
+        </div>
+        <dl className={styles.artifactFields}>
+          <div><dt>Response</dt><dd>{message.meta ?? "Completed"}</dd></div>
+          {message.mission ? (
+            <>
+              <div><dt>Mission version</dt><dd>v{message.mission.version}</dd></div>
+              <div><dt>Runtime state</dt><dd>{message.mission.state.replaceAll("_", " ")}</dd></div>
+            </>
+          ) : null}
+          <div><dt>Tools called</dt><dd>{message.toolCalls?.length ? message.toolCalls.join(", ") : "None"}</dd></div>
+        </dl>
+      </section>
+
+      {message.events?.length ? (
+        <section className={styles.contextSection}>
+          <div className={styles.sectionHeading}>
+            <div><span>Trace</span><h3>What the agent did</h3></div>
+            <Clock3 aria-hidden="true" />
+          </div>
+          <ol className={styles.runTrace}>
+            {message.events.map((event) => (
+              <li key={event.id}>
+                {event.verified ? <Check aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
+                <span><strong>{event.summary}</strong><small>{event.verified ? "Runtime verified" : "Agent reported"}</small></span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      {message.openTasks?.length || message.handoffs?.length ? (
+        <section className={styles.contextSection}>
+          <div className={styles.sectionHeading}>
+            <div><span>Next</span><h3>Work and authority</h3></div>
+            <ShieldCheck aria-hidden="true" />
+          </div>
+          {message.openTasks?.map((task, index) => (
+            <div className={styles.runDetailRow} key={String(task.id ?? index)}>
+              <strong>{String(task.title ?? task.kind ?? "Mission task")}</strong>
+              <small>{String(task.status ?? "pending").toLowerCase()}</small>
+            </div>
+          ))}
+          {message.handoffs?.map((handoff, index) => {
+            const workflow = handoff.workflow as { status?: unknown } | null;
+            return (
+              <div className={styles.runDetailRow} key={String(handoff.request_id ?? index)}>
+                <strong>Buying decision {String(handoff.status ?? "created")}</strong>
+                <small>{workflow ? `Temporal workflow ${String(workflow.status ?? "pending")}` : "Approval required before execution"}</small>
+              </div>
+            );
+          })}
+        </section>
+      ) : null}
+
+      {message.artifacts?.length ? (
+        <section className={styles.contextSection}>
+          <div className={styles.sectionHeading}>
+            <div><span>Outputs</span><h3>Run artifacts</h3></div>
+            <FileCheck2 aria-hidden="true" />
+          </div>
+          <div className={styles.missionArtifacts}>
+            {message.artifacts.map((artifact) => (
+              <button key={artifact.id} type="button" onClick={() => onSelectArtifact(artifact)}>
+                <FileCheck2 aria-hidden="true" />
+                <span><small>{artifact.kind.replaceAll("_", " ")}</small><strong>{artifact.title}</strong></span>
+                <ArrowRight aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
 function ContextPanel({
   mode,
   tab,
@@ -1665,8 +1772,10 @@ function ContextPanel({
   products,
   selectedProduct,
   selectedArtifact,
+  selectedRunMessage,
   onSelectProduct,
   onStartChat,
+  onSelectArtifact,
 }: {
   mode: CommerceWorkspaceMode;
   tab: CommerceContextTab;
@@ -1677,8 +1786,10 @@ function ContextPanel({
   products: CatalogProduct[];
   selectedProduct: CatalogProduct | null;
   selectedArtifact: MissionArtifactView | null;
+  selectedRunMessage: ChatMessage | null;
   onSelectProduct: (product: CatalogProduct) => void;
   onStartChat: () => void;
+  onSelectArtifact: (artifact: MissionArtifactView) => void;
 }) {
   return (
     <aside
@@ -1688,7 +1799,9 @@ function ContextPanel({
       <header className={styles.contextHeader}>
         <div className={styles.contextHeaderTools} aria-hidden="true" />
         <div className={styles.contextTitle}>
-          {tab === "artifact"
+          {tab === "run"
+            ? "Agent run details"
+            : tab === "artifact"
             ? (selectedArtifact?.title ?? "Mission artifact")
             : tab === "decisions"
               ? "Decisions"
@@ -1720,6 +1833,7 @@ function ContextPanel({
       </header>
 
       <div className={styles.contextScroller}>
+        {tab === "run" ? <AgentRunPanel message={selectedRunMessage} onSelectArtifact={onSelectArtifact} /> : null}
         {tab === "artifact" ? <ArtifactPanel artifact={selectedArtifact} /> : null}
         {tab === "work" && mode === "sira" ? <SiraWorkPanel /> : null}
         {tab === "work" && mode === "seil" ? <SeilWorkPanel /> : null}
@@ -1771,6 +1885,7 @@ export function CommerceWorkspace({
   );
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
   const [selectedArtifact, setSelectedArtifact] = useState<MissionArtifactView | null>(null);
+  const [selectedRunMessage, setSelectedRunMessage] = useState<ChatMessage | null>(null);
   const conversationsQuery = useQuery({
     queryKey: ["workspace-conversations", mode],
     enabled: WEB_DATA_MODE === "api",
@@ -2303,96 +2418,35 @@ export function CommerceWorkspace({
                 </article>
               ) : (
                 <article className={styles.assistantMessage} key={message.id}>
-                  {message.meta && message.content ? (
-                    <p className={styles.messageMeta}>
-                      <Sparkles aria-hidden="true" /> {message.meta}
-                    </p>
+                  {message.content ? (
+                    <div className={styles.messageHeader}>
+                      {message.meta ? (
+                        <p className={styles.messageMeta}>
+                          <Sparkles aria-hidden="true" /> {message.meta}
+                        </p>
+                      ) : <span />}
+                      {message.events?.length || message.artifacts?.length || message.mission || message.toolCalls?.length ? (
+                        <button
+                          className={styles.messageInfoButton}
+                          type="button"
+                          aria-label="Open agent run details"
+                          title="Agent run details"
+                          onClick={() => {
+                            setSelectedRunMessage(message);
+                            setContextTab("run");
+                            setContextOpen(true);
+                          }}
+                        >
+                          <Info aria-hidden="true" />
+                        </button>
+                      ) : null}
+                    </div>
                   ) : null}
                   {message.content ? (
                     <ChatMessageBody content={message.content} />
                   ) : (
                     <AgentWorkingState mode={mode} />
                   )}
-                  {message.events?.length || message.artifacts?.length ? (
-                    <section className={styles.missionUpdate} aria-label="Mission progress">
-                      <header>
-                        <span className={styles.liveDot} />
-                        <strong>
-                          {message.mission?.state.toLowerCase().replaceAll("_", " ") ??
-                            "Mission updated"}
-                        </strong>
-                        {message.mission ? <small>v{message.mission.version}</small> : null}
-                      </header>
-                      {message.events?.length ? (
-                        <ol>
-                          {message.events.map((event) => (
-                            <li key={event.id}>
-                              {event.verified ? (
-                                <Check aria-hidden="true" />
-                              ) : (
-                                <Clock3 aria-hidden="true" />
-                              )}
-                              <span>
-                                {event.summary}
-                                <small>{event.verified ? "runtime verified" : "agent reported"}</small>
-                              </span>
-                            </li>
-                          ))}
-                        </ol>
-                      ) : null}
-                      {message.openTasks?.length ? (
-                        <div className={styles.missionTasks}>
-                          <span>Next work</span>
-                          {message.openTasks.slice(0, 4).map((task, index) => (
-                            <p key={String(task.id ?? index)}>
-                              <strong>{String(task.title ?? task.kind ?? "Mission task")}</strong>
-                              <small>{String(task.status ?? "pending").toLowerCase()}</small>
-                            </p>
-                          ))}
-                        </div>
-                      ) : null}
-                      {message.handoffs?.length ? (
-                        <div className={styles.missionHandoffs}>
-                          <span>Authority and execution</span>
-                          {message.handoffs.map((handoff, index) => {
-                            const workflow = handoff.workflow as { status?: unknown } | null;
-                            return (
-                              <p key={String(handoff.request_id ?? index)}>
-                                <ShieldCheck aria-hidden="true" />
-                                <strong>Buying decision {String(handoff.status ?? "created")}</strong>
-                                <small>
-                                  {workflow
-                                    ? `Temporal workflow ${String(workflow.status ?? "pending")}`
-                                    : "Approval comes before Prava and checkout"}
-                                </small>
-                              </p>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                      {message.artifacts?.length ? (
-                        <div className={styles.missionArtifacts}>
-                          {message.artifacts.map((artifact) => (
-                            <button
-                              key={artifact.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedArtifact(artifact);
-                                openContext("artifact");
-                              }}
-                            >
-                              <FileCheck2 aria-hidden="true" />
-                              <span>
-                                <small>{artifact.kind.replaceAll("_", " ")}</small>
-                                <strong>{artifact.title}</strong>
-                              </span>
-                              <ArrowRight aria-hidden="true" />
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </section>
-                  ) : null}
                   {message.attention ? (
                     <section className={styles.attentionCard}>
                       <span>{message.attention.kind}</span>
@@ -2556,6 +2610,7 @@ export function CommerceWorkspace({
           products={catalogProducts}
           selectedProduct={selectedProduct}
           selectedArtifact={selectedArtifact}
+          selectedRunMessage={selectedRunMessage}
           onSelectProduct={(product) => {
             setSelectedProduct(product);
             setContextTab("product");
@@ -2563,6 +2618,10 @@ export function CommerceWorkspace({
           onStartChat={() => {
             setContextOpen(false);
             setComposer("What do you want to buy today? ");
+          }}
+          onSelectArtifact={(artifact) => {
+            setSelectedArtifact(artifact);
+            setContextTab("artifact");
           }}
         />
       ) : null}

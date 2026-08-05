@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Self
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -68,7 +68,16 @@ class ApiSettings(BaseSettings):
         validation_alias="IDENTITY_STEP_UP_MAX_AGE_SECONDS",
     )
     firebase_project_id: str = Field(default="", validation_alias="FIREBASE_PROJECT_ID")
-    openai_api_key: SecretStr = Field(default=SecretStr(""), validation_alias="OPENAI_API_KEY")
+    openai_api_key: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias=AliasChoices("SIRA_OPENAI_API_KEY", "OPENAI_API_KEY"),
+    )
+    seil_openai_api_key: SecretStr = Field(
+        default=SecretStr(""), validation_alias="SEIL_OPENAI_API_KEY"
+    )
+    extra_openai_api_keys: SecretStr = Field(
+        default=SecretStr(""), validation_alias="EXTRA_OPENAI_API_KEYS"
+    )
     openai_model: str = Field(default="gpt-5-mini", validation_alias="OPENAI_MODEL")
     senso_base_url: str = Field(default="https://apiv2.senso.ai/api/v1", validation_alias="SENSO_BASE_URL")
     senso_buyer_query_api_key: SecretStr = Field(default=SecretStr(""), validation_alias="SENSO_BUYER_QUERY_API_KEY")
@@ -126,6 +135,27 @@ class ApiSettings(BaseSettings):
 
     def identity_step_up_values(self) -> frozenset[str]:
         return self._csv_set(self.identity_step_up_acr_values)
+
+    def resolved_seil_openai_api_key(self) -> str:
+        explicit = self.seil_openai_api_key.get_secret_value().strip()
+        if explicit:
+            return explicit
+        extras = self.extra_openai_api_keys.get_secret_value().strip()
+        if not extras:
+            return ""
+        if extras.startswith("["):
+            import json
+
+            try:
+                values = json.loads(extras)
+            except json.JSONDecodeError:
+                return ""
+            if isinstance(values, list):
+                return next(
+                    (str(value).strip() for value in values if str(value).strip()), ""
+                )
+            return ""
+        return next((item.strip() for item in extras.split(",") if item.strip()), "")
 
     def assert_identity_configuration(self) -> None:
         required = {
