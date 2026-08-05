@@ -4,7 +4,7 @@
   "seller_id": "seller_fixture_b",
   "product_id": "product_fixture_b",
   "version": 1,
-  "public_identity": { "seller_name": "Fictional Seller B", "product_name": "Fixture B", "edition": "Team", "geographies": ["US"] },
+  "public_identity": { "seller_name": "Relay Systems", "product_name": "RelayNote", "edition": "Team", "geographies": ["US"] },
   "source_material": [
     { "source_id": "src_fixture_b_internal", "classification": "seller_confidential", "title": "Fixture B internal fit research", "internal_location": "seller-private://fixture-b/fit-research-v1", "owner_role": "product_owner" }
   ],

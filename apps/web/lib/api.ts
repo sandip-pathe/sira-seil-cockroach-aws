@@ -1,5 +1,7 @@
 import { SiraApiClient } from "@sira/api-client";
 
+import { firebaseConfigured, getFirebaseAuth } from "@/lib/firebase";
+
 export type WebDataMode = "fixture" | "api";
 
 const configuredDataMode = process.env.NEXT_PUBLIC_WEB_DATA_MODE;
@@ -17,59 +19,35 @@ if (
 export const WEB_DATA_MODE: WebDataMode =
   configuredDataMode ?? (process.env.NODE_ENV === "production" ? "api" : "fixture");
 
-const developmentIdentityEnabled = process.env.NEXT_PUBLIC_DEVELOPMENT_IDENTITY === "true";
-const noDevelopmentHeaders = Object.freeze({}) as Readonly<Record<string, string>>;
-
-function developmentHeaders(
-  actorId: string,
-  actorParty: "BUYER" | "SELLER",
-  actorRoles: string,
-): Readonly<Record<string, string>> {
-  if (!developmentIdentityEnabled) return noDevelopmentHeaders;
-
+function guestWorkspaceHeaders(mode: "sira" | "seil"): Readonly<Record<string, string>> {
   return Object.freeze({
-    "X-Organization-Id": "org_consultco",
-    "X-Actor-Id": actorId,
-    "X-Actor-Party": actorParty,
-    "X-Actor-Roles": actorRoles,
-    "X-Step-Up-Verified": "true",
-    "X-Identity-Kind": "HUMAN",
+    "X-Workspace-Mode": mode,
   });
 }
 
-export const buyerDevelopmentHeaders = developmentHeaders(
-  "usr_demo_requester",
-  "BUYER",
-  [
-    "can_submit_request",
-    "can_view_context",
-    "can_select_recommendation",
-    "can_manage_procurement_gate",
-    "can_approve_purchase",
-    "can_execute_purchase",
-  ].join(","),
-);
-
-export const sellerEditorDevelopmentHeaders = developmentHeaders(
-  "seller_fixture_d",
-  "SELLER",
-  "seller_editor",
-);
-
-export const sellerReviewerDevelopmentHeaders = developmentHeaders(
-  "seller_reviewer_fixture_d",
-  "SELLER",
-  "seller_reviewer",
-);
+export const buyerDevelopmentHeaders = guestWorkspaceHeaders("sira");
+export const sellerEditorDevelopmentHeaders = guestWorkspaceHeaders("seil");
+export const sellerReviewerDevelopmentHeaders = guestWorkspaceHeaders("seil");
 
 let browserApiClient: SiraApiClient | undefined;
+
+const authenticatedFetch: typeof fetch = async (input, init) => {
+  const headers = new Headers(init?.headers);
+  if (firebaseConfigured) {
+    const auth = getFirebaseAuth();
+    await auth.authStateReady();
+    const token = await auth.currentUser?.getIdToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+  }
+  return fetch(input, { ...init, credentials: "same-origin", headers });
+};
 
 export function getBrowserApiClient(): SiraApiClient {
   if (typeof window === "undefined") {
     throw new Error("getBrowserApiClient() is only available in the browser.");
   }
 
-  browserApiClient ??= new SiraApiClient(window.location.origin);
+  browserApiClient ??= new SiraApiClient(window.location.origin, authenticatedFetch);
   return browserApiClient;
 }
 

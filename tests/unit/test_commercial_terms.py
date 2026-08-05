@@ -33,7 +33,7 @@ def test_demo_commercial_terms_bind_exact_selected_plan_and_intent() -> None:
     assert terms["pack_id"] == "fixture_selected_fit"
     assert terms["offer_id"] == "offer_fixture_d_monthly"
     assert terms["quote_id"] == "quote_fixture_d_v1"
-    assert terms["landed_total"] == "89.00"
+    assert terms["landed_total"] == "990.00"
     assert terms["commercial_terms_hash"] == content_hash(
         {key: value for key, value in terms.items() if key != "commercial_terms_hash"}
     )

@@ -33,6 +33,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable}`}>
       <body>
+        <div className="sandbox-disclosure" role="status">Fictional company and products | sandbox</div>
         <Providers>{children}</Providers>
       </body>
     </html>

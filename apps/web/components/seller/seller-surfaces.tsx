@@ -33,7 +33,6 @@ import {
 import Link from "next/link";
 import {
   useEffect,
-  useMemo,
   useState,
   type ReactNode,
 } from "react";

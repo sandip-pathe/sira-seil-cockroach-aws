@@ -12,7 +12,7 @@
     "seat_count": 10,
     "team_type": "client_services",
     "billing_region": "US",
-    "comparison_horizon_days": 30
+    "comparison_horizon_days": 365
   },
   "data_profile": {
     "client_conversations_restricted": true,

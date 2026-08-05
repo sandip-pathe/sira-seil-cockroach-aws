@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function SeilPage() {
-  return <CommerceWorkspace initialMode="seil" initialContextTab="run" modeLocked />;
+  return <CommerceWorkspace initialMode="seil" initialContextTab="catalog" modeLocked />;
 }

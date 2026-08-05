@@ -39,7 +39,7 @@
             "type": "object",
             "properties": {
               "type": { "const": "SIRA_TRANSACTION_FEE" },
-              "total_amount": { "const": "2.00" },
+              "total_amount": { "const": "10.00" },
               "schedule_version": { "const": "buyer_txn_demo_v1" }
             },
             "required": ["type", "total_amount", "schedule_version"]
@@ -52,7 +52,7 @@
             "type": "object",
             "properties": {
               "type": { "const": "MERCHANT_SUBTOTAL" },
-              "total_amount": { "const": "87.00" }
+              "total_amount": { "const": "980.00" }
             },
             "required": ["type", "total_amount"]
           },
@@ -61,11 +61,11 @@
         }
       ]
     },
-    "merchant_subtotal": { "const": "87.00" },
-    "buyer_transaction_fee": { "const": "2.00" },
+    "merchant_subtotal": { "const": "980.00" },
+    "buyer_transaction_fee": { "const": "10.00" },
     "fee_schedule_version": { "const": "buyer_txn_demo_v1" },
     "tax_amount": { "const": "0.00" },
-    "amount": { "const": "89.00" },
+    "amount": { "const": "990.00" },
     "currency": { "const": "USD" },
     "payment_status": { "const": "PRAVA_COMPLETED" },
     "fulfillment_status": { "const": "VERIFIED" },

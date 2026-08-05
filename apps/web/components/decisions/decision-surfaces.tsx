@@ -85,7 +85,7 @@ const statusLabels: Record<SolutionOption["status"], string> = {
   SUPPORTED_WITH_EXCEPTION: "Supported with exception",
   NEEDS_CONDITION: "Condition required",
   BLOCKED_BY_COMPANY_REQUIREMENT: "Blocked by company requirement",
-  VENDOR_NOT_SUPPORTED: "Vendor says not supported",
+  VENDOR_NOT_SUPPORTED: "SEIL PASS",
   UNAVAILABLE: "Unavailable",
   NEEDS_EVIDENCE: "Needs evidence",
   EVIDENCE_CONFLICT: "Evidence conflict",
@@ -123,11 +123,14 @@ function FixtureBanner() {
   );
 }
 
-function ApiErrorBanner({ retry }: { retry: () => void }) {
+function ApiErrorBanner({ retry, error }: { retry: () => void; error?: unknown }) {
+  const message = error instanceof ApiClientError
+    ? error.message
+    : "The API request failed.";
   return (
     <div className={styles.errorBanner} role="alert">
       <CircleAlert aria-hidden="true" />
-      <span><strong>Backend not connected.</strong> Start the local API and PostgreSQL, then retry. No action was recorded.</span>
+      <span><strong>Could not load this record.</strong> {message} No action was recorded.</span>
       <button type="button" onClick={retry}>Retry</button>
     </div>
   );
@@ -332,7 +335,11 @@ function OptionsStage({
   onFeedback: (option: SolutionOption, action: OptionFeedbackAction) => void;
   pendingFeedback: boolean;
 }) {
-  const visible = view.solution_options.slice(0, 6);
+  const leading = view.solution_options.slice(0, 5);
+  const honestPass = view.solution_options.find((option) => option.status === "VENDOR_NOT_SUPPORTED");
+  const visible = honestPass && !leading.some((option) => option.id === honestPass.id)
+    ? [...leading, honestPass]
+    : view.solution_options.slice(0, 6);
   return (
     <section className={styles.stageSection}>
       <div className={styles.optionsHeading}>
@@ -567,19 +574,15 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
         pathParams: { approval_id: approval.id },
         body: { intent_hash: approval.intent_hash, actor_role: role },
         idempotencyKey: `approve-${approval.id}-${role}`,
-        headers: {
-          ...buyerDevelopmentHeaders,
-          "X-Actor-Id": `usr_${role}`,
-          "X-Actor-Roles": `${role},can_approve_purchase`,
-          "X-Step-Up-Verified": "true",
-        },
+        headers: buyerDevelopmentHeaders,
       });
     },
     onSuccess: (result) => {
       setApproval(result);
       setToast(result.status === "APPROVED" ? "Exact offer approved." : "Approval recorded. Next owner is required.");
     },
-    onError: () => setToast("Approval was not recorded. The exact offer remains unchanged."),
+    onError: () =>
+      setToast("A verified buyer account is required to record purchase approval."),
   });
 
   const pravaMutation = useMutation({
@@ -588,10 +591,11 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
       const approvalStatus = approval?.status ?? view?.approval?.status;
       if (!intentId || approvalStatus !== "APPROVED") throw new Error("Approval incomplete");
       const configuredReturnUrl = process.env.NEXT_PUBLIC_PRAVA_RETURN_URL;
+      const returnUrl = configuredReturnUrl ?? `${window.location.origin}/decisions/${requestId}/versions/${version}/result`;
       return getBrowserApiClient().request("create_prava_session", {
         pathParams: { intent_id: intentId },
-        body: { return_url: configuredReturnUrl ?? `${window.location.origin}/decisions/${requestId}/versions/${version}/result` },
-        idempotencyKey: `prava-${intentId}`,
+        body: { return_url: returnUrl },
+        idempotencyKey: createIdempotencyKey(`prava-${intentId}-${returnUrl}`),
         headers: buyerDevelopmentHeaders,
       });
     },
@@ -635,7 +639,7 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
       <dialog className={styles.chatDialog} ref={mobileChatRef} onClose={() => setMobileChat(false)}><div className={styles.mobileDialogHead}><strong>Decision conversation</strong><button type="button" aria-label="Close conversation" onClick={() => setMobileChat(false)}><X aria-hidden="true" /></button></div><ConversationPanel compact onReviewSources={() => setLedgerOpen(true)} /></dialog>
       <main className={styles.roomMain}>
         {WEB_DATA_MODE === "fixture" ? <FixtureBanner /> : null}
-        {query.isError ? <ApiErrorBanner retry={() => void query.refetch()} /> : null}
+        {query.isError ? <ApiErrorBanner retry={() => void query.refetch()} error={query.error} /> : null}
         {versionMismatch ? <RouteMismatchBanner message={`The server returned v${loadedView?.request.decision_version}; it was not substituted for requested v${version}.`} /> : null}
         {fixtureRequestMissing ? <RouteMismatchBanner message="No deterministic fixture exists for this request identifier." /> : null}
         <header className={styles.roomHeader}>

@@ -4,7 +4,7 @@
   "seller_id": "seller_fixture_a",
   "product_id": "product_fixture_a",
   "version": 1,
-  "public_identity": { "seller_name": "Fictional Seller A", "product_name": "Fixture A", "edition": "Starter", "geographies": ["US"] },
+  "public_identity": { "seller_name": "Pine Labs", "product_name": "EchoNote", "edition": "Starter", "geographies": ["US"] },
   "source_material": [
     { "source_id": "src_fixture_a_internal", "classification": "seller_private", "title": "Fixture A internal product dossier", "internal_location": "seller-private://fixture-a/dossier-v1", "owner_role": "product_owner" }
   ],

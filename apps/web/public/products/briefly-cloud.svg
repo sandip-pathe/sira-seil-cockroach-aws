@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Briefly Cloud">
+  <rect width="64" height="64" rx="16" fill="#7b4f84"/>
+  <path d="M19 43a10 10 0 0 1 2-19.8A14 14 0 0 1 47.5 28 8 8 0 0 1 46 44H19z" fill="#fff"/>
+  <path d="M26 31h13M26 36h10" stroke="#7b4f84" stroke-width="3" stroke-linecap="round"/>
+</svg>

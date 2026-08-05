@@ -6,8 +6,8 @@
   "instance_id": "inst_meeting_intelligence_incumbent",
   "renewal_at": "2026-09-01T00:00:00Z",
   "decision_deadline": "2026-08-15T23:59:59Z",
-  "renew_quote": {"low": "94.00", "base": "99.00", "high": "109.00", "currency": "USD"},
-  "resize_quote": {"seat_count": 8, "low": "76.00", "base": "82.00", "high": "92.00", "currency": "USD"},
+  "renew_quote": {"low": "1128.00", "base": "1188.00", "high": "1308.00", "currency": "USD"},
+  "resize_quote": {"seat_count": 8, "low": "912.00", "base": "984.00", "high": "1104.00", "currency": "USD"},
   "evidence_id": "ev_incumbent_renewal_quote",
   "observed_at_lower": "2026-07-31T00:00:00Z",
   "observed_at_upper": "2026-08-01T00:00:00Z"

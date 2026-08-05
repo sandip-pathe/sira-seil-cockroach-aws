@@ -66,7 +66,19 @@ function SettingRows({
   );
 }
 
-export function ProfileSettingsModal({ workspace, onClose }: { workspace: ProfileWorkspace; onClose?: () => void }) {
+export function ProfileSettingsModal({
+  workspace,
+  onClose,
+  identity,
+  onSignOut,
+  onUpgradeGuest,
+}: {
+  workspace: ProfileWorkspace;
+  onClose?: () => void;
+  identity?: { displayName: string | null; email: string | null; isAnonymous: boolean };
+  onSignOut?: () => Promise<void>;
+  onUpgradeGuest?: () => Promise<unknown>;
+}) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -74,7 +86,33 @@ export function ProfileSettingsModal({ workspace, onClose }: { workspace: Profil
   const router = useRouter();
   const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
   const [mobilePane, setMobilePane] = useState<"menu" | "detail">("menu");
-  const account = WORKSPACE_ACCOUNTS[workspace];
+  const guest = identity?.isAnonymous ?? false;
+  const fallbackAccount = WORKSPACE_ACCOUNTS[workspace];
+  const verifiedName = identity?.displayName || identity?.email || "Verified account";
+  const account = guest
+    ? {
+        boundary: "This browser has a private, isolated workspace. Protected purchasing actions require a verified account.",
+        email: "Not connected",
+        initials: "G",
+        name: "Private guest",
+        organization: "Guest workspace",
+        role: `${workspace.toUpperCase()} guest operator`,
+        roleShort: "Isolated session",
+        scope: `${workspace.toUpperCase()} guest workspace`,
+      }
+    : identity
+      ? {
+          ...fallbackAccount,
+          boundary: "Firebase verifies this account. Workspace and purchasing permissions are derived by the server.",
+          email: identity.email || "Google account",
+          initials: verifiedName.trim().slice(0, 1).toUpperCase() || "U",
+          name: verifiedName,
+          organization: "Private account workspace",
+          role: `${workspace.toUpperCase()} verified operator`,
+          roleShort: "Verified identity",
+          scope: `${workspace.toUpperCase()} account workspace`,
+        }
+      : fallbackAccount;
   const workspaceName = workspace.toUpperCase();
   const section = SECTION_COPY[activeSection];
   const noticeId = `${workspace}-settings-preview-notice`;
@@ -229,7 +267,7 @@ export function ProfileSettingsModal({ workspace, onClose }: { workspace: Profil
 
           <div className={styles.previewNotice} id={noticeId} role="status">
             <CircleAlert aria-hidden="true" />
-            <span><strong>Development preview.</strong> Settings are read-only. Changes are not saved, identity is not verified, and notification delivery is unchanged.</span>
+            <span><strong>{guest ? "Private guest session." : "Verified Firebase account."}</strong> {guest ? "Your work is isolated to this browser. Protected purchasing actions require an account." : "Your account is persistent; workspace roles remain server-controlled."}</span>
           </div>
 
           <div className={styles.paneBody}>
@@ -274,13 +312,22 @@ export function ProfileSettingsModal({ workspace, onClose }: { workspace: Profil
                 </div>
                 <SettingRows rows={[
                   { label: "Role preview", value: account.role },
-                  { label: "Identity verification", value: "Not connected" },
+                  { label: "Identity verification", value: guest ? "Anonymous Firebase user" : "Firebase verified" },
                   { label: "Cross-product access", value: "Not available here" },
                 ]} />
               </>
             ) : null}
 
-            <p className={styles.safetyNote}>Nothing on this screen changes account or workspace state.</p>
+            {guest && onUpgradeGuest ? (
+              <button className={styles.accountAction} type="button" onClick={() => void onUpgradeGuest()}>
+                Save this workspace with Google
+              </button>
+            ) : null}
+            {onSignOut ? (
+              <button className={styles.accountActionSecondary} type="button" onClick={() => void onSignOut()}>
+                {guest ? "Leave guest workspace" : "Sign out"}
+              </button>
+            ) : null}
           </div>
         </section>
         </div>

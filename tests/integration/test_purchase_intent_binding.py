@@ -44,7 +44,7 @@ async def test_intent_lock_uses_persisted_plan_terms_not_mutable_fixture(
         body={"solution_plan_id": None},
     )
 
-    assert intent["amount"] == "89.00"
+    assert intent["amount"] == "990.00"
     assert intent["merchant"]["merchant_id"] == "merchant_fixture_d"
     assert intent["offer_id"] == "offer_fixture_d_monthly"
 

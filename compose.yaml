@@ -96,6 +96,10 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DEVELOPMENT_FIXTURE_MODE: "true"
       DEMO_RESET_ENABLED: "true"
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      GUEST_SESSION_ENABLED: ${GUEST_SESSION_ENABLED:-false}
+      GUEST_SESSION_SIGNING_KEY: ${GUEST_SESSION_SIGNING_KEY:-}
+      GUEST_SESSION_TTL_SECONDS: ${GUEST_SESSION_TTL_SECONDS:-604800}
       PUBLIC_BASE_URL: http://localhost:${SIRA_API_PORT:-8000}
       WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:${SIRA_WEB_PORT:-3000}}
       DATABASE_URL: ${SIRA_DOCKER_DATABASE_URL:-postgresql+asyncpg://sira_runtime:change-me@postgres:5432/sira} # pragma: allowlist secret -- local development only
@@ -114,6 +118,9 @@ services:
       # Deliberately use a project-scoped host variable. A globally inherited
       # OPENAI_API_KEY must never override this project's credential.
       OPENAI_API_KEY: ${SIRA_OPENAI_API_KEY:-}
+      SIRA_OPENAI_API_KEY: ${SIRA_OPENAI_API_KEY:-}
+      SEIL_OPENAI_API_KEY: ${SEIL_OPENAI_API_KEY:-}
+      EXTRA_OPENAI_API_KEYS: ${EXTRA_OPENAI_API_KEYS:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
       SENSO_BASE_URL: ${SENSO_BASE_URL:-https://apiv2.senso.ai/api/v1}
       SENSO_BUYER_QUERY_API_KEY: ${SENSO_BUYER_QUERY_API_KEY:-}

@@ -110,6 +110,13 @@ export interface ApprovalRevokeCreate {
 
 export type ApprovalStatus = "NOT_REQUIRED" | "NOT_REQUESTED" | "PENDING" | "APPROVED" | "REJECTED" | "REVOKED" | "EXPIRED" | "SUPERSEDED";
 
+export interface AttentionView {
+  kind: "question" | "approval" | "credential" | "choice" | "blocked";
+  options?: string[];
+  prompt: string;
+  reason: string;
+}
+
 export interface BlockingTask {
   due_at: string | null;
   expires_at: string | null;
@@ -141,17 +148,29 @@ export interface CalibrationRunView {
   results: { [key: string]: unknown; }[];
 }
 
+export interface CapabilityView {
+  id: string;
+  label: string;
+  reason_code: string;
+  remediation?: string | null;
+  status: "disabled" | "misconfigured" | "ready" | "degraded" | "offline";
+}
+
 export interface CatalogProductView {
   billing_unit: string;
   claims: string[];
   edition: string;
+  evidence_freshness?: string | null;
   id: string;
   integrations: string[];
+  logo?: string | null;
   name: string;
   price: string;
   seller: string;
+  source_refs?: { [key: string]: unknown; }[];
   status: string;
   summary: string;
+  website?: string | null;
 }
 
 export interface CompanyContextProjection {
@@ -287,6 +306,7 @@ export interface DecisionRequestCreate {
   desired_outcome?: string | null;
   incumbent_instance_id?: string | null;
   intent: string;
+  mission_id?: string | null;
   scenario_id?: string | null;
   visibility?: RequestVisibility;
 }
@@ -598,6 +618,44 @@ export interface MerchantView {
   url: string;
 }
 
+export interface MissionArtifactView {
+  authority: string;
+  id: string;
+  kind: string;
+  payload: { [key: string]: unknown; };
+  source_refs?: { [key: string]: unknown; }[];
+  status?: string;
+  title: string;
+}
+
+export interface MissionEventView {
+  details?: { [key: string]: unknown; };
+  id: string;
+  occurred_at?: string | null;
+  sequence: number;
+  summary: string;
+  type: string;
+  verified?: boolean;
+}
+
+export interface MissionSnapshotView {
+  artifacts: MissionArtifactView[];
+  events: MissionEventView[];
+  handoffs?: { [key: string]: unknown; }[];
+  mission: MissionSummaryView;
+  open_tasks?: { [key: string]: unknown; }[];
+}
+
+export interface MissionSummaryView {
+  goal: string;
+  id: string;
+  mode: "sira" | "seil";
+  plan?: { [key: string]: unknown; }[];
+  state: string;
+  stop_reason?: string | null;
+  version: number;
+}
+
 export interface MoneyViewV2 {
   amount: string;
   currency: "USD";
@@ -708,6 +766,40 @@ export interface PlanSelectionView {
   solution_plan_id: string;
   source_decision_id: string;
   state: PlanSelectionState;
+}
+
+export interface PravaCallbackCreate {
+  code: string;
+  state: string;
+}
+
+export interface PravaCheckoutCreate {
+  checkout_session_id: string;
+}
+
+export interface PravaConnectCreate {
+  loopback_port?: number | null;
+}
+
+export interface PravaConnectionStatus {
+  status: string;
+}
+
+export interface PravaConnectView {
+  authorization_url: string;
+}
+
+export interface PravaQuoteCreate {
+  address_id?: string | null;
+  merchant: string;
+  product_id: string;
+  quantity?: number;
+  variant_id: string;
+}
+
+export interface PravaSearchCreate {
+  merchant?: string | null;
+  query: string;
 }
 
 export interface PravaSessionCreate {
@@ -844,10 +936,10 @@ export interface ReceiptLineItem {
 
 export interface ReceiptProjection {
   adapter_label: string;
-  amount: "89.00";
+  amount: "990.00";
   approval_intent_hash: string;
   approval_request_id: string;
-  buyer_transaction_fee: "2.00";
+  buyer_transaction_fee: "10.00";
   currency: string;
   decision_hash: string;
   decision_id: string;
@@ -860,7 +952,7 @@ export interface ReceiptProjection {
   line_items: ReceiptLineItem[];
   merchant: MerchantView;
   merchant_order_id: string;
-  merchant_subtotal: "87.00";
+  merchant_subtotal: "980.00";
   offer_id: string;
   offer_version: number;
   pack_id: string;
@@ -1339,7 +1431,7 @@ export interface TotalCostBounds {
 }
 
 export interface TransactionFeePaymentLineItem {
-  amount: "2.00";
+  amount: "10.00";
   schedule_version: "buyer_txn_demo_v1";
   type: "SIRA_TRANSACTION_FEE";
 }
@@ -1388,24 +1480,34 @@ export interface WorkspaceChatCreate {
   conversation_id?: string | null;
   history?: WorkspaceMessage[];
   message: string;
+  mission_id?: string | null;
   mode?: "sira" | "seil";
 }
 
 export interface WorkspaceChatView {
   advisory_only?: boolean;
+  artifacts?: MissionArtifactView[];
+  attention?: AttentionView | null;
   conversation_id: string;
+  events?: MissionEventView[];
   follow_up_required?: boolean;
   message: string;
-  panel?: "run" | "catalog" | "connectors" | "decisions" | "inbox";
+  mission: MissionSummaryView;
+  mission_id: string;
+  panel?: "catalog" | "connectors" | "decisions" | "inbox" | null;
   products?: CatalogProductView[];
   proposals?: AgentProposalView[];
   tool_calls?: string[];
 }
 
 export interface WorkspaceConversationView {
+  artifacts?: MissionArtifactView[];
+  events?: MissionEventView[];
   id: string;
   messages: WorkspaceMessage[];
+  mission: MissionSummaryView;
   mode: "sira" | "seil";
+  open_tasks?: { [key: string]: unknown; }[];
   title: string;
   updated_at: string;
 }
@@ -1421,8 +1523,11 @@ export interface Operations {
   accept_prava_browser_return_v2: { method: "GET"; path: "/v1/prava/browser-return"; pathParams: Record<never, never>; queryParams: { state: string; return_url: string; }; body: never; response: WorkflowAccepted; requiresIdempotency: false; };
   accept_rule_proposal: { method: "POST"; path: "/v1/decision-rules/{rules_id}/proposals/{proposal_id}/accept"; pathParams: { rules_id: string; proposal_id: string; }; queryParams: Record<never, never>; body: ProposalDecisionCreate; response: ProposalDecisionView; requiresIdempotency: true; };
   approve: { method: "POST"; path: "/v1/approval-requests/{approval_id}/approve"; pathParams: { approval_id: string; }; queryParams: Record<never, never>; body: ApprovalCreate; response: ApprovalRequestView; requiresIdempotency: true; };
+  complete_prava_connection: { method: "POST"; path: "/v1/connectors/prava/callback"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: PravaCallbackCreate; response: PravaConnectionStatus; requiresIdempotency: false; };
+  connect_prava: { method: "POST"; path: "/v1/connectors/prava/connect"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: PravaConnectCreate; response: PravaConnectView; requiresIdempotency: false; };
   create_approval_request: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/approval-requests"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: ApprovalRequestCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   create_decision_request: { method: "POST"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: DecisionRequestCreate; response: DecisionRequestView; requiresIdempotency: true; };
+  create_prava_payment_session: { method: "POST"; path: "/v1/connectors/prava/payment-session"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: PravaCheckoutCreate; response: { [key: string]: unknown; }; requiresIdempotency: false; };
   create_prava_session: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/prava-sessions"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: PravaSessionCreate; response: PravaSessionView; requiresIdempotency: true; };
   discover_decision_request: { method: "POST"; path: "/v1/decision-requests/{request_id}/discover"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: WorkflowAccepted; requiresIdempotency: true; };
   get_action_run: { method: "GET"; path: "/v1/action-runs/{action_run_id}"; pathParams: { action_run_id: string; }; queryParams: Record<never, never>; body: never; response: ActionRunView; requiresIdempotency: false; };
@@ -1439,7 +1544,12 @@ export interface Operations {
   health: { method: "GET"; path: "/health"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: HealthResponse; requiresIdempotency: false; };
   list_decision_requests: { method: "GET"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: DecisionIndexView; requiresIdempotency: false; };
   lock_purchase_intent: { method: "POST"; path: "/v1/decisions/{decision_id}/purchase-intents"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: PurchaseIntentCreate; response: PurchaseIntentView; requiresIdempotency: true; };
+  ping_prava: { method: "POST"; path: "/v1/connectors/prava/ping"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: { [key: string]: unknown; }; requiresIdempotency: false; };
+  prava_connection_status: { method: "GET"; path: "/v1/connectors/prava/status"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: PravaConnectionStatus; requiresIdempotency: false; };
+  prava_run_status: { method: "GET"; path: "/v1/connectors/prava/runs/{shopping_run_id}"; pathParams: { shopping_run_id: string; }; queryParams: Record<never, never>; body: never; response: { [key: string]: unknown; }; requiresIdempotency: false; };
   purchase_status: { method: "GET"; path: "/v1/purchase-intents/{intent_id}/status"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: never; response: PurchaseStatusView; requiresIdempotency: false; };
+  queue_prava_checkout: { method: "POST"; path: "/v1/connectors/prava/checkout"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: PravaCheckoutCreate; response: { [key: string]: string; }; requiresIdempotency: false; };
+  quote_prava: { method: "POST"; path: "/v1/connectors/prava/quote"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: PravaQuoteCreate; response: { [key: string]: unknown; }; requiresIdempotency: false; };
   record_consent: { method: "POST"; path: "/v1/engagements/{engagement_id}/consent"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: ConsentCreate; response: EngagementView; requiresIdempotency: true; };
   record_purchase_outcome: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/outcome-checkpoints"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: OutcomeCheckpointCreate; response: OutcomeCheckpointView; requiresIdempotency: true; };
   record_solution_option_feedback: { method: "POST"; path: "/v1/decision-requests/{request_id}/solution-options/{solution_plan_id}/actions"; pathParams: { request_id: string; solution_plan_id: string; }; queryParams: Record<never, never>; body: OptionFeedbackCreate; response: OptionFeedbackView; requiresIdempotency: true; };
@@ -1450,6 +1560,7 @@ export interface Operations {
   reset_demo: { method: "POST"; path: "/v1/demo/reset"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: { [key: string]: unknown; }; requiresIdempotency: false; };
   revoke_approval: { method: "POST"; path: "/v1/approval-requests/{approval_id}/revoke"; pathParams: { approval_id: string; }; queryParams: Record<never, never>; body: ApprovalRevokeCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   run_decision_calibration: { method: "POST"; path: "/v1/decision-requests/{request_id}/calibration-runs"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: CalibrationRunCreate; response: CalibrationRunView; requiresIdempotency: true; };
+  search_prava: { method: "POST"; path: "/v1/connectors/prava/search"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: PravaSearchCreate; response: { [key: string]: unknown; }; requiresIdempotency: false; };
   select_action_plan: { method: "POST"; path: "/v1/decisions/{decision_id}/plan-selections"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: PlanSelectionCreate; response: PlanSelectionView; requiresIdempotency: true; };
   seller_evidence_activity_metrics: { method: "GET"; path: "/v1/seller/products/{product_id}/activity-metrics"; pathParams: { product_id: string; }; queryParams: Record<never, never>; body: never; response: SellerActivityMetrics; requiresIdempotency: false; };
   seller_evidence_attach_evidence: { method: "POST"; path: "/v1/seller/pack-drafts/{draft_id}/evidence"; pathParams: { draft_id: string; }; queryParams: Record<never, never>; body: SellerEvidenceAttachCreate; response: SellerEvidenceAttachmentView; requiresIdempotency: true; };
@@ -1465,10 +1576,12 @@ export interface Operations {
   seller_evidence_suspend: { method: "POST"; path: "/v1/seller/pack-versions/{version_id}/suspend"; pathParams: { version_id: string; }; queryParams: Record<never, never>; body: SellerSuspendCreate; response: SellerPackVersionView; requiresIdempotency: true; };
   simulate_decision: { method: "POST"; path: "/v1/decisions/{decision_id}/simulations"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: DecisionSimulationCreate; response: DecisionSimulationView; requiresIdempotency: true; };
   start_action_run: { method: "POST"; path: "/v1/decisions/{decision_id}/action-runs"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: ActionRunCreate; response: ActionRunView; requiresIdempotency: true; };
+  workspace_capabilities: { method: "GET"; path: "/v1/capabilities"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: CapabilityView[]; requiresIdempotency: false; };
   workspace_catalog: { method: "GET"; path: "/v1/workspace/catalog"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: CatalogProductView[]; requiresIdempotency: false; };
   workspace_chat: { method: "POST"; path: "/v1/workspace/chat"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: WorkspaceChatCreate; response: WorkspaceChatView; requiresIdempotency: false; };
   workspace_connectors: { method: "GET"; path: "/v1/workspace/connectors"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: ConnectorView[]; requiresIdempotency: false; };
   workspace_conversations: { method: "GET"; path: "/v1/workspace/conversations"; pathParams: Record<never, never>; queryParams: { mode: "sira" | "seil"; }; body: never; response: WorkspaceConversationView[]; requiresIdempotency: false; };
+  workspace_mission: { method: "GET"; path: "/v1/workspace/missions/{mission_id}"; pathParams: { mission_id: string; }; queryParams: Record<never, never>; body: never; response: MissionSnapshotView; requiresIdempotency: false; };
   workspace_product: { method: "GET"; path: "/v1/workspace/catalog/{product_id}"; pathParams: { product_id: string; }; queryParams: Record<never, never>; body: never; response: CatalogProductView; requiresIdempotency: false; };
 }
 

@@ -2,13 +2,13 @@
   "schema_version": "1.0.0",
   "schedule_version": "buyer_txn_demo_v1",
   "currency": "USD",
-  "amount": "2.00",
+  "amount": "10.00",
   "applies_to": ["BUY", "REPLACE", "CONSOLIDATE"],
   "merchant_subtotals": {
-    "offer_fixture_a_monthly": "47.00",
-    "offer_fixture_b_monthly": "77.00",
-    "offer_fixture_c_monthly": "97.00",
-    "offer_fixture_d_monthly": "87.00"
+    "offer_fixture_a_monthly": "588.00",
+    "offer_fixture_b_monthly": "948.00",
+    "offer_fixture_c_monthly": "1164.00",
+    "offer_fixture_d_monthly": "980.00"
   },
   "seller_paid_commission": false
 }

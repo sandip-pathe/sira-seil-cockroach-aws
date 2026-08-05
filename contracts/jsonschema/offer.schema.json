@@ -27,7 +27,7 @@
         "offer_type": { "const": "indicative" },
         "amount": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
         "currency": { "$ref": "common.schema.json#/$defs/Currency" },
-        "billing_unit": { "type": "string", "enum": ["workspace_month", "seat_month"] },
+        "billing_unit": { "type": "string", "enum": ["workspace_month", "seat_month", "annual_pilot"] },
         "quantity": { "type": "integer", "minimum": 1 },
         "horizon_days": { "type": "integer", "minimum": 1 },
         "availability_checked_at": { "$ref": "common.schema.json#/$defs/Timestamp" }

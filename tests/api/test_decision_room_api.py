@@ -108,7 +108,7 @@ async def test_decision_room_is_action_neutral_and_role_filtered(
         "denominator",
         "display",
     }
-    assert selected["total_cost"]["base"] == {"amount": "89.00", "currency": "USD"}
+    assert selected["total_cost"]["base"] == {"amount": "990.00", "currency": "USD"}
     assert view["selected_action_plan"] is None
 
     requester = await api_client.get(
@@ -199,10 +199,10 @@ async def test_plan_selection_and_action_run_bind_the_exact_decision(
     assert historical["request"]["decision_version"] == 1
     assert historical["selected_action_plan"] is None
     assert current["payment"]["line_items"] == [
-        {"type": "MERCHANT_SUBTOTAL", "amount": "87.00"},
+        {"type": "MERCHANT_SUBTOTAL", "amount": "980.00"},
         {
             "type": "SIRA_TRANSACTION_FEE",
-            "amount": "2.00",
+            "amount": "10.00",
             "schedule_version": "buyer_txn_demo_v1",
         },
     ]
