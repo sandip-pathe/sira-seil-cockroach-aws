@@ -233,7 +233,19 @@ class Database:
                     return True
 
                 role_state = (await connection.execute(_POSTGRES_RUNTIME_ROLE_QUERY)).one_or_none()
-                if role_state is None or any(bool(value) for value in role_state):
+                if role_state is None:
+                    logger.warning("Database readiness failed: runtime role was not found")
+                    return False
+                unsafe_columns = [
+                    str(column)
+                    for column, value in role_state._mapping.items()
+                    if bool(value)
+                ]
+                if unsafe_columns:
+                    logger.warning(
+                        "Database readiness failed: unsafe runtime role flags: %s",
+                        ", ".join(unsafe_columns),
+                    )
                     return False
 
                 revisions = frozenset(
@@ -244,6 +256,18 @@ class Database:
                         )
                     ).scalars()
                 )
-                return revisions == expected_alembic_heads
-        except Exception:
+                if revisions != expected_alembic_heads:
+                    logger.warning(
+                        "Database readiness failed: Alembic heads %s, expected %s",
+                        sorted(revisions),
+                        sorted(expected_alembic_heads),
+                    )
+                    return False
+                return True
+        except Exception as error:
+            logger.warning(
+                "Database readiness failed with %s: %s",
+                type(error).__name__,
+                error,
+            )
             return False
