@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Two immutable buyer context versions for the SIRA hackathon causal proof.",
+  "company_id": "comp_consultco",
+  "company_name": "ConsultCo",
+  "scenario": "meeting_intelligence",
+  "seats": 10,
+  "budget_per_seat_month_usd": 100,
+  "versions": {
+    "v1": {
+      "context_version": 1,
+      "label": "HubSpot CRM sync mandatory",
+      "facts": {
+        "REQUIRED_SEATS": 10,
+        "MAX_UNIT_PRICE": "100.00",
+        "CRM_SYNC_REQUIRED": true,
+        "CURRENT_CRM": "HubSpot",
+        "CATEGORY": "meeting_intelligence"
+      },
+      "decisive_fact": "CRM_SYNC_REQUIRED",
+      "expected_winner": "prod_notesync_b",
+      "expected_reason": "Product A HubSpot tier ($120/seat) exceeds $100 budget; Product B ($95/seat) supports HubSpot natively within budget."
+    },
+    "v2": {
+      "context_version": 2,
+      "label": "No CRM sync requirement",
+      "facts": {
+        "REQUIRED_SEATS": 10,
+        "MAX_UNIT_PRICE": "100.00",
+        "CATEGORY": "meeting_intelligence"
+      },
+      "decisive_fact_absent": "CRM_SYNC_REQUIRED",
+      "expected_winner": "prod_meetai_a",
+      "expected_reason": "Without CRM requirement, Product A Standard tier ($80/seat) is cheapest eligible option."
+    }
+  },
+  "causal_proof": "Changing one private fact (CRM_SYNC_REQUIRED) changes the winner from Product B to Product A."
+}

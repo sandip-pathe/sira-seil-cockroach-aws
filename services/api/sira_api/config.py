@@ -92,6 +92,25 @@ class ApiSettings(BaseSettings):
     senso_seller_query_key_id: str = Field(default="", validation_alias="SENSO_SELLER_QUERY_KEY_ID")
     senso_buyer_folder_id: str = Field(default="", validation_alias="SENSO_BUYER_FOLDER_ID")
     senso_seller_folder_id: str = Field(default="", validation_alias="SENSO_SELLER_FOLDER_ID")
+    snowflake_enabled: bool = Field(default=False, validation_alias="SNOWFLAKE_ENABLED")
+    snowflake_account: str = Field(default="", validation_alias="SNOWFLAKE_ACCOUNT")
+    snowflake_user: str = Field(default="", validation_alias="SNOWFLAKE_USER")
+    snowflake_password: SecretStr = Field(
+        default=SecretStr(""), validation_alias="SNOWFLAKE_PASSWORD"
+    )
+    snowflake_private_key: SecretStr = Field(
+        default=SecretStr(""), validation_alias="SNOWFLAKE_PRIVATE_KEY"
+    )
+    snowflake_private_key_path: str = Field(
+        default="", validation_alias="SNOWFLAKE_PRIVATE_KEY_PATH"
+    )
+    snowflake_role: str = Field(default="SIRA_SF_APP_ROLE", validation_alias="SNOWFLAKE_ROLE")
+    snowflake_warehouse: str = Field(
+        default="SIRA_HACK_XS_WH", validation_alias="SNOWFLAKE_WAREHOUSE"
+    )
+    snowflake_database: str = Field(
+        default="SIRA_HACKATHON", validation_alias="SNOWFLAKE_DATABASE"
+    )
 
     @property
     def is_development(self) -> bool:
@@ -176,9 +195,31 @@ class ApiSettings(BaseSettings):
                 "production identity configuration is incomplete: " + ", ".join(missing)
             )
 
+    def assert_snowflake_configuration(self) -> None:
+        if not self.snowflake_enabled:
+            return
+        required = {
+            "SNOWFLAKE_ACCOUNT": self.snowflake_account,
+            "SNOWFLAKE_USER": self.snowflake_user,
+            "SNOWFLAKE_ROLE": self.snowflake_role,
+            "SNOWFLAKE_WAREHOUSE": self.snowflake_warehouse,
+            "SNOWFLAKE_DATABASE": self.snowflake_database,
+        }
+        missing = sorted(name for name, value in required.items() if not value.strip())
+        has_password = bool(self.snowflake_password.get_secret_value().strip())
+        has_private_key = bool(self.snowflake_private_key.get_secret_value().strip())
+        has_private_key_path = bool(self.snowflake_private_key_path.strip())
+        if sum((has_password, has_private_key, has_private_key_path)) != 1:
+            missing.append(
+                "exactly one Snowflake password, private key, or private-key path"
+            )
+        if missing:
+            raise ValueError("Snowflake configuration is incomplete: " + ", ".join(missing))
+
     @model_validator(mode="after")
     def validate_runtime_modes(self) -> Self:
         self.assert_safe_runtime()
+        self.assert_snowflake_configuration()
         return self
 
 

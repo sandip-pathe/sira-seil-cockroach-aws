@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">MeetAI</title>
+  <rect width="64" height="64" rx="16" fill="#111827"/>
+  <path d="M15 20h34v20H29l-10 8v-8h-4V20Z" fill="#f8fafc"/>
+  <path d="M24 28h16M24 34h11" stroke="#14b8a6" stroke-width="4" stroke-linecap="round"/>
+</svg>

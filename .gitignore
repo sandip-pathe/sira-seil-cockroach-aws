@@ -26,6 +26,7 @@ build/
 # TypeScript / Next.js
 node_modules/
 .next/
+infra/snowflake/dist/
 out/
 *.tsbuildinfo
 playwright-report/

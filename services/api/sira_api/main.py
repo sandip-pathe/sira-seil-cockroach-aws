@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -38,8 +39,12 @@ from .seller_routes import seller_router
 from .seller_service import SellerEvidenceService
 from .senso_runtime import activate_senso, close_senso
 from .service import WorkflowService, translate_persistence_conflict
+from .snowflake_routes import router as snowflake_router
+from .snowflake_service import SnowflakeDecisionService
 from .workspace_routes import workspace_router
 from .workspace_service import WorkspaceService
+
+logger = logging.getLogger(__name__)
 
 
 def operation_id(route: APIRoute) -> str:
@@ -178,6 +183,8 @@ def create_app(
         senso_providers, senso_error = await activate_senso(resolved_settings)
         application.state.workflow_service = workflow_service
         application.state.seller_evidence_service = seller_evidence_service
+        snowflake_decision_service = SnowflakeDecisionService(resolved_settings)
+        application.state.snowflake_decision_service = snowflake_decision_service
         application.state.workspace_service = WorkspaceService(
             fixtures,
             api_key=resolved_settings.openai_api_key.get_secret_value(),
@@ -188,6 +195,7 @@ def create_app(
             database=resolved_database,
             senso_providers=senso_providers,
             senso_error=senso_error,
+            snowflake_decision_service=snowflake_decision_service,
         )
         application.state.prava_mcp_service = PravaMcpConnectionService(
             resolved_database,
@@ -421,7 +429,11 @@ def create_app(
 
     @application.exception_handler(SQLAlchemyError)
     async def database_problem(request: Request, error: SQLAlchemyError) -> JSONResponse:
-        del error
+        logger.exception(
+            "database request failed",
+            exc_info=error,
+            extra={"request_id": request.state.request_id},
+        )
         return JSONResponse(
             status_code=503,
             content={
@@ -441,6 +453,7 @@ def create_app(
     application.include_router(router_v2)
     application.include_router(workspace_router)
     application.include_router(prava_mcp_router)
+    application.include_router(snowflake_router)
     application.include_router(router)
     return application
 

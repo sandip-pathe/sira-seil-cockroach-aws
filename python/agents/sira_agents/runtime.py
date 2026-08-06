@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -129,22 +130,29 @@ class _OpenAISdkFacade:
         api_key: str,
     ) -> object:
         from agents.models.openai_provider import OpenAIProvider
+        from openai import AsyncOpenAI
+
+        from agents import RunConfig, Runner, ToolCallItem, ToolCallOutputItem
 
         from agents import RunConfig, Runner, ToolCallItem, ToolCallOutputItem
 
         sdk_runner: Any = Runner
-        result: Any = await sdk_runner.run(
-            agent,
-            input_text,
-            context=context,
-            max_turns=max_turns,
-            run_config=RunConfig(
-                model_provider=OpenAIProvider(api_key=api_key or None),
-                tracing_disabled=True,
-                trace_include_sensitive_data=False,
-                workflow_name=workflow_name,
-            ),
+        provider = OpenAIProvider(
+            openai_client=AsyncOpenAI(api_key=api_key or None, timeout=45, max_retries=1)
         )
+        async with asyncio.timeout(75):
+            result: Any = await sdk_runner.run(
+                agent,
+                input_text,
+                context=context,
+                max_turns=max_turns,
+                run_config=RunConfig(
+                    model_provider=provider,
+                    tracing_disabled=True,
+                    trace_include_sensitive_data=False,
+                    workflow_name=workflow_name,
+                ),
+            )
         output: object = result.final_output
         tool_names: list[str] = []
         for item in result.new_items:
@@ -196,7 +204,7 @@ class OpenAIAgentsRuntime:
 
     model: str
     tools: Mapping[str, object] = field(default_factory=dict)
-    max_turns: int = 16
+    max_turns: int = 8
     _sdk: _SdkFacade = field(default_factory=_OpenAISdkFacade, repr=False)
 
     async def run(self, request: AgentRunRequest) -> AgentRunResult:

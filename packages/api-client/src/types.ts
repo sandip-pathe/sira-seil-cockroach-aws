@@ -1311,6 +1311,15 @@ export interface SellerVersionLinks {
   previous?: string | null;
 }
 
+export interface SnowflakeApprovalCreate {
+  decision_hash: string;
+}
+
+export interface SnowflakeDecisionCreate {
+  context_version?: number;
+  mission_id?: string | null;
+}
+
 export type SolutionActionType = "REUSE_EXISTING" | "CONFIGURE_EXISTING" | "NO_ACTION" | "BUY" | "RENEW" | "RESIZE" | "REPLACE" | "CONSOLIDATE" | "CANCEL";
 
 export interface SolutionOption {
@@ -1523,12 +1532,14 @@ export interface Operations {
   accept_prava_browser_return_v2: { method: "GET"; path: "/v1/prava/browser-return"; pathParams: Record<never, never>; queryParams: { state: string; return_url: string; }; body: never; response: WorkflowAccepted; requiresIdempotency: false; };
   accept_rule_proposal: { method: "POST"; path: "/v1/decision-rules/{rules_id}/proposals/{proposal_id}/accept"; pathParams: { rules_id: string; proposal_id: string; }; queryParams: Record<never, never>; body: ProposalDecisionCreate; response: ProposalDecisionView; requiresIdempotency: true; };
   approve: { method: "POST"; path: "/v1/approval-requests/{approval_id}/approve"; pathParams: { approval_id: string; }; queryParams: Record<never, never>; body: ApprovalCreate; response: ApprovalRequestView; requiresIdempotency: true; };
+  approve_snowflake_decision: { method: "POST"; path: "/v1/snowflake/approvals"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: SnowflakeApprovalCreate; response: { [key: string]: unknown; }; requiresIdempotency: false; };
   complete_prava_connection: { method: "POST"; path: "/v1/connectors/prava/callback"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: PravaCallbackCreate; response: PravaConnectionStatus; requiresIdempotency: false; };
   connect_prava: { method: "POST"; path: "/v1/connectors/prava/connect"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: PravaConnectCreate; response: PravaConnectView; requiresIdempotency: false; };
   create_approval_request: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/approval-requests"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: ApprovalRequestCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   create_decision_request: { method: "POST"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: DecisionRequestCreate; response: DecisionRequestView; requiresIdempotency: true; };
   create_prava_payment_session: { method: "POST"; path: "/v1/connectors/prava/payment-session"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: PravaCheckoutCreate; response: { [key: string]: unknown; }; requiresIdempotency: false; };
   create_prava_session: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/prava-sessions"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: PravaSessionCreate; response: PravaSessionView; requiresIdempotency: true; };
+  create_snowflake_decision: { method: "POST"; path: "/v1/snowflake/decisions"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: SnowflakeDecisionCreate; response: { [key: string]: unknown; }; requiresIdempotency: true; };
   discover_decision_request: { method: "POST"; path: "/v1/decision-requests/{request_id}/discover"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: WorkflowAccepted; requiresIdempotency: true; };
   get_action_run: { method: "GET"; path: "/v1/action-runs/{action_run_id}"; pathParams: { action_run_id: string; }; queryParams: Record<never, never>; body: never; response: ActionRunView; requiresIdempotency: false; };
   get_counterfactuals: { method: "GET"; path: "/v1/decisions/{decision_id}/counterfactuals"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: never; response: CounterfactualView; requiresIdempotency: false; };
@@ -1538,6 +1549,7 @@ export interface Operations {
   get_decision_rules: { method: "GET"; path: "/v1/decision-requests/{request_id}/decision-rules"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: DecisionRulesView; requiresIdempotency: false; };
   get_receipt: { method: "GET"; path: "/v1/purchases/{purchase_id}/receipt"; pathParams: { purchase_id: string; }; queryParams: Record<never, never>; body: never; response: ReceiptView; requiresIdempotency: false; };
   get_requirement_brief: { method: "GET"; path: "/v1/requirement-briefs/{brief_id}"; pathParams: { brief_id: string; }; queryParams: Record<never, never>; body: never; response: RequirementBriefView; requiresIdempotency: false; };
+  get_snowflake_decision: { method: "GET"; path: "/v1/snowflake/decisions/{request_id}"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: { [key: string]: unknown; }; requiresIdempotency: false; };
   get_stackfile: { method: "GET"; path: "/v1/organizations/{organization_id}/stackfile"; pathParams: { organization_id: string; }; queryParams: Record<never, never>; body: never; response: StackfileView; requiresIdempotency: false; };
   get_workflow: { method: "GET"; path: "/v1/workflows/{workflow_id}"; pathParams: { workflow_id: string; }; queryParams: Record<never, never>; body: never; response: WorkflowView; requiresIdempotency: false; };
   get_workflow_events: { method: "GET"; path: "/v1/workflows/{workflow_id}/events"; pathParams: { workflow_id: string; }; queryParams: Record<never, never>; body: never; response: ReadableStream<Uint8Array>; requiresIdempotency: false; };
