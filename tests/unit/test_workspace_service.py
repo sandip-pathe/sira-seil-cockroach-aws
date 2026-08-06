@@ -40,6 +40,11 @@ class _CaptureRuntime:
         )
 
 
+class _UnexpectedRuntime:
+    async def run(self, request: AgentRunRequest) -> AgentRunResult:
+        raise AssertionError("a greeting must not start the commerce agent")
+
+
 def test_catalog_is_derived_from_published_product_evidence() -> None:
     service = WorkspaceService(DemoFixtureBundle.load(), api_key="unused", model="test")
 
@@ -68,6 +73,22 @@ async def test_chat_fails_clearly_when_provider_is_not_configured() -> None:
 
     assert raised.value.code == "AGENT_PROVIDER_NOT_CONFIGURED"
     assert raised.value.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_greeting_is_short_and_does_not_start_commerce_agent() -> None:
+    service = WorkspaceService(DemoFixtureBundle.load(), api_key="configured", model="test")
+    service.runtime = _UnexpectedRuntime()  # type: ignore[assignment]
+
+    result = await service.chat(
+        WorkspaceChatCreate(message="hi"),
+        run_context=_run_context(service),
+    )
+
+    assert result["message"] == "Hi! What would you like help buying?"
+    assert result["follow_up_required"] is False
+    assert result["products"] == []
+    assert result["tool_calls"] == []
 
 
 @pytest.mark.asyncio

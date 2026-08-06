@@ -1,9 +1,4 @@
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-
-import { DecisionRoom } from "@/components/decisions/decision-surfaces";
-
-export const metadata: Metadata = { title: "Decision Room" };
+import { notFound, redirect } from "next/navigation";
 
 export default async function DecisionRoomPage({
   params,
@@ -14,5 +9,5 @@ export default async function DecisionRoomPage({
   if (!["need", "company-fit", "options", "action", "result"].includes(stage)) {
     notFound();
   }
-  return <DecisionRoom requestId={requestId} version={version} stage={stage} />;
+  redirect(`/sira?decision=${encodeURIComponent(requestId)}&version=${encodeURIComponent(version)}&stage=${encodeURIComponent(stage)}`);
 }
