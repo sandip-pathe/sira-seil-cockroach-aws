@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import replace
 from datetime import UTC
 from typing import Any, ClassVar
@@ -390,17 +391,10 @@ class WorkspaceService:
                 mission_id=mission_id,
                 run_context=run_context,
             )
-        if self._is_lightweight_message(body.message):
+        lightweight_reply = self._lightweight_reply(body.message, body.mode)
+        if lightweight_reply is not None:
             answer = MissionTurnOutput(
-                message=(
-                    "Hey. Tell me what you want to buy, compare, renew, or evaluate, "
-                    "and I'll take it from there."
-                    if body.mode == "sira"
-                    else (
-                        "Hey. Tell me which product, buyer question, or evidence gap "
-                        "you want to work on."
-                    )
-                ),
+                message=lightweight_reply,
                 mission_state="ORIENTING",
                 stop_reason="LIGHTWEIGHT_REPLY",
             )
@@ -826,8 +820,22 @@ class WorkspaceService:
 
     @staticmethod
     def _is_lightweight_message(message: str) -> bool:
-        normalized = " ".join(message.casefold().strip().split()).rstrip("!?.")
-        return normalized in {"hi", "hey", "hello", "yo", "good morning", "good evening"}
+        return WorkspaceService._lightweight_reply(message, "sira") is not None
+
+    @staticmethod
+    def _lightweight_reply(message: str, mode: str) -> str | None:
+        normalized = " ".join(message.strip().split())
+        if _GREETING_PATTERN.fullmatch(normalized):
+            return (
+                "Hi! What would you like help buying?"
+                if mode == "sira"
+                else "Hi! What product work can I help with?"
+            )
+        if _THANKS_PATTERN.fullmatch(normalized):
+            return "You're welcome."
+        if _GOODBYE_PATTERN.fullmatch(normalized):
+            return "See you soon."
+        return None
 
     @staticmethod
     def _root_agent_instructions(mode: str) -> str:

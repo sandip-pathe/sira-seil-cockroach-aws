@@ -1137,6 +1137,87 @@
   background: color-mix(in srgb, var(--workspace-accent-soft) 50%, #ffffff);
 }
 
+.governedResultCard {
+  display: grid;
+  width: min(100%, 520px);
+  gap: 6px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--workspace-accent) 34%, #d8d3c8);
+  border-radius: 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--workspace-accent-soft) 58%, #fff), #fff);
+  color: #302f2b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.governedResultCard > span,
+.governedResultCard > small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--workspace-accent-dark);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.governedResultCard > span svg,
+.governedResultCard > small svg {
+  width: 14px;
+  height: 14px;
+}
+
+.governedResultCard > strong {
+  font-size: 15px;
+}
+
+.governedResultCard > p {
+  margin: 0;
+  color: #625e56;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.governedResultCard > small {
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.governedResultCard:hover {
+  border-color: var(--workspace-accent);
+  transform: translateY(-1px);
+}
+
+.proposalReceipt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--workspace-accent) 30%, #d8d3c8);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--workspace-accent) 7%, #fff);
+  color: #2f342f;
+}
+
+.proposalReceipt > svg {
+  width: 18px;
+  height: 18px;
+  color: var(--workspace-accent);
+}
+
+.proposalReceipt > div {
+  display: grid;
+  gap: 2px;
+}
+
+.proposalReceipt span {
+  color: #6f6a61;
+  font-size: 12px;
+}
+
 .proposalCard > div {
   display: grid;
   gap: 4px;

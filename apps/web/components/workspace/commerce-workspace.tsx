@@ -53,6 +53,7 @@ import {
 } from "@/lib/api";
 import { ProfileSettingsModal } from "@/components/home/profile-preview";
 import { useFirebaseAuth } from "@/components/auth/firebase-auth-provider";
+import { DecisionWorkspacePanel } from "@/components/decisions/decision-surfaces";
 
 import { ChatMessageBody } from "./chat-message";
 import styles from "./commerce-workspace.module.css";
@@ -67,6 +68,12 @@ export type CommerceContextTab =
   | "product"
   | "artifact"
   | "run";
+
+type ActiveDecision = {
+  requestId: string;
+  version: number;
+  stage: string;
+};
 
 type CatalogProduct = {
   id: string;
@@ -1459,7 +1466,15 @@ function CatalogPanel({
   );
 }
 
-function SellerProductsPanel({ onSelect }: { onSelect: (product: CatalogProduct) => void }) {
+function SellerProductsPanel({
+  onSelect,
+  researchArtifacts = [],
+  onSelectArtifact,
+}: {
+  onSelect: (product: CatalogProduct) => void;
+  researchArtifacts?: MissionArtifactView[];
+  onSelectArtifact?: (artifact: MissionArtifactView) => void;
+}) {
   const query = useQuery({
     queryKey: ["seil-products", WEB_DATA_MODE],
     enabled: WEB_DATA_MODE === "api",
@@ -1482,6 +1497,7 @@ function SellerProductsPanel({ onSelect }: { onSelect: (product: CatalogProduct)
     integrations: [],
     category: item.category,
   }));
+  const drafts = researchArtifacts.filter((artifact) => artifact.kind === "seller_evidence");
 
   return (
     <div className={styles.contextBody}>
@@ -1493,8 +1509,8 @@ function SellerProductsPanel({ onSelect }: { onSelect: (product: CatalogProduct)
       <section className={styles.contextSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <span>{products.length ? "Packets" : "Cold start"}</span>
-            <h3>{query.isPending ? "Loading products" : `${products.length} product${products.length === 1 ? "" : "s"}`}</h3>
+            <span>{products.length || drafts.length ? "Evidence workspace" : "Cold start"}</span>
+            <h3>{query.isPending ? "Loading evidence" : `${products.length} registered · ${drafts.length} research draft${drafts.length === 1 ? "" : "s"}`}</h3>
           </div>
           <Package aria-hidden="true" />
         </div>
@@ -1508,13 +1524,25 @@ function SellerProductsPanel({ onSelect }: { onSelect: (product: CatalogProduct)
               </button>
             ))}
           </div>
-        ) : (
+        ) : null}
+        {drafts.length ? (
+          <div className={styles.decisionMiniList}>
+            {drafts.map((artifact) => (
+              <button key={artifact.id} type="button" onClick={() => onSelectArtifact?.(artifact)}>
+                <span>Private research draft</span>
+                <strong>{artifact.title}</strong>
+                <small>Source-linked evidence ready for seller review; not published.</small>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {!products.length && !drafts.length ? (
           <p className={styles.sectionCopy}>
             {query.isError
               ? "Product Evidence is temporarily unavailable."
               : "Tell SEIL a product name or website. It will research public sources and prepare a cited draft."}
           </p>
-        )}
+        ) : null}
       </section>
     </div>
   );
@@ -2068,11 +2096,15 @@ function ContextPanel({
   selectedProduct,
   selectedArtifact,
   selectedRunMessage,
+  researchArtifacts,
   onSelectProduct,
   onStartChat,
   onSelectArtifact,
   onApproveDecision,
   approvalState,
+  activeDecision,
+  onSelectDecision,
+  onBackDecision,
 }: {
   mode: CommerceWorkspaceMode;
   tab: CommerceContextTab;
@@ -2084,11 +2116,15 @@ function ContextPanel({
   selectedProduct: CatalogProduct | null;
   selectedArtifact: MissionArtifactView | null;
   selectedRunMessage: ChatMessage | null;
+  researchArtifacts: MissionArtifactView[];
   onSelectProduct: (product: CatalogProduct) => void;
   onStartChat: () => void;
   onSelectArtifact: (artifact: MissionArtifactView) => void;
   onApproveDecision: (decisionHash: string) => Promise<void>;
   approvalState: "idle" | "saving" | "approved" | "error";
+  activeDecision: ActiveDecision | null;
+  onSelectDecision: (decision: ActiveDecision) => void;
+  onBackDecision: () => void;
 }) {
   return (
     <aside
@@ -2147,7 +2183,7 @@ function ContextPanel({
         {tab === "inbox" ? <InboxPanel mode={mode} /> : null}
         {tab === "catalog" ? (
           mode === "seil"
-            ? <SellerProductsPanel onSelect={onSelectProduct} />
+            ? <SellerProductsPanel onSelect={onSelectProduct} researchArtifacts={researchArtifacts} onSelectArtifact={onSelectArtifact} />
             : <CatalogPanel products={products} onSelect={onSelectProduct} />
         ) : null}
         {tab === "product" ? (
@@ -2164,6 +2200,8 @@ function ContextPanel({
 export function CommerceWorkspace({
   initialMode = "sira",
   initialContextTab = "decisions",
+  initialDecision = null,
+  initialContextOpen = false,
   modeLocked = false,
 }: {
   initialMode?: CommerceWorkspaceMode;
@@ -2188,12 +2226,17 @@ export function CommerceWorkspace({
   });
   const [composer, setComposer] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [contextOpen, setContextOpen] = useState(false);
-  const [contextTab, setContextTab] = useState<CommerceContextTab>(initialContextTab);
+  const [contextOpen, setContextOpen] = useState(Boolean(initialDecision) || initialContextOpen);
+  const [contextTab, setContextTab] = useState<CommerceContextTab>(
+    initialDecision ? "decisions" : initialContextTab,
+  );
   const [contextExpanded, setContextExpanded] = useState(false);
   const [activeDecision, setActiveDecision] = useState<ActiveDecision | null>(initialDecision);
   const [running, setRunning] = useState(false);
   const [confirmingProposal, setConfirmingProposal] = useState<string | null>(null);
+  const [appliedProposalHashes, setAppliedProposalHashes] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [snowflakeApprovalState, setSnowflakeApprovalState] = useState<
     "idle" | "saving" | "approved" | "error"
   >("idle");
@@ -2221,6 +2264,21 @@ export function CommerceWorkspace({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const responseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const responseAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!firebaseUser?.uid) return;
+    try {
+      const stored = window.sessionStorage.getItem(
+        `sira.applied-proposals.${firebaseUser.uid}`,
+      );
+      const hashes = stored ? JSON.parse(stored) : [];
+      setAppliedProposalHashes(
+        new Set(Array.isArray(hashes) ? hashes.filter((item): item is string => typeof item === "string") : []),
+      );
+    } catch {
+      setAppliedProposalHashes(new Set());
+    }
+  }, [firebaseUser?.uid]);
 
   const modeConversations = conversations[mode];
   const selectedConversation =
@@ -2551,6 +2609,7 @@ export function CommerceWorkspace({
           pathParams: { request_id: created.id },
           idempotencyKey: `discover-${created.id}`,
         });
+        setActiveDecision({ requestId: created.id, version: 1, stage: "options" });
         setContextTab("decisions");
       } else {
         const draftId = proposal.payload.draft_id;
@@ -2614,6 +2673,16 @@ export function CommerceWorkspace({
           ),
         }));
       }
+      setAppliedProposalHashes((current) => {
+        const next = new Set(current).add(proposal.proposal_hash);
+        if (firebaseUser?.uid) {
+          window.sessionStorage.setItem(
+            `sira.applied-proposals.${firebaseUser.uid}`,
+            JSON.stringify([...next]),
+          );
+        }
+        return next;
+      });
       setContextOpen(true);
       if (selectedConversation.id.startsWith("msn_")) {
         await restoreMission(selectedConversation.id, mode);
@@ -2861,7 +2930,43 @@ export function CommerceWorkspace({
                       ))}
                     </div>
                   ) : null}
-                  {message.proposals?.map((proposal) => (
+                  {message.artifacts
+                    ?.filter((artifact) => artifact.kind === "cited_decision")
+                    .map((artifact) => {
+                      const selectedProduct =
+                        typeof artifact.payload.selected_product === "string"
+                          ? artifact.payload.selected_product
+                          : "Recommendation ready";
+                      const decisionHash =
+                        typeof artifact.payload.decision_hash === "string"
+                          ? artifact.payload.decision_hash
+                          : "";
+                      const contextEffect =
+                        typeof artifact.payload.private_context_effect === "string"
+                          ? artifact.payload.private_context_effect
+                          : "Private company context and cited seller evidence were evaluated in Snowflake.";
+                      return (
+                        <button
+                          className={styles.governedResultCard}
+                          key={artifact.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedArtifact(artifact);
+                            setContextTab("artifact");
+                            setContextOpen(true);
+                          }}
+                        >
+                          <span><ShieldCheck aria-hidden="true" /> Governed decision</span>
+                          <strong>{selectedProduct}</strong>
+                          <p>{contextEffect}</p>
+                          <small>
+                            {decisionHash ? `Decision ${decisionHash.slice(0, 12)}…` : "Open cited evidence"}
+                            <ArrowRight aria-hidden="true" />
+                          </small>
+                        </button>
+                      );
+                    })}
+                  {message.proposals?.filter((proposal) => !appliedProposalHashes.has(proposal.proposal_hash)).map((proposal) => (
                     <section className={styles.proposalCard} key={proposal.proposal_hash}>
                       <div>
                         <span>Requires your confirmation</span>
@@ -2894,6 +2999,15 @@ export function CommerceWorkspace({
                       </button>
                     </section>
                   ))}
+                  {message.proposals?.some((proposal) => appliedProposalHashes.has(proposal.proposal_hash)) ? (
+                    <section className={styles.proposalReceipt}>
+                      <Check aria-hidden="true" />
+                      <div>
+                        <strong>Applied successfully</strong>
+                        <span>The durable workspace record is ready in the detail panel.</span>
+                      </div>
+                    </section>
+                  ) : null}
                 </article>
               ),
             )}
@@ -2989,6 +3103,7 @@ export function CommerceWorkspace({
           selectedProduct={selectedProduct}
           selectedArtifact={selectedArtifact}
           selectedRunMessage={selectedRunMessage}
+          researchArtifacts={selectedConversation?.messages.flatMap((message) => message.artifacts ?? []) ?? []}
           onSelectProduct={(product) => {
             setSelectedProduct(product);
             setContextTab("product");
@@ -3003,6 +3118,13 @@ export function CommerceWorkspace({
           }}
           onApproveDecision={approveSnowflakeDecision}
           approvalState={snowflakeApprovalState}
+          activeDecision={activeDecision}
+          onSelectDecision={(decision) => {
+            setActiveDecision(decision);
+            setContextTab("decisions");
+            setContextOpen(true);
+          }}
+          onBackDecision={() => setActiveDecision(null)}
         />
       ) : null}
 
