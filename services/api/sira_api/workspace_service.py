@@ -47,6 +47,13 @@ def _canonical_agent_json(value: Any) -> Any:
         return [_canonical_agent_json(item) for item in value]
     return value
 
+_GREETING_PATTERN = re.compile(
+    r"^(?:hi|hello|hey|hiya|howdy|good\s+(?:morning|afternoon|evening))(?:\s+there)?[\s!,.?]*$",
+    re.IGNORECASE,
+)
+_THANKS_PATTERN = re.compile(r"^(?:thanks|thank\s+you|thx)[\s!,.?]*$", re.IGNORECASE)
+_GOODBYE_PATTERN = re.compile(r"^(?:bye|goodbye|see\s+you|later)[\s!,.?]*$", re.IGNORECASE)
+
 
 def _compile_research_only_packet(
     payload: dict[str, Any], source_refs: list[dict[str, Any]]

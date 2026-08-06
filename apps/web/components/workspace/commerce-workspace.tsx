@@ -874,7 +874,7 @@ function AgentWorkingState({ mode }: { mode: CommerceWorkspaceMode }) {
         <span />
         <span />
       </span>
-      <span>{stages[stage]}</span>
+      <span>Thinking…</span>
     </div>
   );
 }
@@ -1218,7 +1218,7 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
   );
 }
 
-function DecisionsPanel({ onStart }: { onStart: () => void }) {
+function DecisionsPanel({ onStart, onSelect }: { onStart: () => void; onSelect: (decision: ActiveDecision) => void }) {
   const query = useQuery({
     queryKey: ["decision-index"],
     enabled: WEB_DATA_MODE === "api",
@@ -2142,7 +2142,8 @@ function ContextPanel({
         ) : null}
         {tab === "work" && mode === "sira" ? <SiraWorkPanel /> : null}
         {tab === "work" && mode === "seil" ? <SeilWorkPanel /> : null}
-        {tab === "decisions" ? <DecisionsPanel onStart={onStartChat} /> : null}
+        {tab === "decisions" && activeDecision ? <DecisionWorkspacePanel requestId={activeDecision.requestId} version={activeDecision.version} initialStage={activeDecision.stage} onBack={onBackDecision} /> : null}
+        {tab === "decisions" && !activeDecision ? <DecisionsPanel onStart={onStartChat} onSelect={onSelectDecision} /> : null}
         {tab === "inbox" ? <InboxPanel mode={mode} /> : null}
         {tab === "catalog" ? (
           mode === "seil"
@@ -2167,6 +2168,8 @@ export function CommerceWorkspace({
 }: {
   initialMode?: CommerceWorkspaceMode;
   initialContextTab?: CommerceContextTab;
+  initialDecision?: ActiveDecision | null;
+  initialContextOpen?: boolean;
   modeLocked?: boolean;
 }) {
   const firebaseAuth = useFirebaseAuth();
@@ -2188,6 +2191,7 @@ export function CommerceWorkspace({
   const [contextOpen, setContextOpen] = useState(false);
   const [contextTab, setContextTab] = useState<CommerceContextTab>(initialContextTab);
   const [contextExpanded, setContextExpanded] = useState(false);
+  const [activeDecision, setActiveDecision] = useState<ActiveDecision | null>(initialDecision);
   const [running, setRunning] = useState(false);
   const [confirmingProposal, setConfirmingProposal] = useState<string | null>(null);
   const [snowflakeApprovalState, setSnowflakeApprovalState] = useState<

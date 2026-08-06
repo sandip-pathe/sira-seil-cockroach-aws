@@ -724,7 +724,8 @@
   overflow-x: auto;
 }
 
-.decisionPath a {
+.decisionPath a,
+.decisionPath button {
   position: relative;
   min-width: 132px;
   display: grid;
@@ -738,12 +739,23 @@
   text-decoration: none;
 }
 
-.decisionPath a[aria-current="page"] {
+.decisionPath button {
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.decisionPath a[aria-current="page"],
+.decisionPath button[aria-current="page"] {
   background: var(--sira-soft);
   color: var(--sira-hover);
 }
 
-.decisionPath a[aria-current="page"]::after {
+.decisionPath a[aria-current="page"]::after,
+.decisionPath button[aria-current="page"]::after {
   content: "";
   position: absolute;
   right: 0;
@@ -753,7 +765,8 @@
   background: var(--sira);
 }
 
-.decisionPath a > span {
+.decisionPath a > span,
+.decisionPath button > span {
   width: 25px;
   height: 25px;
   grid-row: 1 / 3;
@@ -766,13 +779,15 @@
   font: 680 9px var(--font-mono);
 }
 
-.decisionPath a[data-status="completed"] > span {
+.decisionPath a[data-status="completed"] > span,
+.decisionPath button[data-status="completed"] > span {
   border-color: var(--success);
   background: var(--success-bg);
   color: var(--success);
 }
 
-.decisionPath a > span svg {
+.decisionPath a > span svg,
+.decisionPath button > span svg {
   width: 13px;
 }
 
@@ -2505,4 +2520,117 @@
 
 .approvalRoles svg {
   width: 13px;
+}
+
+.embeddedShell {
+  --canvas: #faf9f5;
+  --surface: #fff;
+  --border: #e5e1d8;
+  --border-strong: #cbc5b9;
+  --muted: #79736a;
+  --sira: #006b5f;
+  --sira-hover: #005348;
+  --sira-soft: #e4f2ef;
+  --success: #137757;
+  --success-bg: #e8f5ef;
+  position: relative;
+  min-height: 100%;
+  background: var(--canvas);
+}
+
+.embeddedHeader {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.embeddedHeader > button {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--sira-hover);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.embeddedHeader > button svg {
+  width: 14px;
+}
+
+.embeddedHeader > div {
+  display: grid;
+  gap: 4px;
+}
+
+.embeddedHeader small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.embeddedHeader strong {
+  color: #272521;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.embeddedCanvas {
+  min-height: 0;
+  overflow: hidden;
+  background: var(--canvas);
+}
+
+.embeddedShell .stageSection {
+  padding: 22px 20px 42px;
+}
+
+.embeddedShell .stageIntro h2 {
+  font-size: 23px;
+}
+
+.pravaApproval {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #c9d8d3;
+  border-radius: 10px;
+  padding: 14px;
+  background: #f7fbf9;
+}
+
+.pravaApproval > div {
+  display: grid;
+  gap: 3px;
+}
+
+.pravaApproval strong {
+  color: #292824;
+  font-size: 12px;
+}
+
+.pravaApproval span {
+  color: #777168;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.pravaApproval > button,
+.pravaApproval > a {
+  justify-self: start;
+  border: 0;
+  border-radius: 7px;
+  padding: 10px 14px;
+  background: #007d69;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
 }
