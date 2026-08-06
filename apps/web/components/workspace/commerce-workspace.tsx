@@ -1669,7 +1669,15 @@ function ProductPanel({ product, onBack }: { product: CatalogProduct | null; onB
   );
 }
 
-function ArtifactPanel({ artifact }: { artifact: MissionArtifactView | null }) {
+function ArtifactPanel({
+  artifact,
+  onApproveDecision,
+  approvalState,
+}: {
+  artifact: MissionArtifactView | null;
+  onApproveDecision: (decisionHash: string) => Promise<void>;
+  approvalState: "idle" | "saving" | "approved" | "error";
+}) {
   if (!artifact) {
     return (
       <div className={styles.contextBody}>
@@ -1679,6 +1687,15 @@ function ArtifactPanel({ artifact }: { artifact: MissionArtifactView | null }) {
           <p>Open an artifact from the mission stream to inspect its evidence and limits.</p>
         </section>
       </div>
+    );
+  }
+  if (artifact.kind === "cited_decision") {
+    return (
+      <CitedDecisionPanel
+        artifact={artifact}
+        onApproveDecision={onApproveDecision}
+        approvalState={approvalState}
+      />
     );
   }
   const sources = artifact.source_refs ?? [];
@@ -1773,6 +1790,163 @@ function ArtifactPanel({ artifact }: { artifact: MissionArtifactView | null }) {
             No external source was attached; treat this as inferred work.
           </p>
         )}
+      </section>
+    </div>
+  );
+}
+
+type CitedProduct = {
+  product_id?: unknown;
+  product_name?: unknown;
+  eligible?: unknown;
+  unit_price?: unknown;
+  reason_codes?: unknown;
+};
+
+function CitedDecisionPanel({
+  artifact,
+  onApproveDecision,
+  approvalState,
+}: {
+  artifact: MissionArtifactView;
+  onApproveDecision: (decisionHash: string) => Promise<void>;
+  approvalState: "idle" | "saving" | "approved" | "error";
+}) {
+  const payload = artifact.payload;
+  const products = Array.isArray(payload.evaluated_products)
+    ? payload.evaluated_products.filter(
+        (item): item is CitedProduct => typeof item === "object" && item !== null,
+      )
+    : [];
+  const sources = artifact.source_refs ?? [];
+  const changed = payload.private_context_effect === "WINNER_CHANGED";
+  const genericWinnerId = String(payload.without_private_context ?? "");
+  const genericWinner = products.find(
+    (product) => String(product.product_id ?? "") === genericWinnerId,
+  );
+  const decisionHash = String(payload.decision_hash ?? "");
+
+  return (
+    <div className={styles.contextBody}>
+      <section className={styles.documentHeader}>
+        <span>Snowflake governed decision</span>
+        <h2>{String(payload.selected_product ?? artifact.title)}</h2>
+        <p>
+          {changed
+            ? "Private company context materially changed the recommendation."
+            : "The recommendation remained stable when private context was removed."}
+        </p>
+      </section>
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <span>Causal proof</span>
+            <h3>Why this won</h3>
+          </div>
+          <BadgeCheck aria-hidden="true" />
+        </div>
+        <dl className={styles.artifactFields}>
+          <div>
+            <dt>With private context</dt>
+            <dd>{String(payload.selected_product ?? "No eligible product")}</dd>
+          </div>
+          <div>
+            <dt>Without it</dt>
+            <dd>
+              {String(
+                genericWinner?.product_name ??
+                  payload.without_private_context ??
+                  "No eligible product",
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Effect</dt>
+            <dd>{changed ? "Winner changed" : "Winner unchanged"}</dd>
+          </div>
+        </dl>
+        {decisionHash.startsWith("sha256:") ? (
+          <div className={styles.decisionApproval}>
+            <button
+              type="button"
+              disabled={approvalState === "saving" || approvalState === "approved"}
+              onClick={() => void onApproveDecision(decisionHash)}
+            >
+              {approvalState === "saving"
+                ? "Recording approval…"
+                : approvalState === "approved"
+                  ? "Approval recorded"
+                  : "Approve recommendation"}
+            </button>
+            <small>
+              {approvalState === "error"
+                ? "Approval was not recorded. Check your authority and retry."
+                : "Creates a tamper-evident Snowflake approval event; it does not purchase."}
+            </small>
+          </div>
+        ) : null}
+      </section>
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <span>Deterministic evaluation</span>
+            <h3>{products.length} products evaluated</h3>
+          </div>
+          <Layers3 aria-hidden="true" />
+        </div>
+        <div className={styles.decisionMiniList}>
+          {products.map((product, index) => {
+            const reasons = Array.isArray(product.reason_codes)
+              ? product.reason_codes.map(String).map((item) => item.replaceAll("_", " "))
+              : [];
+            return (
+              <article key={String(product.product_id ?? index)}>
+                <span>{product.eligible === true ? "Eligible" : "Passed honestly"}</span>
+                <strong>{String(product.product_name ?? product.product_id ?? "Product")}</strong>
+                <small>
+                  {product.unit_price ? `USD ${String(product.unit_price)} · ` : ""}
+                  {reasons.join(" · ") || "No reason code recorded"}
+                </small>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <span>Evidence lineage</span>
+            <h3>{sources.length} cited facts and document passages</h3>
+          </div>
+          <FileSearch aria-hidden="true" />
+        </div>
+        <ul className={styles.artifactSources}>
+          {sources.map((source, index) => (
+            <li key={`${artifact.id}-citation-${index}`}>
+              <strong>{String(source.citation_type ?? "SOURCE")}</strong>
+              {source.exact_excerpt ? ` — ${String(source.exact_excerpt)}` : ""}
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <span>Audit identity</span>
+            <h3>Reproducible decision</h3>
+          </div>
+          <ShieldCheck aria-hidden="true" />
+        </div>
+        <dl className={styles.artifactFields}>
+          <div>
+            <dt>Run</dt>
+            <dd>{String(payload.run_id ?? "Not recorded")}</dd>
+          </div>
+          <div>
+            <dt>Decision hash</dt>
+            <dd>{String(payload.decision_hash ?? "Not recorded")}</dd>
+          </div>
+        </dl>
       </section>
     </div>
   );
@@ -1897,6 +2071,8 @@ function ContextPanel({
   onSelectProduct,
   onStartChat,
   onSelectArtifact,
+  onApproveDecision,
+  approvalState,
 }: {
   mode: CommerceWorkspaceMode;
   tab: CommerceContextTab;
@@ -1911,6 +2087,8 @@ function ContextPanel({
   onSelectProduct: (product: CatalogProduct) => void;
   onStartChat: () => void;
   onSelectArtifact: (artifact: MissionArtifactView) => void;
+  onApproveDecision: (decisionHash: string) => Promise<void>;
+  approvalState: "idle" | "saving" | "approved" | "error";
 }) {
   return (
     <aside
@@ -1955,7 +2133,13 @@ function ContextPanel({
 
       <div className={styles.contextScroller}>
         {tab === "run" ? <AgentRunPanel message={selectedRunMessage} onSelectArtifact={onSelectArtifact} /> : null}
-        {tab === "artifact" ? <ArtifactPanel artifact={selectedArtifact} /> : null}
+        {tab === "artifact" ? (
+          <ArtifactPanel
+            artifact={selectedArtifact}
+            onApproveDecision={onApproveDecision}
+            approvalState={approvalState}
+          />
+        ) : null}
         {tab === "work" && mode === "sira" ? <SiraWorkPanel /> : null}
         {tab === "work" && mode === "seil" ? <SeilWorkPanel /> : null}
         {tab === "decisions" ? <DecisionsPanel onStart={onStartChat} /> : null}
@@ -2006,6 +2190,9 @@ export function CommerceWorkspace({
   const [contextExpanded, setContextExpanded] = useState(false);
   const [running, setRunning] = useState(false);
   const [confirmingProposal, setConfirmingProposal] = useState<string | null>(null);
+  const [snowflakeApprovalState, setSnowflakeApprovalState] = useState<
+    "idle" | "saving" | "approved" | "error"
+  >("idle");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>(() =>
     WEB_DATA_MODE === "fixture" ? FIXTURE_CATALOG.map(withProductBrand) : [],
@@ -2029,7 +2216,6 @@ export function CommerceWorkspace({
   const shouldAutoScrollRef = useRef(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const responseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const missionPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const responseAbortRef = useRef<AbortController | null>(null);
 
   const modeConversations = conversations[mode];
@@ -2108,7 +2294,6 @@ export function CommerceWorkspace({
   useEffect(
     () => () => {
       if (responseTimerRef.current) clearTimeout(responseTimerRef.current);
-      if (missionPollRef.current) clearInterval(missionPollRef.current);
       responseAbortRef.current?.abort();
     },
     [],
@@ -2203,6 +2388,19 @@ export function CommerceWorkspace({
     if (compact) setSidebarOpen(false);
   }
 
+  async function approveSnowflakeDecision(decisionHash: string) {
+    setSnowflakeApprovalState("saving");
+    try {
+      await getBrowserApiClient().request("approve_snowflake_decision", {
+        headers: buyerDevelopmentHeaders,
+        body: { decision_hash: decisionHash },
+      });
+      setSnowflakeApprovalState("approved");
+    } catch {
+      setSnowflakeApprovalState("error");
+    }
+  }
+
   async function submitMessage(value = composer.trim()) {
     if (!value || running || !selectedConversation) return;
     const targetMode = mode;
@@ -2259,7 +2457,6 @@ export function CommerceWorkspace({
 
     const controller = new AbortController();
     responseAbortRef.current = controller;
-    missionPollRef.current = setInterval(() => void restoreMission(missionId, targetMode), 900);
     try {
       const history = selectedConversation.messages
         .slice(-20)
@@ -2318,10 +2515,6 @@ export function CommerceWorkspace({
         }));
       }
     } finally {
-      if (missionPollRef.current) {
-        clearInterval(missionPollRef.current);
-        missionPollRef.current = null;
-      }
       if (responseAbortRef.current === controller) responseAbortRef.current = null;
       if (targetMode === mode) setRunning(false);
     }
@@ -2804,6 +2997,8 @@ export function CommerceWorkspace({
             setSelectedArtifact(artifact);
             setContextTab("artifact");
           }}
+          onApproveDecision={approveSnowflakeDecision}
+          approvalState={snowflakeApprovalState}
         />
       ) : null}
 

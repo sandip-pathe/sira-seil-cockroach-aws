@@ -1,3 +1,4 @@
+<!-- /autoplan restore point: C:\Users\sandi\.gstack\projects\siel-n-sira\snowflake-hackathon-autoplan-restore-20260806-060832.md -->
 # SIRA + SEIL Snowflake Hackathon Plan
 
 Date: 6 August 2026
@@ -523,9 +524,19 @@ Verified on 6 August 2026:
 
 | Review | Runs | Status | Decisive finding |
 |---|---:|---|---|
-| CEO | 1 | CLEAR | Narrow the product to evidence-to-decision causality; cut marketplace breadth and provider execution. |
-| Design | 1 | CLEAR | Keep chat as the primary surface and show citations, counterfactual, run ID, and approval in the existing on-demand third panel; add no new screens. |
-| Engineering | 1 | CLEAR WITH ACCOUNT GATE | FastAPI-orchestrated Search + Snowpark is the safest authority path. Keep LLMs outside decision/approval authority and make every write idempotent and hash-bound. |
-| Developer experience | 1 | CLEAR WITH ACCOUNT GATE | One preflight, ordered SQL assets, one smoke command, one executed causal Worksheet, and a sanitized CoCo build log give the next turn a reproducible path. |
+| CEO | 2 | DONE WITH CONCERNS | The causal proof is live (v1 NoteSync, v2 MeetAI, cited hashes), but the implementation honestly uses the SQL-first fallback rather than claiming Cortex Agent/Analyst orchestration. |
+| Design | 2 | CLEAR | Chat remains primary; cited decision, counterfactual, evidence, run/hash, and explicit non-purchasing approval live in the on-demand third panel. |
+| Engineering | 2 | DONE WITH CONCERNS | Tenant-scoped request/read/approval code, parser-derived chunks, post-create grants, scoped audit joins, explicit 503 handling, and focused regressions are present. The target account still needs the forward migration. |
+| Developer experience | 2 | DONE WITH CONCERNS | Ordered SQL docs and `scripts/apply_snowflake.ps1` now cover bootstrap/upload/bundle/proof. CoCo session evidence is logged, but sanitized screenshots/query IDs remain submission packaging work. |
 
-Final verdict: **CLEARED FOR P0 only after portal viability and a CoCo-enabled Snowflake account pass Task 0.** There are no unresolved product decisions. Account capability and submission acceptance are external gates, not reasons to broaden the architecture.
+### Final implementation verification (6 August 2026)
+
+- Integrated `origin/core-backend` into `snowflake-hackathon` before final review.
+- Focused tests: 5 passed (decision causality, tenant isolation, Prava MCP regression).
+- Web TypeScript, focused Ruff, OpenAPI/client drift, PowerShell parsing, and diff checks pass.
+- Live target proof already shows the material winner change and citations. The original decisive chunks and approval row predate the final lineage/tenant corrections.
+- The open Snowsight browser is account `AN78325`; application configuration targets `ERJAVEX-TG61158`. Therefore the final forward migration was deliberately not claimed as applied to the target account.
+- Cortex Search exists in the original live build but is not the runtime authority path. Snowpark plus governed SQL and deterministic reason templates are the submitted fallback architecture.
+- A recursive Codex reviewer could not run because the installed CLI is too old for its configured model; sub-agent and primary-agent reviews supplied the final gates.
+
+Final verdict: **CODE COMPLETE, DEPLOYMENT BLOCKED ON TARGET-ACCOUNT MIGRATION.** Push the reviewed branch; do not deploy it until `scripts/apply_snowflake.ps1` is run against `ERJAVEX-TG61158` and the scoped columns/parser hashes are verified there.

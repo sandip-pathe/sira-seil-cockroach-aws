@@ -2381,6 +2381,35 @@
   text-transform: uppercase;
 }
 
+.decisionApproval {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.decisionApproval button {
+  width: fit-content;
+  padding: 9px 12px;
+  border: 1px solid var(--workspace-accent);
+  border-radius: 8px;
+  background: var(--workspace-accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.decisionApproval button:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.decisionApproval small {
+  color: #756f65;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .decisionMiniList strong {
   grid-column: 1;
   overflow: hidden;

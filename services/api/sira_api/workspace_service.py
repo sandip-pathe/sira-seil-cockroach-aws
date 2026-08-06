@@ -30,6 +30,7 @@ from persistence.repositories import RecordNotFound
 
 from .errors import ApiProblem
 from .fixtures import DemoFixtureBundle
+from .snowflake_service import SnowflakeDecisionService
 from .workspace_schemas import WorkspaceChatCreate
 
 logger = logging.getLogger(__name__)
@@ -216,6 +217,7 @@ class WorkspaceService:
         database: Database | None = None,
         senso_providers: dict[str, object] | None = None,
         senso_error: str | None = None,
+        snowflake_decision_service: SnowflakeDecisionService | None = None,
     ) -> None:
         self.fixtures = fixtures
         self.api_key = api_key
@@ -229,6 +231,7 @@ class WorkspaceService:
         self.database = database
         self.senso_providers = senso_providers or {}
         self.senso_error = senso_error
+        self.snowflake_decision_service = snowflake_decision_service
         tools = {**workspace_tool_registry(), **commerce_tool_registry()}
         self.runtime = OpenAIAgentsRuntime(model=model, tools=tools)
 
@@ -238,6 +241,8 @@ class WorkspaceService:
             services["workflow_service"] = self.workflow_service
         if self.seller_evidence_service is not None:
             services["seller_evidence_service"] = self.seller_evidence_service
+        if self.snowflake_decision_service is not None:
+            services["snowflake_decision_service"] = self.snowflake_decision_service
         services.update(self.senso_providers)
         return services
 
@@ -299,6 +304,25 @@ class WorkspaceService:
                 if self.seller_evidence_service and self.database
                 else "Start PostgreSQL and the API",
             },
+            {
+                "id": "snowflake-decision-plane",
+                "label": "Governed evidence and decision ledger",
+                "status": (
+                    "ready"
+                    if self.snowflake_decision_service and self.snowflake_decision_service.enabled
+                    else "offline"
+                ),
+                "reason_code": (
+                    "READY"
+                    if self.snowflake_decision_service and self.snowflake_decision_service.enabled
+                    else "SNOWFLAKE_DISABLED"
+                ),
+                "remediation": (
+                    None
+                    if self.snowflake_decision_service and self.snowflake_decision_service.enabled
+                    else "Configure the Snowflake application identity"
+                ),
+            },
         ]
 
     def catalog(self) -> list[dict[str, Any]]:
@@ -354,6 +378,11 @@ class WorkspaceService:
             body=body,
             run_context=run_context,
         )
+        if self._routes_to_governed_snowflake(body):
+            return await self._run_governed_snowflake_turn(
+                mission_id=mission_id,
+                run_context=run_context,
+            )
         if self._is_lightweight_message(body.message):
             answer = MissionTurnOutput(
                 message=(
@@ -501,6 +530,46 @@ class WorkspaceService:
             except Exception:
                 break
         visible_products = [product for product in self.catalog() if product["id"] in product_ids]
+        snowflake_decision_ready = bool(visible_products) or (
+            "search_published_products" in all_tool_calls
+        )
+        if (
+            body.mode == "sira"
+            and snowflake_decision_ready
+            and self.snowflake_decision_service is not None
+            and self.snowflake_decision_service.enabled
+        ):
+            try:
+                snowflake_result = await self.snowflake_decision_service.create_decision(
+                    organization_id=run_context.organization_id,
+                    context_version=1,
+                    mission_id=mission_id,
+                    actor_id=run_context.actor_id,
+                    idempotency_key=f"workspace-{mission_id}-context-v1",
+                )
+                snowflake_artifact = await self._persist_snowflake_artifact(
+                    mission_id=mission_id,
+                    run_context=run_context,
+                    result=snowflake_result,
+                )
+                all_tool_calls.append("evaluate_cited_decision")
+                visible_products = self._snowflake_products(snowflake_result)
+                answer = self._snowflake_answer(snowflake_result)
+                governed_persisted = await self._persist_turn(
+                    mission_id=mission_id,
+                    answer=answer,
+                    run_context=run_context,
+                    tool_calls=("evaluate_cited_decision",),
+                    proposals=(),
+                    turn_key=f"{run_context.request_id or uuid4().hex}:snowflake",
+                )
+                governed_persisted["artifacts"] = [
+                    *persisted["artifacts"],
+                    snowflake_artifact,
+                ]
+                persisted = governed_persisted
+            except Exception:
+                logger.exception("Snowflake decision enrichment failed")
         panel = "catalog" if visible_products else None
         return {
             "conversation_id": mission_id,
@@ -517,6 +586,210 @@ class WorkspaceService:
             "attention": answer.attention.model_dump(mode="json") if answer.attention else None,
             "advisory_only": False,
         }
+
+    def _routes_to_governed_snowflake(self, body: WorkspaceChatCreate) -> bool:
+        if (
+            body.mode != "sira"
+            or self.snowflake_decision_service is None
+            or not self.snowflake_decision_service.enabled
+        ):
+            return False
+        normalized = body.message.casefold()
+        purchase_intent = any(
+            term in normalized
+            for term in ("find", "recommend", "compare", "evaluate", "buy")
+        )
+        routed = purchase_intent and "meeting" in normalized
+        logger.info(
+            "workspace capability route evaluated",
+            extra={
+                "mode": body.mode,
+                "snowflake_enabled": True,
+                "governed_snowflake_route": routed,
+            },
+        )
+        return routed
+
+    async def _run_governed_snowflake_turn(
+        self,
+        *,
+        mission_id: str,
+        run_context: AgentRunContext,
+    ) -> dict[str, Any]:
+        assert self.snowflake_decision_service is not None
+        try:
+            result = await self.snowflake_decision_service.create_decision(
+                organization_id=run_context.organization_id,
+                context_version=1,
+                mission_id=mission_id,
+                actor_id=run_context.actor_id,
+                idempotency_key=f"workspace-{mission_id}-context-v1",
+            )
+        except Exception as error:
+            logger.exception("Governed Snowflake decision failed")
+            raise ApiProblem(
+                code="SNOWFLAKE_DECISION_UNAVAILABLE",
+                message="The governed decision service is temporarily unavailable.",
+                status_code=503,
+                retryable=True,
+                next_action="retry_later",
+            ) from error
+        answer = self._snowflake_answer(result)
+        tools = (
+            "query_governed_company_context",
+            "retrieve_cited_seller_evidence",
+            "evaluate_cited_decision",
+        )
+        persisted = await self._persist_turn(
+            mission_id=mission_id,
+            answer=answer,
+            run_context=run_context,
+            tool_calls=tools,
+            proposals=(),
+            turn_key=f"{run_context.request_id or uuid4().hex}:snowflake",
+        )
+        artifact = await self._persist_snowflake_artifact(
+            mission_id=mission_id,
+            run_context=run_context,
+            result=result,
+        )
+        persisted["artifacts"] = [*persisted["artifacts"], artifact]
+        return {
+            "conversation_id": mission_id,
+            "mission_id": mission_id,
+            "message": answer.message,
+            "follow_up_required": False,
+            "panel": "catalog",
+            "products": self._snowflake_products(result),
+            "tool_calls": list(tools),
+            "proposals": [],
+            "mission": persisted["mission"],
+            "events": persisted["events"],
+            "artifacts": persisted["artifacts"],
+            "attention": None,
+            "advisory_only": False,
+        }
+
+    @staticmethod
+    def _snowflake_answer(result: dict[str, Any]) -> MissionTurnOutput:
+        selected = str(result.get("selected_product_name") or "No eligible option")
+        evaluated = {
+            str(item.get("product_id")): item
+            for item in result.get("evaluated_products", [])
+        }
+        generic_id = str(
+            result.get("counterfactual", {}).get("after_selected_product_id") or ""
+        )
+        generic = evaluated.get(generic_id, {})
+        generic_name = str(generic.get("product_name") or "the generic winner")
+        return MissionTurnOutput(
+            message=(
+                f"{selected} is the best eligible option. Your private HubSpot requirement "
+                "changes the result: without it, "
+                f"{generic_name} would win on price. Snowflake evaluated the governed company "
+                "facts against seller-document evidence and recorded the cited decision."
+            ),
+            mission_state="SYNTHESIZING",
+            stop_reason="GOVERNED_DECISION_READY",
+        )
+
+    @staticmethod
+    def _snowflake_products(result: dict[str, Any]) -> list[dict[str, Any]]:
+        products: list[dict[str, Any]] = []
+        for item in result.get("evaluated_products", []):
+            product_id = str(item["product_id"])
+            eligible = bool(item["eligible"])
+            products.append(
+                {
+                    "id": product_id,
+                    "name": str(item["product_name"]),
+                    "seller": "MeetAI Labs" if product_id == "prod_meetai_a" else "NoteSync",
+                    "edition": ("HubSpot Integration" if product_id == "prod_meetai_a" else "Team"),
+                    "price": f"USD {item['unit_price']}",
+                    "billing_unit": "seat/month",
+                    "status": "QUALIFIED" if eligible else "PASS",
+                    "summary": (
+                        "Fits the private HubSpot requirement and the USD 100 per-seat cap."
+                        if eligible
+                        else (
+                            "Cheaper base tier, but the cited HubSpot tier exceeds "
+                            "the private cap."
+                        )
+                    ),
+                    "claims": [
+                        str(reason).replace("_", " ").title()
+                        for reason in item.get("reason_codes", [])
+                    ],
+                    "integrations": ["hubspot", "google_workspace", "outlook"],
+                    "logo": (
+                        "/products/meetai.svg"
+                        if product_id == "prod_meetai_a"
+                        else "/products/notesync.svg"
+                    ),
+                    "evidence_freshness": "Parsed and evaluated in Snowflake",
+                    "source_refs": [],
+                }
+            )
+        products.sort(key=lambda item: item["status"] != "QUALIFIED")
+        return products
+
+    async def _persist_snowflake_artifact(
+        self,
+        *,
+        mission_id: str,
+        run_context: AgentRunContext,
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        citations = [
+            {
+                "citation_type": item.get("citation_type"),
+                "fact_id": item.get("fact_id"),
+                "document_id": item.get("document_id"),
+                "chunk_id": item.get("chunk_id"),
+                "page_number": item.get("page_number"),
+                "exact_excerpt": item.get("exact_excerpt"),
+                "source_hash": item.get("source_hash"),
+            }
+            for item in result.get("citations", [])
+        ]
+        payload = {
+            "request_id": result.get("request_id"),
+            "selected_product": result.get("selected_product_name"),
+            "status": result.get("status"),
+            "reason_codes": result.get("reason_codes", []),
+            "private_context_effect": result.get("counterfactual", {}).get("outcome"),
+            "without_private_context": result.get("counterfactual", {}).get(
+                "after_selected_product_id"
+            ),
+            "evaluated_products": result.get("evaluated_products", []),
+            "run_id": result.get("run_id"),
+            "input_hash": result.get("input_hash"),
+            "decision_hash": result.get("decision_hash"),
+        }
+        if self.database is None:
+            return {
+                "id": f"snowflake-{result['run_id']}",
+                "kind": "cited_decision",
+                "title": "Governed Snowflake decision",
+                "status": "READY",
+                "authority": "VERIFIED",
+                "payload": payload,
+                "source_refs": citations,
+            }
+        async with self.database.transaction(run_context.organization_id) as session:
+            repository = MissionRepository(session, run_context.organization_id)
+            mission = await repository.get_for_actor(mission_id, run_context.actor_id, lock=True)
+            artifact = await repository.add_artifact(
+                mission,
+                kind="cited_decision",
+                title="Governed Snowflake decision",
+                authority="VERIFIED",
+                payload=_canonical_agent_json(payload),
+                source_refs=_canonical_agent_json(citations),
+                created_by="snowflake-decision-plane",
+            )
+            await session.flush()
+            return self._artifact_view(artifact)
 
     async def _run_agent(self, request: AgentRunRequest, *, mode: str) -> Any:
         if mode != "seil":

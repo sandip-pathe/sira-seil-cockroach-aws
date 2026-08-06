@@ -62,6 +62,7 @@ class MissionArtifactDraft(BaseModel):
         "experiment_plan",
         "experiment_result",
         "recommendation",
+        "cited_decision",
         "purchase_proposal",
         "seller_evidence",
     ]
