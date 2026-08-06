@@ -40,12 +40,12 @@ committed because they can contain account metadata.
 
 ## Final migration gate
 
-The application configuration targets account locator `ERJAVEX-TG61158`. The
-authenticated Snowsight tab available during final review was account `AN78325`, so
-the tenant-scope and parser-lineage forward migration was not applied to the target
-account from that browser. Apply `05_decision_ledger.sql`, `06_snowpark_evaluator.sql`,
-and `08_ingest_seller_evidence.sql` in the target account before deploying this
-branch. This is an external account-access gate, not a passing live result.
+Snowflake reports this account through two equivalent identifiers: organization and
+account name `ERJAVEX-TG61158`, and account locator `AN78325` in the Snowsight URL.
+The final read-only verification confirmed the tenant-scope columns in `REQUESTS`
+and `APPROVAL_LEDGER`, 2/2 parser-derived decisive chunk hashes, and the causal audit
+projection (v1 NoteSync with five citations; v2 MeetAI with one citation). A new
+scoped approval is intentionally created only through the explicit UI approval.
 
 ## Real failures and fixes
 

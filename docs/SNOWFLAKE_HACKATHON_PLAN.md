@@ -535,8 +535,8 @@ Verified on 6 August 2026:
 - Focused tests: 5 passed (decision causality, tenant isolation, Prava MCP regression).
 - Web TypeScript, focused Ruff, OpenAPI/client drift, PowerShell parsing, and diff checks pass.
 - Live target proof already shows the material winner change and citations. The original decisive chunks and approval row predate the final lineage/tenant corrections.
-- The open Snowsight browser is account `AN78325`; application configuration targets `ERJAVEX-TG61158`. Therefore the final forward migration was deliberately not claimed as applied to the target account.
+- Snowflake reports the same account as organization/account `ERJAVEX-TG61158` and locator `AN78325`. Final verification confirmed all request/approval scope columns and 2/2 parser-derived decisive chunk hashes in that account.
 - Cortex Search exists in the original live build but is not the runtime authority path. Snowpark plus governed SQL and deterministic reason templates are the submitted fallback architecture.
 - A recursive Codex reviewer could not run because the installed CLI is too old for its configured model; sub-agent and primary-agent reviews supplied the final gates.
 
-Final verdict: **CODE COMPLETE, DEPLOYMENT BLOCKED ON TARGET-ACCOUNT MIGRATION.** Push the reviewed branch; do not deploy it until `scripts/apply_snowflake.ps1` is run against `ERJAVEX-TG61158` and the scoped columns/parser hashes are verified there.
+Final verdict: **CODE AND SNOWFLAKE SCHEMA COMPLETE.** The remaining release work is deployment configuration plus one deliberate UI approval smoke test; no account migration blocker remains.
