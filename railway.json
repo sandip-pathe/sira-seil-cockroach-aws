@@ -6,7 +6,8 @@
   },
   "deploy": {
     "preDeployCommand": [
-      "python -m alembic upgrade head && python scripts/prepare_railway_database.py"
+      "python -m alembic upgrade head",
+      "python scripts/prepare_railway_database.py"
     ]
   }
 }
