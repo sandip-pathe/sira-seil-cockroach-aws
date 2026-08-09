@@ -129,7 +129,7 @@ type Conversation = {
 type Connector = {
   name: string;
   purpose: string;
-  status: "Healthy" | "Needs setup" | "Not connected";
+  status: "Healthy" | "Needs setup" | "Not connected" | "Proof workspace";
   meta: string;
 };
 

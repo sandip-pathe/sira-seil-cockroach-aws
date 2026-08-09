@@ -1,8 +1,9 @@
 param(
   [Parameter(Position = 0, Mandatory = $true)]
-  [ValidateSet("up", "doctor", "reset", "down")]
+  [ValidateSet("up", "doctor", "demo", "reset", "down")]
   [string]$Command,
   [switch]$Contract,
+  [switch]$Assert,
   [string]$Artifacts = ".artifacts/k0"
 )
 
@@ -128,6 +129,40 @@ function Invoke-Contract {
   Write-Output "Runtime: $runtimeArtifact"
 }
 
+function Invoke-Demo {
+  New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
+  Start-DataHub
+  $null = Start-Runtime
+  $null = Reset-ProofState
+  $exchangeArtifact = Join-Path $artifactRoot "exchange-proof.json"
+  $deploymentArtifact = Join-Path $artifactRoot "deployment-proof.json"
+  $failureArtifact = Join-Path $artifactRoot "writeback-failure-proof.json"
+  $workspaceArtifact = Join-Path $artifactRoot "workspace.json"
+  Invoke-Checked -Executable "uv" -Arguments @(
+    "run", "python", "scripts/datahub_k2_exchange_probe.py", "--quiet", "--output", $exchangeArtifact
+  )
+  Invoke-Checked -Executable "uv" -Arguments @(
+    "run", "python", "scripts/datahub_k3_deployment_probe.py", "--quiet", "--output", $deploymentArtifact
+  )
+  if ($Assert) {
+    Invoke-Checked -Executable "uv" -Arguments @(
+      "run", "python", "scripts/datahub_k3_deployment_probe.py", "--simulate-writeback-failure",
+      "--quiet", "--output", $failureArtifact
+    )
+  }
+  $aggregateArguments = @(
+    "run", "python", "scripts/build_proof_workspace_artifact.py",
+    "--exchange", $exchangeArtifact, "--deployment", $deploymentArtifact,
+    "--output", $workspaceArtifact
+  )
+  if ($Assert) {
+    $aggregateArguments += @("--failure", $failureArtifact, "--assert")
+  }
+  Invoke-Checked -Executable "uv" -Arguments $aggregateArguments
+  Write-Output "PROOF DEMO PASS"
+  Write-Output "Workspace: $workspaceArtifact"
+}
+
 switch ($Command) {
   "up" {
     Start-DataHub
@@ -143,6 +178,9 @@ switch ($Command) {
       if (@($running).Count -ne 3) { throw "K0 runtime is incomplete. Run: ./scripts/proof.ps1 up" }
       Write-Output "K0 READ-ONLY HEALTH PASS"
     }
+  }
+  "demo" {
+    Invoke-Demo
   }
   "reset" {
     Start-DataHub

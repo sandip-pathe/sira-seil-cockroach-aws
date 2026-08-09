@@ -1178,7 +1178,8 @@
             "enum": [
               "Healthy",
               "Needs setup",
-              "Not connected"
+              "Not connected",
+              "Proof workspace"
             ],
             "title": "Status",
             "type": "string"
@@ -5062,6 +5063,502 @@
         "title": "ProductEvidenceComponent",
         "type": "object"
       },
+      "ProofActivationView": {
+        "properties": {
+          "active_adapter_digest": {
+            "title": "Active Adapter Digest",
+            "type": "string"
+          },
+          "healthy_adapter_digest": {
+            "title": "Healthy Adapter Digest",
+            "type": "string"
+          },
+          "prior_adapter_digest": {
+            "title": "Prior Adapter Digest",
+            "type": "string"
+          },
+          "prior_route_version": {
+            "title": "Prior Route Version",
+            "type": "integer"
+          },
+          "routed_adapter_id": {
+            "title": "Routed Adapter Id",
+            "type": "string"
+          },
+          "routed_traffic_result_hash": {
+            "title": "Routed Traffic Result Hash",
+            "type": "string"
+          },
+          "selected_adapter_digest": {
+            "title": "Selected Adapter Digest",
+            "type": "string"
+          },
+          "status": {
+            "const": "ACTIVE_VERIFIED",
+            "title": "Status",
+            "type": "string"
+          },
+          "tested_adapter_digest": {
+            "title": "Tested Adapter Digest",
+            "type": "string"
+          },
+          "verified_route_version": {
+            "title": "Verified Route Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "tested_adapter_digest",
+          "selected_adapter_digest",
+          "healthy_adapter_digest",
+          "active_adapter_digest",
+          "prior_adapter_digest",
+          "prior_route_version",
+          "verified_route_version",
+          "routed_traffic_result_hash",
+          "routed_adapter_id"
+        ],
+        "title": "ProofActivationView",
+        "type": "object"
+      },
+      "ProofAuthorityView": {
+        "properties": {
+          "actor_role": {
+            "title": "Actor Role",
+            "type": "string"
+          },
+          "approval_subject_hash": {
+            "title": "Approval Subject Hash",
+            "type": "string"
+          },
+          "approved_adapter_digest": {
+            "title": "Approved Adapter Digest",
+            "type": "string"
+          },
+          "datahub_owner_urn": {
+            "title": "Datahub Owner Urn",
+            "type": "string"
+          },
+          "pre_effect_reread_matched": {
+            "title": "Pre Effect Reread Matched",
+            "type": "boolean"
+          },
+          "status": {
+            "const": "CONSUMED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "actor_role",
+          "datahub_owner_urn",
+          "approval_subject_hash",
+          "approved_adapter_digest",
+          "pre_effect_reread_matched"
+        ],
+        "title": "ProofAuthorityView",
+        "type": "object"
+      },
+      "ProofCandidateView": {
+        "properties": {
+          "adapter_id": {
+            "title": "Adapter Id",
+            "type": "string"
+          },
+          "artifact_digest": {
+            "title": "Artifact Digest",
+            "type": "string"
+          },
+          "eligible": {
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "gate_results": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Gate Results",
+            "type": "object"
+          },
+          "price": {
+            "title": "Price",
+            "type": "string"
+          },
+          "projection_hash": {
+            "title": "Projection Hash",
+            "type": "string"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "seller_organization_id": {
+            "title": "Seller Organization Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adapter_id",
+          "seller_organization_id",
+          "artifact_digest",
+          "projection_hash",
+          "price",
+          "eligible",
+          "selected",
+          "gate_results"
+        ],
+        "title": "ProofCandidateView",
+        "type": "object"
+      },
+      "ProofContextView": {
+        "properties": {
+          "causal_sequence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Causal Sequence",
+            "type": "array"
+          },
+          "datahub_status": {
+            "const": "LIVE_CAUSAL_AUTHORITY",
+            "title": "Datahub Status",
+            "type": "string"
+          },
+          "decisive_fact": {
+            "title": "Decisive Fact",
+            "type": "string"
+          },
+          "decisive_fact_state": {
+            "title": "Decisive Fact State",
+            "type": "string"
+          },
+          "environment_fingerprint": {
+            "title": "Environment Fingerprint",
+            "type": "string"
+          },
+          "manifest_hash": {
+            "title": "Manifest Hash",
+            "type": "string"
+          },
+          "observation_hash": {
+            "title": "Observation Hash",
+            "type": "string"
+          },
+          "requirements": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Requirements",
+            "type": "array"
+          },
+          "status": {
+            "const": "VERIFIED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "datahub_status",
+          "environment_fingerprint",
+          "observation_hash",
+          "manifest_hash",
+          "decisive_fact",
+          "decisive_fact_state",
+          "causal_sequence",
+          "requirements"
+        ],
+        "title": "ProofContextView",
+        "type": "object"
+      },
+      "ProofFailureRecoveryView": {
+        "properties": {
+          "receipt_issued": {
+            "title": "Receipt Issued",
+            "type": "boolean"
+          },
+          "restored_adapter_digest": {
+            "title": "Restored Adapter Digest",
+            "type": "string"
+          },
+          "safe_error_code": {
+            "title": "Safe Error Code",
+            "type": "string"
+          },
+          "status": {
+            "const": "ROLLBACK_VERIFIED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "safe_error_code",
+          "receipt_issued",
+          "restored_adapter_digest"
+        ],
+        "title": "ProofFailureRecoveryView",
+        "type": "object"
+      },
+      "ProofReceiptView": {
+        "properties": {
+          "core_hash": {
+            "title": "Core Hash",
+            "type": "string"
+          },
+          "datahub_anchor_urn": {
+            "title": "Datahub Anchor Urn",
+            "type": "string"
+          },
+          "datahub_projection_hash": {
+            "title": "Datahub Projection Hash",
+            "type": "string"
+          },
+          "historical_route_state": {
+            "title": "Historical Route State",
+            "type": "string"
+          },
+          "reread_matched": {
+            "title": "Reread Matched",
+            "type": "boolean"
+          },
+          "status": {
+            "const": "REREAD_VERIFIED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "core_hash",
+          "datahub_anchor_urn",
+          "datahub_projection_hash",
+          "reread_matched",
+          "historical_route_state"
+        ],
+        "title": "ProofReceiptView",
+        "type": "object"
+      },
+      "ProofRecoveryView": {
+        "properties": {
+          "control_tag_absent": {
+            "title": "Control Tag Absent",
+            "type": "boolean"
+          },
+          "current_adapter_digest": {
+            "title": "Current Adapter Digest",
+            "type": "string"
+          },
+          "pii_present": {
+            "title": "Pii Present",
+            "type": "boolean"
+          },
+          "status": {
+            "const": "RESTORED",
+            "title": "Status",
+            "type": "string"
+          },
+          "writeback_failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProofFailureRecoveryView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "pii_present",
+          "control_tag_absent",
+          "current_adapter_digest"
+        ],
+        "title": "ProofRecoveryView",
+        "type": "object"
+      },
+      "ProofRunView": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ProofCandidateView"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "decision_graph_evaluation_hash": {
+            "title": "Decision Graph Evaluation Hash",
+            "type": "string"
+          },
+          "decision_hash": {
+            "title": "Decision Hash",
+            "type": "string"
+          },
+          "negative_control_passed": {
+            "title": "Negative Control Passed",
+            "type": "boolean"
+          },
+          "status": {
+            "const": "VERIFIED",
+            "title": "Status",
+            "type": "string"
+          },
+          "winner_adapter_id": {
+            "title": "Winner Adapter Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "winner_adapter_id",
+          "decision_hash",
+          "decision_graph_evaluation_hash",
+          "negative_control_passed",
+          "candidates"
+        ],
+        "title": "ProofRunView",
+        "type": "object"
+      },
+      "ProofRunnerView": {
+        "properties": {
+          "artifact_path": {
+            "title": "Artifact Path",
+            "type": "string"
+          },
+          "next_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Command"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "safe_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safe Error Code"
+          },
+          "status": {
+            "enum": [
+              "IDLE",
+              "RUNNING",
+              "COMPLETE",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "artifact_path"
+        ],
+        "title": "ProofRunnerView",
+        "type": "object"
+      },
+      "ProofTraceItemView": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ProofTraceItemView",
+        "type": "object"
+      },
+      "ProofWorkspaceView": {
+        "properties": {
+          "activation": {
+            "$ref": "#/components/schemas/ProofActivationView"
+          },
+          "authority": {
+            "$ref": "#/components/schemas/ProofAuthorityView"
+          },
+          "context": {
+            "$ref": "#/components/schemas/ProofContextView"
+          },
+          "overall_status": {
+            "const": "COMPLETE",
+            "title": "Overall Status",
+            "type": "string"
+          },
+          "proof_run": {
+            "$ref": "#/components/schemas/ProofRunView"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/ProofReceiptView"
+          },
+          "recovery": {
+            "$ref": "#/components/schemas/ProofRecoveryView"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "ProofWorkspace/v0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "trace": {
+            "items": {
+              "$ref": "#/components/schemas/ProofTraceItemView"
+            },
+            "title": "Trace",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "run_id",
+          "overall_status",
+          "context",
+          "proof_run",
+          "authority",
+          "activation",
+          "receipt",
+          "recovery",
+          "trace",
+          "summary"
+        ],
+        "title": "ProofWorkspaceView",
+        "type": "object"
+      },
       "ProposalDecisionCreate": {
         "additionalProperties": false,
         "properties": {
@@ -7312,6 +7809,16 @@
             },
             "title": "Fit Rules",
             "type": "array"
+          },
+          "proof_adapter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SellerProofAdapterDraft"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -7357,6 +7864,16 @@
             "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
             "title": "Product Id",
             "type": "string"
+          },
+          "proof_adapter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SellerProofAdapterDraft"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "publisher_authority": {
             "$ref": "#/components/schemas/PackAuthority"
@@ -7538,6 +8055,16 @@
             "title": "Product Id",
             "type": "string"
           },
+          "proof_adapter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SellerProofAdapterDraft"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "published_at": {
             "anyOf": [
               {
@@ -7641,6 +8168,90 @@
           "results"
         ],
         "title": "SellerProductSearchView",
+        "type": "object"
+      },
+      "SellerProofAdapterDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Adapter Id",
+            "type": "string"
+          },
+          "artifact_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Artifact Digest",
+            "type": "string"
+          },
+          "capabilities": {
+            "items": {
+              "enum": [
+                "SUPPORT_SUMMARIZATION",
+                "CUSTOMER_EMAIL_OUTPUT",
+                "PII_REDACTION"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "conformance_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Conformance Hash",
+            "type": "string"
+          },
+          "declared_region": {
+            "enum": [
+              "EU",
+              "IN",
+              "US"
+            ],
+            "title": "Declared Region",
+            "type": "string"
+          },
+          "fixed_price": {
+            "$ref": "#/components/schemas/SellerProofAdapterPrice"
+          },
+          "protocol_version": {
+            "const": "TrialCase/v0",
+            "title": "Protocol Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adapter_id",
+          "artifact_digest",
+          "protocol_version",
+          "capabilities",
+          "declared_region",
+          "fixed_price",
+          "conformance_hash"
+        ],
+        "title": "SellerProofAdapterDraft",
+        "type": "object"
+      },
+      "SellerProofAdapterPrice": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "currency": {
+            "const": "USD",
+            "default": "USD",
+            "title": "Currency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "title": "SellerProofAdapterPrice",
         "type": "object"
       },
       "SellerPublishCreate": {
@@ -17603,6 +18214,648 @@
         ]
       }
     },
+    "/v1/proof/runs": {
+      "post": {
+        "operationId": "start_proof_run",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProofRunnerView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Start Proof Run",
+        "tags": [
+          "proof"
+        ]
+      }
+    },
+    "/v1/proof/runs/current": {
+      "get": {
+        "operationId": "get_proof_run",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProofRunnerView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Proof Run",
+        "tags": [
+          "proof"
+        ]
+      }
+    },
+    "/v1/proof/workspace": {
+      "get": {
+        "operationId": "get_proof_workspace",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProofWorkspaceView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Proof Workspace",
+        "tags": [
+          "proof"
+        ]
+      }
+    },
     "/v1/purchase-intents/{intent_id}/approval-requests": {
       "post": {
         "operationId": "create_approval_request",
@@ -24586,6 +25839,9 @@
     },
     {
       "name": "workspace"
+    },
+    {
+      "name": "proof"
     }
   ]
 }

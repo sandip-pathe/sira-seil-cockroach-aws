@@ -182,9 +182,9 @@ async def workspace_connectors(
         {
             "id": "datahub",
             "name": "DataHub",
-            "purpose": "Structured company and product context",
-            "status": "Not connected",
-            "meta": "Optional",
+            "purpose": "Live governed context, owner authority, and proof receipts",
+            "status": "Proof workspace",
+            "meta": "Operate and inspect the causal proof at /proof",
         },
         {
             "id": "google-workspace",

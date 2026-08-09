@@ -6,6 +6,7 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -32,6 +33,8 @@ from .marketplace import (
 )
 from .prava_mcp_routes import router as prava_mcp_router
 from .prava_mcp_service import PravaMcpConnectionService
+from .proof_routes import router as proof_router
+from .proof_runtime import ProofWorkspaceRuntime
 from .routes import public_router, router
 from .routes_v2 import router_v2
 from .schemas import ErrorEnvelope
@@ -45,6 +48,7 @@ from .workspace_routes import workspace_router
 from .workspace_service import WorkspaceService
 
 logger = logging.getLogger(__name__)
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def operation_id(route: APIRoute) -> str:
@@ -203,7 +207,10 @@ def create_app(
             public_base_url=resolved_settings.public_base_url,
             web_base_url=resolved_settings.web_base_url,
         )
+        proof_runtime = ProofWorkspaceRuntime(REPO_ROOT)
+        application.state.proof_runtime = proof_runtime
         yield
+        await proof_runtime.close()
         await close_senso(senso_providers)
         close_identity = getattr(resolved_identity_adapter, "aclose", None)
         if close_identity is not None:
@@ -243,6 +250,7 @@ def create_app(
             {"name": "stackfile"},
             {"name": "workflows"},
             {"name": "workspace"},
+            {"name": "proof"},
         ],
     )
 
@@ -454,6 +462,7 @@ def create_app(
     application.include_router(workspace_router)
     application.include_router(prava_mcp_router)
     application.include_router(snowflake_router)
+    application.include_router(proof_router)
     application.include_router(router)
     return application
 

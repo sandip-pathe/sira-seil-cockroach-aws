@@ -127,7 +127,7 @@ class ConnectorView(BaseModel):
     id: str
     name: str
     purpose: str
-    status: Literal["Healthy", "Needs setup", "Not connected"]
+    status: Literal["Healthy", "Needs setup", "Not connected", "Proof workspace"]
     meta: str
 
 

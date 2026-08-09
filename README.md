@@ -1,116 +1,88 @@
-# Seilnsara
+# SIRA Proof of Fit
 
-> **SIRA represents the buyer. SEIL represents the seller. Together they find the right fit and complete the deal.**
+SIRA is a buyer agent that does not trust a software claim until it can prove the release fits the buyer's governed environment. SEIL is the seller-side boundary that publishes a minimum-disclosure, executable proof adapter.
 
-Seilnsara is a two-sided agentic marketplace for B2B software.
+Together they turn internal software purchasing from “compare pages and book a demo” into a governed transaction:
 
-- **SIRA** learns what a company needs, protects its private context, finds relevant products, and decides for the buyer.
-- **SEIL** learns a product's positioning, capabilities, evidence, pricing, and limitations. It makes the strongest honest case—or returns `PASS` when the product is wrong for that buyer.
-- **Together**, the agents exchange permitted requirements, evidence, questions, and offers. Once the buyer approves a match, Prava gives the exact transaction bounded payment authority.
+`DataHub fact → requirement manifest → identical trials → deterministic winner → exact owner approval → verified effect → immutable receipt`
 
-## Why two agents?
+## Why DataHub is essential
 
-The buyer understands the company. The seller understands the product. Today, both sides waste time reconstructing the missing half through search, forms, sales calls, and generic demos.
+DataHub is the live causal and authority plane, not a connector badge or citation source.
 
-Buyer agents still have to infer the product. Seller agents still have to guess the buyer. Seilnsara gives each side an agent with a clear loyalty—and a shared path from understanding to transaction.
+- SIRA reads schemas, lineage, tags, structured properties, and ownership through DataHub MCP.
+- A real governed fact changes the executable requirements and flips the selected seller release.
+- The current DataHub owner authorizes one exact manifest, decision, projection, and artifact digest.
+- After real routed traffic verifies the selected digest, SIRA projects the historical receipt to DataHub and proves it by a fresh reread.
 
-## Product flow
+The demo holds every non-DataHub input fixed and produces `adapter B → adapter A → adapter B` by removing and restoring one PII tag. An unrelated governed mutation is the negative control and cannot change the decision.
 
-1. The buyer tells SIRA what the company is trying to solve.
-2. SIRA creates a requirement brief containing only what the buyer permits it to share.
-3. Relevant SEILs respond with product evidence, limitations, questions, pricing, and terms.
-4. SIRA compares the responses and recommends the best-supported fit for that company.
-5. The buyer approves the exact offer, and Prava enables the approved transaction.
+## Run the proof
 
-No paid ranking. No seller access to private buyer context. SEIL gets a voice; SIRA keeps the buyer's vote.
+Requirements:
 
-## Demo status
-
-The repository includes a deterministic, fictional `consultco_v1` demo that shows company-aware evaluation, seller `PASS`, comparison, approval, and the purchase-authority flow.
-
-It is not evidence of a production deployment or a real-money purchase. Live Prava completion, live Senso retrieval, real seller-maintained product knowledge, and outcome learning must be demonstrated separately before they are claimed.
-
-## Run locally
-
-### Requirements
-
-- Node.js 22+
-- Python 3.12 or 3.13
-- `uv` with Python 3.11 available for the pinned DataHub CLI and MCP server
+- Windows with PowerShell
 - Docker Desktop with Compose
+- Node.js 22+, pnpm 11, Python 3.12+, and `uv`
+- About 8 GB of free memory for the local DataHub quickstart
 
-### Start the complete local stack
+No DataHub Cloud account or hackathon credential is required. The runner starts self-hosted DataHub Core 1.7.0, enables local authentication, and uses the open-source DataHub MCP server 0.6.0. Its local token stays in the standard DataHub profile outside this repository.
 
 ```powershell
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+.\scripts\proof.cmd up
+.\scripts\proof.cmd doctor
+.\scripts\proof.cmd demo -Assert -Artifacts .artifacts/proof
+```
+
+Start the product API and web app in a second terminal:
+
+```powershell
 docker compose up --build -d --wait api
-corepack prepare pnpm@11.9.0 --activate
 corepack pnpm install --frozen-lockfile
 corepack pnpm dev:web
 ```
 
-Open:
+Open the operator workspace at <http://localhost:3000/proof>. It shows the exact same context, trials, approval, active digest, receipt hash, DataHub reread, and restoration state as `.artifacts/proof/workspace.json`.
 
-- Web app: <http://localhost:3000>
-- API: <http://127.0.0.1:8000>
-- API documentation: <http://127.0.0.1:8000/docs>
+The public proof CLI is intentionally frozen to five verbs:
 
-The default local experience uses clearly labelled fictional data. Provider-backed execution requires the corresponding credentials and services configured in `.env`.
+```powershell
+.\scripts\proof.cmd doctor             # read-only health
+.\scripts\proof.cmd up                 # start DataHub and isolated adapters
+.\scripts\proof.cmd demo -Assert       # run and verify the transaction
+.\scripts\proof.cmd reset              # restore the seeded PII tag and route
+.\scripts\proof.cmd down               # stop proof services
+```
 
-### Verify the repository
+## What the assertion proves
+
+- Seller releases cross an allowlisted SEIL-to-SIRA projection boundary; private seller fields do not.
+- Both immutable image digests receive the same synthetic inputs in network-isolated containers.
+- The existing deterministic Decision Graph selects the eligible release.
+- Wrong-owner, stale-context, substituted-digest, expired, and revoked approvals block before any router call.
+- Tested = selected = approved = healthy = active digest.
+- Activation uses compare-and-set, serves real routed traffic, and rolls back to the prior digest.
+- The receipt core excludes timestamps, delivery state, and its own hash.
+- DataHub writeback is successful only after a fresh MCP reread matches the receipt.
+- An induced writeback failure issues no success receipt and verifies rollback.
+- The final PII tag, control tag, and route match their original state.
+
+All inputs and products are synthetic. The proof demonstrates a bounded local deployment mechanism, not arbitrary production deployment or a real software purchase.
+
+## Product surfaces
+
+- **Context** — live DataHub health, fingerprint, decisive fact, requirements, and provenance.
+- **Proof run** — two SEIL releases, identical trials, gate results, artifacts, and deterministic winner.
+- **Activation** — exact owner authority, digest identity, health, routed traffic, and rollback.
+- **Receipt** — immutable core, DataHub projection/reread, counterfactual, and recovery evidence.
+
+The API contract is generated from `contracts/openapi/openapi.json`; the typed client lives in `packages/api-client`. The proof routes are `/v1/proof/workspace`, `/v1/proof/runs/current`, and `/v1/proof/runs`.
+
+## Repository verification
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1
+pnpm build:web
 ```
 
-This runs formatting, linting, type checks, tests, contract checks, coverage checks, and credential scanning. PostgreSQL and provider-dependent checks report their exact blockers when their required services are unavailable.
-
-### DataHub K0 feasibility covenant
-
-K0 is a self-hosted proof surface; it does not require a DataHub Cloud account or hackathon-issued credentials. It pins DataHub Core `1.7.0` and the open-source DataHub MCP server `0.6.0`. The local setup creates its own DataHub session token and keeps it outside the repository in the standard DataHub profile.
-
-```powershell
-.\scripts\proof.cmd up
-.\scripts\proof.cmd doctor -Contract
-```
-
-The contract must prove, with live rereads, a two-hop lineage read, invalid-credential rejection, field-tag and structured-property mutation/recovery, a Decision document write/update/reread, two distinct isolated adapter artifacts, atomic routing, induced failure with no state change, and rollback. Redacted evidence is written under `.artifacts/k0/`.
-
-```powershell
-.\scripts\proof.cmd reset
-.\scripts\proof.cmd down
-```
-
-## Product
-
-### SIRA — buyer workspace
-
-![SIRA buyer workspace gathering company context and protecting the buyer boundary](docs/screenshots/sira-buyer-workspace.png)
-
-### SEIL — seller workspace
-
-![SEIL seller workspace showing product evidence readiness](docs/screenshots/seil-seller-workspace.png)
-
-Read the concise [product one-pager](docs/business/ONE_PAGER.md).
-
-## How the marketplace works
-
-![SIRA and SEIL product-company fit workflow](diagrams/product-company-fit-workflow.svg)
-
-## Product knowledge flywheel
-
-![SIRA and SEIL product-company fit flywheel](diagrams/product-company-fit-flywheel.svg)
-
-## Technology
-
-Next.js and React power the two workspaces. FastAPI and PostgreSQL hold the product and transaction state. OpenAI supports structured agent reasoning, Senso supplies evidence retrieval, Prava provides payment authority, and Temporal coordinates durable execution.
-
-The model may propose and explain. Deterministic application code owns eligibility, ranking, approval, and payment boundaries.
-
-## Current scope
-
-The initial product is for B2B software decisions:
-
-- **Buyers:** operations, IT, finance, and functional leaders choosing software.
-- **Sellers:** software companies that want their product represented accurately to qualified buyers.
-- **Business model:** buyer-paid assisted purchasing first; seller workspaces and integrations later, never pay-to-rank.
+PostgreSQL is the canonical durable store. Tenant-owned proof projections, exact approvals, effects, and receipt cores use forced row-level security. Receipt cores are insert-only. Provider credentials have no persistence column.

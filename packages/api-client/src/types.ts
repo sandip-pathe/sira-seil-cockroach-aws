@@ -195,7 +195,7 @@ export interface ConnectorView {
   meta: string;
   name: string;
   purpose: string;
-  status: "Healthy" | "Needs setup" | "Not connected";
+  status: "Healthy" | "Needs setup" | "Not connected" | "Proof workspace";
 }
 
 export interface ConsentCreate {
@@ -831,6 +831,111 @@ export interface ProductEvidenceComponent {
   verification_summary: string;
 }
 
+export interface ProofActivationView {
+  active_adapter_digest: string;
+  healthy_adapter_digest: string;
+  prior_adapter_digest: string;
+  prior_route_version: number;
+  routed_adapter_id: string;
+  routed_traffic_result_hash: string;
+  selected_adapter_digest: string;
+  status: "ACTIVE_VERIFIED";
+  tested_adapter_digest: string;
+  verified_route_version: number;
+}
+
+export interface ProofAuthorityView {
+  actor_role: string;
+  approval_subject_hash: string;
+  approved_adapter_digest: string;
+  datahub_owner_urn: string;
+  pre_effect_reread_matched: boolean;
+  status: "CONSUMED";
+}
+
+export interface ProofCandidateView {
+  adapter_id: string;
+  artifact_digest: string;
+  eligible: boolean;
+  gate_results: { [key: string]: boolean; };
+  price: string;
+  projection_hash: string;
+  selected: boolean;
+  seller_organization_id: string;
+}
+
+export interface ProofContextView {
+  causal_sequence: string[];
+  datahub_status: "LIVE_CAUSAL_AUTHORITY";
+  decisive_fact: string;
+  decisive_fact_state: string;
+  environment_fingerprint: string;
+  manifest_hash: string;
+  observation_hash: string;
+  requirements: string[];
+  status: "VERIFIED";
+}
+
+export interface ProofFailureRecoveryView {
+  receipt_issued: boolean;
+  restored_adapter_digest: string;
+  safe_error_code: string;
+  status: "ROLLBACK_VERIFIED";
+}
+
+export interface ProofReceiptView {
+  core_hash: string;
+  datahub_anchor_urn: string;
+  datahub_projection_hash: string;
+  historical_route_state: string;
+  reread_matched: boolean;
+  status: "REREAD_VERIFIED";
+}
+
+export interface ProofRecoveryView {
+  control_tag_absent: boolean;
+  current_adapter_digest: string;
+  pii_present: boolean;
+  status: "RESTORED";
+  writeback_failure?: ProofFailureRecoveryView | null;
+}
+
+export interface ProofRunnerView {
+  artifact_path: string;
+  next_command?: string | null;
+  run_id?: string | null;
+  safe_error_code?: string | null;
+  status: "IDLE" | "RUNNING" | "COMPLETE" | "FAILED";
+}
+
+export interface ProofRunView {
+  candidates: ProofCandidateView[];
+  decision_graph_evaluation_hash: string;
+  decision_hash: string;
+  negative_control_passed: boolean;
+  status: "VERIFIED";
+  winner_adapter_id: string;
+}
+
+export interface ProofTraceItemView {
+  label: string;
+  value: string;
+}
+
+export interface ProofWorkspaceView {
+  activation: ProofActivationView;
+  authority: ProofAuthorityView;
+  context: ProofContextView;
+  overall_status: "COMPLETE";
+  proof_run: ProofRunView;
+  receipt: ProofReceiptView;
+  recovery: ProofRecoveryView;
+  run_id: string;
+  schema_version: "ProofWorkspace/v0";
+  summary: string;
+  trace: ProofTraceItemView[];
+}
+
 export interface ProposalDecisionCreate {
   reason: string;
 }
@@ -1183,6 +1288,7 @@ export interface SellerPackDraftPatch {
   base_revision: number;
   claims?: SellerEvidenceClaim[];
   fit_rules?: SellerEvidenceClaim[];
+  proof_adapter?: SellerProofAdapterDraft | null;
 }
 
 export interface SellerPackDraftView {
@@ -1191,6 +1297,7 @@ export interface SellerPackDraftView {
   fit_rules: SellerEvidenceClaim[];
   id: string;
   product_id: string;
+  proof_adapter?: SellerProofAdapterDraft | null;
   publisher_authority: PackAuthority;
   revision: number;
   revision_hash: string;
@@ -1226,6 +1333,7 @@ export interface SellerPackVersionView {
   content_hash: string;
   id: string;
   product_id: string;
+  proof_adapter?: SellerProofAdapterDraft | null;
   published_at?: string | null;
   publisher_authority: PackAuthority;
   state: SellerEvidenceState;
@@ -1244,6 +1352,21 @@ export interface SellerProductSearchItem {
 
 export interface SellerProductSearchView {
   results: SellerProductSearchItem[];
+}
+
+export interface SellerProofAdapterDraft {
+  adapter_id: string;
+  artifact_digest: string;
+  capabilities: Array<"SUPPORT_SUMMARIZATION" | "CUSTOMER_EMAIL_OUTPUT" | "PII_REDACTION">;
+  conformance_hash: string;
+  declared_region: "EU" | "IN" | "US";
+  fixed_price: SellerProofAdapterPrice;
+  protocol_version: "TrialCase/v0";
+}
+
+export interface SellerProofAdapterPrice {
+  amount: string;
+  currency?: "USD";
 }
 
 export interface SellerPublishCreate {
@@ -1547,6 +1670,8 @@ export interface Operations {
   get_decision_request: { method: "GET"; path: "/v1/decision-requests/{request_id}"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: DecisionRequestView; requiresIdempotency: false; };
   get_decision_room: { method: "GET"; path: "/v1/decision-requests/{request_id}/decision-view"; pathParams: { request_id: string; }; queryParams: { version?: number | null; }; body: never; response: DecisionView; requiresIdempotency: false; };
   get_decision_rules: { method: "GET"; path: "/v1/decision-requests/{request_id}/decision-rules"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: DecisionRulesView; requiresIdempotency: false; };
+  get_proof_run: { method: "GET"; path: "/v1/proof/runs/current"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: ProofRunnerView; requiresIdempotency: false; };
+  get_proof_workspace: { method: "GET"; path: "/v1/proof/workspace"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: ProofWorkspaceView; requiresIdempotency: false; };
   get_receipt: { method: "GET"; path: "/v1/purchases/{purchase_id}/receipt"; pathParams: { purchase_id: string; }; queryParams: Record<never, never>; body: never; response: ReceiptView; requiresIdempotency: false; };
   get_requirement_brief: { method: "GET"; path: "/v1/requirement-briefs/{brief_id}"; pathParams: { brief_id: string; }; queryParams: Record<never, never>; body: never; response: RequirementBriefView; requiresIdempotency: false; };
   get_snowflake_decision: { method: "GET"; path: "/v1/snowflake/decisions/{request_id}"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: { [key: string]: unknown; }; requiresIdempotency: false; };
@@ -1588,6 +1713,7 @@ export interface Operations {
   seller_evidence_suspend: { method: "POST"; path: "/v1/seller/pack-versions/{version_id}/suspend"; pathParams: { version_id: string; }; queryParams: Record<never, never>; body: SellerSuspendCreate; response: SellerPackVersionView; requiresIdempotency: true; };
   simulate_decision: { method: "POST"; path: "/v1/decisions/{decision_id}/simulations"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: DecisionSimulationCreate; response: DecisionSimulationView; requiresIdempotency: true; };
   start_action_run: { method: "POST"; path: "/v1/decisions/{decision_id}/action-runs"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: ActionRunCreate; response: ActionRunView; requiresIdempotency: true; };
+  start_proof_run: { method: "POST"; path: "/v1/proof/runs"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: ProofRunnerView; requiresIdempotency: false; };
   workspace_capabilities: { method: "GET"; path: "/v1/capabilities"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: CapabilityView[]; requiresIdempotency: false; };
   workspace_catalog: { method: "GET"; path: "/v1/workspace/catalog"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: CatalogProductView[]; requiresIdempotency: false; };
   workspace_chat: { method: "POST"; path: "/v1/workspace/chat"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: WorkspaceChatCreate; response: WorkspaceChatView; requiresIdempotency: false; };
