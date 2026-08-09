@@ -1,0 +1,15 @@
+- id: io.sira.proof.allowedRegion
+  qualified_name: io.sira.proof.allowedRegion
+  type: string
+  cardinality: SINGLE
+  display_name: SIRA Allowed Region
+  entity_types:
+    - dataset
+  description: Region in which the proof adapter is allowed to process the governed dataset.
+  allowed_values:
+    - value: IN
+      description: India
+    - value: EU
+      description: European Union
+    - value: US
+      description: United States

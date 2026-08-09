@@ -41,6 +41,7 @@ Thumbs.db
 # Runtime output
 *.log
 tmp/
+.artifacts/
 .gstack/
 
 .vercel

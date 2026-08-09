@@ -1,0 +1,64 @@
+services:
+  adapter-a:
+    image: sira-proof-adapter-a:k0
+    build:
+      context: ./runtime
+      args:
+        COMPONENT_ID: adapter-a
+    environment:
+      ADAPTER_ARTIFACT_DIGEST: ${ADAPTER_A_DIGEST:?ADAPTER_A_DIGEST is required}
+      ADAPTER_SOCKET: /run/proof/adapter-a.sock
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=8m
+    volumes:
+      - proof-sockets:/run/proof
+    restart: unless-stopped
+
+  adapter-b:
+    image: sira-proof-adapter-b:k0
+    build:
+      context: ./runtime
+      args:
+        COMPONENT_ID: adapter-b
+    environment:
+      ADAPTER_ARTIFACT_DIGEST: ${ADAPTER_B_DIGEST:?ADAPTER_B_DIGEST is required}
+      ADAPTER_SOCKET: /run/proof/adapter-b.sock
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=8m
+    volumes:
+      - proof-sockets:/run/proof
+    restart: unless-stopped
+
+  router:
+    image: sira-proof-router:k0
+    build:
+      context: ./runtime
+      args:
+        COMPONENT_ID: router
+    command: [python, /app/router_server.py]
+    environment:
+      INITIAL_ADAPTER_DIGEST: ${ADAPTER_B_DIGEST:?ADAPTER_B_DIGEST is required}
+      INITIAL_ADAPTER_SOCKET: /run/proof/adapter-b.sock
+      ROUTER_SOCKET: /run/proof/router.sock
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=8m
+      - /state:rw,noexec,nosuid,size=8m,uid=65532,gid=65532,mode=0700
+    volumes:
+      - proof-sockets:/run/proof
+    depends_on: [adapter-a, adapter-b]
+    restart: unless-stopped
+
+volumes:
+  proof-sockets:

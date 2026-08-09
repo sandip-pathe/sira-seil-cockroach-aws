@@ -36,6 +36,7 @@ It is not evidence of a production deployment or a real-money purchase. Live Pra
 
 - Node.js 22+
 - Python 3.12 or 3.13
+- `uv` with Python 3.11 available for the pinned DataHub CLI and MCP server
 - Docker Desktop with Compose
 
 ### Start the complete local stack
@@ -63,6 +64,22 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1
 ```
 
 This runs formatting, linting, type checks, tests, contract checks, coverage checks, and credential scanning. PostgreSQL and provider-dependent checks report their exact blockers when their required services are unavailable.
+
+### DataHub K0 feasibility covenant
+
+K0 is a self-hosted proof surface; it does not require a DataHub Cloud account or hackathon-issued credentials. It pins DataHub Core `1.7.0` and the open-source DataHub MCP server `0.6.0`. The local setup creates its own DataHub session token and keeps it outside the repository in the standard DataHub profile.
+
+```powershell
+.\scripts\proof.cmd up
+.\scripts\proof.cmd doctor -Contract
+```
+
+The contract must prove, with live rereads, a two-hop lineage read, invalid-credential rejection, field-tag and structured-property mutation/recovery, a Decision document write/update/reread, two distinct isolated adapter artifacts, atomic routing, induced failure with no state change, and rollback. Redacted evidence is written under `.artifacts/k0/`.
+
+```powershell
+.\scripts\proof.cmd reset
+.\scripts\proof.cmd down
+```
 
 ## Product
 
