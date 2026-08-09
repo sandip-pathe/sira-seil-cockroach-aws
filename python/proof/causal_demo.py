@@ -7,9 +7,12 @@ import json
 import os
 import shutil
 import subprocess
+from contextlib import AsyncExitStack
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+
+from mcp import ClientSession
 
 from domain.hashing import content_hash
 
@@ -123,14 +126,14 @@ def _run_record(
 async def _compile_and_run(
     label: str,
     releases: tuple[CandidateRelease, ...] | None,
+    session: ClientSession,
 ) -> tuple[
     EnvironmentObservation,
     EvaluationManifest,
     CampaignDecision,
     dict[str, Any],
 ]:
-    async with open_session() as session:
-        observation = await read_stable(session)
+    observation = await read_stable(session)
     manifest = compile_manifest(observation)
     decision, campaign = await asyncio.to_thread(_run_campaign, manifest, releases)
     return (
@@ -157,38 +160,38 @@ async def run_causal_proof(
     pii_removed = False
     recovery_errors: list[str] = []
     runs: list[dict[str, Any]] = []
+    session_stack = AsyncExitStack()
     try:
-        async with open_session() as session:
-            await set_field_tag(
-                session,
-                entity_urn=PROFILE_DATASET_URN,
-                column_path="email",
-                tag_urn=PII_TAG_URN,
-                present=True,
-            )
-            await wait_for_pii(session, present=True)
-        baseline = await _compile_and_run("baseline-pii-present", releases)
+        session = await session_stack.enter_async_context(open_session())
+        await set_field_tag(
+            session,
+            entity_urn=PROFILE_DATASET_URN,
+            column_path="email",
+            tag_urn=PII_TAG_URN,
+            present=True,
+        )
+        await wait_for_pii(session, present=True)
+        baseline = await _compile_and_run("baseline-pii-present", releases, session)
         if baseline[2].winner_adapter_id != "adapter-b":
             raise RuntimeError("baseline must select adapter-b")
         runs.append(baseline[3])
 
-        async with open_session() as session:
-            await set_field_tag(
-                session,
-                entity_urn=ROOT_DATASET_URN,
-                column_path="ticket_id",
-                tag_urn=CONTROL_TAG_URN,
-                present=True,
-            )
-            control_added = True
-            await wait_for_field_tag(
-                session,
-                entity_urn=ROOT_DATASET_URN,
-                column_path="ticket_id",
-                tag_name="SIRA_K1_CONTROL",
-                present=True,
-            )
-        negative = await _compile_and_run("unrelated-governed-change", releases)
+        await set_field_tag(
+            session,
+            entity_urn=ROOT_DATASET_URN,
+            column_path="ticket_id",
+            tag_urn=CONTROL_TAG_URN,
+            present=True,
+        )
+        control_added = True
+        await wait_for_field_tag(
+            session,
+            entity_urn=ROOT_DATASET_URN,
+            column_path="ticket_id",
+            tag_name="SIRA_K1_CONTROL",
+            present=True,
+        )
+        negative = await _compile_and_run("unrelated-governed-change", releases, session)
         if (
             negative[0].environment_fingerprint != baseline[0].environment_fingerprint
             or negative[1].manifest_hash != baseline[1].manifest_hash
@@ -196,51 +199,48 @@ async def run_causal_proof(
         ):
             raise RuntimeError("unrelated governed change altered the accepted proof inputs")
         runs.append(negative[3])
-        async with open_session() as session:
-            await set_field_tag(
-                session,
-                entity_urn=ROOT_DATASET_URN,
-                column_path="ticket_id",
-                tag_urn=CONTROL_TAG_URN,
-                present=False,
-            )
-            await wait_for_field_tag(
-                session,
-                entity_urn=ROOT_DATASET_URN,
-                column_path="ticket_id",
-                tag_name="SIRA_K1_CONTROL",
-                present=False,
-            )
-            control_added = False
+        await set_field_tag(
+            session,
+            entity_urn=ROOT_DATASET_URN,
+            column_path="ticket_id",
+            tag_urn=CONTROL_TAG_URN,
+            present=False,
+        )
+        await wait_for_field_tag(
+            session,
+            entity_urn=ROOT_DATASET_URN,
+            column_path="ticket_id",
+            tag_name="SIRA_K1_CONTROL",
+            present=False,
+        )
+        control_added = False
 
-        async with open_session() as session:
-            await set_field_tag(
-                session,
-                entity_urn=PROFILE_DATASET_URN,
-                column_path="email",
-                tag_urn=PII_TAG_URN,
-                present=False,
-            )
-            pii_removed = True
-            await wait_for_pii(session, present=False)
-        mutation = await _compile_and_run("pii-removed", releases)
+        await set_field_tag(
+            session,
+            entity_urn=PROFILE_DATASET_URN,
+            column_path="email",
+            tag_urn=PII_TAG_URN,
+            present=False,
+        )
+        pii_removed = True
+        await wait_for_pii(session, present=False)
+        mutation = await _compile_and_run("pii-removed", releases, session)
         if mutation[2].winner_adapter_id != "adapter-a":
             raise RuntimeError("removing PII must select adapter-a")
         if mutation[1].manifest_hash == baseline[1].manifest_hash:
             raise RuntimeError("PII mutation did not change the frozen manifest")
         runs.append(mutation[3])
 
-        async with open_session() as session:
-            await set_field_tag(
-                session,
-                entity_urn=PROFILE_DATASET_URN,
-                column_path="email",
-                tag_urn=PII_TAG_URN,
-                present=True,
-            )
-            await wait_for_pii(session, present=True)
-            pii_removed = False
-        restored = await _compile_and_run("pii-restored", releases)
+        await set_field_tag(
+            session,
+            entity_urn=PROFILE_DATASET_URN,
+            column_path="email",
+            tag_urn=PII_TAG_URN,
+            present=True,
+        )
+        await wait_for_pii(session, present=True)
+        pii_removed = False
+        restored = await _compile_and_run("pii-restored", releases, session)
         if restored[2].winner_adapter_id != "adapter-b":
             raise RuntimeError("restoring PII must select adapter-b")
         if (
@@ -251,6 +251,7 @@ async def run_causal_proof(
             raise RuntimeError("restored DataHub context did not reproduce baseline hashes")
         runs.append(restored[3])
     finally:
+        await session_stack.aclose()
         try:
             async with open_session() as session:
                 if control_added:

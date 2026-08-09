@@ -8,9 +8,12 @@ import logging
 import os
 import shutil
 import subprocess
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+from mcp import ClientSession
 
 from domain.hashing import content_hash
 
@@ -83,16 +86,15 @@ def _effect(plan: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-async def _set_pii(present: bool) -> None:
-    async with open_session() as session:
-        await set_field_tag(
-            session,
-            entity_urn=PROFILE_DATASET_URN,
-            column_path="email",
-            tag_urn=PII_TAG_URN,
-            present=present,
-        )
-        await wait_for_pii(session, present=present)
+async def _set_pii(session: ClientSession, *, present: bool) -> None:
+    await set_field_tag(
+        session,
+        entity_urn=PROFILE_DATASET_URN,
+        column_path="email",
+        tag_urn=PII_TAG_URN,
+        present=present,
+    )
+    await wait_for_pii(session, present=present)
 
 
 async def run_deployment_proof(*, simulate_writeback_failure: bool = False) -> dict[str, Any]:
@@ -106,11 +108,12 @@ async def run_deployment_proof(*, simulate_writeback_failure: bool = False) -> d
     active_a = False
     successful_effect: dict[str, Any] | None = None
     rollback: dict[str, Any] | None = None
+    session_stack = AsyncExitStack()
     try:
-        await _set_pii(False)
+        session = await session_stack.enter_async_context(open_session())
+        await _set_pii(session, present=False)
         pii_removed = True
-        async with open_session() as session:
-            observation = await read_stable(session)
+        observation = await read_stable(session)
         manifest = compile_manifest(observation)
         decision, campaign = await asyncio.to_thread(_run_campaign, manifest, releases)
         if decision.winner_adapter_id != "adapter-a":
@@ -129,11 +132,10 @@ async def run_deployment_proof(*, simulate_writeback_failure: bool = False) -> d
             actor_role="DATA_OWNER",
             expires_at=expiry,
         )
-        async with open_session() as session:
-            decisive_reread = await read_stable(session)
-            anchor_urn = await create_receipt_anchor(
-                session, title=f"SIRA verified proof {approval.subject_hash[-12:]}"
-            )
+        decisive_reread = await read_stable(session)
+        anchor_urn = await create_receipt_anchor(
+            session, title=f"SIRA verified proof {approval.subject_hash[-12:]}"
+        )
         decisive_manifest = compile_manifest(decisive_reread)
         assert_current_approval(
             subject=approval,
@@ -160,8 +162,7 @@ async def run_deployment_proof(*, simulate_writeback_failure: bool = False) -> d
             },
         )
         active_a = True
-        async with open_session() as session:
-            post_effect = await read_stable(session)
+        post_effect = await read_stable(session)
         if post_effect.environment_fingerprint != observation.environment_fingerprint:
             raise ProofContractError("POST_EFFECT_DATAHUB_DRIFT")
         if simulate_writeback_failure:
@@ -177,6 +178,8 @@ async def run_deployment_proof(*, simulate_writeback_failure: bool = False) -> d
                 },
             )
             active_a = False
+            await _set_pii(session, present=True)
+            pii_removed = False
             return {
                 "status": "PASS",
                 "scenario": "DATAHUB_WRITEBACK_FAILURE",
@@ -228,14 +231,13 @@ async def run_deployment_proof(*, simulate_writeback_failure: bool = False) -> d
             datahub_anchor_urn=anchor_urn,
             datahub_projection_hash=projection_hash,
         )
-        async with open_session() as session:
-            await publish_receipt_projection(
-                session,
-                anchor_urn=anchor_urn,
-                title=f"SIRA verified proof {receipt.core_hash[-12:]}",
-                core_hash=receipt.core_hash,
-                projection=projection,
-            )
+        await publish_receipt_projection(
+            session,
+            anchor_urn=anchor_urn,
+            title=f"SIRA verified proof {receipt.core_hash[-12:]}",
+            core_hash=receipt.core_hash,
+            projection=projection,
+        )
         reread = await reread_receipt_projection(anchor_urn, core_hash=receipt.core_hash)
         rollback = await asyncio.to_thread(
             _effect,
@@ -249,6 +251,8 @@ async def run_deployment_proof(*, simulate_writeback_failure: bool = False) -> d
             },
         )
         active_a = False
+        await _set_pii(session, present=True)
+        pii_removed = False
         return {
             "status": "PASS",
             "approvalSubjectHash": approval.subject_hash,
@@ -268,6 +272,7 @@ async def run_deployment_proof(*, simulate_writeback_failure: bool = False) -> d
             "campaign": campaign,
         }
     finally:
+        await session_stack.aclose()
         if active_a and successful_effect is not None:
             try:
                 await asyncio.to_thread(
@@ -284,4 +289,5 @@ async def run_deployment_proof(*, simulate_writeback_failure: bool = False) -> d
             except Exception:
                 LOGGER.exception("Emergency router rollback failed")
         if pii_removed:
-            await _set_pii(True)
+            async with open_session() as recovery_session:
+                await _set_pii(recovery_session, present=True)

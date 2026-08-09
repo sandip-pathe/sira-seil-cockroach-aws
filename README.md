@@ -78,6 +78,10 @@ All inputs and products are synthetic. The proof demonstrates a bounded local de
 
 The API contract is generated from `contracts/openapi/openapi.json`; the typed client lives in `packages/api-client`. The proof routes are `/v1/proof/workspace`, `/v1/proof/runs/current`, and `/v1/proof/runs`.
 
+The architecture, trust boundary, reproducible release steps, limitations, and recovery
+procedure are in [`docs/HACKATHON_RELEASE.md`](docs/HACKATHON_RELEASE.md). This project is
+licensed under Apache-2.0; see [`LICENSE`](LICENSE).
+
 ## Repository verification
 
 ```powershell

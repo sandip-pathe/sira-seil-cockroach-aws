@@ -367,7 +367,7 @@ async def test_temporal_connection_validates_names_and_delegates(
     assert await temporal.connect_temporal(
         "cloud.temporal.io:7233",
         namespace="production",
-        api_key="secret",
+        api_key="secret",  # pragma: allowlist secret - inert test value
         tls=True,
     ) is sentinel
     assert calls == [

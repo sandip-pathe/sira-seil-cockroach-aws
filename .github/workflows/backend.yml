@@ -104,6 +104,9 @@ jobs:
       - name: Build backend image
         run: docker compose build api
 
+      - name: Build immutable proof adapters and router
+        run: docker compose -f infra/datahub/k0/compose.runtime.yaml build
+
       - name: Start fresh PostgreSQL and restricted API
         env:
           POSTGRES_PORT: "55432"

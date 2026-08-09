@@ -101,7 +101,7 @@ async def test_chat_uses_the_role_specific_tool_allowlist(
 ) -> None:
     service = WorkspaceService(
         DemoFixtureBundle.load(),
-        api_key="configured",
+        api_key="configured",  # pragma: allowlist secret - inert test value
         model="test",
         workflow_service=object(),
         seller_evidence_service=object(),

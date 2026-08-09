@@ -20,6 +20,7 @@ from detect_secrets.settings import default_settings
 
 ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED_PARTS = {
+    ".artifacts",
     ".git",
     ".gstack",
     ".hypothesis",

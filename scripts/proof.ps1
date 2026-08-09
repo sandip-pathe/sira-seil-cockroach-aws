@@ -94,11 +94,26 @@ function Start-Runtime {
   return $digests
 }
 
+function Start-CachedRuntime {
+  $images = @("sira-proof-adapter-a:k0", "sira-proof-adapter-b:k0", "sira-proof-router:k0")
+  foreach ($image in $images) {
+    docker image inspect $image *> $null
+    if ($LASTEXITCODE -ne 0) {
+      return Start-Runtime
+    }
+  }
+  $digests = Set-RuntimeDigests
+  Invoke-Checked -Executable "docker" -Arguments @(
+    "compose", "-f", $runtimeCompose, "up", "-d"
+  )
+  return $digests
+}
+
 function Reset-ProofState {
   Invoke-Checked -Executable "uvx" -Arguments @("--python", "3.11", "--from", "acryl-datahub==1.7.0", "datahub", "properties", "upsert", "-f", "infra/datahub/k0/structured-properties.yaml")
   Invoke-Checked -Executable "uv" -Arguments @("run", "--no-project", "--python", "3.11", "--with", "acryl-datahub==1.7.0", "python", "scripts/datahub_k0_seed.py")
   $digests = Set-RuntimeDigests
-  Invoke-Checked -Executable "docker" -Arguments @("compose", "-f", $runtimeCompose, "up", "-d", "--force-recreate")
+  Invoke-Checked -Executable "docker" -Arguments @("compose", "-f", $runtimeCompose, "up", "-d")
   return $digests
 }
 
@@ -131,24 +146,50 @@ function Invoke-Contract {
 
 function Invoke-Demo {
   New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
+  $totalTimer = [System.Diagnostics.Stopwatch]::StartNew()
+  $timings = [ordered]@{}
+  $stageTimer = [System.Diagnostics.Stopwatch]::StartNew()
   Start-DataHub
-  $null = Start-Runtime
+  $stageTimer.Stop()
+  $timings.acquisitionSeconds = [Math]::Round($stageTimer.Elapsed.TotalSeconds, 3)
+  $stageTimer.Restart()
+  $null = Start-CachedRuntime
+  $stageTimer.Stop()
+  $timings.cachedCheckoutSeconds = [Math]::Round($stageTimer.Elapsed.TotalSeconds, 3)
+  $stageTimer.Restart()
+  if (-not (Test-DataHubHealthy)) { throw "DataHub became unhealthy before the demo" }
+  $running = docker compose -f $runtimeCompose ps --status running --quiet
+  if (@($running).Count -ne 3) { throw "Proof runtime is incomplete before the demo" }
+  $stageTimer.Stop()
+  $timings.healthyStackSeconds = [Math]::Round($stageTimer.Elapsed.TotalSeconds, 3)
+  $stageTimer.Restart()
   $null = Reset-ProofState
+  $stageTimer.Stop()
+  $timings.resetSeconds = [Math]::Round($stageTimer.Elapsed.TotalSeconds, 3)
   $exchangeArtifact = Join-Path $artifactRoot "exchange-proof.json"
   $deploymentArtifact = Join-Path $artifactRoot "deployment-proof.json"
   $failureArtifact = Join-Path $artifactRoot "writeback-failure-proof.json"
   $workspaceArtifact = Join-Path $artifactRoot "workspace.json"
+  $stageTimer.Restart()
   Invoke-Checked -Executable "uv" -Arguments @(
     "run", "python", "scripts/datahub_k2_exchange_probe.py", "--quiet", "--output", $exchangeArtifact
   )
+  $stageTimer.Stop()
+  $timings.exchangeSeconds = [Math]::Round($stageTimer.Elapsed.TotalSeconds, 3)
+  $stageTimer.Restart()
   Invoke-Checked -Executable "uv" -Arguments @(
     "run", "python", "scripts/datahub_k3_deployment_probe.py", "--quiet", "--output", $deploymentArtifact
   )
+  $stageTimer.Stop()
+  $timings.deploymentSeconds = [Math]::Round($stageTimer.Elapsed.TotalSeconds, 3)
   if ($Assert) {
+    $stageTimer.Restart()
     Invoke-Checked -Executable "uv" -Arguments @(
       "run", "python", "scripts/datahub_k3_deployment_probe.py", "--simulate-writeback-failure",
       "--quiet", "--output", $failureArtifact
     )
+    $stageTimer.Stop()
+    $timings.failureCompensationSeconds = [Math]::Round($stageTimer.Elapsed.TotalSeconds, 3)
   }
   $aggregateArguments = @(
     "run", "python", "scripts/build_proof_workspace_artifact.py",
@@ -159,6 +200,23 @@ function Invoke-Demo {
     $aggregateArguments += @("--failure", $failureArtifact, "--assert")
   }
   Invoke-Checked -Executable "uv" -Arguments $aggregateArguments
+  $totalTimer.Stop()
+  $timings.totalSeconds = [Math]::Round($totalTimer.Elapsed.TotalSeconds, 3)
+  $timings.warmDemoSeconds = [Math]::Round(
+    $timings.exchangeSeconds + $timings.deploymentSeconds + $timings.failureCompensationSeconds,
+    3
+  )
+  $timings.warmBudgetSeconds = 180
+  $timings.warmBudgetPassed = $timings.warmDemoSeconds -lt $timings.warmBudgetSeconds
+  $timings | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $artifactRoot "timings.json") -Encoding utf8
+  if ($Assert -and -not $timings.warmBudgetPassed) {
+    throw "WARM_DEMO_BUDGET_EXCEEDED: $($timings.warmDemoSeconds)s"
+  }
+  $bundleArguments = @(
+    "run", "python", "scripts/build_submission_bundle.py", "--artifacts", $artifactRoot
+  )
+  if ($Assert) { $bundleArguments += "--assert" }
+  Invoke-Checked -Executable "uv" -Arguments $bundleArguments
   Write-Output "PROOF DEMO PASS"
   Write-Output "Workspace: $workspaceArtifact"
 }
