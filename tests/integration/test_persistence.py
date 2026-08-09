@@ -746,6 +746,127 @@ def test_postgres_runtime_role_cannot_cross_tenant_boundary() -> None:
 
 
 @pytest.mark.postgres
+def test_postgres_proof_exchange_inverse_runtime_roles() -> None:
+    with postgres_test_database() as database_url:
+        upgrade_database_to_head(database_url)
+        plain_url = database_url_with_driver(database_url, "postgresql")
+        suffix = uuid.uuid4().hex[:12]
+        buyer_org = f"org_proof_buyer_{suffix}"
+        seller_org = f"org_proof_seller_{suffix}"
+        projection_id = f"bpap_{suffix}"
+        approval_id = f"papr_{suffix}"
+        product_id = f"seller_product_{suffix}"
+        digest = "sha256:" + "a" * 64
+
+        with psycopg.connect(plain_url, autocommit=True) as admin:
+            admin.execute(
+                "INSERT INTO organizations (id, name, version) VALUES (%s, 'Proof Buyer', 1), "
+                "(%s, 'Proof Seller', 1)",
+                (buyer_org, seller_org),
+            )
+            admin.execute(
+                """
+                INSERT INTO seller_products
+                    (id, name, category, public_summary, publisher_authority, state,
+                     owner_actor_id, current_draft_id, current_pack_version_id,
+                     current_version, fixture_label, organization_id)
+                VALUES (%s, 'Private Seller Draft', 'proof-adapter', 'private',
+                        'SELLER_SEALED', 'SELLER_DRAFT', 'seller_actor', NULL, NULL,
+                        1, NULL, %s)
+                """,
+                (product_id, seller_org),
+            )
+            admin.execute(
+                """
+                INSERT INTO buyer_proof_adapter_projections
+                    (id, organization_id, source_seller_organization_id,
+                     source_pack_version_id, source_pack_content_hash,
+                     publication_event_key, adapter_id, artifact_digest,
+                     protocol_version, capabilities, declared_region, fixed_price,
+                     public_evidence_references, conformance_hash, projection_hash, state)
+                VALUES (%s, %s, %s, 'pack-v1', %s, %s, 'adapter-a', %s,
+                        'TrialCase/v0', %s, 'EU', %s, %s, %s, %s, 'AVAILABLE')
+                """,
+                (
+                    projection_id,
+                    buyer_org,
+                    seller_org,
+                    "sha256:" + "b" * 64,
+                    f"seller-pack-published:{suffix}",
+                    digest,
+                    Jsonb(["SUPPORT_SUMMARIZATION"]),
+                    Jsonb({"amount": "0.02", "currency": "USD"}),
+                    Jsonb([]),
+                    "sha256:" + "c" * 64,
+                    "sha256:" + "d" * 64,
+                ),
+            )
+            admin.execute(
+                """
+                INSERT INTO proof_approvals
+                    (id, organization_id, subject_hash, manifest_hash,
+                     environment_fingerprint, decision_hash, adapter_projection_hash,
+                     adapter_digest, datahub_owner_urn, actor_id, actor_role, status,
+                     expires_at, revoked_at, consumed_effect_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s,
+                        'urn:li:corpGroup:support-data-owners', 'seeded_support_owner',
+                        'DATA_OWNER', 'ACTIVE', NOW() + INTERVAL '15 minutes', NULL, NULL)
+                """,
+                (
+                    approval_id,
+                    buyer_org,
+                    "sha256:" + "e" * 64,
+                    "sha256:" + "f" * 64,
+                    "sha256:" + "1" * 64,
+                    "sha256:" + "2" * 64,
+                    "sha256:" + "d" * 64,
+                    digest,
+                ),
+            )
+
+        try:
+            with postgres_runtime_database(database_url) as runtime_url:
+                runtime_plain = database_url_with_driver(runtime_url, "postgresql")
+                with psycopg.connect(runtime_plain) as runtime:
+                    with runtime.transaction():
+                        runtime.execute(
+                            "SELECT set_config('app.organization_id', %s, true)", (buyer_org,)
+                        )
+                        assert runtime.execute(
+                            "SELECT id FROM buyer_proof_adapter_projections"
+                        ).fetchall() == [(projection_id,)]
+                        assert runtime.execute("SELECT id FROM proof_approvals").fetchall() == [
+                            (approval_id,)
+                        ]
+                        assert runtime.execute("SELECT id FROM seller_products").fetchall() == []
+
+                    with runtime.transaction():
+                        runtime.execute(
+                            "SELECT set_config('app.organization_id', %s, true)", (seller_org,)
+                        )
+                        assert runtime.execute("SELECT id FROM seller_products").fetchall() == [
+                            (product_id,)
+                        ]
+                        assert (
+                            runtime.execute(
+                                "SELECT id FROM buyer_proof_adapter_projections"
+                            ).fetchall()
+                            == []
+                        )
+                        assert runtime.execute("SELECT id FROM proof_approvals").fetchall() == []
+        finally:
+            with psycopg.connect(plain_url, autocommit=True) as admin:
+                admin.execute("DELETE FROM proof_approvals WHERE id = %s", (approval_id,))
+                admin.execute(
+                    "DELETE FROM buyer_proof_adapter_projections WHERE id = %s", (projection_id,)
+                )
+                admin.execute("DELETE FROM seller_products WHERE id = %s", (product_id,))
+                admin.execute(
+                    "DELETE FROM organizations WHERE id IN (%s, %s)", (buyer_org, seller_org)
+                )
+
+
+@pytest.mark.postgres
 @pytest.mark.asyncio
 async def test_postgres_readiness_requires_direct_restricted_runtime_login() -> None:
     with postgres_test_database() as database_url:
