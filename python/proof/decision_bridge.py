@@ -32,9 +32,9 @@ from .models import CandidateVerdict, EvaluationManifest, ProofContractError
 EVALUATED_AT = datetime(2030, 1, 1, tzinfo=UTC)
 
 
-def evaluate_with_decision_graph(
+def build_decision_graph_input(
     manifest: EvaluationManifest, verdicts: tuple[CandidateVerdict, ...]
-) -> tuple[str, str, str]:
+) -> DecisionGraphInput:
     gate_fields = {
         "FUNCTIONAL_CANARY_PASSED": "proof.functional_canary_passed",
         "EXECUTION_REGION_ALLOWED": "proof.execution_region_allowed",
@@ -157,7 +157,7 @@ def evaluate_with_decision_graph(
         )
         for gate_id in active_gate_ids
     )
-    graph_input = DecisionGraphInput(
+    return DecisionGraphInput(
         versions=FrozenVersions(
             request_version="proof-request/v1",
             company_profile_version=manifest.environment_fingerprint,
@@ -207,6 +207,12 @@ def evaluate_with_decision_graph(
         current_actions=(),
         identity_normalization=IdentityNormalization(version="proof-identity/v1", aliases=()),
     )
+
+
+def evaluate_with_decision_graph(
+    manifest: EvaluationManifest, verdicts: tuple[CandidateVerdict, ...]
+) -> tuple[str, str, str]:
+    graph_input = build_decision_graph_input(manifest, verdicts)
     evaluation = evaluate_decision_graph_once(
         graph_input,
         evaluation_id=f"proof_eval_{manifest.manifest_hash[-16:]}",
