@@ -10,6 +10,8 @@ import yaml
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
+    make_group_urn,
+    make_schema_field_urn,
     make_tag_urn,
     make_user_urn,
 )
@@ -18,6 +20,9 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     OtherSchemaClass,
     OwnerClass,
@@ -27,6 +32,8 @@ from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,
+    StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
     TagPropertiesClass,
     UpstreamClass,
@@ -38,12 +45,19 @@ GMS_URL = "http://localhost:8080"
 PLATFORM = "postgres"
 ENVIRONMENT = "PROD"
 PII_TAG_URN = make_tag_urn("PII")
+CONTROL_TAG_URN = make_tag_urn("SIRA_K1_CONTROL")
 OWNER_URN = make_user_urn("datahub")
 RAW_DATASET_URN = make_dataset_urn(PLATFORM, "sira_k0.raw.customer_profiles", ENVIRONMENT)
 CURATED_DATASET_URN = make_dataset_urn(PLATFORM, "sira_k0.curated.customer_profiles", ENVIRONMENT)
 SERVING_DATASET_URN = make_dataset_urn(
     PLATFORM, "sira_k0.serving.agent_customer_profiles", ENVIRONMENT
 )
+ROOT_DATASET_URN = make_dataset_urn(PLATFORM, "sira_demo.support.support_summary", ENVIRONMENT)
+PROFILE_DATASET_URN = make_dataset_urn(PLATFORM, "sira_demo.crm.customer_profile", ENVIRONMENT)
+PROFILE_EMAIL_URN = make_schema_field_urn(PROFILE_DATASET_URN, "email")
+ROOT_CUSTOMER_EMAIL_URN = make_schema_field_urn(ROOT_DATASET_URN, "customer_email")
+SUPPORT_OWNER_URN = make_group_urn("support-data-owners")
+ALLOWED_REGIONS_PROPERTY_URN = "urn:li:structuredProperty:io.sira.allowedExecutionRegions"
 
 
 def _load_token() -> str:
@@ -100,6 +114,28 @@ def _schema(*, pii_on_email: bool) -> SchemaMetadataClass:
     )
 
 
+def _named_schema(name: str, fields: tuple[tuple[str, str], ...]) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName=name,
+        platform=make_data_platform_urn(PLATFORM),
+        version=0,
+        hash=f"{name}-v1",
+        platformSchema=OtherSchemaClass(
+            rawSchema=", ".join(f"{field} varchar" for field, _description in fields)
+        ),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=field,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="varchar",
+                nullable=False,
+                description=description,
+            )
+            for field, description in fields
+        ],
+    )
+
+
 def _emit(emitter: DatahubRestEmitter, urn: str, aspect: object) -> None:
     emitter.emit_mcp(
         MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect)  # type: ignore[arg-type]
@@ -113,6 +149,14 @@ def main() -> int:
         emitter,
         PII_TAG_URN,
         TagPropertiesClass(name="PII", description="Personally identifiable information."),
+    )
+    _emit(
+        emitter,
+        CONTROL_TAG_URN,
+        TagPropertiesClass(
+            name="SIRA_K1_CONTROL",
+            description="Synthetic unrelated-change control for the K1 causal proof.",
+        ),
     )
     datasets = (
         (RAW_DATASET_URN, "Raw synthetic customer profiles", False),
@@ -151,6 +195,76 @@ def main() -> int:
             ]
         ),
     )
+    for urn, name, fields in (
+        (
+            PROFILE_DATASET_URN,
+            "Synthetic governed customer profile",
+            (
+                ("customer_id", "Synthetic customer identifier."),
+                ("email", "Synthetic email used as the decisive PII dependency."),
+                ("region", "Synthetic residency region."),
+            ),
+        ),
+        (
+            ROOT_DATASET_URN,
+            "Synthetic support summary",
+            (
+                ("ticket_id", "Synthetic support ticket identifier."),
+                ("body", "Synthetic support ticket body."),
+                ("customer_email", "Derived synthetic customer email."),
+            ),
+        ),
+    ):
+        _emit(
+            emitter,
+            urn,
+            DatasetPropertiesClass(
+                name=name,
+                description="Synthetic K1 asset. Contains no real customer data.",
+                customProperties={"sira.k1.seed": "v1"},
+            ),
+        )
+        _emit(emitter, urn, _named_schema(name.replace(" ", "_"), fields))
+    _emit(
+        emitter,
+        ROOT_DATASET_URN,
+        UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    dataset=PROFILE_DATASET_URN,
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                )
+            ],
+            fineGrainedLineages=[
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    upstreams=[PROFILE_EMAIL_URN],
+                    downstreams=[ROOT_CUSTOMER_EMAIL_URN],
+                    transformOperation="identity",
+                )
+            ],
+        ),
+    )
+    _emit(
+        emitter,
+        ROOT_DATASET_URN,
+        OwnershipClass(
+            owners=[OwnerClass(owner=SUPPORT_OWNER_URN, type=OwnershipTypeClass.TECHNICAL_OWNER)]
+        ),
+    )
+    _emit(
+        emitter,
+        PROFILE_DATASET_URN,
+        StructuredPropertiesClass(
+            properties=[
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn=ALLOWED_REGIONS_PROPERTY_URN,
+                    values=["EU"],
+                )
+            ]
+        ),
+    )
     _emit(
         emitter,
         SERVING_DATASET_URN,
@@ -165,7 +279,13 @@ def main() -> int:
                 "datahubCoreVersion": DATAHUB_CORE_VERSION,
                 "piiTagUrn": PII_TAG_URN,
                 "ownerUrn": OWNER_URN,
-                "datasets": [RAW_DATASET_URN, CURATED_DATASET_URN, SERVING_DATASET_URN],
+                "datasets": [
+                    RAW_DATASET_URN,
+                    CURATED_DATASET_URN,
+                    SERVING_DATASET_URN,
+                    PROFILE_DATASET_URN,
+                    ROOT_DATASET_URN,
+                ],
             },
             indent=2,
             sort_keys=True,

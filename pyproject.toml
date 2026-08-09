@@ -57,6 +57,7 @@ packages = [
   "python/agents/sira_agents",
   "python/integrations",
   "python/persistence",
+  "python/proof",
   "services/api/sira_api",
   "services/worker/sira_worker"
 ]

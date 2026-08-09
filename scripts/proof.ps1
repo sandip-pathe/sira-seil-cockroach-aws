@@ -94,8 +94,8 @@ function Start-Runtime {
 }
 
 function Reset-ProofState {
-  Invoke-Checked -Executable "uv" -Arguments @("run", "--no-project", "--python", "3.11", "--with", "acryl-datahub==1.7.0", "python", "scripts/datahub_k0_seed.py")
   Invoke-Checked -Executable "uvx" -Arguments @("--python", "3.11", "--from", "acryl-datahub==1.7.0", "datahub", "properties", "upsert", "-f", "infra/datahub/k0/structured-properties.yaml")
+  Invoke-Checked -Executable "uv" -Arguments @("run", "--no-project", "--python", "3.11", "--with", "acryl-datahub==1.7.0", "python", "scripts/datahub_k0_seed.py")
   $digests = Set-RuntimeDigests
   Invoke-Checked -Executable "docker" -Arguments @("compose", "-f", $runtimeCompose, "up", "-d", "--force-recreate")
   return $digests

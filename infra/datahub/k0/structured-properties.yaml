@@ -13,3 +13,19 @@
       description: European Union
     - value: US
       description: United States
+
+- id: io.sira.allowedExecutionRegions
+  qualified_name: io.sira.allowedExecutionRegions
+  type: string
+  cardinality: MULTIPLE
+  display_name: SIRA Allowed Execution Regions
+  entity_types:
+    - dataset
+  description: Governed regions in which a proof adapter may process this dataset.
+  allowed_values:
+    - value: EU
+      description: European Union
+    - value: IN
+      description: India
+    - value: US
+      description: United States

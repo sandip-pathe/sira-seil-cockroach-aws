@@ -9,7 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     COMPONENT_ID="${COMPONENT_ID}"
 
 WORKDIR /app
-COPY adapter_server.py router_server.py router_probe.py /app/
+COPY adapter_server.py router_server.py router_probe.py campaign_probe.py /app/
 RUN mkdir -p /run/proof /state && chown -R 65532:65532 /app /run/proof /state
 
 USER 65532:65532
