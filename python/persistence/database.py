@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-EXPECTED_ALEMBIC_HEADS = frozenset({"c3d4e5f60718"})
+EXPECTED_ALEMBIC_HEADS = frozenset({"7d2f4a9c8e10"})
 logger = logging.getLogger(__name__)
 
 _POSTGRES_RUNTIME_ROLE_QUERY = text(
@@ -237,9 +237,7 @@ class Database:
                     logger.warning("Database readiness failed: runtime role was not found")
                     return False
                 unsafe_columns = [
-                    str(column)
-                    for column, value in role_state._mapping.items()
-                    if bool(value)
+                    str(column) for column, value in role_state._mapping.items() if bool(value)
                 ]
                 if unsafe_columns:
                     logger.warning(

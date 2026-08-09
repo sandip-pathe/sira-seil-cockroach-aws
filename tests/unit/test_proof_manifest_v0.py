@@ -10,6 +10,7 @@ from proof.constants import (
     ROOT_DATASET_URN,
     SUPPORT_OWNER_URN,
 )
+from proof.exchange import CandidateRelease
 from proof.manifest_v0 import compile_manifest, evaluate_campaign
 from proof.models import DependencyRow, EnvironmentObservation, ProofContractError
 
@@ -57,7 +58,7 @@ def _observation(*, pii_present: bool = True) -> EnvironmentObservation:
 def _runtime(adapter_id: str, *, pii_passes: bool) -> dict[str, object]:
     return {
         "status": "completed",
-        "artifactDigest": f"sha256:{adapter_id}",
+        "artifactDigest": content_hash({"adapter": adapter_id}),
         "resultHash": f"sha256:result-{adapter_id}-{pii_passes}",
         "gateResults": {
             "FUNCTIONAL_CANARY_PASSED": True,
@@ -65,6 +66,7 @@ def _runtime(adapter_id: str, *, pii_passes: bool) -> dict[str, object]:
             "REQUIRED_SCHEMA_SUPPORTED": True,
             "RAW_PII_EGRESS_FORBIDDEN": pii_passes,
         },
+        "declaredExecutionRegion": "EU",
     }
 
 
@@ -141,3 +143,32 @@ async def test_stable_reader_fails_closed_when_decisive_context_keeps_changing(
 
     with pytest.raises(ProofContractError, match="CONTEXT_UNSTABLE"):
         await datahub_mcp.read_stable(object(), max_attempts=2)  # type: ignore[arg-type]
+
+
+def test_campaign_uses_only_exact_buyer_projection_digests_and_prices() -> None:
+    manifest = compile_manifest(_observation())
+    runtime = {
+        "adapter-a": _runtime("adapter-a", pii_passes=False),
+        "adapter-b": _runtime("adapter-b", pii_passes=True),
+    }
+    releases = tuple(
+        CandidateRelease(
+            projection_hash=content_hash({"projection": adapter_id}),
+            adapter_id=adapter_id,
+            artifact_digest=str(result["artifactDigest"]),
+            protocol_version="TrialCase/v0",
+            capabilities=("SUPPORT_SUMMARIZATION",),
+            declared_region="EU",
+            fixed_price=price,
+            conformance_hash=content_hash({"conformance": adapter_id}),
+        )
+        for adapter_id, result, price in (
+            ("adapter-a", runtime["adapter-a"], "0.02"),
+            ("adapter-b", runtime["adapter-b"], "0.05"),
+        )
+    )
+
+    assert evaluate_campaign(manifest, runtime, releases=releases).winner_adapter_id == "adapter-b"
+    substituted = replace(releases[0], artifact_digest="sha256:" + "0" * 64)
+    with pytest.raises(ProofContractError, match="digest substitution"):
+        evaluate_campaign(manifest, runtime, releases=(substituted, releases[1]))

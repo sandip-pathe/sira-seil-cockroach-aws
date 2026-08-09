@@ -66,6 +66,15 @@ async def _prepare_reviewable_draft(client: httpx.AsyncClient) -> dict[str, Any]
                     "evidence_ids": [],
                 }
             ],
+            "proof_adapter": {
+                "adapter_id": "adapter-a",
+                "artifact_digest": "sha256:" + "a" * 64,
+                "protocol_version": "TrialCase/v0",
+                "capabilities": ["SUPPORT_SUMMARIZATION", "CUSTOMER_EMAIL_OUTPUT"],
+                "declared_region": "EU",
+                "fixed_price": {"amount": "0.02", "currency": "USD"},
+                "conformance_hash": "sha256:" + "b" * 64,
+            },
         },
     )
     assert patched.status_code == 200, patched.text
@@ -220,6 +229,7 @@ async def test_seller_review_publish_suspend_and_exports_are_exact_and_separated
     assert published.status_code == 201, published.text
     assert published.json()["state"] == "PUBLISHED"
     assert published.json()["publisher_authority"] == "SELLER_SEALED"
+    assert published.json()["proof_adapter"]["artifact_digest"] == "sha256:" + "a" * 64
     pack_id = published.json()["id"]
     replayed_publish = await api_client.post(
         "/v1/seller/pack-drafts/draft_fixture_d/publish",

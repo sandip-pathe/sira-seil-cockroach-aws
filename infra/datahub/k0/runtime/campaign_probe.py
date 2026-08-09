@@ -54,6 +54,7 @@ def _gate_result(response: dict[str, Any], gate_ids: set[str]) -> dict[str, Any]
     selected = {gate: gates[gate] for gate in sorted(selected_ids)}
     normalized = {
         "status": response.get("status"),
+        "protocolVersion": response.get("protocolVersion"),
         "adapterId": response.get("adapterId"),
         "artifactDigest": response.get("artifactDigest"),
         "trialId": response.get("trialId"),

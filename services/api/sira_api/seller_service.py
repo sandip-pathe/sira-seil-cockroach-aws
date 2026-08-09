@@ -29,6 +29,7 @@ from persistence.models import (
     SellerReviewSubmission,
 )
 from persistence.repositories import WorkflowRepository, new_id
+from proof.exchange import project_published_adapter
 
 from .errors import ApiProblem
 
@@ -136,6 +137,7 @@ def _claim_payload(
     claims: list[dict[str, Any]],
     fit_rules: list[dict[str, Any]],
     anti_fit_rules: list[dict[str, Any]],
+    proof_adapter: dict[str, Any] | None,
     *,
     product_id: str,
     publisher_authority: str,
@@ -147,6 +149,7 @@ def _claim_payload(
         "claims": claims,
         "fit_rules": fit_rules,
         "anti_fit_rules": anti_fit_rules,
+        "proof_adapter": proof_adapter,
     }
 
 
@@ -186,7 +189,10 @@ class SellerEvidenceService:
                 if actor_role == "SELLER_EDITOR" and product.state != "UNCLAIMED":
                     if product.owner_actor_id != actor_id:
                         continue
-                if term and term not in f"{product.name} {product.category}".casefold():
+                searchable = (
+                    f"{product.id} {product.name} {product.category} {product.public_summary}"
+                ).casefold()
+                if term and term not in searchable:
                     continue
                 rows.append(self._search_item(product))
             rows.sort(key=lambda item: (str(item["name"]).casefold(), str(item["id"])))
@@ -428,6 +434,11 @@ class SellerEvidenceService:
                 if "anti_fit_rules" in provided_fields
                 else list(current.anti_fit_rules)
             )
+            proof_adapter = (
+                cast(dict[str, Any] | None, body["proof_adapter"])
+                if "proof_adapter" in provided_fields
+                else current.proof_adapter
+            )
             self._validate_publication_fields(claims, fit_rules, anti_fit_rules)
             evidence = await self._evidence_map(session, organization_id, draft.id)
             self._validate_evidence_links(claims + fit_rules + anti_fit_rules, evidence)
@@ -439,6 +450,7 @@ class SellerEvidenceService:
                 claims,
                 fit_rules,
                 anti_fit_rules,
+                proof_adapter,
                 product_id=product.id,
                 publisher_authority=draft.publisher_authority,
             )
@@ -453,6 +465,7 @@ class SellerEvidenceService:
                 claims=claims,
                 fit_rules=fit_rules,
                 anti_fit_rules=anti_fit_rules,
+                proof_adapter=proof_adapter,
                 validation=validation,
                 created_by_actor_id=actor_id,
                 created_at=now,
@@ -907,17 +920,30 @@ class SellerEvidenceService:
             draft.state = SellerEvidenceState.PUBLISHED.value
             draft.updated_at = now
             response = self._pack_view(pack)
+            publication_event_key = f"seller-pack-published:{pack.id}"
+            buyer_safe_proof_adapter = (
+                project_published_adapter(
+                    source_seller_organization_id=organization_id,
+                    source_pack_version_id=pack.id,
+                    source_pack_content_hash=pack_hash,
+                    publication_event_key=publication_event_key,
+                    published_payload=published_payload,
+                )
+                if published_payload.get("proof_adapter") is not None
+                else None
+            )
             await repository.add_outbox(
                 aggregate_type="seller_pack_version",
                 aggregate_id=pack.id,
                 event_type="seller_pack_version.published",
-                event_key=f"seller-pack-published:{pack.id}",
+                event_key=publication_event_key,
                 payload={
                     "pack_version_id": pack.id,
                     "product_id": product.id,
                     "version": version_number,
                     "content_hash": pack_hash,
                     "publisher_authority": pack.publisher_authority,
+                    "buyer_safe_proof_adapter": buyer_safe_proof_adapter,
                 },
             )
             await repository.complete_idempotency(
@@ -1119,6 +1145,7 @@ class SellerEvidenceService:
             initial_claims,
             fit_rules,
             anti_fit_rules,
+            None,
             product_id=product.id,
             publisher_authority=PackAuthority.SELLER_SEALED.value,
         )
@@ -1165,6 +1192,7 @@ class SellerEvidenceService:
             claims=initial_claims,
             fit_rules=fit_rules,
             anti_fit_rules=anti_fit_rules,
+            proof_adapter=None,
             validation=validation,
             created_by_actor_id="seller_fixture_d",
             created_at=now,
@@ -1612,6 +1640,7 @@ class SellerEvidenceService:
             "claims": list(revision.claims),
             "fit_rules": list(revision.fit_rules),
             "anti_fit_rules": list(revision.anti_fit_rules),
+            "proof_adapter": revision.proof_adapter,
             "evidence": public_evidence,
             "published_at": _timestamp(published_at),
             "source_revision_hash": draft.current_revision_hash,
@@ -1748,6 +1777,7 @@ class SellerEvidenceService:
             "claims": list(revision.claims),
             "fit_rules": list(revision.fit_rules),
             "anti_fit_rules": list(revision.anti_fit_rules),
+            "proof_adapter": revision.proof_adapter,
             "validation": dict(draft.validation),
             "updated_at": _timestamp(draft.updated_at),
         }
@@ -1773,6 +1803,7 @@ class SellerEvidenceService:
             # SUSPENDED value. The immutable published content remains PUBLISHED.
             "state": SellerEvidenceState.PUBLISHED.value,
             "published_at": _timestamp(pack.published_at),
+            "proof_adapter": pack.payload.get("proof_adapter"),
         }
 
     @staticmethod

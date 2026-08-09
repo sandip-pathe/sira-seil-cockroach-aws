@@ -1717,6 +1717,7 @@ class SellerPackDraftRevision(Base, TenantOwned):
     claims: Mapped[list[dict[str, Any]]] = mapped_column(JSON_DOCUMENT, nullable=False)
     fit_rules: Mapped[list[dict[str, Any]]] = mapped_column(JSON_DOCUMENT, nullable=False)
     anti_fit_rules: Mapped[list[dict[str, Any]]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    proof_adapter: Mapped[dict[str, Any] | None] = mapped_column(JSON_DOCUMENT, nullable=True)
     validation: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
     created_by_actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -1867,6 +1868,91 @@ class SellerPackVersion(Base, TenantOwned):
         ),
         UniqueConstraint("organization_id", "product_id", "version", name="uq_seller_pack_version"),
         UniqueConstraint("organization_id", "content_hash", name="uq_seller_pack_content_hash"),
+    )
+
+
+class BuyerProofAdapterProjection(Base, TenantOwned):
+    """Immutable buyer-owned allowlist projection of one published proof adapter."""
+
+    __tablename__ = "buyer_proof_adapter_projections"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    source_seller_organization_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_pack_version_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_pack_content_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    publication_event_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    adapter_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    artifact_digest: Mapped[str] = mapped_column(String(80), nullable=False)
+    protocol_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    capabilities: Mapped[list[str]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    declared_region: Mapped[str] = mapped_column(String(32), nullable=False)
+    fixed_price: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    public_evidence_references: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON_DOCUMENT, nullable=False
+    )
+    conformance_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    projection_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('AVAILABLE','SUPERSEDED','REVOKED')",
+            name="ck_buyer_proof_adapter_projection_state",
+        ),
+        UniqueConstraint(
+            "organization_id",
+            "publication_event_key",
+            name="uq_buyer_proof_projection_event",
+        ),
+        UniqueConstraint(
+            "organization_id", "projection_hash", name="uq_buyer_proof_projection_hash"
+        ),
+    )
+
+
+class ProofApproval(Base, TenantOwned):
+    """Exact, expiring DataHub-owner authority for one frozen proof subject."""
+
+    __tablename__ = "proof_approvals"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    subject_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    manifest_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    environment_fingerprint: Mapped[str] = mapped_column(String(80), nullable=False)
+    decision_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    adapter_projection_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    adapter_digest: Mapped[str] = mapped_column(String(80), nullable=False)
+    datahub_owner_urn: Mapped[str] = mapped_column(String(300), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    actor_role: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    consumed_effect_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("actor_role = 'DATA_OWNER'", name="ck_proof_approval_owner_role"),
+        CheckConstraint(
+            "status IN ('ACTIVE','REVOKED','EXPIRED','CONSUMED','SUPERSEDED')",
+            name="ck_proof_approval_status",
+        ),
+        CheckConstraint(
+            "(status = 'REVOKED' AND revoked_at IS NOT NULL) OR "
+            "(status <> 'REVOKED' AND revoked_at IS NULL)",
+            name="ck_proof_approval_revocation",
+        ),
+        CheckConstraint(
+            "(status = 'CONSUMED' AND consumed_effect_id IS NOT NULL) OR "
+            "(status <> 'CONSUMED' AND consumed_effect_id IS NULL)",
+            name="ck_proof_approval_consumption",
+        ),
+        UniqueConstraint("organization_id", "subject_hash", name="uq_proof_approval_subject"),
     )
 
 

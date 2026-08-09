@@ -162,6 +162,23 @@ class SellerEvidenceClaim(StrictModel):
     evidence_ids: list[Identifier]
 
 
+class SellerProofAdapterPrice(StrictModel):
+    amount: str = Field(pattern=r"^(0|[1-9][0-9]*)\.[0-9]{2}$")
+    currency: Literal["USD"] = "USD"
+
+
+class SellerProofAdapterDraft(StrictModel):
+    adapter_id: Identifier
+    artifact_digest: HashValue
+    protocol_version: Literal["TrialCase/v0"]
+    capabilities: list[
+        Literal["SUPPORT_SUMMARIZATION", "CUSTOMER_EMAIL_OUTPUT", "PII_REDACTION"]
+    ] = Field(min_length=1)
+    declared_region: Literal["EU", "IN", "US"]
+    fixed_price: SellerProofAdapterPrice
+    conformance_hash: HashValue
+
+
 class SellerPackDraftView(StrictModel):
     id: Identifier
     product_id: Identifier
@@ -172,6 +189,7 @@ class SellerPackDraftView(StrictModel):
     claims: list[SellerEvidenceClaim]
     fit_rules: list[SellerEvidenceClaim]
     anti_fit_rules: list[SellerEvidenceClaim]
+    proof_adapter: SellerProofAdapterDraft | None = None
     validation: SellerValidation
     updated_at: datetime
 
@@ -181,6 +199,7 @@ class SellerPackDraftPatch(StrictModel):
     claims: list[SellerEvidenceClaim] = Field(default_factory=list)
     fit_rules: list[SellerEvidenceClaim] = Field(default_factory=list)
     anti_fit_rules: list[SellerEvidenceClaim] = Field(default_factory=list)
+    proof_adapter: SellerProofAdapterDraft | None = None
 
 
 class SellerEvidenceAttachCreate(StrictModel):
@@ -229,6 +248,7 @@ class SellerPackVersionView(StrictModel):
     publisher_authority: PackAuthority
     state: SellerEvidenceState
     published_at: datetime | None = None
+    proof_adapter: SellerProofAdapterDraft | None = None
 
 
 class SellerSuspendCreate(StrictModel):

@@ -17,6 +17,7 @@ from .constants import (
     SUPPORT_OWNER_URN,
 )
 from .decision_bridge import evaluate_with_decision_graph
+from .exchange import CandidateRelease
 from .models import (
     CampaignDecision,
     CandidateVerdict,
@@ -98,14 +99,27 @@ def compile_manifest(observation: EnvironmentObservation) -> EvaluationManifest:
 
 
 def evaluate_campaign(
-    manifest: EvaluationManifest, runtime_results: Mapping[str, Mapping[str, Any]]
+    manifest: EvaluationManifest,
+    runtime_results: Mapping[str, Mapping[str, Any]],
+    *,
+    releases: tuple[CandidateRelease, ...] | None = None,
 ) -> CampaignDecision:
     expected_gates = {
         "FUNCTIONAL_CANARY_PASSED",
         *(gate.gate_id for gate in manifest.gates),
     }
     verdicts: list[CandidateVerdict] = []
-    for adapter_id, price in sorted(CANDIDATE_PRICES.items()):
+    release_by_adapter = (
+        {release.adapter_id: release for release in releases} if releases is not None else {}
+    )
+    if releases is not None and set(release_by_adapter) != set(CANDIDATE_PRICES):
+        raise ProofContractError("buyer projections must bind the exact curated adapter set")
+    prices = (
+        {adapter_id: release.fixed_price for adapter_id, release in release_by_adapter.items()}
+        if releases is not None
+        else CANDIDATE_PRICES
+    )
+    for adapter_id, price in sorted(prices.items()):
         result = runtime_results.get(adapter_id)
         if result is None:
             raise ProofContractError(f"missing runtime result for {adapter_id}")
@@ -122,6 +136,12 @@ def evaluate_campaign(
         result_hash = result.get("resultHash")
         if not isinstance(artifact_digest, str) or not isinstance(result_hash, str):
             raise ProofContractError(f"missing immutable runtime identity for {adapter_id}")
+        if releases is not None:
+            release = release_by_adapter[adapter_id]
+            if artifact_digest != release.artifact_digest:
+                raise ProofContractError(f"projected digest substitution for {adapter_id}")
+            if result.get("declaredExecutionRegion") != release.declared_region:
+                raise ProofContractError(f"projected region mismatch for {adapter_id}")
         verdicts.append(
             CandidateVerdict(
                 adapter_id=adapter_id,

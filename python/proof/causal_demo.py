@@ -29,6 +29,7 @@ from .datahub_mcp import (
     wait_for_field_tag,
     wait_for_pii,
 )
+from .exchange import CandidateRelease
 from .manifest_v0 import compile_manifest, evaluate_campaign
 from .models import CampaignDecision, EnvironmentObservation, EvaluationManifest
 
@@ -39,7 +40,9 @@ def _manifest_payload(manifest: EvaluationManifest) -> dict[str, Any]:
     return {**manifest.hash_payload(), "manifestHash": manifest.manifest_hash}
 
 
-def _run_campaign(manifest: EvaluationManifest) -> tuple[CampaignDecision, dict[str, Any]]:
+def _run_campaign(
+    manifest: EvaluationManifest, releases: tuple[CandidateRelease, ...] | None
+) -> tuple[CampaignDecision, dict[str, Any]]:
     docker = shutil.which("docker")
     if docker is None:
         raise RuntimeError("Docker is required for the isolated K1 campaign")
@@ -90,7 +93,7 @@ def _run_campaign(manifest: EvaluationManifest) -> tuple[CampaignDecision, dict[
     results = payload.get("results")
     if not isinstance(results, dict):
         raise RuntimeError("isolated campaign omitted candidate results")
-    decision = evaluate_campaign(manifest, results)
+    decision = evaluate_campaign(manifest, results, releases=releases)
     return decision, payload
 
 
@@ -119,6 +122,7 @@ def _run_record(
 
 async def _compile_and_run(
     label: str,
+    releases: tuple[CandidateRelease, ...] | None,
 ) -> tuple[
     EnvironmentObservation,
     EvaluationManifest,
@@ -128,7 +132,7 @@ async def _compile_and_run(
     async with open_session() as session:
         observation = await read_stable(session)
     manifest = compile_manifest(observation)
-    decision, campaign = await asyncio.to_thread(_run_campaign, manifest)
+    decision, campaign = await asyncio.to_thread(_run_campaign, manifest, releases)
     return (
         observation,
         manifest,
@@ -137,7 +141,9 @@ async def _compile_and_run(
     )
 
 
-async def run_causal_proof() -> dict[str, Any]:
+async def run_causal_proof(
+    *, releases: tuple[CandidateRelease, ...] | None = None
+) -> dict[str, Any]:
     baseline: (
         tuple[
             EnvironmentObservation,
@@ -161,7 +167,7 @@ async def run_causal_proof() -> dict[str, Any]:
                 present=True,
             )
             await wait_for_pii(session, present=True)
-        baseline = await _compile_and_run("baseline-pii-present")
+        baseline = await _compile_and_run("baseline-pii-present", releases)
         if baseline[2].winner_adapter_id != "adapter-b":
             raise RuntimeError("baseline must select adapter-b")
         runs.append(baseline[3])
@@ -182,7 +188,7 @@ async def run_causal_proof() -> dict[str, Any]:
                 tag_name="SIRA_K1_CONTROL",
                 present=True,
             )
-        negative = await _compile_and_run("unrelated-governed-change")
+        negative = await _compile_and_run("unrelated-governed-change", releases)
         if (
             negative[0].environment_fingerprint != baseline[0].environment_fingerprint
             or negative[1].manifest_hash != baseline[1].manifest_hash
@@ -217,7 +223,7 @@ async def run_causal_proof() -> dict[str, Any]:
             )
             pii_removed = True
             await wait_for_pii(session, present=False)
-        mutation = await _compile_and_run("pii-removed")
+        mutation = await _compile_and_run("pii-removed", releases)
         if mutation[2].winner_adapter_id != "adapter-a":
             raise RuntimeError("removing PII must select adapter-a")
         if mutation[1].manifest_hash == baseline[1].manifest_hash:
@@ -234,7 +240,7 @@ async def run_causal_proof() -> dict[str, Any]:
             )
             await wait_for_pii(session, present=True)
             pii_removed = False
-        restored = await _compile_and_run("pii-restored")
+        restored = await _compile_and_run("pii-restored", releases)
         if restored[2].winner_adapter_id != "adapter-b":
             raise RuntimeError("restoring PII must select adapter-b")
         if (
@@ -284,6 +290,11 @@ async def run_causal_proof() -> dict[str, Any]:
         "adapterArtifactDigests": {
             verdict.adapter_id: verdict.artifact_digest for verdict in baseline[2].verdicts
         },
+        "buyerProjectionHashes": (
+            {release.adapter_id: release.projection_hash for release in releases}
+            if releases is not None
+            else None
+        ),
     }
     return {
         "status": "PASS",
