@@ -11,6 +11,7 @@ from sqlalchemy import select
 from domain.hashing import content_hash
 from persistence.database import Database, DatabaseSettings
 from persistence.models import (
+    AgentEffect,
     AgentExperiment,
     AgentMission,
     Base,
@@ -19,6 +20,7 @@ from persistence.models import (
     EvaluationRun,
     Organization,
     ProofApproval,
+    ProofReceiptCore,
 )
 from persistence.proof_repository import ProofExchangeRepository
 from proof.constants import (
@@ -29,7 +31,8 @@ from proof.constants import (
 )
 from proof.exchange import candidate_release, exact_approval_subject, project_published_adapter
 from proof.manifest_v0 import compile_manifest, evaluate_campaign
-from proof.models import DependencyRow, EnvironmentObservation
+from proof.models import DependencyRow, EnvironmentObservation, ProofContractError
+from proof.receipt import build_receipt_core
 
 
 async def _database() -> Database:
@@ -116,6 +119,190 @@ async def test_publication_projection_and_approval_are_idempotent_and_tenant_sco
             )
             assert seller_projections == []
             assert seller_approvals == []
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_verified_effect_consumes_approval_and_persists_one_receipt() -> None:
+    database = await _database()
+    try:
+        projection = _projection()
+        release = candidate_release(projection)
+        expires_at = datetime(2030, 1, 1, tzinfo=UTC) + timedelta(minutes=15)
+        subject = exact_approval_subject(
+            manifest_hash="sha256:" + "d" * 64,
+            environment_fingerprint="sha256:" + "e" * 64,
+            decision_hash="sha256:" + "f" * 64,
+            release=release,
+            datahub_owner_urn="urn:li:corpGroup:support-data-owners",
+            actor_id="seeded_support_owner",
+            actor_role="DATA_OWNER",
+            expires_at=expires_at,
+        )
+        async with database.transaction("org_buyer") as session:
+            session.add(
+                AgentMission(
+                    id="mission_effect_success",
+                    organization_id="org_buyer",
+                    actor_id="seeded_support_owner",
+                    mode="SIRA",
+                    goal="Apply verified proof adapter",
+                    state="EXECUTING",
+                    version=1,
+                    budget={},
+                    plan={},
+                    world_model={},
+                    current_checkpoint_id=None,
+                    stop_reason=None,
+                    last_error_code=None,
+                )
+            )
+            repository = ProofExchangeRepository(session, "org_buyer")
+            await repository.create_approval(subject=subject)
+            effect = await repository.record_effect(
+                mission_id="mission_effect_success",
+                effect_type="ROUTER_ACTIVATION",
+                idempotency_key="activate-adapter-a-v1",
+                request_payload={"adapterDigest": release.artifact_digest},
+                status="VERIFIED",
+                approval_reference=subject.subject_hash,
+                provider_reference="router:version:2",
+            )
+            receipt = build_receipt_core(
+                observation_hash="sha256:" + "1" * 64,
+                environment_fingerprint=subject.environment_fingerprint,
+                manifest_hash=subject.manifest_hash,
+                trial_result_hashes={"adapter-a": "sha256:" + "2" * 64},
+                decision_hash=subject.decision_hash,
+                approval_subject_hash=subject.subject_hash,
+                datahub_owner_urn=subject.datahub_owner_urn,
+                adapter_projection_hash=subject.adapter_projection_hash,
+                tested_adapter_digest=release.artifact_digest,
+                selected_adapter_digest=release.artifact_digest,
+                approved_adapter_digest=release.artifact_digest,
+                healthy_adapter_digest=release.artifact_digest,
+                active_adapter_digest=release.artifact_digest,
+                prior_adapter_digest="sha256:" + "9" * 64,
+                prior_route_version=1,
+                verified_route_version=2,
+                routed_traffic_result_hash="sha256:" + "3" * 64,
+                route_state_at_verification="ACTIVE_VERIFIED",
+                datahub_anchor_urn="urn:li:document:proof-success",
+                datahub_projection_hash="sha256:" + "4" * 64,
+            )
+            first = await repository.consume_approval_with_receipt(
+                approval_subject_hash=subject.subject_hash,
+                verified_effect_id=effect.id,
+                receipt=receipt,
+            )
+            second = await repository.consume_approval_with_receipt(
+                approval_subject_hash=subject.subject_hash,
+                verified_effect_id=effect.id,
+                receipt=receipt,
+            )
+            assert first.id == second.id
+
+        async with database.transaction("org_buyer") as session:
+            approval = (
+                await session.execute(
+                    select(ProofApproval).where(ProofApproval.subject_hash == subject.subject_hash)
+                )
+            ).scalar_one()
+            receipts = list((await session.execute(select(ProofReceiptCore))).scalars())
+            assert approval.status == "CONSUMED"
+            assert approval.consumed_effect_id is not None
+            assert len(receipts) == 1
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_failed_writeback_stays_recoverable_and_cannot_issue_receipt() -> None:
+    database = await _database()
+    try:
+        projection = _projection()
+        release = candidate_release(projection)
+        subject = exact_approval_subject(
+            manifest_hash="sha256:" + "5" * 64,
+            environment_fingerprint="sha256:" + "6" * 64,
+            decision_hash="sha256:" + "7" * 64,
+            release=release,
+            datahub_owner_urn="urn:li:corpGroup:support-data-owners",
+            actor_id="seeded_support_owner",
+            actor_role="DATA_OWNER",
+            expires_at=datetime(2030, 1, 1, tzinfo=UTC) + timedelta(minutes=15),
+        )
+        async with database.transaction("org_buyer") as session:
+            session.add(
+                AgentMission(
+                    id="mission_writeback_failure",
+                    organization_id="org_buyer",
+                    actor_id="seeded_support_owner",
+                    mode="SIRA",
+                    goal="Recover failed receipt writeback",
+                    state="EXECUTING",
+                    version=1,
+                    budget={},
+                    plan={},
+                    world_model={},
+                    current_checkpoint_id=None,
+                    stop_reason=None,
+                    last_error_code=None,
+                )
+            )
+            repository = ProofExchangeRepository(session, "org_buyer")
+            await repository.create_approval(subject=subject)
+            failed = await repository.record_effect(
+                mission_id="mission_writeback_failure",
+                effect_type="DATAHUB_RECEIPT_WRITEBACK",
+                idempotency_key="writeback-failure-v1",
+                request_payload={"approvalSubjectHash": subject.subject_hash},
+                status="COMPENSATING",
+                approval_reference=subject.subject_hash,
+                safe_error_code="DATAHUB_WRITEBACK_INJECTED_FAILURE",
+            )
+            await repository.record_effect(
+                mission_id="mission_writeback_failure",
+                effect_type="ROUTER_ROLLBACK",
+                idempotency_key="writeback-failure-rollback-v1",
+                request_payload={"targetDigest": "sha256:" + "9" * 64},
+                status="VERIFIED",
+                approval_reference=subject.subject_hash,
+                provider_reference="router:version:3",
+            )
+            placeholder = build_receipt_core(
+                observation_hash="sha256:" + "1" * 64,
+                environment_fingerprint=subject.environment_fingerprint,
+                manifest_hash=subject.manifest_hash,
+                trial_result_hashes={"adapter-a": "sha256:" + "2" * 64},
+                decision_hash=subject.decision_hash,
+                approval_subject_hash=subject.subject_hash,
+                datahub_owner_urn=subject.datahub_owner_urn,
+                adapter_projection_hash=subject.adapter_projection_hash,
+                tested_adapter_digest=release.artifact_digest,
+                selected_adapter_digest=release.artifact_digest,
+                approved_adapter_digest=release.artifact_digest,
+                healthy_adapter_digest=release.artifact_digest,
+                active_adapter_digest=release.artifact_digest,
+                prior_adapter_digest="sha256:" + "9" * 64,
+                prior_route_version=1,
+                verified_route_version=2,
+                routed_traffic_result_hash="sha256:" + "3" * 64,
+                route_state_at_verification="ACTIVE_VERIFIED",
+                datahub_anchor_urn="urn:li:document:placeholder-only",
+                datahub_projection_hash="sha256:" + "4" * 64,
+            )
+            with pytest.raises(ProofContractError, match="PROOF_RECEIPT_EFFECT_NOT_VERIFIED"):
+                await repository.consume_approval_with_receipt(
+                    approval_subject_hash=subject.subject_hash,
+                    verified_effect_id=failed.id,
+                    receipt=placeholder,
+                )
+            assert list((await session.execute(select(ProofReceiptCore))).scalars()) == []
+            persisted_failure = await session.get(AgentEffect, failed.id)
+            assert persisted_failure is not None
+            assert persisted_failure.status == "COMPENSATING"
     finally:
         await database.close()
 

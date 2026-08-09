@@ -300,6 +300,75 @@ async def read_stable(session: ClientSession, *, max_attempts: int = 3) -> Envir
     raise ProofContractError("CONTEXT_UNSTABLE: decisive DataHub rereads did not match")
 
 
+async def create_receipt_anchor(session: ClientSession, *, title: str) -> str:
+    result = await session.call_tool(
+        "save_document",
+        {
+            "document_type": "Decision",
+            "title": title,
+            "content": "SIRA proof receipt anchor reserved; no success claim yet.",
+            "topics": ["sira-proof", "proof-receipt"],
+            "related_assets": [ROOT_DATASET_URN],
+        },
+    )
+    payload = tool_payload(result)
+    urn = payload.get("urn") if isinstance(payload, dict) else None
+    if not isinstance(urn, str) or not urn.startswith("urn:li:document:"):
+        raise ProofContractError("DataHub did not return a proof receipt anchor URN")
+    return urn
+
+
+async def publish_receipt_projection(
+    session: ClientSession,
+    *,
+    anchor_urn: str,
+    title: str,
+    core_hash: str,
+    projection: dict[str, Any],
+) -> None:
+    content = json.dumps(
+        {"coreHash": core_hash, "historicalProof": projection},
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    result = await session.call_tool(
+        "save_document",
+        {
+            "urn": anchor_urn,
+            "document_type": "Decision",
+            "title": title,
+            "content": content,
+            "topics": ["sira-proof", "proof-receipt", core_hash],
+            "related_assets": [ROOT_DATASET_URN, PROFILE_DATASET_URN],
+        },
+    )
+    tool_payload(result)
+
+
+async def reread_receipt_projection(
+    anchor_urn: str, *, core_hash: str, timeout_seconds: float = 20.0
+) -> Any:
+    deadline = asyncio.get_running_loop().time() + timeout_seconds
+    while True:
+        async with open_session() as session:
+            result = await session.call_tool(
+                "grep_documents",
+                {
+                    "urns": [anchor_urn],
+                    "pattern": core_hash,
+                    "context_chars": 2000,
+                    "max_matches_per_doc": 2,
+                },
+            )
+            payload = tool_payload(result)
+            if core_hash in json.dumps(payload, sort_keys=True):
+                return payload
+        if asyncio.get_running_loop().time() >= deadline:
+            raise ProofContractError("DATAHUB_RECEIPT_REREAD_MISMATCH")
+        await asyncio.sleep(1.0)
+
+
 async def set_field_tag(
     session: ClientSession,
     *,

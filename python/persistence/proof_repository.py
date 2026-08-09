@@ -7,10 +7,12 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from domain.hashing import content_hash
 from proof.exchange import ExactApprovalSubject
 from proof.models import ProofContractError
+from proof.receipt import ProofReceipt
 
-from .models import BuyerProofAdapterProjection, ProofApproval
+from .models import AgentEffect, BuyerProofAdapterProjection, ProofApproval, ProofReceiptCore
 from .repositories import new_id
 
 
@@ -92,5 +94,125 @@ class ProofExchangeRepository:
             consumed_effect_id=None,
         )
         self.session.add(record)
+        await self.session.flush()
+        return record
+
+    async def record_effect(
+        self,
+        *,
+        mission_id: str,
+        effect_type: str,
+        idempotency_key: str,
+        request_payload: dict[str, Any],
+        status: str,
+        approval_reference: str | None = None,
+        provider_reference: str | None = None,
+        safe_error_code: str | None = None,
+    ) -> AgentEffect:
+        """Create or advance one idempotent external-effect attempt."""
+
+        request_hash = content_hash(request_payload)
+        record = (
+            await self.session.execute(
+                select(AgentEffect).where(
+                    AgentEffect.organization_id == self.organization_id,
+                    AgentEffect.mission_id == mission_id,
+                    AgentEffect.idempotency_key == idempotency_key,
+                )
+            )
+        ).scalar_one_or_none()
+        if record is None:
+            record = AgentEffect(
+                id=new_id("aef"),
+                organization_id=self.organization_id,
+                mission_id=mission_id,
+                task_id=None,
+                capability_grant_id=None,
+                effect_type=effect_type,
+                status=status,
+                idempotency_key=idempotency_key,
+                request_payload=request_payload,
+                request_hash=request_hash,
+                approval_reference=approval_reference,
+                provider_reference=provider_reference,
+                result_artifact_id=None,
+                safe_error_code=safe_error_code,
+            )
+            self.session.add(record)
+        else:
+            if record.request_hash != request_hash or record.effect_type != effect_type:
+                raise ProofContractError("PROOF_EFFECT_IDEMPOTENCY_CONFLICT")
+            record.status = status
+            record.approval_reference = approval_reference
+            record.provider_reference = provider_reference
+            record.safe_error_code = safe_error_code
+        await self.session.flush()
+        return record
+
+    async def consume_approval_with_receipt(
+        self,
+        *,
+        approval_subject_hash: str,
+        verified_effect_id: str,
+        receipt: ProofReceipt,
+    ) -> ProofReceiptCore:
+        """Atomically consume exact authority only after effect and receipt verification."""
+
+        approval = (
+            await self.session.execute(
+                select(ProofApproval).where(
+                    ProofApproval.organization_id == self.organization_id,
+                    ProofApproval.subject_hash == approval_subject_hash,
+                )
+            )
+        ).scalar_one_or_none()
+        effect = (
+            await self.session.execute(
+                select(AgentEffect).where(
+                    AgentEffect.organization_id == self.organization_id,
+                    AgentEffect.id == verified_effect_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if approval is None or effect is None:
+            raise ProofContractError("PROOF_RECEIPT_AUTHORITY_OR_EFFECT_MISSING")
+        if effect.status != "VERIFIED" or effect.approval_reference != approval_subject_hash:
+            raise ProofContractError("PROOF_RECEIPT_EFFECT_NOT_VERIFIED")
+        authority = receipt.payload.get("authority", {})
+        verified = receipt.payload.get("verifiedEffect", {})
+        if (
+            authority.get("approvalSubjectHash") != approval_subject_hash
+            or authority.get("approvedAdapterDigest") != approval.adapter_digest
+            or verified.get("activeAdapterDigest") != approval.adapter_digest
+        ):
+            raise ProofContractError("PROOF_RECEIPT_APPROVAL_MISMATCH")
+        existing = (
+            await self.session.execute(
+                select(ProofReceiptCore).where(
+                    ProofReceiptCore.organization_id == self.organization_id,
+                    ProofReceiptCore.core_hash == receipt.core_hash,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return existing
+        if approval.status != "ACTIVE":
+            raise ProofContractError("PROOF_APPROVAL_NOT_ACTIVE")
+        projection = receipt.payload["dataHubProjection"]
+        record = ProofReceiptCore(
+            id=new_id("prc"),
+            organization_id=self.organization_id,
+            approval_subject_hash=approval_subject_hash,
+            verified_adapter_digest=str(verified["activeAdapterDigest"]),
+            route_state_at_verification=str(verified["routeStateAtVerification"]),
+            datahub_anchor_urn=str(projection["anchorUrn"]),
+            datahub_projection_hash=str(projection["projectionHash"]),
+            payload=receipt.payload,
+            core_hash=receipt.core_hash,
+        )
+        self.session.add(record)
+        await self.session.flush()
+        approval.status = "CONSUMED"
+        approval.consumed_effect_id = effect.id
         await self.session.flush()
         return record
