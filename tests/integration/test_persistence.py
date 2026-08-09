@@ -867,6 +867,51 @@ def test_postgres_proof_exchange_inverse_runtime_roles() -> None:
 
 
 @pytest.mark.postgres
+def test_postgres_proof_receipt_core_is_insert_only() -> None:
+    with postgres_test_database() as database_url:
+        upgrade_database_to_head(database_url)
+        plain_url = database_url_with_driver(database_url, "postgresql")
+        suffix = uuid.uuid4().hex[:12]
+        organization_id = f"org_receipt_{suffix}"
+        receipt_id = f"prc_{suffix}"
+        with psycopg.connect(plain_url, autocommit=True) as connection:
+            connection.execute(
+                "INSERT INTO organizations (id, name, version) VALUES (%s, 'Receipt Test', 1)",
+                (organization_id,),
+            )
+            connection.execute(
+                """
+                INSERT INTO proof_receipt_cores
+                    (id, organization_id, approval_subject_hash, verified_adapter_digest,
+                     route_state_at_verification, datahub_anchor_urn,
+                     datahub_projection_hash, payload, core_hash)
+                VALUES (%s, %s, %s, %s, 'ACTIVE_VERIFIED',
+                        'urn:li:document:sira-proof-receipt', %s, %s, %s)
+                """,
+                (
+                    receipt_id,
+                    organization_id,
+                    "sha256:" + "a" * 64,
+                    "sha256:" + "b" * 64,
+                    "sha256:" + "c" * 64,
+                    Jsonb({"schemaVersion": "ProofReceiptCore/v0"}),
+                    "sha256:" + "d" * 64,
+                ),
+            )
+            with pytest.raises(psycopg.errors.RaiseException, match="immutable"):
+                connection.execute(
+                    "UPDATE proof_receipt_cores SET payload = %s WHERE id = %s",
+                    (Jsonb({"tampered": True}), receipt_id),
+                )
+            with pytest.raises(psycopg.errors.RaiseException, match="immutable"):
+                connection.execute("DELETE FROM proof_receipt_cores WHERE id = %s", (receipt_id,))
+            connection.execute("ALTER TABLE proof_receipt_cores DISABLE TRIGGER USER")
+            connection.execute("DELETE FROM proof_receipt_cores WHERE id = %s", (receipt_id,))
+            connection.execute("ALTER TABLE proof_receipt_cores ENABLE TRIGGER USER")
+            connection.execute("DELETE FROM organizations WHERE id = %s", (organization_id,))
+
+
+@pytest.mark.postgres
 @pytest.mark.asyncio
 async def test_postgres_readiness_requires_direct_restricted_runtime_login() -> None:
     with postgres_test_database() as database_url:

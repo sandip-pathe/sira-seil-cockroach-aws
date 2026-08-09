@@ -22,12 +22,12 @@ def _write_state(state: dict[str, Any]) -> None:
     os.replace(temporary, STATE_PATH)
 
 
-def _adapter_health(socket_path: str) -> dict[str, Any]:
+def _adapter_request(socket_path: str, request: dict[str, Any]) -> dict[str, Any]:
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
             client.settimeout(2.0)
             client.connect(socket_path)
-            client.sendall(b'{"operation":"health"}\n')
+            client.sendall(json.dumps(request, sort_keys=True).encode() + b"\n")
             response = client.recv(MAX_REQUEST_BYTES)
         payload = json.loads(response)
         if not isinstance(payload, dict):
@@ -35,6 +35,10 @@ def _adapter_health(socket_path: str) -> dict[str, Any]:
         return payload
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         return {"status": "unhealthy", "error": type(exc).__name__}
+
+
+def _adapter_health(socket_path: str) -> dict[str, Any]:
+    return _adapter_request(socket_path, {"operation": "health"})
 
 
 def _transition(request: dict[str, Any], event: str) -> dict[str, Any]:
@@ -70,6 +74,18 @@ def _handle(request: dict[str, Any]) -> dict[str, Any]:
     if operation == "probe":
         state = _read_state()
         return {"status": "ok", "state": state, "probe": _adapter_health(state["activeSocket"])}
+    if operation == "route_invoke":
+        state = _read_state()
+        trial = request.get("trial")
+        if not isinstance(trial, dict):
+            return {"status": "rejected", "code": "INVALID_TRIAL", "state": state}
+        routed = _adapter_request(state["activeSocket"], {**trial, "operation": "invoke"})
+        return {
+            "status": "routed" if routed.get("status") == "completed" else "failed",
+            "activeDigest": state["activeDigest"],
+            "routeVersion": state["version"],
+            "result": routed,
+        }
     if operation == "cas_apply":
         return _transition(request, "apply")
     if operation == "cas_rollback":

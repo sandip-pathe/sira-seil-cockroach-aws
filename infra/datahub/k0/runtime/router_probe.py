@@ -57,6 +57,29 @@ def main() -> int:
     active_probe = _request({"operation": "probe"})
     if active_probe["probe"].get("artifactDigest") != digest_a:
         raise RuntimeError("routed health probe did not observe adapter A")
+    routed = _request(
+        {
+            "operation": "route_invoke",
+            "trial": {
+                "protocolVersion": "TrialCase/v0",
+                "trialId": "router-effect-trial-v1",
+                "caseId": "router-effect-canary-v1",
+                "nonce": "router-effect-nonce-v1",
+                "allowedExecutionRegions": ["EU"],
+                "input": {
+                    "ticket_id": "ticket-router-001",
+                    "body": "Synthetic routed traffic probe.",
+                    "customer_email": "route-marker@example.invalid",
+                },
+            },
+        }
+    )
+    if (
+        routed.get("status") != "routed"
+        or routed.get("activeDigest") != digest_a
+        or routed.get("result", {}).get("adapterId") != "adapter-a"
+    ):
+        raise RuntimeError("routed traffic did not execute through active adapter A")
     induced_failure = _request(
         {
             "operation": "cas_apply",
@@ -90,6 +113,7 @@ def main() -> int:
                 "initial": initial,
                 "applied": applied,
                 "activeProbe": active_probe,
+                "routedTraffic": routed,
                 "inducedFailure": induced_failure,
                 "unchangedAfterFailure": unchanged,
                 "rollback": rollback,

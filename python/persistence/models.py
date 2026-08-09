@@ -1956,6 +1956,37 @@ class ProofApproval(Base, TenantOwned):
     )
 
 
+class ProofReceiptCore(Base, TenantOwned):
+    """Insert-only causal, authority, and verified-effect receipt body."""
+
+    __tablename__ = "proof_receipt_cores"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    approval_subject_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    verified_adapter_digest: Mapped[str] = mapped_column(String(80), nullable=False)
+    route_state_at_verification: Mapped[str] = mapped_column(String(32), nullable=False)
+    datahub_anchor_urn: Mapped[str] = mapped_column(String(300), nullable=False)
+    datahub_projection_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    core_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "route_state_at_verification IN ('ACTIVE_VERIFIED','ROLLBACK_VERIFIED')",
+            name="ck_proof_receipt_route_state",
+        ),
+        UniqueConstraint("organization_id", "core_hash", name="uq_proof_receipt_core_hash"),
+        UniqueConstraint(
+            "organization_id",
+            "approval_subject_hash",
+            name="uq_proof_receipt_approval_subject",
+        ),
+    )
+
+
 class SellerPackSuspension(Base, TenantOwned):
     """Append-only safety suspension; published Pack content is never mutated."""
 
