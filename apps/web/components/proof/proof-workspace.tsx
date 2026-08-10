@@ -109,13 +109,13 @@ function CompletedWorkspace({ proof }: { proof: ProofWorkspaceView }) {
               <span className={styles.step}>01 · Context</span>
               <h2 id="context-heading">The governed fact that mattered</h2>
             </div>
-            <State>Live from DataHub</State>
+            <State>Captured from DataHub</State>
           </div>
           <div className={styles.factRow}>
             <Database size={22} aria-hidden="true" />
             <div>
               <strong>{proof.context.decisive_fact}</strong>
-              <span>Observed state: {proof.context.decisive_fact_state.toLowerCase()}</span>
+              <span>Decisive state: {proof.context.decisive_fact_state.toLowerCase()}</span>
             </div>
           </div>
           <div className={styles.requirements}>
