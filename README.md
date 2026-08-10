@@ -1,6 +1,6 @@
 # SIRA + SEIL
 
-SIRA helps enterprises select software for the environment they actually run. It turns private company context into buyer-specific requirements, evaluates versioned seller evidence from SEIL, and explains which option fits, which option is blocked, and what must be proven before purchase.
+SIRA + SEIL help companies buy software that fits the way they actually work, not just the vendor's feature page. SIRA works for the buyer; SEIL turns seller knowledge into comparable product listings. For data and AI purchases, DataHub shows SIRA what the buyer's real environment requires.
 
 The hackathon demonstration focuses on one data/AI buying decision: choosing a customer-support AI that will touch governed customer data.
 
