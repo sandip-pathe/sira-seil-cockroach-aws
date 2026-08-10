@@ -113,8 +113,8 @@ async def test_sira_buying_request_uses_seil_marketplace_discovery() -> None:
     researcher = _FakeResearcher()
     service = WorkspaceService(
         DemoFixtureBundle.load(),
-        api_key="configured",
-        seil_api_key="configured",
+        api_key="configured",  # pragma: allowlist secret
+        seil_api_key="configured",  # pragma: allowlist secret
         model="test",
         seil_web_researcher=researcher,
     )
@@ -163,8 +163,8 @@ async def test_vendor_seil_chat_does_not_trigger_market_discovery() -> None:
     researcher = _FakeResearcher()
     service = WorkspaceService(
         DemoFixtureBundle.load(),
-        api_key="configured",
-        seil_api_key="configured",
+        api_key="configured",  # pragma: allowlist secret
+        seil_api_key="configured",  # pragma: allowlist secret
         model="test",
         seil_web_researcher=researcher,
     )
