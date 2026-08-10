@@ -278,6 +278,8 @@ export function ProofWorkspace() {
     },
   });
   const running = runner.data?.status === "RUNNING" || start.isPending;
+  const failed =
+    !running && (runner.data?.status === "FAILED" || start.isError || workspace.isError);
 
   return (
     <div className={styles.shell}>
@@ -308,7 +310,9 @@ export function ProofWorkspace() {
             <span className={styles.eyebrow}>Internal software decision · support automation</span>
             <h1>Can this seller release safely run on our stack?</h1>
           </div>
-          <State>{workspace.data ? "Complete" : running ? "In progress" : "Ready"}</State>
+          <State>
+            {failed ? "Blocked" : workspace.data ? "Complete" : running ? "In progress" : "Ready"}
+          </State>
         </div>
         {running ? (
           <section className={styles.emptyState} aria-live="polite">
@@ -317,6 +321,22 @@ export function ProofWorkspace() {
             <p>
               Reading DataHub, testing both releases, checking authority, activating, verifying, and
               restoring.
+            </p>
+            <p>
+              The page updates automatically. The full proof and recovery can take several minutes.
+            </p>
+          </section>
+        ) : failed ? (
+          <section className={styles.emptyState} aria-live="assertive">
+            <CircleAlert size={28} aria-hidden="true" />
+            <h2>Verified evidence unavailable</h2>
+            <p>
+              The latest proof did not complete or its artifact could not be verified. Previous
+              success evidence is hidden until a new run passes every gate.
+            </p>
+            <p className={styles.error}>
+              {runner.data?.safe_error_code ?? "PROOF_EVIDENCE_UNAVAILABLE"}. Run{" "}
+              <code>scripts\proof.cmd demo -Assert</code>, then refresh.
             </p>
           </section>
         ) : workspace.data ? (
@@ -329,11 +349,6 @@ export function ProofWorkspace() {
             <button className={styles.runButton} onClick={() => start.mutate()} type="button">
               <Play size={15} fill="currentColor" /> Run verified proof
             </button>
-            {start.isError || runner.data?.status === "FAILED" ? (
-              <p className={styles.error}>
-                Runner unavailable. Use <code>scripts\proof.cmd demo -Assert</code>, then refresh.
-              </p>
-            ) : null}
           </section>
         )}
       </div>
