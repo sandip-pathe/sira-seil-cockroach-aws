@@ -56,22 +56,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.sandbox-disclosure {
-  position: fixed;
-  z-index: 10000;
-  right: 12px;
-  bottom: 12px;
-  padding: 5px 9px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  background: rgb(250 249 245 / 94%);
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.2;
-  box-shadow: 0 4px 16px rgb(19 32 28 / 10%);
-  pointer-events: none;
-}
-
 ::selection {
   background: #ded9cc;
   color: #1f1f1c;
