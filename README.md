@@ -6,6 +6,10 @@ The hackathon demonstration focuses on one data/AI buying decision: choosing a c
 
 `DataHub context -> buyer requirements -> SEIL evidence -> deterministic fit decision -> counterfactual -> decision receipt`
 
+![SIRA compares two products against buyer-specific DataHub requirements](docs/screenshots/submission/01-datahub-grounded-decision.png)
+
+*SIRA keeps the buying workflow in the existing chat and inspector: the same buyer context that explains the recommendation also determines product eligibility.*
+
 ## Why DataHub is essential
 
 DataHub is SIRA's governed technical-context layer, not a decorative connector.
@@ -14,9 +18,13 @@ DataHub is SIRA's governed technical-context layer, not a decorative connector.
 - Those facts compile into explicit product-fit requirements.
 - A PII classification makes the cheaper candidate ineligible and changes the recommendation.
 - Removing only that classification flips the result; restoring it restores the original result. An unrelated governed change is a negative control and does not change the decision.
-- SIRA writes a decision-evidence receipt to DataHub and treats it as verified only after a fresh reread finds the same receipt hash.
+- SIRA writes a hash-bound decision receipt projection to a DataHub Decision document and treats it as verified only after a fresh MCP session finds the expected hashes.
 
-The buyer's raw graph never crosses to the seller. SEIL exposes only a minimum-disclosure, versioned seller projection. The existing deterministic Decision Graph owns selection; the language model does not.
+The buyer's raw graph never crosses to the seller. The demo uses two repository-curated, digest-bound SEIL evidence projections with seller-private fields removed. The existing deterministic Decision Graph owns selection; the language model does not.
+
+![The decisive email field is tagged PII in the running DataHub instance](docs/screenshots/submission/04-live-datahub-pii-context.png)
+
+*The governed field is visible in DataHub Core; SIRA reads it through the open-source DataHub MCP server.*
 
 ## Demonstrated decision
 
@@ -27,6 +35,10 @@ All companies, products, prices, and data are synthetic.
 | `customer_profiles.email` is tagged PII | **Private Relay** | Raw PII egress is forbidden; the cheaper ClearText Assist release fails that requirement. |
 | Only the PII tag is removed | **ClearText Assist** | Both releases pass the remaining requirements, so the lower-price eligible release wins. |
 | The PII tag is restored | **Private Relay** | The original requirements and decision are reproduced. |
+
+![The relevant DataHub change flips the recommendation while an unrelated change does not](docs/screenshots/submission/02-datahub-causal-check.png)
+
+*The counterfactual is paired with a negative control and restoration, so DataHub is causal to the result rather than decorative context.*
 
 This is a technical-fit recommendation and buyer-specific proof result, not a completed purchase or a claim that the fictional sellers form a production marketplace.
 
@@ -82,7 +94,7 @@ The normal product stays on `/sira`: chat and product cards in the centre, navig
 - The existing deterministic Decision Graph selects the eligible release.
 - The only decisive mutation is the governed PII classification; an unrelated metadata mutation leaves the decision unchanged.
 - The PII tag and the original decision are restored after the counterfactual.
-- The buyer decision receipt is bound to the restored, PII-present recommendation and is reread from DataHub before success is shown.
+- The buyer decision receipt projection is bound to the restored, PII-present recommendation and is reread from DataHub before success is shown.
 
 The repository also contains a deeper local activation, rollback, and historical receipt harness. Those mechanics are not the primary product surface and are not presented as an arbitrary production-deployment system.
 
@@ -95,4 +107,4 @@ pnpm build:web
 
 The API contract is generated from `contracts/openapi/openapi.json`; the typed client lives in `packages/api-client`. PostgreSQL remains the canonical durable store for product workflows. Tenant-owned records use forced row-level security, receipt cores are insert-only, and provider credentials have no persistence column.
 
-See [`docs/HACKATHON_RELEASE.md`](docs/HACKATHON_RELEASE.md) for trust boundaries, recovery, and release certification. This project is Apache-2.0 licensed; see [`LICENSE`](LICENSE).
+See [`docs/HACKATHON_RELEASE.md`](docs/HACKATHON_RELEASE.md) for trust boundaries, recovery, and release certification. Reusable submission screenshots and captions are in [`docs/screenshots/submission`](docs/screenshots/submission/README.md). This project is Apache-2.0 licensed; see [`LICENSE`](LICENSE).

@@ -1,5 +1,7 @@
 # Demo Readiness Ledger
 
+> Historical record for the pre-DataHub fixture demo. Its OPS-01 entry refers to a retired workflow in an older repository and is not current release evidence. See the root [`README.md`](../README.md) and [`HACKATHON_RELEASE.md`](HACKATHON_RELEASE.md) for the active DataHub submission.
+
 Updated: 2026-08-02
 
 Branch reviewed: `core-backend`
