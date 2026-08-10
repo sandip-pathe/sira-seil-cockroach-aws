@@ -30,9 +30,9 @@ For data and AI purchases, SIRA uses DataHub to understand the buyer's actual en
 
 A company needs a customer-support AI. The cheaper option looks better on price.
 
-But DataHub shows that customer email is governed PII and must stay within an allowed region. Private Relay handles that correctly. ClearText Assist exposes the synthetic email, so SIRA blocks it and recommends Private Relay.
+But DataHub shows that customer email is governed PII and must stay within an allowed region. The privacy-safe option handles that correctly. The cheaper option exposes the synthetic email, so SIRA blocks it.
 
-We then remove only the PII classification. The recommendation changes to ClearText Assist. An unrelated metadata change does nothing. Restoring the PII classification restores the original recommendation.
+We then remove only the PII classification. The cheaper option becomes the recommendation. An unrelated metadata change does nothing. Restoring the PII classification makes the privacy-safe option win again.
 
 That proves DataHub changed the buying decision; it was not just another connector shown in the UI.
 

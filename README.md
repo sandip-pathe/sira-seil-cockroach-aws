@@ -32,9 +32,9 @@ All companies, products, prices, and data are synthetic.
 
 | Current DataHub state | SIRA result | Reason |
 |---|---|---|
-| `customer_profiles.email` is tagged PII | **Private Relay** | Raw PII egress is forbidden; the cheaper ClearText Assist release fails that requirement. |
-| Only the PII tag is removed | **ClearText Assist** | Both releases pass the remaining requirements, so the lower-price eligible release wins. |
-| The PII tag is restored | **Private Relay** | The original requirements and decision are reproduced. |
+| `customer_profiles.email` is tagged PII | **Privacy-safe option** | Raw PII egress is forbidden, so the cheaper option fails that requirement. |
+| Only the PII tag is removed | **Cheaper option** | Both options pass the remaining requirements, so price becomes decisive. |
+| The PII tag is restored | **Privacy-safe option** | The original requirements and decision are reproduced. |
 
 ![The relevant DataHub change flips the recommendation while an unrelated change does not](docs/screenshots/submission/02-datahub-causal-check.png)
 
