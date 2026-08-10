@@ -498,9 +498,9 @@ const CONNECTORS: Record<CommerceWorkspaceMode, Connector[]> = {
     },
     {
       name: "DataHub",
-      purpose: "Structured company and product context",
-      status: "Not connected",
-      meta: "Optional",
+      purpose: "Governed schemas, lineage, owners, and data policies",
+      status: "Healthy",
+      meta: "Used in buyer-specific fit decisions",
     },
     {
       name: "Google Workspace",
@@ -881,7 +881,7 @@ function AgentWorkingState({ mode }: { mode: CommerceWorkspaceMode }) {
         <span />
         <span />
       </span>
-      <span>Thinking…</span>
+      <span>{stages[stage]}…</span>
     </div>
   );
 }
@@ -1257,10 +1257,20 @@ function DecisionsPanel({ onStart, onSelect }: { onStart: () => void; onSelect: 
           </div>
           <div className={styles.decisionMiniList}>
             {decisions.map((decision) => (
-              <article key={decision.id}>
+              <button
+                key={decision.id}
+                type="button"
+                onClick={() =>
+                  onSelect({
+                    requestId: decision.id,
+                    version: decision.current_decision_version ?? 1,
+                    stage: decision.current_stage.toLowerCase().replaceAll("_", "-"),
+                  })
+                }
+              >
                 <span>{decision.current_stage.replaceAll("_", " ")}</span>
                 <strong>{decision.intent}</strong>
-              </article>
+              </button>
             ))}
           </div>
         </section>
@@ -1831,6 +1841,218 @@ type CitedProduct = {
   reason_codes?: unknown;
 };
 
+type StructuredRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): StructuredRecord | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as StructuredRecord)
+    : null;
+}
+
+function asRecordList(value: unknown): StructuredRecord[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is StructuredRecord =>
+          typeof item === "object" && item !== null && !Array.isArray(item),
+      )
+    : [];
+}
+
+function displayValue(value: unknown, fallback = "Not recorded"): string {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  if (Array.isArray(value)) return value.map((item) => displayValue(item, "")).join(" · ");
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function productLabel(value: unknown, fallback = "No eligible product") {
+  const product = asRecord(value);
+  if (product) return displayValue(product.name ?? product.product_name ?? product.id, fallback);
+  return displayValue(value, fallback);
+}
+
+function isDataHubDecisionArtifact(artifact: MissionArtifactView) {
+  return (
+    artifact.kind === "cited_decision" &&
+    String(artifact.payload.decision_plane ?? "").toUpperCase() === "DATAHUB"
+  );
+}
+
+function DataHubCitedDecisionPanel({ artifact }: { artifact: MissionArtifactView }) {
+  const payload = artifact.payload;
+  const selectedProduct = productLabel(payload.selected_product, artifact.title);
+  const facts = asRecordList(payload.facts);
+  const requirements = asRecordList(payload.requirements);
+  const counterfactual = asRecord(payload.counterfactual) ?? {};
+  const negativeControl = asRecord(payload.negative_control) ?? {};
+  const receipt = asRecord(payload.receipt) ?? {};
+  const sources = artifact.source_refs ?? [];
+  const recommendationChanged = counterfactual.outcome === "RECOMMENDATION_CHANGED";
+  const negativeControlPassed =
+    negativeControl.decision_unchanged === true &&
+    negativeControl.context_fingerprint_unchanged === true;
+
+  return (
+    <div className={styles.contextBody}>
+      <section className={styles.documentHeader}>
+        <span>DataHub-grounded buying decision</span>
+        <h2>{selectedProduct}</h2>
+        <p>
+          {recommendationChanged
+            ? "Governed DataHub context materially changed which product fits this company."
+            : "The recommendation was evaluated against governed DataHub context and seller evidence."}
+        </p>
+      </section>
+
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <span>Buyer context</span>
+            <h3>{facts.length} exact DataHub facts used</h3>
+          </div>
+          <FileSearch aria-hidden="true" />
+        </div>
+        {facts.length ? (
+          <div className={styles.dataHubEvidenceList}>
+            {facts.map((fact, index) => (
+              <article key={displayValue(fact.id, `datahub-fact-${index}`)}>
+                <span>{displayValue(fact.source_type, "DataHub fact")}</span>
+                <strong>{displayValue(fact.label ?? fact.fact, `Fact ${index + 1}`)}</strong>
+                <p>{displayValue(fact.value)}</p>
+                <code>{displayValue(fact.source_urn, "Source URN not attached")}</code>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.sectionCopy}>No DataHub facts were attached to this decision.</p>
+        )}
+      </section>
+
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <span>Compiled constraints</span>
+            <h3>{requirements.length} buyer requirements derived</h3>
+          </div>
+          <BadgeCheck aria-hidden="true" />
+        </div>
+        {requirements.length ? (
+          <div className={styles.dataHubEvidenceList}>
+            {requirements.map((requirement, index) => (
+              <article key={displayValue(requirement.id, `requirement-${index}`)}>
+                <span>{displayValue(requirement.status, "Required")}</span>
+                <strong>{displayValue(requirement.label, `Requirement ${index + 1}`)}</strong>
+                <p>Derived from {displayValue(requirement.derived_from, "the cited DataHub context")}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.sectionCopy}>No derived requirements were attached.</p>
+        )}
+      </section>
+
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <span>Causal check</span>
+            <h3>DataHub changed the recommendation</h3>
+          </div>
+          <Layers3 aria-hidden="true" />
+        </div>
+        <dl className={styles.artifactFields}>
+          <div>
+            <dt>With current DataHub context</dt>
+            <dd>{productLabel(counterfactual.with_datahub, selectedProduct)}</dd>
+          </div>
+          <div>
+            <dt>Without the decisive PII fact</dt>
+            <dd>{productLabel(counterfactual.without_pii)}</dd>
+          </div>
+          <div>
+            <dt>After restoring the fact</dt>
+            <dd>{productLabel(counterfactual.restored, selectedProduct)}</dd>
+          </div>
+          <div>
+            <dt>Effect</dt>
+            <dd>{recommendationChanged ? "Recommendation changed" : displayValue(counterfactual.outcome)}</dd>
+          </div>
+          <div>
+            <dt>Decisive fact</dt>
+            <dd>{displayValue(counterfactual.fact)}</dd>
+          </div>
+          <div>
+            <dt>Fact source</dt>
+            <dd>{displayValue(counterfactual.source_urn)}</dd>
+          </div>
+          <div>
+            <dt>Negative control</dt>
+            <dd>{negativeControlPassed ? "Passed — unrelated metadata did not change the decision" : "Not verified"}</dd>
+          </div>
+          <div>
+            <dt>Control mutation</dt>
+            <dd>{displayValue(negativeControl.mutation)}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <span>Decision receipt</span>
+            <h3>Written to and reread from DataHub</h3>
+          </div>
+          <ShieldCheck aria-hidden="true" />
+        </div>
+        <dl className={styles.artifactFields}>
+          <div>
+            <dt>Writeback</dt>
+            <dd>{displayValue(receipt.writeback_status)}</dd>
+          </div>
+          <div>
+            <dt>DataHub anchor</dt>
+            <dd>{displayValue(receipt.datahub_anchor_urn)}</dd>
+          </div>
+          <div>
+            <dt>Decision hash</dt>
+            <dd>{displayValue(receipt.decision_hash)}</dd>
+          </div>
+          <div>
+            <dt>Fresh reread</dt>
+            <dd>{receipt.reread_matched === true ? "Matched" : "Not verified"}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className={styles.contextSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <span>DataHub provenance</span>
+            <h3>{sources.length} source URNs</h3>
+          </div>
+          <FileCheck2 aria-hidden="true" />
+        </div>
+        {sources.length ? (
+          <ul className={styles.artifactSources}>
+            {sources.map((source, index) => (
+              <li key={`${artifact.id}-datahub-source-${index}`}>
+                <strong>
+                  {displayValue(source.label ?? source.fact ?? source.title, "DataHub source")}
+                </strong>
+                {" — "}
+                {displayValue(source.source_urn ?? source.urn, "URN not attached")}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.sectionCopy}>No separate source references were attached.</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function CitedDecisionPanel({
   artifact,
   onApproveDecision,
@@ -1841,6 +2063,9 @@ function CitedDecisionPanel({
   approvalState: "idle" | "saving" | "approved" | "error";
 }) {
   const payload = artifact.payload;
+  if (isDataHubDecisionArtifact(artifact)) {
+    return <DataHubCitedDecisionPanel artifact={artifact} />;
+  }
   const products = Array.isArray(payload.evaluated_products)
     ? payload.evaluated_products.filter(
         (item): item is CitedProduct => typeof item === "object" && item !== null,
@@ -2178,7 +2403,7 @@ function ContextPanel({
         ) : null}
         {tab === "work" && mode === "sira" ? <SiraWorkPanel /> : null}
         {tab === "work" && mode === "seil" ? <SeilWorkPanel /> : null}
-        {tab === "decisions" && activeDecision ? <DecisionWorkspacePanel requestId={activeDecision.requestId} version={activeDecision.version} initialStage={activeDecision.stage} onBack={onBackDecision} /> : null}
+        {tab === "decisions" && activeDecision ? <DecisionWorkspacePanel key={`${activeDecision.requestId}:${activeDecision.version}:${activeDecision.stage}`} requestId={activeDecision.requestId} version={activeDecision.version} initialStage={activeDecision.stage} onBack={onBackDecision} /> : null}
         {tab === "decisions" && !activeDecision ? <DecisionsPanel onStart={onStartChat} onSelect={onSelectDecision} /> : null}
         {tab === "inbox" ? <InboxPanel mode={mode} /> : null}
         {tab === "catalog" ? (
@@ -2559,6 +2784,14 @@ export function CommerceWorkspace({
         ),
       }));
       setSelectedByMode((current) => ({ ...current, [targetMode]: payload.conversation_id }));
+      const dataHubDecision = [...(payload.artifacts ?? [])]
+        .reverse()
+        .find(isDataHubDecisionArtifact);
+      if (targetMode === "sira" && dataHubDecision) {
+        setSelectedArtifact(dataHubDecision);
+        setContextTab("artifact");
+        setContextOpen(true);
+      }
     } catch (error) {
       if (!controller.signal.aborted) {
         updateConversation(targetMode, activeConversationId, (conversation) => ({
@@ -2840,7 +3073,11 @@ export function CommerceWorkspace({
                 </p>
                 <div className={styles.promptSuggestions}>
                   {(mode === "sira"
-                    ? ["Compare our current tool", "Review a renewal", "Show connector status"]
+                    ? [
+                        "Choose a customer-support AI for our actual data stack",
+                        "Review a renewal",
+                        "Show connector status",
+                      ]
                     : ["Check Product Evidence", "Prepare for review", "Show source connectors"]
                   ).map((suggestion) => (
                     <button key={suggestion} type="button" onClick={() => setComposer(suggestion)}>
@@ -2933,16 +3170,23 @@ export function CommerceWorkspace({
                   {message.artifacts
                     ?.filter((artifact) => artifact.kind === "cited_decision")
                     .map((artifact) => {
-                      const selectedProduct =
-                        typeof artifact.payload.selected_product === "string"
-                          ? artifact.payload.selected_product
-                          : "Recommendation ready";
-                      const decisionHash =
-                        typeof artifact.payload.decision_hash === "string"
-                          ? artifact.payload.decision_hash
-                          : "";
-                      const contextEffect =
-                        typeof artifact.payload.private_context_effect === "string"
+                      const dataHubDecision = isDataHubDecisionArtifact(artifact);
+                      const selectedProduct = productLabel(
+                        artifact.payload.selected_product,
+                        "Recommendation ready",
+                      );
+                      const receipt = asRecord(artifact.payload.receipt);
+                      const decisionHash = displayValue(
+                        receipt?.decision_hash ?? artifact.payload.decision_hash,
+                        "",
+                      );
+                      const contextEffect = dataHubDecision
+                        ? artifact.payload.counterfactual &&
+                          asRecord(artifact.payload.counterfactual)?.outcome ===
+                            "RECOMMENDATION_CHANGED"
+                          ? "DataHub's governed buyer context changed which product fits this company."
+                          : "DataHub context and seller evidence were evaluated together."
+                        : typeof artifact.payload.private_context_effect === "string"
                           ? artifact.payload.private_context_effect
                           : "Private company context and cited seller evidence were evaluated in Snowflake.";
                       return (
@@ -2956,7 +3200,10 @@ export function CommerceWorkspace({
                             setContextOpen(true);
                           }}
                         >
-                          <span><ShieldCheck aria-hidden="true" /> Governed decision</span>
+                          <span>
+                            <ShieldCheck aria-hidden="true" />
+                            {dataHubDecision ? "DataHub-grounded decision" : "Governed decision"}
+                          </span>
                           <strong>{selectedProduct}</strong>
                           <p>{contextEffect}</p>
                           <small>

@@ -20,9 +20,21 @@ export const WEB_DATA_MODE: WebDataMode =
   configuredDataMode ?? (process.env.NODE_ENV === "production" ? "api" : "fixture");
 
 function guestWorkspaceHeaders(mode: "sira" | "seil"): Readonly<Record<string, string>> {
-  return Object.freeze({
-    "X-Workspace-Mode": mode,
-  });
+  const developmentIdentity = mode === "sira"
+    ? {
+        "X-Actor-Party": "BUYER",
+        "X-Actor-Roles": [
+          "can_submit_request",
+          "can_view_context",
+          "can_select_recommendation",
+          "can_manage_procurement_gate",
+        ].join(","),
+      }
+    : {
+        "X-Actor-Party": "SELLER",
+        "X-Actor-Roles": "seller_editor,can_view_context",
+      };
+  return Object.freeze({ "X-Workspace-Mode": mode, ...developmentIdentity });
 }
 
 export const buyerDevelopmentHeaders = guestWorkspaceHeaders("sira");

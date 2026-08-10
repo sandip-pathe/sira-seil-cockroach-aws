@@ -57,6 +57,7 @@ def server_parameters(token: str | None = None) -> StdioServerParameters:
             "DATAHUB_GMS_URL": os.getenv("DATAHUB_GMS_URL", DEFAULT_GMS_URL),
             "DATAHUB_GMS_TOKEN": token or resolve_token(),
             "TOOLS_IS_MUTATION_ENABLED": "true",
+            "DATAHUB_TELEMETRY_ENABLED": "false",
             "PYTHONUTF8": "1",
             "LOGURU_LEVEL": "WARNING",
         }
@@ -292,8 +293,8 @@ async def read_once(session: ClientSession, *, attempts: int = 1) -> Environment
 
 async def read_stable(session: ClientSession, *, max_attempts: int = 3) -> EnvironmentObservation:
     for attempt in range(1, max_attempts + 1):
-        first = await read_once(session, attempts=attempt)
-        second = await read_once(session, attempts=attempt)
+        first = await read_once(session, attempts=(attempt * 2) - 1)
+        second = await read_once(session, attempts=attempt * 2)
         if first.semantic_hash == second.semantic_hash:
             return second
         await asyncio.sleep(0.2 * attempt)

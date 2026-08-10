@@ -17,6 +17,7 @@ $quickstartCompose = Join-Path $quickstartRoot "docker-compose.yml"
 $quickstartSecrets = Join-Path $quickstartRoot ".local-secrets.env"
 $artifactRoot = Join-Path $repoRoot $Artifacts
 $env:PYTHONUTF8 = "1"
+$env:DATAHUB_TELEMETRY_ENABLED = "false"
 
 function Invoke-Checked {
   param(

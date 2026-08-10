@@ -19,9 +19,10 @@ Settings and user details open as a modal over this layout. Old SIRA URLs such a
 | New chat | Empty conversational intake | Agent run | `POST /v1/workspace/chat` |
 | Describe a buying need | SIRA asks one material follow-up at a time | Run/progress | Workspace chat; later structured decision APIs |
 | Ask to browse or compare | Catalogue cards appear inline | Catalogue list | `GET /v1/workspace/catalog` and chat response products |
+| Ask which data/AI product fits the current stack | SIRA explains the buyer-specific recommendation | Cited DataHub decision, counterfactual, and receipt | `POST /v1/workspace/chat` composed with the verified DataHub exchange artifact |
 | Click a product | Card remains in transcript | Product Evidence detail | `GET /v1/workspace/catalog/{product_id}` contract |
 | Decisions sidebar button | Chat remains mounted | Decisions state | Existing decision-request APIs |
-| Connectors sidebar button | Chat remains mounted | Business Context, Senso, DataHub, and other sources | `GET /v1/workspace/connectors` |
+| Connectors sidebar button | Chat remains mounted | Business Context, Senso, DataHub, and other sources | `GET /v1/workspace/connectors`; DataHub health reflects a verified buyer-decision artifact |
 | Inbox sidebar button | Chat remains mounted | Assigned work; honest empty state when none exists | Task/workflow state when implemented |
 | Profile/settings | Chat remains mounted behind overlay | Unchanged | Settings modal; authenticated profile when connected |
 | Attach company context | Drafts a chat request and opens connectors | Connector choice/setup | Context-source APIs when implemented |
@@ -36,7 +37,8 @@ Catalogue facts come from server-side Product Evidence fixtures in development. 
 
 ## Failure states
 
-- Missing `SIRA_OPENAI_API_KEY`: composer remains usable and shows the server's configuration error in the transcript. Docker maps this project-scoped variable to the provider SDK's internal `OPENAI_API_KEY`; a global Windows/Codex key is intentionally ignored.
+- Missing `SIRA_OPENAI_API_KEY`: the deterministic DataHub-fit journey remains usable; other agent requests show the server's configuration error in the transcript. Docker maps this project-scoped variable to the provider SDK's internal `OPENAI_API_KEY`; a global Windows/Codex key is intentionally ignored.
+- Missing or invalid DataHub decision evidence: fail closed, hide the previous recommendation and receipt, and direct the operator to rerun the asserted proof. Never substitute fixture output in API mode.
 - Provider failure or invalid model response: show a retryable assistant error; never substitute invented catalogue output.
 - Missing connector: lower confidence or block only the dependent action; allow chat/manual context when policy permits.
 - No inbox assignments: show an honest empty state, never a fake badge.

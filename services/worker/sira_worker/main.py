@@ -49,9 +49,7 @@ class WorkerSettings(BaseSettings):
     database_url: str = Field(default="", validation_alias="DATABASE_URL")
     temporal_address: str = Field(default="", validation_alias="TEMPORAL_ADDRESS")
     temporal_namespace: str = Field(default="default", validation_alias="TEMPORAL_NAMESPACE")
-    temporal_api_key: SecretStr = Field(
-        default=SecretStr(""), validation_alias="TEMPORAL_API_KEY"
-    )
+    temporal_api_key: SecretStr = Field(default=SecretStr(""), validation_alias="TEMPORAL_API_KEY")
     temporal_tls: bool = Field(default=False, validation_alias="TEMPORAL_TLS")
     temporal_task_queue: str = Field(
         default="sira-checkout", validation_alias="TEMPORAL_TASK_QUEUE"
@@ -83,9 +81,7 @@ class WorkerSettings(BaseSettings):
             "WORKER_ORGANIZATION_IDS": self.worker_organization_ids,
         }
         if self.prava_execution_mode == "mcp":
-            values["CONNECTOR_ENCRYPTION_KEY"] = (
-                self.connector_encryption_key.get_secret_value()
-            )
+            values["CONNECTOR_ENCRYPTION_KEY"] = self.connector_encryption_key.get_secret_value()
         elif self.prava_execution_mode == "legacy":
             values.update(
                 {

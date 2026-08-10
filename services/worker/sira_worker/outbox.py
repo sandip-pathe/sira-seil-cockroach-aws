@@ -112,9 +112,7 @@ class CheckoutOutboxDispatcher:
                 )
                 checkout_request = None
             else:
-                workflow_id, prava_request = self._prava_workflow_request(
-                    organization_id, payload
-                )
+                workflow_id, prava_request = self._prava_workflow_request(organization_id, payload)
                 checkout_request = None
                 reversal_request = None
         except ValueError:

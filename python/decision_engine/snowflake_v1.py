@@ -67,8 +67,7 @@ def _evaluate_once(source: dict[str, Any]) -> dict[str, Any]:
                     (
                         item
                         for item in eligible_offers
-                        if _decimal(item["unit_price"])
-                        >= minimum_price
+                        if _decimal(item["unit_price"]) >= minimum_price
                     ),
                     None,
                 )

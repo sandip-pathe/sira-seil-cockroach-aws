@@ -142,16 +142,12 @@ class SnowflakeDecisionService:
         result["citations"] = self._dict_rows(cursor)
         return result
 
-    async def get_decision(
-        self, request_id: str, *, organization_id: str
-    ) -> dict[str, Any] | None:
+    async def get_decision(self, request_id: str, *, organization_id: str) -> dict[str, Any] | None:
         return await asyncio.to_thread(
             self._get_decision, request_id, organization_id=organization_id
         )
 
-    def _get_decision(
-        self, request_id: str, *, organization_id: str
-    ) -> dict[str, Any] | None:
+    def _get_decision(self, request_id: str, *, organization_id: str) -> dict[str, Any] | None:
         connection = self._connect()
         try:
             cursor = connection.cursor()

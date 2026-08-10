@@ -185,8 +185,10 @@ def create_app(
             development_fixture_mode=resolved_settings.development_fixture_mode,
         )
         senso_providers, senso_error = await activate_senso(resolved_settings)
+        proof_runtime = ProofWorkspaceRuntime(REPO_ROOT)
         application.state.workflow_service = workflow_service
         application.state.seller_evidence_service = seller_evidence_service
+        application.state.proof_runtime = proof_runtime
         snowflake_decision_service = SnowflakeDecisionService(resolved_settings)
         application.state.snowflake_decision_service = snowflake_decision_service
         application.state.workspace_service = WorkspaceService(
@@ -200,6 +202,7 @@ def create_app(
             senso_providers=senso_providers,
             senso_error=senso_error,
             snowflake_decision_service=snowflake_decision_service,
+            proof_runtime=proof_runtime,
         )
         application.state.prava_mcp_service = PravaMcpConnectionService(
             resolved_database,
@@ -207,8 +210,6 @@ def create_app(
             public_base_url=resolved_settings.public_base_url,
             web_base_url=resolved_settings.web_base_url,
         )
-        proof_runtime = ProofWorkspaceRuntime(REPO_ROOT)
-        application.state.proof_runtime = proof_runtime
         yield
         await proof_runtime.close()
         await close_senso(senso_providers)

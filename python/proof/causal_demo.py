@@ -43,6 +43,49 @@ def _manifest_payload(manifest: EvaluationManifest) -> dict[str, Any]:
     return {**manifest.hash_payload(), "manifestHash": manifest.manifest_hash}
 
 
+def _safe_source_details(observation: EnvironmentObservation) -> list[dict[str, Any]]:
+    """Project only DataHub metadata used by the decision, never dataset row values."""
+
+    return [
+        {
+            "urn": observation.root_urn,
+            "label": "Support summary schema",
+            "fact": "schemaFields",
+            "value": list(observation.root_fields),
+        },
+        {
+            "urn": observation.root_urn,
+            "label": "Support summary lineage",
+            "fact": "upstreamDatasets",
+            "value": list(observation.upstream_urns),
+        },
+        {
+            "urn": observation.root_urn,
+            "label": "Governing data owners",
+            "fact": "ownerUrns",
+            "value": list(observation.owner_urns),
+        },
+        {
+            "urn": observation.profile_urn,
+            "label": "Customer profile schema",
+            "fact": "schemaFields",
+            "value": list(observation.profile_fields),
+        },
+        {
+            "urn": observation.profile_urn,
+            "label": "Allowed execution regions",
+            "fact": "allowedRegions",
+            "value": list(observation.allowed_regions),
+        },
+        {
+            "urn": observation.profile_urn,
+            "label": "Customer email classification",
+            "fact": "emailPiiTagged",
+            "value": observation.pii_present,
+        },
+    ]
+
+
 def _run_campaign(
     manifest: EvaluationManifest, releases: tuple[CandidateRelease, ...] | None
 ) -> tuple[CampaignDecision, dict[str, Any]]:
@@ -112,6 +155,14 @@ def _run_record(
         "piiPresent": observation.pii_present,
         "environmentFingerprint": observation.environment_fingerprint,
         "observationHash": observation.semantic_hash,
+        "environmentObservation": {
+            "schemaVersion": "EnvironmentObservationSafe/v0",
+            "safeContext": observation.semantic_payload(),
+            "sourceDetails": _safe_source_details(observation),
+            "semanticHash": observation.semantic_hash,
+            "environmentFingerprint": observation.environment_fingerprint,
+            "readAttempts": observation.read_attempts,
+        },
         "manifestHash": manifest.manifest_hash,
         "emittedGateIds": [gate.gate_id for gate in manifest.gates],
         "winnerAdapterId": decision.winner_adapter_id,

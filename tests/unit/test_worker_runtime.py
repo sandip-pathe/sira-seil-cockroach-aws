@@ -364,12 +364,15 @@ async def test_temporal_connection_validates_names_and_delegates(
             await temporal.connect_temporal(target, namespace=namespace)
 
     assert await temporal.connect_temporal("temporal.test:7233", namespace="testing") is sentinel
-    assert await temporal.connect_temporal(
-        "cloud.temporal.io:7233",
-        namespace="production",
-        api_key="secret",  # pragma: allowlist secret - inert test value
-        tls=True,
-    ) is sentinel
+    assert (
+        await temporal.connect_temporal(
+            "cloud.temporal.io:7233",
+            namespace="production",
+            api_key="secret",  # pragma: allowlist secret - inert test value
+            tls=True,
+        )
+        is sentinel
+    )
     assert calls == [
         ("temporal.test:7233", "testing", None, False),
         ("cloud.temporal.io:7233", "production", "secret", True),

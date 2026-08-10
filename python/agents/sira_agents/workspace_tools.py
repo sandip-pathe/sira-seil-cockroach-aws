@@ -54,7 +54,8 @@ def search_catalog(
     bounded_limit = min(max(limit, 1), 20)
     stop_words = {"a", "an", "and", "for", "in", "of", "or", "the", "to", "with"}
     query_terms = {
-        term for term in normalized_query.replace("-", " ").split()
+        term
+        for term in normalized_query.replace("-", " ").split()
         if len(term) > 2 and term not in stop_words
     }
     scored: list[tuple[int, CatalogProductResult]] = []

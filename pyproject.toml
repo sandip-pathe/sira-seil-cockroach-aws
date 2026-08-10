@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "sira-seil"
 version = "0.1.0"
-description = "Company-aware procurement decision, approval, payment, and fulfillment control plane"
+description = "Company-aware software selection grounded in buyer context and seller evidence"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [

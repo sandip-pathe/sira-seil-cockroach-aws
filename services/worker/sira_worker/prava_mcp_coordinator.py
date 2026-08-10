@@ -29,9 +29,7 @@ class PersistentPravaMcpCoordinator:
         self._database = database
         self._cipher = ConnectorCipher(root_secret)
 
-    async def payment_status(
-        self, request: PravaShoppingWorkflowInput
-    ) -> PravaPaymentStatusResult:
+    async def payment_status(self, request: PravaShoppingWorkflowInput) -> PravaPaymentStatusResult:
         payload = await self._call(
             request.organization_id,
             "get_payment_status",
@@ -44,9 +42,7 @@ class PersistentPravaMcpCoordinator:
             status=status,
         )
 
-    async def checkout(
-        self, request: PravaShoppingWorkflowInput
-    ) -> PravaShoppingWorkflowResult:
+    async def checkout(self, request: PravaShoppingWorkflowInput) -> PravaShoppingWorkflowResult:
         payload = await self._call(
             request.organization_id,
             "shop_checkout",

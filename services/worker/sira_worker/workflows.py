@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import cast
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -34,9 +35,7 @@ class PravaShoppingWorkflow:
     """Wait for Prava-hosted approval and place the quoted order without card data."""
 
     @workflow.run
-    async def run(
-        self, request: PravaShoppingWorkflowInput
-    ) -> PravaShoppingWorkflowResult:
+    async def run(self, request: PravaShoppingWorkflowInput) -> PravaShoppingWorkflowResult:
         assert_credential_free_contract(request)
         for attempt in range(60):
             status = await workflow.execute_activity(
@@ -48,12 +47,15 @@ class PravaShoppingWorkflow:
             )
             normalized = status.status.upper()
             if normalized in {"COMPLETED", "APPROVED", "PAID", "SUCCESS"}:
-                return await workflow.execute_activity(
-                    "sira.prava_shop_checkout",
-                    request,
-                    result_type=PravaShoppingWorkflowResult,
-                    start_to_close_timeout=timedelta(seconds=90),
-                    retry_policy=RetryPolicy(maximum_attempts=3),
+                return cast(
+                    PravaShoppingWorkflowResult,
+                    await workflow.execute_activity(
+                        "sira.prava_shop_checkout",
+                        request,
+                        result_type=PravaShoppingWorkflowResult,
+                        start_to_close_timeout=timedelta(seconds=90),
+                        retry_policy=RetryPolicy(maximum_attempts=3),
+                    ),
                 )
             if normalized in {"FAILED", "DECLINED", "CANCELLED", "EXPIRED"}:
                 return PravaShoppingWorkflowResult(

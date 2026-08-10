@@ -79,9 +79,7 @@ class PravaMcpConnectionService:
                     actor_id=actor_id,
                     state_hash=self.signer.digest(state),
                     client_id=client_id,
-                    encrypted_code_verifier=self.cipher.encrypt_json(
-                        {"verifier": pkce.verifier}
-                    ),
+                    encrypted_code_verifier=self.cipher.encrypt_json({"verifier": pkce.verifier}),
                     redirect_uri=redirect_uri,
                     expires_at=datetime.now(UTC) + timedelta(minutes=10),
                     consumed_at=None,
@@ -137,9 +135,9 @@ class PravaMcpConnectionService:
                     status_code=409,
                     next_action="restart_prava_connection",
                 )
-            verifier = self.cipher.decrypt_json(
-                authorization.encrypted_code_verifier
-            ).get("verifier")
+            verifier = self.cipher.decrypt_json(authorization.encrypted_code_verifier).get(
+                "verifier"
+            )
             if not isinstance(verifier, str) or not verifier:
                 raise ApiProblem(
                     code="PRAVA_OAUTH_STATE_INVALID",
@@ -335,9 +333,7 @@ class PravaMcpConnectionService:
             amount = f"{run.amount:.2f}"
             currency = run.currency
             merchant = run.merchant
-            product_description = str(
-                run.quote_payload.get("product_name", run.product_id)
-            )
+            product_description = str(run.quote_payload.get("product_name", run.product_id))
             quantity = run.quantity
             merchant_url = self._merchant_url(merchant)
             unit_price = f"{(run.amount / Decimal(quantity)):.2f}"

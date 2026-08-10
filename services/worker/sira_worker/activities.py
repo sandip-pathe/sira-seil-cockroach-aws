@@ -28,9 +28,7 @@ class PravaShoppingActivities:
         self._coordinator = coordinator
 
     @activity.defn(name="sira.prava_payment_status")
-    async def payment_status(
-        self, request: PravaShoppingWorkflowInput
-    ) -> PravaPaymentStatusResult:
+    async def payment_status(self, request: PravaShoppingWorkflowInput) -> PravaPaymentStatusResult:
         assert_credential_free_contract(request)
         try:
             result = await self._coordinator.payment_status(request)
@@ -44,9 +42,7 @@ class PravaShoppingActivities:
         return result
 
     @activity.defn(name="sira.prava_shop_checkout")
-    async def checkout(
-        self, request: PravaShoppingWorkflowInput
-    ) -> PravaShoppingWorkflowResult:
+    async def checkout(self, request: PravaShoppingWorkflowInput) -> PravaShoppingWorkflowResult:
         assert_credential_free_contract(request)
         try:
             result = await self._coordinator.checkout(request)

@@ -474,14 +474,6 @@ export function DecisionWorkspacePanel({
   const [toast, setToast] = useState("");
 
   useEffect(() => {
-    setActiveVersion(version);
-    setActiveStage(initialStage);
-    setPurchaseIntent(null);
-    setApproval(null);
-    setPravaSession(null);
-  }, [requestId, version, initialStage]);
-
-  useEffect(() => {
     if (!toast) return;
     const timeout = window.setTimeout(() => setToast(""), 3600);
     return () => window.clearTimeout(timeout);

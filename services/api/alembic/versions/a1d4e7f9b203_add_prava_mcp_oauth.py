@@ -26,8 +26,12 @@ def _tenant_columns() -> tuple[sa.Column[object], ...]:
             sa.ForeignKey("organizations.id", ondelete="RESTRICT"),
             nullable=False,
         ),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
     )
 
 
@@ -87,9 +91,7 @@ def upgrade() -> None:
         sa.Column("redirect_uri", sa.Text(), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("consumed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.UniqueConstraint(
-            "organization_id", "state_hash", name="uq_prava_mcp_oauth_state"
-        ),
+        sa.UniqueConstraint("organization_id", "state_hash", name="uq_prava_mcp_oauth_state"),
     )
     op.create_index(
         "ix_prava_mcp_authorizations_organization_id",
@@ -142,9 +144,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(
-        "ix_prava_shopping_runs_organization_id", table_name="prava_shopping_runs"
-    )
+    op.drop_index("ix_prava_shopping_runs_organization_id", table_name="prava_shopping_runs")
     op.drop_table("prava_shopping_runs")
     op.drop_index(
         "ix_prava_mcp_authorizations_organization_id",

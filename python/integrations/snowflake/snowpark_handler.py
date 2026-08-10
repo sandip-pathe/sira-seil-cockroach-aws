@@ -81,8 +81,7 @@ def _evaluate_once(source: dict[str, Any]) -> dict[str, Any]:
                     (
                         item
                         for item in eligible_offers
-                        if _decimal(item["unit_price"])
-                        >= minimum_price
+                        if _decimal(item["unit_price"]) >= minimum_price
                     ),
                     None,
                 )
@@ -230,7 +229,7 @@ def run_sira_decision(session: Any, request_id: str) -> dict[str, Any]:
     def normalize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return [{key.casefold(): _json_value(value) for key, value in row.items()} for row in rows]
 
-    source = {
+    source: dict[str, Any] = {
         "company_id": company_id,
         "context_version": context_version,
         "facts": normalize(facts),

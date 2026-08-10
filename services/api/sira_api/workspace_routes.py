@@ -164,6 +164,7 @@ async def workspace_connectors(
 ) -> list[dict[str, str]]:
     require_permission(context, "can_view_context")
     senso_ready, senso_meta = service.senso_status()
+    datahub_ready, datahub_meta = service.datahub_status()
     return [
         {
             "id": "business-context",
@@ -182,9 +183,9 @@ async def workspace_connectors(
         {
             "id": "datahub",
             "name": "DataHub",
-            "purpose": "Live governed context, owner authority, and proof receipts",
-            "status": "Proof workspace",
-            "meta": "Operate and inspect the causal proof at /proof",
+            "purpose": "Governed company context for buyer-specific software decisions",
+            "status": "Healthy" if datahub_ready else "Needs setup",
+            "meta": datahub_meta,
         },
         {
             "id": "google-workspace",

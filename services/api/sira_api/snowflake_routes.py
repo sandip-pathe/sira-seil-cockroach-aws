@@ -74,9 +74,7 @@ async def get_snowflake_decision(
     service: ServiceDependency,
 ) -> dict[str, Any]:
     require_permission(context, "can_view_context")
-    result = await service.get_decision(
-        request_id, organization_id=context.organization_id
-    )
+    result = await service.get_decision(request_id, organization_id=context.organization_id)
     if result is None:
         raise ApiProblem(
             code="SNOWFLAKE_DECISION_NOT_FOUND",

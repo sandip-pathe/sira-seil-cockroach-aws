@@ -11,6 +11,7 @@ export function WorkspaceAuthGate({ children }: { children: ReactNode }) {
   const { configured, loading, user } = useFirebaseAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const developmentWorkspace = process.env.NODE_ENV === "development" && !configured;
 
   useEffect(() => {
     if (!configured || loading || user) return;
@@ -20,7 +21,7 @@ export function WorkspaceAuthGate({ children }: { children: ReactNode }) {
     router.replace(`/sign-in?workspace=${workspace}`);
   }, [configured, loading, pathname, router, user]);
 
-  if (configured && !loading && user) return children;
+  if (developmentWorkspace || (configured && !loading && user)) return children;
 
   return (
     <main className={styles.gate}>

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 from temporalio.client import Client
 from temporalio.worker import Worker
 
@@ -28,7 +31,7 @@ def build_worker(
         raise ValueError("task_queue must not be empty")
     assert_all_contract_schemas_are_credential_free()
     workflows: list[type] = []
-    registered_activities = []
+    registered_activities: list[Callable[..., Any]] = []
     if coordinator is not None:
         activities = CheckoutActivities(coordinator)
         workflows.extend([PurchaseCheckoutWorkflow, PurchaseReversalWorkflow])

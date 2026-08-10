@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 import httpx
 import jwt
 from cryptography import x509
+from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt import InvalidTokenError
 
 IdentityKind = Literal["HUMAN", "SERVICE"]
@@ -50,8 +51,7 @@ class FirebaseIdentityAdapter:
     """Verify Firebase ID tokens against Google's rotating public certificates."""
 
     _CERTIFICATES_URL = (
-        "https://www.googleapis.com/robot/v1/metadata/x509/"
-        "securetoken@system.gserviceaccount.com"
+        "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
     )
 
     def __init__(
@@ -89,6 +89,8 @@ class FirebaseIdentityAdapter:
             return None
         try:
             public_key = x509.load_pem_x509_certificate(certificate.encode()).public_key()
+            if not isinstance(public_key, rsa.RSAPublicKey):
+                return None
             payload = jwt.decode(
                 bearer_token,
                 key=public_key,
@@ -123,8 +125,7 @@ class FirebaseIdentityAdapter:
             except ValueError:
                 raise IdentityProviderUnavailable("Firebase certificates invalid") from None
             if not isinstance(payload, dict) or not all(
-                isinstance(item, str) and isinstance(value, str)
-                for item, value in payload.items()
+                isinstance(item, str) and isinstance(value, str) for item, value in payload.items()
             ):
                 raise IdentityProviderUnavailable("Firebase certificates invalid")
             cache_control = response.headers.get("cache-control", "")
@@ -162,9 +163,7 @@ class FirebaseIdentityAdapter:
             ),
             actor_id=f"usr_{digest[:24]}",
             roles=frozenset(),
-            step_up_verified=(
-                verified_identity and 0 <= auth_age <= self._step_up_max_age_seconds
-            ),
+            step_up_verified=(verified_identity and 0 <= auth_age <= self._step_up_max_age_seconds),
             identity_kind="HUMAN",
             party=None,
             firebase_identity=True,

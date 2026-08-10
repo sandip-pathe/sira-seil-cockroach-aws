@@ -76,13 +76,6 @@ class _SdkFacade(Protocol):
         output_type: object | None,
     ) -> object: ...
 
-
-@dataclass(frozen=True, slots=True)
-class _SdkRunOutcome:
-    output: object
-    tool_calls: tuple[str, ...]
-    proposals: tuple[Mapping[str, Any], ...]
-
     async def run(
         self,
         agent: object,
@@ -93,6 +86,13 @@ class _SdkRunOutcome:
         workflow_name: str,
         api_key: str,
     ) -> object: ...
+
+
+@dataclass(frozen=True, slots=True)
+class _SdkRunOutcome:
+    output: object
+    tool_calls: tuple[str, ...]
+    proposals: tuple[Mapping[str, Any], ...]
 
 
 class _OpenAISdkFacade:
@@ -131,8 +131,6 @@ class _OpenAISdkFacade:
     ) -> object:
         from agents.models.openai_provider import OpenAIProvider
         from openai import AsyncOpenAI
-
-        from agents import RunConfig, Runner, ToolCallItem, ToolCallOutputItem
 
         from agents import RunConfig, Runner, ToolCallItem, ToolCallOutputItem
 

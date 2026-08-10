@@ -6,7 +6,6 @@ import argparse
 import json
 import shutil
 import subprocess
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +46,25 @@ def _image_digest(image: str) -> str:
     return digest
 
 
+def _buyer_decision_state(exchange: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    receipt = exchange.get("buyerDecisionReceipt")
+    causal = exchange.get("exchangeCausalProof")
+    if not isinstance(receipt, dict) or not isinstance(causal, dict):
+        raise ValueError("buyer decision receipt is missing")
+    runs = causal.get("runs")
+    if not isinstance(runs, list):
+        raise ValueError("causal runs are missing")
+    restored_runs = [
+        run for run in runs if isinstance(run, dict) and run.get("label") == "pii-restored"
+    ]
+    if len(restored_runs) != 1:
+        raise ValueError("exactly one restored buyer decision is required")
+    payload = receipt.get("payload")
+    if not isinstance(payload, dict):
+        raise ValueError("buyer decision receipt payload is missing")
+    return receipt, restored_runs[0]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--artifacts", type=Path, required=True)
@@ -61,6 +79,25 @@ def main() -> int:
     receipt = deployment["receipt"]
     recovery = workspace["recovery"]
 
+    buyer_receipt, restored_decision = _buyer_decision_state(exchange)
+    buyer_payload = buyer_receipt["payload"]
+    buyer_writeback = buyer_receipt.get("dataHubWriteback", {})
+    buyer_recommendation = buyer_payload.get("recommendation", {})
+    buyer_counterfactual = buyer_payload.get("counterfactual", {})
+    buyer_core_bound = (
+        buyer_receipt.get("schemaVersion") == "BuyerDecisionReceipt/v0"
+        and buyer_payload.get("schemaVersion") == "BuyerDecisionEvidenceCore/v0"
+        and content_hash(buyer_payload) == buyer_receipt.get("coreHash")
+        and buyer_receipt.get("decisionHash") == restored_decision.get("decisionHash")
+        and buyer_payload.get("decisionHash") == restored_decision.get("decisionHash")
+        and buyer_recommendation.get("adapterId") == restored_decision.get("winnerAdapterId")
+    )
+    buyer_reread_verified = (
+        isinstance(buyer_writeback, dict)
+        and buyer_writeback.get("status") == "REREAD_VERIFIED"
+        and buyer_writeback.get("rereadMatched") is True
+    )
+
     release_safety = (
         recovery["status"] == "RESTORED"
         and failure is not None
@@ -73,10 +110,11 @@ def main() -> int:
         "G1_DATAHUB_RUNTIME": exchange["status"] == "PASS",
         "G2_CAUSAL_FLIP": workspace["context"]["causal_sequence"]
         == ["adapter-b", "adapter-a", "adapter-b"],
-        "G3_EXCHANGE_BOUNDARY": len(exchange["buyerProjections"]) == 2,
-        "G4_EXACT_AUTHORITY": len(exchange["blockedBeforeEffect"]) == 5,
-        "G5_VERIFIED_EFFECT": workspace["activation"]["status"] == "ACTIVE_VERIFIED",
-        "G6_RECEIPT_REREAD": workspace["receipt"]["reread_matched"] is True,
+        "G3_SELLER_EVIDENCE_BOUNDARY": len(exchange["buyerProjections"]) == 2,
+        "G4_BUYER_DECISION_BOUND": buyer_core_bound,
+        "G5_BUYER_RECEIPT_REREAD": buyer_reread_verified,
+        "G6_CONTEXT_RESTORED": recovery["status"] == "RESTORED"
+        and restored_decision.get("winnerAdapterId") == "adapter-b",
         "G7_RELEASE_SAFETY": release_safety,
     }
     if args.assert_contract and not all(gates.values()):
@@ -101,7 +139,11 @@ def main() -> int:
         "semanticResultHash": content_hash(
             {
                 "causalSequence": workspace["context"]["causal_sequence"],
-                "winner": workspace["proof_run"]["winner_adapter_id"],
+                "currentWinner": restored_decision["winnerAdapterId"],
+                "currentDecisionHash": restored_decision["decisionHash"],
+                "buyerDecisionCoreHash": buyer_receipt["coreHash"],
+                "counterfactualWinner": buyer_counterfactual["alternativeAdapterId"],
+                "counterfactualDecisionHash": buyer_counterfactual["decisionHash"],
                 "candidateDigests": sorted(
                     candidate["artifact_digest"] for candidate in candidates
                 ),
@@ -140,31 +182,31 @@ def main() -> int:
         json.dumps(recovery, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     timeline = [
-        "DATAHUB_CONTEXT_ACCEPTED",
-        "SELLER_RELEASES_PROJECTED",
-        "IDENTICAL_TRIALS_VERIFIED",
-        "DECISION_SELECTED",
-        "OWNER_APPROVAL_MATCHED",
-        "ROUTE_EFFECT_VERIFIED",
-        "RECEIPT_REREAD_MATCHED",
-        "ROUTE_AND_TAG_RESTORED",
+        "DATAHUB_BUYER_CONTEXT_READ",
+        "BUYER_REQUIREMENTS_COMPILED",
+        "SEIL_SELLER_EVIDENCE_BOUND",
+        "BUYER_SPECIFIC_TRIALS_VERIFIED",
+        "COUNTERFACTUAL_RECOMMENDATION_CHANGED",
+        "CURRENT_CONTEXT_RESTORED",
+        "BUYER_DECISION_RECEIPT_WRITTEN",
+        "BUYER_DECISION_RECEIPT_REREAD",
     ]
-    observed_at = datetime.now(UTC).isoformat()
     (root / "timeline.jsonl").write_text(
         "".join(
-            json.dumps({"sequence": index, "event": event, "observedAt": observed_at}) + "\n"
+            json.dumps({"sequence": index, "event": event}) + "\n"
             for index, event in enumerate(timeline, start=1)
         ),
         encoding="utf-8",
     )
     (root / "summary.md").write_text(
-        "# SIRA Proof of Fit run\n\n"
-        f"- Status: **{workspace['overall_status']}**\n"
-        f"- Run: `{workspace['run_id']}`\n"
+        "# SIRA DataHub-grounded buying decision\n\n"
+        f"- Status: **{exchange['status']}**\n"
         f"- Causal result: `{' -> '.join(workspace['context']['causal_sequence'])}`\n"
-        f"- Selected digest: `{workspace['activation']['selected_adapter_digest']}`\n"
-        f"- Receipt: `{workspace['receipt']['core_hash']}`\n"
-        f"- DataHub reread: `{workspace['receipt']['reread_matched']}`\n"
+        f"- Current recommendation: `{restored_decision['winnerAdapterId']}`\n"
+        f"- Counterfactual recommendation: `{buyer_counterfactual['alternativeAdapterId']}`\n"
+        f"- Decision receipt: `{buyer_receipt['coreHash']}`\n"
+        f"- DataHub receipt anchor: `{buyer_writeback['anchorUrn']}`\n"
+        f"- DataHub reread: `{buyer_writeback['rereadMatched']}`\n"
         f"- Recovery: `{workspace['recovery']['status']}`\n"
         f"- Warm demo duration: `{timings['warmDemoSeconds']}s`\n"
         "- Environment preparation: "

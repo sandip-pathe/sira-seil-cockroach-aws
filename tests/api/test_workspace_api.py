@@ -20,6 +20,9 @@ async def test_workspace_catalog_and_connectors_use_live_routes(
         "datahub",
         "google-workspace",
     }
+    datahub = next(item for item in connectors.json() if item["id"] == "datahub")
+    assert datahub["status"] in {"Healthy", "Needs setup"}
+    assert "/proof" not in datahub["meta"]
 
 
 @pytest.mark.asyncio

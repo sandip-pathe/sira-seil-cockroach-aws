@@ -12,7 +12,7 @@ import json
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlencode
 
 import httpx
@@ -119,9 +119,7 @@ class PravaMcpOAuthClient:
         return client_id
 
     @staticmethod
-    def authorization_url(
-        *, client_id: str, redirect_uri: str, pkce: PkceAuthorization
-    ) -> str:
+    def authorization_url(*, client_id: str, redirect_uri: str, pkce: PkceAuthorization) -> str:
         query = urlencode(
             {
                 "response_type": "code",
@@ -256,9 +254,7 @@ class PravaMcpClient:
         )
         await self._notify("notifications/initialized")
 
-    async def _rpc(
-        self, method: str, params: dict[str, Any], *, operation: str
-    ) -> dict[str, Any]:
+    async def _rpc(self, method: str, params: dict[str, Any], *, operation: str) -> dict[str, Any]:
         self._request_id += 1
         response = await self._client.post(
             PRAVA_MCP_URL,
@@ -278,7 +274,7 @@ class PravaMcpClient:
         payload = self._response_payload(response)
         if "error" in payload or not isinstance(payload.get("result"), dict):
             raise _provider_error(operation)
-        return payload["result"]
+        return cast(dict[str, Any], payload["result"])
 
     async def _notify(self, method: str) -> None:
         response = await self._client.post(

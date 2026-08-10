@@ -108,9 +108,7 @@ class ApiSettings(BaseSettings):
     snowflake_warehouse: str = Field(
         default="SIRA_HACK_XS_WH", validation_alias="SNOWFLAKE_WAREHOUSE"
     )
-    snowflake_database: str = Field(
-        default="SIRA_HACKATHON", validation_alias="SNOWFLAKE_DATABASE"
-    )
+    snowflake_database: str = Field(default="SIRA_HACKATHON", validation_alias="SNOWFLAKE_DATABASE")
 
     @property
     def is_development(self) -> bool:
@@ -210,9 +208,7 @@ class ApiSettings(BaseSettings):
         has_private_key = bool(self.snowflake_private_key.get_secret_value().strip())
         has_private_key_path = bool(self.snowflake_private_key_path.strip())
         if sum((has_password, has_private_key, has_private_key_path)) != 1:
-            missing.append(
-                "exactly one Snowflake password, private key, or private-key path"
-            )
+            missing.append("exactly one Snowflake password, private key, or private-key path")
         if missing:
             raise ValueError("Snowflake configuration is incomplete: " + ", ".join(missing))
 

@@ -94,9 +94,7 @@ async def complete_prava_connection(
     response_model=PravaConnectionStatus,
     tags=["commerce"],
 )
-async def prava_connection_status(
-    request: Request, context: ContextDependency
-) -> dict[str, str]:
+async def prava_connection_status(request: Request, context: ContextDependency) -> dict[str, str]:
     require_permission(context, "can_view_context")
     return await _service(request).status(organization_id=context.organization_id)
 
