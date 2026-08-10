@@ -33,6 +33,7 @@ from persistence.repositories import RecordNotFound
 from .errors import ApiProblem
 from .fixtures import DemoFixtureBundle
 from .proof_runtime import ProofWorkspaceRuntime
+from .seil_web_research import OpenAISeilWebResearcher, SeilWebResearcher
 from .snowflake_service import SnowflakeDecisionService
 from .workspace_schemas import WorkspaceChatCreate
 
@@ -249,6 +250,7 @@ class WorkspaceService:
         senso_error: str | None = None,
         snowflake_decision_service: SnowflakeDecisionService | None = None,
         proof_runtime: ProofWorkspaceRuntime | None = None,
+        seil_web_researcher: SeilWebResearcher | None = None,
     ) -> None:
         self.fixtures = fixtures
         self.api_key = api_key
@@ -264,6 +266,11 @@ class WorkspaceService:
         self.senso_error = senso_error
         self.snowflake_decision_service = snowflake_decision_service
         self.proof_runtime = proof_runtime
+        self.seil_web_researcher = seil_web_researcher or (
+            OpenAISeilWebResearcher(api_key=self.seil_api_key, model=model)
+            if self.seil_api_key
+            else None
+        )
         tools = {**workspace_tool_registry(), **commerce_tool_registry()}
         self.runtime = OpenAIAgentsRuntime(model=model, tools=tools)
 
@@ -431,6 +438,12 @@ class WorkspaceService:
             body=body,
             run_context=run_context,
         )
+        if self._routes_to_seil_public_research(body):
+            return await self._run_seil_public_research_turn(
+                body=body,
+                mission_id=mission_id,
+                run_context=run_context,
+            )
         if self._routes_to_governed_snowflake(body):
             return await self._run_governed_snowflake_turn(
                 mission_id=mission_id,
@@ -637,6 +650,93 @@ class WorkspaceService:
     def _routes_to_datahub_fit(cls, body: WorkspaceChatCreate) -> bool:
         normalized = " ".join(body.message.strip().casefold().split()).rstrip(".!?")
         return body.mode == "sira" and normalized in cls._DATAHUB_BUYING_PROMPTS
+
+    @staticmethod
+    def _routes_to_seil_public_research(body: WorkspaceChatCreate) -> bool:
+        if body.mode != "seil":
+            return False
+        message = body.message.casefold()
+        research_intent = any(
+            phrase in message
+            for phrase in ("research", "search", "look up", "lookup", "fetch", "find online")
+        )
+        web_scope = any(
+            phrase in message
+            for phrase in ("http://", "https://", "public web", "internet", "online", "website")
+        )
+        return research_intent and web_scope
+
+    async def _run_seil_public_research_turn(
+        self,
+        *,
+        body: WorkspaceChatCreate,
+        mission_id: str,
+        run_context: AgentRunContext,
+    ) -> dict[str, Any]:
+        if self.seil_web_researcher is None:
+            raise ApiProblem(
+                code="AGENT_PROVIDER_NOT_CONFIGURED",
+                message="SEIL public research is not configured on the server.",
+                status_code=503,
+                retryable=False,
+                next_action="configure_openai_api_key",
+            )
+        try:
+            research = await self.seil_web_researcher.research(body.message)
+            source_refs = research.source_refs()
+        except Exception as error:
+            logger.exception(
+                "SEIL public web research failed",
+                extra={"request_id": run_context.request_id, "mission_id": mission_id},
+            )
+            raise ApiProblem(
+                code="SEIL_WEB_RESEARCH_UNAVAILABLE",
+                message="SEIL could not complete public web research right now.",
+                status_code=503,
+                retryable=True,
+                next_action="retry_later",
+            ) from error
+        answer = MissionTurnOutput(
+            message=(
+                f"Created a research-only Product Evidence draft for "
+                f"{research.identity.product_name} from {len(source_refs)} public sources. "
+                "Review the sources and verify seller-controlled facts before publication."
+            ),
+            mission_state="SYNTHESIZING",
+            artifacts=[
+                {
+                    "kind": "seller_evidence",
+                    "title": f"{research.identity.product_name} public-web evidence",
+                    "authority": "OBSERVED",
+                    "payload": research.artifact_payload(),
+                    "source_refs": source_refs,
+                }
+            ],
+            stop_reason="SEIL_WEB_RESEARCH_READY",
+        )
+        persisted = await self._persist_turn(
+            mission_id=mission_id,
+            answer=answer,
+            run_context=run_context,
+            tool_calls=("web_search",),
+            proposals=(),
+            turn_key=f"{run_context.request_id or uuid4().hex}:seil-web-research",
+        )
+        return {
+            "conversation_id": mission_id,
+            "mission_id": mission_id,
+            "message": answer.message,
+            "follow_up_required": False,
+            "panel": None,
+            "products": [],
+            "tool_calls": ["web_search"],
+            "proposals": [],
+            "mission": persisted["mission"],
+            "events": persisted["events"],
+            "artifacts": persisted["artifacts"],
+            "attention": None,
+            "advisory_only": True,
+        }
 
     async def _run_datahub_fit_turn(
         self,
