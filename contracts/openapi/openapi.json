@@ -979,6 +979,17 @@
             ],
             "title": "Evidence Freshness"
           },
+          "fit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fit"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -1008,6 +1019,17 @@
           "price": {
             "title": "Price",
             "type": "string"
+          },
+          "requirement_coverage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Coverage"
           },
           "seller": {
             "title": "Seller",
@@ -1039,6 +1061,17 @@
               }
             ],
             "title": "Website"
+          },
+          "why_company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Why Company"
           }
         },
         "required": [

@@ -33,6 +33,9 @@ class CatalogProductView(BaseModel):
     billing_unit: str
     status: str
     summary: str
+    fit: str | None = None
+    why_company: str | None = None
+    requirement_coverage: str | None = None
     claims: list[str]
     integrations: list[str]
     website: str | None = None

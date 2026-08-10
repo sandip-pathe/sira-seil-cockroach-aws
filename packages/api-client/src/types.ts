@@ -161,16 +161,19 @@ export interface CatalogProductView {
   claims: string[];
   edition: string;
   evidence_freshness?: string | null;
+  fit?: string | null;
   id: string;
   integrations: string[];
   logo?: string | null;
   name: string;
   price: string;
+  requirement_coverage?: string | null;
   seller: string;
   source_refs?: { [key: string]: unknown; }[];
   status: string;
   summary: string;
   website?: string | null;
+  why_company?: string | null;
 }
 
 export interface CompanyContextProjection {

@@ -719,10 +719,24 @@ class WorkspaceService:
                     "price": f"{fixed_price['currency']} {fixed_price['amount']}",
                     "billing_unit": "synthetic support case",
                     "status": "QUALIFIED" if selected else "BLOCKED",
+                    "fit": "Qualified" if selected else "Blocked",
                     "summary": (
                         "Redacts governed customer email and passed every buyer-specific gate."
                         if selected
                         else "Lower price, but its trial exposed governed customer email."
+                    ),
+                    "why_company": (
+                        "Passed the DataHub-derived PII, schema, and EU-region requirements."
+                        if selected
+                        else (
+                            "Blocked because the buyer's DataHub-governed PII cannot leave "
+                            "unredacted."
+                        )
+                    ),
+                    "requirement_coverage": (
+                        "3 of 3 required gates passed"
+                        if selected
+                        else "2 of 3 required gates passed"
                     ),
                     "claims": (
                         [

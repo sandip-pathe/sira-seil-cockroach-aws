@@ -389,6 +389,9 @@ function withProductBrand(product: CatalogProduct | CatalogProductView): Catalog
     website: brand?.website ?? product.website ?? undefined,
     evidence_freshness:
       brand?.evidence_freshness ?? product.evidence_freshness ?? undefined,
+    fit: product.fit ?? undefined,
+    why_company: product.why_company ?? undefined,
+    requirement_coverage: product.requirement_coverage ?? undefined,
     source_refs: brand?.source_refs ?? product.source_refs ?? undefined,
   };
 }
