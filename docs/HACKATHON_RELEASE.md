@@ -1,49 +1,55 @@
-# Hackathon release and recovery
+# DataHub implementation and release notes
 
-## Product and trust boundary
+This is the technical appendix for the SIRA + SEIL DataHub demo. The product story and setup are in the [main README](../README.md).
 
-```mermaid
-flowchart LR
-  DH["DataHub Core 1.7.0\nschema, lineage, tags, region, owner"]
-  MCP["DataHub MCP 0.6.0\nstable reads and receipt writeback"]
-  CONTEXT["Buyer-private context compiler\nrequirements and dependency hashes"]
-  SEIL["SEIL seller projection\nallowlisted release evidence"]
-  GRAPH["SIRA Decision Graph\nfit gates and deterministic selection"]
-  UI["SIRA workspace\nrecommendation, counterfactual, proof plan"]
-  RECEIPT["Buyer decision receipt\nDataHub write and fresh reread"]
+## Decision path
 
-  DH --> MCP --> CONTEXT --> GRAPH --> UI
-  SEIL --> GRAPH
-  GRAPH --> RECEIPT --> MCP
-```
+1. The seed script publishes a synthetic buyer graph to self-hosted DataHub Core: datasets, schema fields, upstream lineage, ownership, a PII tag, and an allowed-region property.
+2. The open-source DataHub MCP Server reads the graph twice. The proof proceeds only when both semantic reads match.
+3. The context compiler converts DataHub metadata into schema, region, and conditional privacy requirements.
+4. SEIL supplies two repository-curated, buyer-safe seller evidence projections. Seller-private fields are excluded.
+5. Both candidates receive the same requirement IDs and synthetic trial case in network-disabled, read-only containers.
+6. The deterministic Decision Graph applies eligibility gates before price.
+7. The causal test removes the PII tag, checks that the recommendation changes, makes an unrelated metadata change as a negative control, and restores the PII tag and original decision.
+8. A hash-bound projection of the restored decision is saved as a DataHub Decision document and verified through a new MCP session.
+9. The API rejects incomplete evidence, mismatched hashes, failed restoration, or a missing reread before exposing the cited result in SIRA.
 
-DataHub answers what the buyer's data estate contains, depends on, and permits. SIRA and
-SEIL answer which external product fits those constraints and what evidence supports the
-decision. Vendors receive a sanitized requirement manifest and synthetic cases, never the
-buyer's raw DataHub graph or credentials.
+## Implementation map
 
-The causal acceptance test holds candidate releases, synthetic inputs, policy, compiler,
-and application code fixed. Removing only the PII classification changes the requirement
-set and winner from Private Relay to ClearText Assist; restoring it reproduces the original
-Private Relay decision. An unrelated governed mutation is a negative control.
+| Responsibility | Code |
+|---|---|
+| Seed synthetic DataHub metadata | [`scripts/datahub_k0_seed.py`](../scripts/datahub_k0_seed.py) |
+| MCP process, reads, mutations, and document reread | [`python/proof/datahub_mcp.py`](../python/proof/datahub_mcp.py) |
+| Compile DataHub facts into requirements | [`python/proof/manifest_v0.py`](../python/proof/manifest_v0.py) |
+| Create buyer-safe SEIL projections | [`python/proof/exchange.py`](../python/proof/exchange.py) |
+| Run the counterfactual and negative control | [`python/proof/causal_demo.py`](../python/proof/causal_demo.py) |
+| Bind the decision projection and DataHub reread | [`python/proof/exchange_demo.py`](../python/proof/exchange_demo.py) |
+| Apply deterministic selection | [`python/proof/decision_bridge.py`](../python/proof/decision_bridge.py) |
+| Run isolated candidate trials | [`infra/datahub/k0/runtime/campaign_probe.py`](../infra/datahub/k0/runtime/campaign_probe.py) |
+| Reject invalid artifacts at the API boundary | [`services/api/sira_api/proof_runtime.py`](../services/api/sira_api/proof_runtime.py) |
+| Compose the cited SIRA inspector view | [`services/api/sira_api/workspace_service.py`](../services/api/sira_api/workspace_service.py) |
 
-## Reproducible release
+## Trust boundary
 
-From a clean checkout on Windows with Docker Desktop, Node, pnpm, Python, and `uv`:
+DataHub answers what the buyer's environment contains, depends on, and permits. SEIL supplies normalized seller evidence. SIRA decides which product fits and what still needs proof.
+
+Candidate adapters receive only requirement IDs, allowed regions, and synthetic inputs. They never receive dataset rows, DataHub credentials, asset URNs, ownership records, or the buyer's dependency graph.
+
+The proof uses upstream dataset lineage as source context. It does not claim that column-level lineage drives the decision. DataHub stores a hash-bound decision projection, not the full internal receipt or an immutable ledger.
+
+## Reproduce the asserted proof
+
+From a clean checkout on Windows:
 
 ```powershell
 corepack pnpm install --frozen-lockfile
 uv sync --all-extras --frozen
 .\scripts\proof.cmd up
 .\scripts\proof.cmd doctor -Contract
-.\scripts\proof.cmd demo -Assert -Artifacts .artifacts/release/run-1
+.\scripts\proof.cmd demo -Assert -Artifacts .artifacts/proof
 ```
 
-The warm budget covers the existing exchange, local effect harness, and injected-writeback
-compensation. Acquisition, cached checkout, health, and reset are recorded separately in
-`timings.json`. The asserted run fails when the 180-second warm budget is exceeded.
-
-The final release requires three asserted runs from one clean commit:
+For a three-run release check:
 
 ```powershell
 .\scripts\proof.cmd demo -Assert -Artifacts .artifacts/release/run-1
@@ -54,31 +60,32 @@ The final release requires three asserted runs from one clean commit:
   --output .artifacts/submission
 ```
 
-Run the API on the Windows host for the evaluator journey. The Linux API image intentionally
-does not contain PowerShell and cannot start the local proof runner.
+Run the API on the Windows host for this demo because the proof bridge invokes `scripts/proof.ps1`; the containerized API image intentionally omits PowerShell.
 
-## Recovery runbook
+## Recovery
 
 1. Run `.\scripts\proof.cmd reset`.
 2. Run `.\scripts\proof.cmd doctor -Contract`.
-3. Confirm the PII tag is present, the control tag is absent, and the causal sequence ends on
-   adapter B.
-4. Confirm the buyer decision receipt names the restored PII-present decision hash and its
-   DataHub reread matched.
-5. If DataHub is unhealthy, run `down`, then `up`, then `reset`.
-6. Never claim success from a partial artifact. Missing context, a hash mismatch, or a failed
-   reread must hide the previous recommendation and receipt.
+3. Confirm the PII tag is present and the unrelated control tag is absent.
+4. Rerun the asserted demo and confirm the restored decision hash matches the baseline.
+5. Confirm the DataHub document reread matched the expected decision and evidence hashes.
+6. If DataHub is unhealthy, run `down`, then `up`, then `reset` before retrying.
 
-## Limitations
+Never reuse a previous recommendation after a partial run. The API is designed to fail closed.
 
-- Companies, catalog entries, prices, requests, and data are synthetic; no real purchase or
-  customer PII is involved.
-- The two reference seller releases are repository-curated. The publication/projection
-  boundary is real and integration-tested, but the demo is not a live vendor marketplace.
-- The primary product result is a buyer-specific technical-fit recommendation and proof plan.
-  A deeper local activation/router/rollback harness exists but is not presented as arbitrary
-  production deployment.
-- DataHub MCP document APIs used for receipt projection are experimental in version 0.6.0.
-- Local DataHub credentials live in the standard user profile and are never bundled.
-- Live DataHub integration remains a release job because hosted CI cannot assume the memory
-  required by the local DataHub quickstart.
+## Claim boundary
+
+Real local operations: DataHub reads, metadata changes, restoration, isolated trials, deterministic comparison, document writeback, and fresh reread.
+
+Synthetic: company, graph contents, candidates, prices, trial inputs, and the two repository-curated seller projections. The demo proves a buyer-specific technical-fit decision; it does not represent a live vendor marketplace, a completed purchase, or arbitrary production deployment.
+
+The repository pins `mcp-server-datahub` 0.6.0 and explicitly enables its mutation tools with `TOOLS_IS_MUTATION_ENABLED=true`. Local DataHub credentials remain in the user's standard profile and are never bundled.
+
+## DataHub references
+
+- [MCP Server](https://docs.datahub.com/docs/features/feature-guides/mcp)
+- [Lineage](https://docs.datahub.com/docs/features/feature-guides/lineage)
+- [Structured Properties](https://docs.datahub.com/docs/features/feature-guides/properties/overview)
+- [Tags API](https://docs.datahub.com/docs/api/tutorials/tags)
+- [Ownership API](https://docs.datahub.com/docs/api/tutorials/owners)
+- [Documents API](https://docs.datahub.com/docs/api/tutorials/documents)

@@ -1,5 +1,4 @@
-# Product source documents must remain byte-for-byte unchanged.
-PRD.md
+# Documentation uses its own review and link checks.
 docs/**
 
 # Frozen contracts, deterministic fixtures, generated clients, and lockfiles are

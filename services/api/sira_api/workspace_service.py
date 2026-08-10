@@ -130,13 +130,13 @@ class WorkspaceService:
     _DATAHUB_PRODUCT_IDENTITIES: ClassVar[dict[str, dict[str, str]]] = {
         "adapter-a": {
             "id": "support_ai_cleartext",
-            "name": "ClearText Assist",
-            "seller": "ClearText Labs",
+            "name": "Lower-cost option",
+            "seller": "Repository-curated candidate",
         },
         "adapter-b": {
             "id": "support_ai_private_relay",
-            "name": "Private Relay",
-            "seller": "RelayWorks",
+            "name": "Privacy-safe option",
+            "seller": "Repository-curated candidate",
         },
     }
     _REAL_PRODUCT_EVIDENCE: ClassVar[dict[str, dict[str, Any]]] = {
@@ -928,13 +928,14 @@ class WorkspaceService:
         artifact = self._datahub_decision_artifact(decision)
         answer = MissionTurnOutput(
             message=(
-                "Private Relay is the best technical fit for the stack you actually run. "
+                "The privacy-safe option is the best technical fit for the stack you actually run. "
                 "DataHub shows that customer email is governed PII, which makes raw PII egress "
-                "a hard requirement: Private Relay passed that gate, while lower-priced "
-                "ClearText Assist returned the synthetic email unredacted. Removing only the "
-                "PII classification changes the winner to ClearText Assist; restoring it changes "
-                "the winner back. The decision receipt was written to DataHub and reread. These "
-                "are fictional evaluation candidates, so commercial terms still need validation."
+                "a hard requirement: the privacy-safe option passed that gate, while the "
+                "lower-cost option returned the synthetic email unredacted. Removing only the "
+                "PII classification changes the winner to the lower-cost option; restoring it "
+                "changes the winner back. The decision receipt was written to DataHub and reread. "
+                "These are evaluation roles "
+                "backed by repository-curated evidence, so commercial terms still need validation."
             ),
             mission_state="SYNTHESIZING",
             artifacts=[artifact],

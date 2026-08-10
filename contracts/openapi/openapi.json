@@ -979,6 +979,21 @@
             ],
             "title": "Evidence Freshness"
           },
+          "evidence_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "PUBLISHED",
+                  "RESEARCH_ONLY"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Status"
+          },
           "fit": {
             "anyOf": [
               {
@@ -1000,6 +1015,21 @@
             },
             "title": "Integrations",
             "type": "array"
+          },
+          "listing_origin": {
+            "anyOf": [
+              {
+                "enum": [
+                  "SELLER_PUBLISHED",
+                  "SEIL_RESEARCHED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listing Origin"
           },
           "logo": {
             "anyOf": [
@@ -1034,6 +1064,17 @@
           "seller": {
             "title": "Seller",
             "type": "string"
+          },
+          "seller_attested": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller Attested"
           },
           "source_refs": {
             "items": {

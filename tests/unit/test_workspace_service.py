@@ -149,6 +149,12 @@ async def test_datahub_buying_prompt_routes_before_provider_requirement() -> Non
         "support_ai_cleartext",
         "support_ai_private_relay",
     }
+    assert {product["name"] for product in result["products"]} == {
+        "Lower-cost option",
+        "Privacy-safe option",
+    }
+    assert "privacy-safe option" in result["message"]
+    assert "lower-cost option" in result["message"]
     artifact = result["artifacts"][0]
     assert artifact["kind"] == "cited_decision"
     assert artifact["payload"]["decision_plane"] == "DATAHUB"

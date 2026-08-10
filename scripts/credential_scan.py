@@ -1,8 +1,8 @@
 """Fail when likely committed credentials appear in source or demo fixtures.
 
-This supplements detect-secrets with project-specific names. Immutable product
-documents and dependency/cache output are excluded, but frozen demo fixtures are
-intentionally scanned because they are shipped and may be served by development APIs.
+This supplements detect-secrets with project-specific names. Documentation and
+dependency/cache output are excluded, but frozen demo fixtures are scanned because
+they are shipped and may be served by development APIs.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ EXCLUDED_PARTS = {
     "node_modules",
     "docs",
 }
-EXCLUDED_NAMES = {"PRD.md", "pnpm-lock.yaml", "uv.lock", ".env", ".env.example"}
+EXCLUDED_NAMES = {"pnpm-lock.yaml", "uv.lock", ".env", ".env.example"}
 TEXT_SUFFIXES = {
     ".py",
     ".ts",

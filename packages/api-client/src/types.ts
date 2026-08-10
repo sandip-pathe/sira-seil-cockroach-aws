@@ -161,14 +161,17 @@ export interface CatalogProductView {
   claims: string[];
   edition: string;
   evidence_freshness?: string | null;
+  evidence_status?: "PUBLISHED" | "RESEARCH_ONLY" | null;
   fit?: string | null;
   id: string;
   integrations: string[];
+  listing_origin?: "SELLER_PUBLISHED" | "SEIL_RESEARCHED" | null;
   logo?: string | null;
   name: string;
   price: string;
   requirement_coverage?: string | null;
   seller: string;
+  seller_attested?: boolean | null;
   source_refs?: { [key: string]: unknown; }[];
   status: string;
   summary: string;
