@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC
+from hashlib import sha256
 from typing import Any, ClassVar
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from openai import AuthenticationError, RateLimitError
@@ -33,7 +36,11 @@ from persistence.repositories import RecordNotFound
 from .errors import ApiProblem
 from .fixtures import DemoFixtureBundle
 from .proof_runtime import ProofWorkspaceRuntime
-from .seil_web_research import OpenAISeilWebResearcher, SeilWebResearcher
+from .seil_web_research import (
+    OpenAISeilWebResearcher,
+    SeilDiscoveredProduct,
+    SeilWebResearcher,
+)
 from .snowflake_service import SnowflakeDecisionService
 from .workspace_schemas import WorkspaceChatCreate
 
@@ -110,6 +117,9 @@ def _compile_research_only_packet(
 
 
 class WorkspaceService:
+    _SELLER_LISTING_IDS: ClassVar[frozenset[str]] = frozenset(
+        {"product_fixture_a", "product_fixture_b"}
+    )
     _DATAHUB_BUYING_PROMPTS: ClassVar[frozenset[str]] = frozenset(
         {
             "choose a data/ai tool for our actual stack",
@@ -152,12 +162,12 @@ class WorkspaceService:
                 {
                     "title": "Fathom pricing",
                     "url": "https://fathom.video/pricing",
-                    "authority": "VENDOR",
+                    "authority": "PUBLIC_WEB",
                 },
                 {
                     "title": "Fathom for teams",
                     "url": "https://fathom.video/for/teams",
-                    "authority": "VENDOR",
+                    "authority": "PUBLIC_WEB",
                 },
             ],
         },
@@ -181,7 +191,7 @@ class WorkspaceService:
                 {
                     "title": "Fireflies meeting transcription guide",
                     "url": "https://fireflies.ai/blog/meeting-transcription-software/",
-                    "authority": "VENDOR",
+                    "authority": "PUBLIC_WEB",
                 }
             ],
         },
@@ -271,6 +281,8 @@ class WorkspaceService:
             if self.seil_api_key
             else None
         )
+        self._discovered_catalog: dict[str, dict[str, Any]] = {}
+        self._market_refresh_tasks: set[asyncio.Task[None]] = set()
         tools = {**workspace_tool_registry(), **commerce_tool_registry()}
         self.runtime = OpenAIAgentsRuntime(model=model, tools=tools)
 
@@ -381,6 +393,8 @@ class WorkspaceService:
             return []
         products: list[dict[str, Any]] = []
         for candidate_id, pack in self.fixtures.packs.items():
+            product_id = str(pack["product_id"])
+            seller_published = product_id in self._SELLER_LISTING_IDS
             identity = pack["identity"]
             offer = self.fixtures.offers[candidate_id]
             integrations: list[str] = []
@@ -394,8 +408,8 @@ class WorkspaceService:
             ][:4]
             angles = pack.get("positioning_angles", [])
             summary = str(angles[0]["text"]) if angles else "Published seller Product Evidence."
-            product = {
-                "id": str(pack["product_id"]),
+            product: dict[str, Any] = {
+                "id": product_id,
                 "name": str(identity["product_name"]),
                 "seller": str(identity["seller_name"]),
                 "edition": str(identity.get("edition", "")),
@@ -406,8 +420,20 @@ class WorkspaceService:
                 "claims": claims,
                 "integrations": integrations,
             }
-            product.update(self._REAL_PRODUCT_EVIDENCE.get(candidate_id, {}))
+            if not seller_published:
+                product.update(self._REAL_PRODUCT_EVIDENCE.get(product_id, {}))
+            product.update(
+                {
+                    "listing_origin": (
+                        "SELLER_PUBLISHED" if seller_published else "SEIL_RESEARCHED"
+                    ),
+                    "evidence_status": "PUBLISHED" if seller_published else "RESEARCH_ONLY",
+                    "seller_attested": seller_published,
+                    "status": "published" if seller_published else "research_only",
+                }
+            )
             products.append(product)
+        products.extend(self._discovered_catalog.values())
         return products
 
     def product(self, product_id: str) -> dict[str, Any] | None:
@@ -438,8 +464,8 @@ class WorkspaceService:
             body=body,
             run_context=run_context,
         )
-        if self._routes_to_seil_public_research(body):
-            return await self._run_seil_public_research_turn(
+        if self._routes_to_marketplace_discovery(body):
+            return await self._run_marketplace_discovery_turn(
                 body=body,
                 mission_id=mission_id,
                 run_context=run_context,
@@ -652,91 +678,236 @@ class WorkspaceService:
         return body.mode == "sira" and normalized in cls._DATAHUB_BUYING_PROMPTS
 
     @staticmethod
-    def _routes_to_seil_public_research(body: WorkspaceChatCreate) -> bool:
-        if body.mode != "seil":
+    def _routes_to_marketplace_discovery(body: WorkspaceChatCreate) -> bool:
+        if body.mode != "sira":
             return False
         message = body.message.casefold()
-        research_intent = any(
+        buying_intent = any(
             phrase in message
-            for phrase in ("research", "search", "look up", "lookup", "fetch", "find online")
+            for phrase in (
+                "buy",
+                "choose",
+                "compare",
+                "find",
+                "looking for",
+                "i need",
+                "recommend",
+                "replace",
+            )
         )
-        web_scope = any(
-            phrase in message
-            for phrase in ("http://", "https://", "public web", "internet", "online", "website")
-        )
-        return research_intent and web_scope
+        return buying_intent
 
-    async def _run_seil_public_research_turn(
+    async def _run_marketplace_discovery_turn(
         self,
         *,
         body: WorkspaceChatCreate,
         mission_id: str,
         run_context: AgentRunContext,
     ) -> dict[str, Any]:
-        if self.seil_web_researcher is None:
-            raise ApiProblem(
-                code="AGENT_PROVIDER_NOT_CONFIGURED",
-                message="SEIL public research is not configured on the server.",
-                status_code=503,
-                retryable=False,
-                next_action="configure_openai_api_key",
+        if self.seil_web_researcher is not None:
+            refresh_task = asyncio.create_task(self._refresh_marketplace_supply(body.message))
+            self._market_refresh_tasks.add(refresh_task)
+            refresh_task.add_done_callback(self._market_refresh_tasks.discard)
+        catalog_products = self.catalog()
+        seller_products = [
+            product
+            for product in catalog_products
+            if product.get("listing_origin") == "SELLER_PUBLISHED"
+        ]
+        researched_products = [
+            product
+            for product in catalog_products
+            if product.get("listing_origin") == "SEIL_RESEARCHED"
+        ]
+        candidates = [
+            self._apply_company_fit(product, body.message)
+            for product in [*seller_products, *researched_products]
+        ]
+        candidates.sort(
+            key=lambda product: (
+                -int(product.get("fit_match_count", 0)),
+                str(product["name"]).casefold(),
             )
-        try:
-            research = await self.seil_web_researcher.research(body.message)
-            source_refs = research.source_refs()
-        except Exception as error:
-            logger.exception(
-                "SEIL public web research failed",
-                extra={"request_id": run_context.request_id, "mission_id": mission_id},
-            )
-            raise ApiProblem(
-                code="SEIL_WEB_RESEARCH_UNAVAILABLE",
-                message="SEIL could not complete public web research right now.",
-                status_code=503,
-                retryable=True,
-                next_action="retry_later",
-            ) from error
+        )
+        strong_matches = [
+            str(product["name"]) for product in candidates if product.get("fit") == "Strong fit"
+        ][:3]
+        fit_summary = (
+            f" Based on the requirements you stated, the strongest documented matches are "
+            f"{', '.join(strong_matches)}."
+            if strong_matches
+            else " I need more company requirements before naming a strongest fit."
+        )
+        source_refs = [
+            source for product in researched_products for source in product.get("source_refs", [])
+        ]
+        category = self._marketplace_category(body.message)
         answer = MissionTurnOutput(
             message=(
-                f"Created a research-only Product Evidence draft for "
-                f"{research.identity.product_name} from {len(source_refs)} public sources. "
-                "Review the sources and verify seller-controlled facts before publication."
+                f"I found {len(seller_products)} seller-published listings and SEIL broadened "
+                f"the {category} market with {len(researched_products)} source-linked "
+                "public listings. The researched listings are clearly provisional; I can compare "
+                "all candidates against your company requirements, integrations, and constraints, "
+                f"but only seller-reviewed evidence is treated as seller-attested.{fit_summary}"
             ),
             mission_state="SYNTHESIZING",
             artifacts=[
                 {
-                    "kind": "seller_evidence",
-                    "title": f"{research.identity.product_name} public-web evidence",
+                    "kind": "candidate_set",
+                    "title": f"{category} marketplace candidates",
                     "authority": "OBSERVED",
-                    "payload": research.artifact_payload(),
+                    "payload": {
+                        "category": category,
+                        "seller_published_count": len(seller_products),
+                        "seil_researched_count": len(researched_products),
+                        "candidate_ids": [product["id"] for product in candidates],
+                        "ranking_boundary": (
+                            "Research-only listings may be compared but are not seller-attested."
+                        ),
+                    },
                     "source_refs": source_refs,
                 }
             ],
-            stop_reason="SEIL_WEB_RESEARCH_READY",
+            show_product_ids=[product["id"] for product in candidates],
+            stop_reason="SIRA_MARKETPLACE_CANDIDATES_READY",
         )
         persisted = await self._persist_turn(
             mission_id=mission_id,
             answer=answer,
             run_context=run_context,
-            tool_calls=("web_search",),
+            tool_calls=(
+                "search_published_products",
+                "search_seil_researched_listings",
+                "compare_product_evidence",
+            ),
             proposals=(),
-            turn_key=f"{run_context.request_id or uuid4().hex}:seil-web-research",
+            turn_key=f"{run_context.request_id or uuid4().hex}:marketplace-discovery",
         )
         return {
             "conversation_id": mission_id,
             "mission_id": mission_id,
             "message": answer.message,
             "follow_up_required": False,
-            "panel": None,
-            "products": [],
-            "tool_calls": ["web_search"],
+            "panel": "catalog",
+            "products": candidates,
+            "tool_calls": [
+                "search_published_products",
+                "search_seil_researched_listings",
+                "compare_product_evidence",
+            ],
             "proposals": [],
             "mission": persisted["mission"],
             "events": persisted["events"],
             "artifacts": persisted["artifacts"],
             "attention": None,
-            "advisory_only": True,
+            "advisory_only": False,
         }
+
+    async def _refresh_marketplace_supply(self, request: str) -> None:
+        if self.seil_web_researcher is None:
+            return
+        try:
+            discovery = await self.seil_web_researcher.discover(request)
+            catalog_domains = {self._listing_domain(product) for product in self.catalog()}
+            for discovered in discovery.products:
+                product = self._discovered_product_listing(discovered)
+                domain = self._listing_domain(product)
+                if domain in catalog_domains:
+                    continue
+                catalog_domains.add(domain)
+                self._discovered_catalog[product["id"]] = product
+        except Exception:
+            logger.exception("background SEIL marketplace supply refresh failed")
+
+    @staticmethod
+    def _marketplace_category(request: str) -> str:
+        normalized = request.casefold()
+        if any(term in normalized for term in ("note", "meeting", "transcript")):
+            return "meeting notes and conversation intelligence"
+        return "business software"
+
+    @staticmethod
+    def _discovered_product_listing(product: SeilDiscoveredProduct) -> dict[str, Any]:
+        canonical_url = product.identity.canonical_url or product.sources[0].url
+        product_id = f"seil_research_{sha256(canonical_url.encode()).hexdigest()[:16]}"
+        source_refs = []
+        seen: set[str] = set()
+        for source in product.sources:
+            url = source.url.strip()
+            if url in seen or not url.startswith(("http://", "https://")):
+                continue
+            seen.add(url)
+            source_refs.append(
+                {"title": source.title.strip(), "url": url, "authority": "PUBLIC_WEB"}
+            )
+        return {
+            "id": product_id,
+            "name": product.identity.product_name,
+            "seller": product.identity.seller_name,
+            "edition": "Public research",
+            "price": WorkspaceService._compact_listing_text(product.price, 80),
+            "billing_unit": "public_listing",
+            "status": "research_only",
+            "summary": WorkspaceService._compact_listing_text(product.summary, 320),
+            "claims": product.claims,
+            "integrations": product.integrations,
+            "website": canonical_url,
+            "logo": None,
+            "evidence_freshness": "Live public-web research",
+            "source_refs": source_refs,
+            "listing_origin": "SEIL_RESEARCHED",
+            "evidence_status": "RESEARCH_ONLY",
+            "seller_attested": False,
+        }
+
+    @staticmethod
+    def _listing_domain(product: dict[str, Any]) -> str:
+        website = str(product.get("website") or "")
+        hostname = (urlparse(website).hostname or "").casefold()
+        return hostname.removeprefix("www.") or str(product.get("seller") or "").casefold()
+
+    @staticmethod
+    def _compact_listing_text(value: str, limit: int) -> str:
+        compact = " ".join(value.split())
+        return compact if len(compact) <= limit else f"{compact[: limit - 3].rstrip()}..."
+
+    @staticmethod
+    def _apply_company_fit(product: dict[str, Any], request: str) -> dict[str, Any]:
+        normalized_request = request.casefold().replace("-", " ")
+        known_requirements = {
+            "google meet",
+            "google workspace",
+            "hubspot",
+            "salesforce",
+            "slack",
+            "teams",
+            "zoom",
+        }
+        required = sorted(item for item in known_requirements if item in normalized_request)
+        searchable = " ".join(str(item) for item in product.get("integrations", [])).casefold()
+        matched = [item for item in required if item in searchable]
+        enriched = dict(product)
+        enriched["fit_match_count"] = len(matched)
+        if not required:
+            enriched["fit"] = "Needs requirements"
+            enriched["why_company"] = "No company integration requirements were stated yet."
+            enriched["requirement_coverage"] = "Company fit not evaluated"
+        elif len(matched) == len(required):
+            enriched["fit"] = "Strong fit"
+            enriched["why_company"] = f"Documented support for {', '.join(matched)}."
+            enriched["requirement_coverage"] = f"{len(matched)}/{len(required)} stated integrations"
+        elif matched:
+            enriched["fit"] = "Partial fit"
+            enriched["why_company"] = (
+                f"Documented support for {', '.join(matched)}; the remaining stated integration "
+                "needs evidence."
+            )
+            enriched["requirement_coverage"] = f"{len(matched)}/{len(required)} stated integrations"
+        else:
+            enriched["fit"] = "Needs evidence"
+            enriched["why_company"] = "No evidence yet for the stated company integrations."
+            enriched["requirement_coverage"] = f"0/{len(required)} stated integrations"
+        return enriched
 
     async def _run_datahub_fit_turn(
         self,
@@ -1215,25 +1386,21 @@ class WorkspaceService:
         if mode == "sira":
             return (
                 f"{shared} You are SIRA, operating for the buyer. Search company evidence and the "
-                "catalogue, design reproducible evaluations when evidence is insufficient, build "
+                "catalogue. SEIL maintains seller-published listings and separately discovers "
+                "provisional public-web listings to prevent a cold-start catalogue. Compare both, "
+                "but preserve their authority labels and never describe a researched listing as "
+                "seller-attested. Design reproducible evaluations when evidence is insufficient, "
+                "build "
                 "candidate and comparison artifacts, and advance to a purchase proposal only when "
                 "the evidence supports it. Product IDs shown to the UI must come from tools."
             )
         return (
             f"{shared} You are SEIL, operating for the seller. Build and improve evidence-backed "
             "product twins, resolve claim gaps, and prepare reviewable publication proposals. "
-            "When no existing seller product is available and the user gives a product name or "
-            "website, use at most one web search call for the first draft. Prefer up to five "
-            "official product, pricing, documentation, "
-            "security, privacy, and integration pages. Create a seller_evidence artifact shaped as "
-            "a platform-compiled research-only packet: identity, summary, source-linked claims, "
-            "fit "
-            "rules, anti-fit rules, unknowns, conflicts, freshness, and qualification blockers. "
-            "Every factual claim must include a direct URL in source_refs; search snippets alone "
-            "are discovery hints. Mark the packet INFERRED or OBSERVED, never seller-sealed, and "
-            "never propose publication before a verified seller claims and reviews it. Never "
-            "invent "
-            "product claims or expose seller-private sources to buyers."
+            "Vendor chat only operates on the authenticated seller's own products. Public-web "
+            "market discovery is a separate platform supply process and must never be initiated "
+            "from seller chat. Never invent product claims or expose seller-private sources to "
+            "buyers."
         )
 
     async def _prepare_mission(

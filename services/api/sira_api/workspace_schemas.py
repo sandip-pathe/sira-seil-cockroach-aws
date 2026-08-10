@@ -42,6 +42,9 @@ class CatalogProductView(BaseModel):
     logo: str | None = None
     evidence_freshness: str | None = None
     source_refs: list[dict[str, Any]] = Field(default_factory=list)
+    listing_origin: Literal["SELLER_PUBLISHED", "SEIL_RESEARCHED"] | None = None
+    evidence_status: Literal["PUBLISHED", "RESEARCH_ONLY"] | None = None
+    seller_attested: bool | None = None
 
 
 class AgentProposalView(BaseModel):

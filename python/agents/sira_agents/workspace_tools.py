@@ -28,6 +28,9 @@ class CatalogProductResult(BaseModel):
     summary: str
     claims: list[str]
     integrations: list[str]
+    listing_origin: str | None = None
+    evidence_status: str | None = None
+    seller_attested: bool | None = None
 
 
 class SensoEvidenceResult(BaseModel):

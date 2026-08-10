@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from sira_agents.runtime import AgentRunContext, AgentRunRequest, AgentRunResult
 from sira_api.fixtures import DemoFixtureBundle
 from sira_api.seil_web_research import (
+    SeilDiscoveredProduct,
+    SeilMarketDiscoveryResult,
     SeilProductIdentity,
     SeilWebResearchResult,
     SeilWebSource,
@@ -13,6 +17,8 @@ from sira_api.workspace_service import WorkspaceService
 
 
 class _FakeResearcher:
+    calls = 0
+
     async def research(self, request: str) -> SeilWebResearchResult:
         assert "https://example.com/product" in request
         return SeilWebResearchResult(
@@ -35,10 +41,62 @@ class _FakeResearcher:
             ],
         )
 
+    async def discover(self, request: str) -> SeilMarketDiscoveryResult:
+        self.calls += 1
+        assert "note taking" in request
+        return SeilMarketDiscoveryResult(
+            category="AI meeting notes",
+            products=[
+                SeilDiscoveredProduct(
+                    identity=SeilProductIdentity(
+                        product_name="Public Note",
+                        seller_name="Public Note Inc.",
+                        canonical_url="https://public-note.example/product",
+                    ),
+                    summary="A publicly researched meeting-notes product.",
+                    price="Public pricing available",
+                    claims=["Supports meeting summaries."],
+                    integrations=["zoom", "hubspot"],
+                    sources=[
+                        SeilWebSource(
+                            title="Public Note product",
+                            url="https://public-note.example/product",
+                        )
+                    ],
+                ),
+                SeilDiscoveredProduct(
+                    identity=SeilProductIdentity(
+                        product_name="Fathom duplicate",
+                        seller_name="Fathom",
+                        canonical_url="https://fathom.video/",
+                    ),
+                    summary="A duplicate of an existing researched listing.",
+                    price="USD 19",
+                    claims=["Meeting summaries."],
+                    integrations=["zoom"],
+                    sources=[SeilWebSource(title="Fathom", url="https://fathom.video/pricing")],
+                ),
+            ],
+        )
+
 
 class _UnexpectedRuntime:
     async def run(self, request: AgentRunRequest) -> AgentRunResult:
         raise AssertionError("public research must not use the full agent runtime")
+
+
+class _CaptureRuntime:
+    called = False
+
+    async def run(self, request: AgentRunRequest) -> AgentRunResult:
+        self.called = True
+        return AgentRunResult(
+            output={
+                "message": "Seller workspace updated.",
+                "mission_state": "SYNTHESIZING",
+                "stop_reason": "SELLER_WORKSPACE_UPDATED",
+            }
+        )
 
 
 def _run_context(service: WorkspaceService) -> AgentRunContext:
@@ -51,37 +109,79 @@ def _run_context(service: WorkspaceService) -> AgentRunContext:
 
 
 @pytest.mark.asyncio
-async def test_seil_public_research_uses_bounded_research_path() -> None:
+async def test_sira_buying_request_uses_seil_marketplace_discovery() -> None:
+    researcher = _FakeResearcher()
     service = WorkspaceService(
         DemoFixtureBundle.load(),
         api_key="configured",
         seil_api_key="configured",
         model="test",
-        seil_web_researcher=_FakeResearcher(),
+        seil_web_researcher=researcher,
     )
     service.runtime = _UnexpectedRuntime()  # type: ignore[assignment]
 
     result = await service.chat(
         WorkspaceChatCreate(
-            mode="seil",
-            message="Research https://example.com/product using the public web",
+            mode="sira",
+            message="I need a note taking system for our Zoom sales calls with HubSpot",
         ),
         run_context=_run_context(service),
     )
 
-    assert result["tool_calls"] == ["web_search"]
-    assert result["advisory_only"] is True
-    assert result["mission"]["stop_reason"] == "SEIL_WEB_RESEARCH_READY"
+    await asyncio.sleep(0)
+    assert researcher.calls == 1
+    assert result["tool_calls"] == [
+        "search_published_products",
+        "search_seil_researched_listings",
+        "compare_product_evidence",
+    ]
+    assert result["panel"] == "catalog"
+    assert result["mission"]["stop_reason"] == "SIRA_MARKETPLACE_CANDIDATES_READY"
+    assert (
+        sum(product["listing_origin"] == "SELLER_PUBLISHED" for product in result["products"]) == 2
+    )
+    assert (
+        sum(product["listing_origin"] == "SEIL_RESEARCHED" for product in result["products"]) == 2
+    )
+    assert len(result["products"]) == 4
+    researched = next(product for product in result["products"] if product["name"] == "Fathom")
+    assert researched["evidence_status"] == "RESEARCH_ONLY"
+    assert researched["seller_attested"] is False
+    assert researched["fit"] == "Strong fit"
+    assert researched["requirement_coverage"] == "2/2 stated integrations"
+    refreshed_names = {product["name"] for product in service.catalog()}
+    assert "Public Note" in refreshed_names
+    assert "Fathom duplicate" not in refreshed_names
     assert len(result["artifacts"]) == 1
     artifact = result["artifacts"][0]
-    assert artifact["kind"] == "seller_evidence"
-    assert artifact["source_refs"] == [
-        {
-            "title": "Product",
-            "url": "https://example.com/product",
-            "authority": "PUBLIC_WEB",
-        }
-    ]
+    assert artifact["kind"] == "candidate_set"
+    assert {source["authority"] for source in artifact["source_refs"]} == {"PUBLIC_WEB"}
+
+
+@pytest.mark.asyncio
+async def test_vendor_seil_chat_does_not_trigger_market_discovery() -> None:
+    researcher = _FakeResearcher()
+    service = WorkspaceService(
+        DemoFixtureBundle.load(),
+        api_key="configured",
+        seil_api_key="configured",
+        model="test",
+        seil_web_researcher=researcher,
+    )
+    runtime = _CaptureRuntime()
+    service.runtime = runtime  # type: ignore[assignment]
+
+    result = await service.chat(
+        WorkspaceChatCreate(
+            mode="seil",
+            message="Research our product website and improve our positioning",
+        ),
+        run_context=_run_context(service),
+    )
+
+    assert runtime.called is True
+    assert researcher.calls == 0
+    assert result["message"] == "Seller workspace updated."
 
 
 def test_source_refs_fail_closed_without_public_urls() -> None:

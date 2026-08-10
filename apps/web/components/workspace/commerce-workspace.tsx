@@ -99,6 +99,9 @@ type CatalogProduct = {
   seats?: string;
   website?: string;
   source_refs?: { [key: string]: unknown }[];
+  listing_origin?: "SELLER_PUBLISHED" | "SEIL_RESEARCHED" | null;
+  evidence_status?: "PUBLISHED" | "RESEARCH_ONLY" | null;
+  seller_attested?: boolean | null;
 };
 
 type ChatMessage = {
@@ -1405,6 +1408,7 @@ function ProductCard({
   onSelect: (product: CatalogProduct) => void;
   compact?: boolean;
 }) {
+  const researched = product.listing_origin === "SEIL_RESEARCHED";
   return (
     <article className={`${styles.productCard} ${compact ? styles.productCardCompact : ""}`}>
       <button
@@ -1416,9 +1420,15 @@ function ProductCard({
           <ProductLogo product={product} />
           <div>
             <span>{product.seller}</span>
-            <small>{product.category ?? "Business software"}</small>
+            <small>
+              {product.category ?? "Business software"} · {researched ? "SEIL research" : "Seller published"}
+            </small>
           </div>
-          <BadgeCheck aria-label="Published evidence" />
+          {researched ? (
+            <FileSearch aria-label="Research-only evidence" />
+          ) : (
+            <BadgeCheck aria-label="Seller-published evidence" />
+          )}
         </div>
         <h3>{product.name}</h3>
         <p>{product.summary}</p>
@@ -1457,11 +1467,11 @@ function CatalogPanel({
   return (
     <div className={styles.contextBody}>
       <section className={styles.documentHeader}>
-        <span>Published Product Evidence</span>
+        <span>Seller listings + SEIL market research</span>
         <h2>Product catalogue</h2>
         <p>
-          Browse B2B software with comparable pricing, deployment, and fit details. Open a product
-          to inspect its published facts.
+          Compare seller-published products with clearly labeled public-web listings that SEIL
+          researched to broaden the market. Open a product to inspect its evidence authority.
         </p>
       </section>
       <section className={styles.catalogGrid}>

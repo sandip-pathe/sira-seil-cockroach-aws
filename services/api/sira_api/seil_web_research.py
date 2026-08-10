@@ -64,6 +64,26 @@ class SeilWebResearchResult(BaseModel):
 class SeilWebResearcher(Protocol):
     async def research(self, request: str) -> SeilWebResearchResult: ...
 
+    async def discover(self, request: str) -> SeilMarketDiscoveryResult: ...
+
+
+class SeilDiscoveredProduct(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    identity: SeilProductIdentity
+    summary: str = Field(min_length=1, max_length=1_000)
+    price: str = Field(min_length=1, max_length=120)
+    claims: list[str] = Field(max_length=6)
+    integrations: list[str] = Field(max_length=12)
+    sources: list[SeilWebSource] = Field(min_length=1, max_length=5)
+
+
+class SeilMarketDiscoveryResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    category: str = Field(min_length=1, max_length=120)
+    products: list[SeilDiscoveredProduct] = Field(min_length=1, max_length=3)
+
 
 class OpenAISeilWebResearcher:
     """Use one Responses API call instead of the full multi-turn agent runtime."""
@@ -108,6 +128,41 @@ class OpenAISeilWebResearcher:
             raise ValueError(f"SEIL web research did not complete: {reason}")
         result = SeilWebResearchResult.model_validate(json.loads(response.output_text))
         result.source_refs()
+        return result
+
+    async def discover(self, request: str) -> SeilMarketDiscoveryResult:
+        response = await self.client.responses.create(
+            model=self.model,
+            instructions=(
+                "You are SEIL's marketplace supply researcher. Infer the software category the "
+                "buyer needs, then find two credible products from different vendors on the "
+                "public web. Prefer official product, pricing, documentation, security, privacy, "
+                "and integration pages. Create concise provisional listings using only facts "
+                "supported by direct page URLs. These are platform-researched listings, not "
+                "seller-attested listings. Do not return search-result URLs."
+            ),
+            input=request,
+            tools=[{"type": "web_search", "search_context_size": "low"}],
+            tool_choice="auto",
+            max_tool_calls=3,
+            max_output_tokens=5_000,
+            reasoning={"effort": "low"},
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "seil_market_discovery",
+                    "strict": True,
+                    "schema": SeilMarketDiscoveryResult.model_json_schema(),
+                }
+            },
+        )
+        if response.status != "completed" or not response.output_text:
+            reason = getattr(response.incomplete_details, "reason", "empty_response")
+            raise ValueError(f"SEIL marketplace discovery did not complete: {reason}")
+        result = SeilMarketDiscoveryResult.model_validate(json.loads(response.output_text))
+        for product in result.products:
+            if not any(_is_public_url(source.url.strip()) for source in product.sources):
+                raise ValueError("SEIL marketplace discovery returned a product without sources")
         return result
 
 
