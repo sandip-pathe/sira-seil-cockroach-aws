@@ -1,125 +1,93 @@
 # SIRA + SEIL CockroachDB x AWS master plan
 
-Status: active implementation, reset to repository truth on 2026-08-13.
+Status: Approach B approved and implementation started on 2026-08-13.
 
-## Locked direction
+## Outcome
 
-SIRA and SEIL remain the product.
+Build a qualified two-sided B2B agent marketplace. SIRA privately represents a buyer; SEIL privately represents sellers. CockroachDB prevents concurrent agents from creating stale, duplicate or lost buying outcomes. AWS hosts the product and provides model inference, embeddings, queueing, source-byte storage, secrets and telemetry.
 
-- SIRA helps a company choose software using its needs, constraints, and current stack.
-- SEIL helps vendors publish accurate product evidence and keeps public research visibly separate.
-- CockroachDB prevents stale, duplicated, or lost buying decisions while buyer, seller, research, and worker agents operate concurrently.
-- AWS runs the API/workers and Bedrock embeddings.
-- CockroachDB Cloud Managed MCP gives judges an independent, scoped integrity check.
-- PRAVA is optional payment decoration after human approval, not the core architecture.
+The P0 commercial effect is one human-approved qualified introduction. PRAVA, offers, trials and purchasing are P2.
 
-No memory rebrand. No separate proof product. No decorative sponsor integration.
+## Judge moment
 
-## Current repository truth
+1. SIRA starts a two-product meeting-intelligence comparison and snapshots active Product Bundles.
+2. The cheaper product's v1 bundle says EU hosting is available.
+3. After the real worker persists `SNAPSHOT_COMPLETE`, SEIL publishes a prevalidated v2 bundle correcting it to US-only.
+4. The v1 attempt performs its real Bedrock work but loses finalization because its dependency is stale.
+5. It emits no decision, match or introduction and creates one direct replacement.
+6. The replacement cites v2 and blocks the cheaper product.
+7. Buyer and seller humans consent; CockroachDB writes one qualified introduction.
+8. Duplicate delivery and an expired-lease takeover leave one current decision, replacement and effect.
+9. Managed MCP independently verifies the same IDs and invariants.
 
-Completed and pushed:
+## Locked architecture
 
-1. Original August history restored without manufacturing commit dates.
-2. Canonical private repository created: `sandip-pathe/sira-seil-cockroach-aws`.
-3. Original imported commit remains an ancestor of `main`.
-4. `cockroachdb-hackathon-start` marks the current hackathon boundary.
-5. The abandoned `cockroach-build` side repository was deleted.
-6. DataHub, Senso, Snowflake, Temporal, PRAVA MCP/OAuth, old PostgreSQL Compose/bootstrap runtime, imported PostgreSQL migrations, old submission artifacts, and their generated API/UI surfaces were removed.
-7. Cleanup commit `f8db5e8` was pushed to `origin/main`.
-8. Web lint/typecheck/client generation and Python lint pass. The remaining decision-fixture test drift predates the Cockroach migration and is tracked separately.
+See `architecture.md` for the complete contract.
 
-Not implemented yet:
+- CockroachDB Cloud v25.4+ on AWS is the sole transactional/business-state authority.
+- DVI is candidate retrieval; relational current-version and eligibility gates decide use.
+- Managed MCP is a read-only judge/operator integrity plane, not application transport.
+- Next.js web, FastAPI API and role-configured worker tasks run on ECS/Fargate behind one ALB.
+- A Cockroach transactional outbox publishes to SQS FIFO; database consumer/effect keys handle redelivery.
+- Existing agent/authority/guardrail code gains Bedrock Converse, Guardrails and Titan V2 adapters.
+- P0 S3 evidence is preseeded/versioned/checksum-verified. Interactive ingestion is P1.
+- Hosted mode fails closed; no fixture, model, identity or stale-vector fallback.
 
-- CockroachDB runtime connection or fresh schema;
-- vector indexes or stored Bedrock embeddings;
-- SQLSTATE `40001` retry helper;
-- version-race invalidation and replacement attempts;
-- Cockroach-backed worker leasing/fencing/checkpoints;
-- Cockroach Cloud cluster or Managed MCP credentials;
-- ECS/Fargate deployment or hosted evidence.
+## Implementation sequence
 
-The root application is intentionally between persistence runtimes after cleanup. No deleted side-demo result counts as implementation evidence.
+### Phase 0: approved architecture and risk gates
 
-## The judge moment
+- Synchronize `architecture.md`, this plan, checklist, spec/test/operations references and Devpost state.
+- Record a cloud spending ceiling before provisioning.
+- Prove AWS identity/region, Cockroach SQL/DVI/MCP/RLS/retry and Bedrock Converse/Guardrail/embedding access.
 
-SIRA snapshots a lower-cost product's v1 claim that EU hosting is available. While evaluation is in progress, SEIL publishes v2 correcting the product to US-only.
+### Phase 1: Cockroach correctness kernel
 
-| Item | v1 snapshot | v2 current state |
-|---|---|---|
-| Seller claim | EU hosting available | US-only hosting |
-| Buyer requirement | EU hosting required | EU hosting required |
-| Lower-cost option | Eligible and would win on price | Blocked |
-| Stale attempt | Must emit no decision | Preserved as invalidated |
-| Final result | Not allowed | One replacement decision using v2 |
+- Add Cockroach-aware engine/driver configuration and a reusable whole-callback `40001` transaction runner.
+- Add fresh migrations for buyer context, briefs, Product Bundles, embeddings, missions, attempts, dependencies, checkpoints, decisions, engagement/consent, introductions, idempotency, consumer receipts, events, outbox and effects.
+- Add FORCE RLS and transaction-local verified tenant/principal/role context.
+- Prove claim/snapshot/finalize, database-time leases, generation fences, stale invalidation, one direct successor, bounded replacement, durable deduplication and one P0 effect against a real CockroachDB instance.
 
-Then the active worker stops, a standby resumes from a durable checkpoint, and replaying the same event still produces one effect and one final decision.
+### Phase 2: AWS and agent adapters
 
-## Architecture target
+- Add `BedrockConverseRuntime`, typed tools, pinned model/prompt metadata and deterministic fake/replay runtime.
+- Add Titan V2 embedding adapter and versioned vector repository with equality-prefix visibility/category filtering.
+- Add Bedrock Guardrails for buyer/seller input and generated output; hard permission remains deterministic.
+- Add preseeded S3 evidence adapter, SQS FIFO publisher/consumer, dispatcher leases and durable consumer receipts.
+- Add sanitized correlation logs and P0 metrics.
 
-```mermaid
-flowchart LR
-  USER["Buyer or seller"] --> WEB["SIRA / SEIL workspace"]
-  WEB --> API["API on ECS/Fargate"]
-  API --> CRDB["CockroachDB Cloud"]
-  WORKERS["Two replaceable ECS workers"] --> CRDB
-  WORKERS --> BEDROCK["Bedrock Titan embeddings"]
-  CRDB --> VECTOR["Distributed vector indexes"]
-  INSPECTOR["Scoped integrity client"] --> MCP["CockroachDB Cloud Managed MCP"]
-  MCP --> CRDB
-```
+### Phase 3: product API
 
-Application transactions use the SQL driver. MCP is an external integrity path, not the normal runtime.
+- Implement active brief and two-bundle mission creation.
+- Implement mission start/projection/event cursor, evidence-v2 publication, role-specific engagement, seller response, decision approval/rejection, consent, introduction and integrity endpoints.
+- Require idempotency keys and `If-Match` where specified; errors expose problem, cause, recovery and trace ID.
+- Compose production dependencies without fixture fallbacks.
 
-## Remaining execution order
+### Phase 4: six-route P0 UI
 
-1. **Compatibility:** local Cockroach container, driver/dialect, fresh migration, RLS, JSON/UUID, vector, retry, and fencing spike.
-2. **State:** minimal immutable buyer/seller/catalog/mission schema and repository boundaries.
-3. **Retrieval:** real Bedrock embeddings, separate context/catalog vector indexes, freshness checks, and deterministic gates.
-4. **Correctness:** mixed-version invalidation, one replacement, one decision, durable checkpoints, fencing, and duplicate suppression.
-5. **Product:** real APIs and existing SIRA/SEIL UI states against CockroachDB; keep PRAVA optional and human-approved.
-6. **Hosting:** CockroachDB Cloud plus API and two workers on ECS/Fargate with task roles and managed secrets.
-7. **Independent proof:** real Cloud MCP five-invariant verdict, hosted repeatability, evidence bundle, and Devpost handoff.
+- Extract only touched seams from the existing oversized components with characterization tests.
+- Wire `/sira`, mission room, SEIL evidence correction, seller opportunity, match and integrity routes to live APIs.
+- Cover loading, empty, partial, retry, stale/conflict, permission, provider failure and success states.
+- Preserve the visual system while making the agent run and authority understandable before infrastructure details.
 
-The exact acceptance commands are in `checklist.md`.
+### Phase 5: deploy and prove
 
-## Correctness protocol
+- Add minimal TypeScript CDK, ECR images, IAM task roles, Secrets Manager, ALB, ECS, SQS, S3 and CloudWatch configuration.
+- Deploy web/API/worker, migrate the cloud cluster, seed evidence/vector corpus and run the controlled race.
+- Configure read-only Managed MCP integrity views and evidence script.
+- Run concurrency, security, browser, agent-evaluation, performance and five-rehearsal gates; capture sanitized evidence.
 
-1. A short serializable transaction records exact source IDs, versions, and hashes.
-2. Retrieval, Bedrock calls, and evaluation happen outside database transactions.
-3. A fresh short transaction checks current source heads and the worker fencing token.
-4. A source mismatch invalidates the old attempt and inserts or reads one unique replacement.
-5. SQLSTATE `40001` retries the whole transaction callback with a fresh session.
-6. Database uniqueness enforces one replacement per stale attempt, one effect per idempotency key, and one decision per mission.
+### Phase 6: P1/P2 only after P0
 
-## Scope cuts
+- P1: company memory, product management, interactive ingestion, public marketplace, inboxes/settings, full DLQ/restore operations, `ccloud`, GitHub OIDC and broader UI.
+- P2: PRAVA, Automated Reasoning, AgentCore experiment, measured changefeed/multi-region, analytics and more categories.
 
-Required: CockroachDB Cloud, Distributed Vector Indexing, Cloud Managed MCP, Bedrock, ECS/Fargate, concurrency/recovery evidence, and the real SIRA/SEIL workspace.
+## Cut lines
 
-Deferred until the hosted proof is green: changefeeds, Lambda, Agent Skill contribution, multi-region claims, live web discovery, general event-platform work, and broad payment automation.
-
-## Main risks
-
-| Risk | Mitigation |
-|---|---|
-| Existing SQLAlchemy code assumes PostgreSQL behavior | Prove a minimal Cockroach slice before porting application repositories |
-| Cleanup removed the database runtime | Add a fresh Cockroach-only Compose and migration baseline before feature work |
-| App looks like generic RAG | Make the seller correction change a structured eligibility result |
-| Vector similarity becomes authority | Rejoin current rows and run deterministic gates after retrieval |
-| Worker recovery is cosmetic | Stop a real worker and reject the stale fencing token |
-| MCP is decorative | Return an external five-invariant verdict over the exact live mission |
-| Reused project history confuses judges | Keep original history and disclose the boundary and pre-existing product plainly |
-| Optional work dilutes the core | Do not begin optional items before the hosted proof passes |
+- A failed correctness kernel is a no-ship blocker. Stop breadth and fix it.
+- Approach A can activate only after the kernel, DVI/MCP and Bedrock pass but SQS or six-route integration remains unstable. It keeps real Cockroach correctness, uses database outbox polling and consolidates into four screens.
+- No P1/P2 work begins while any P0 authority, concurrency, tenant-isolation or hosted-path gate is red.
 
 ## Completion definition
 
-The build is ready only when:
-
-1. v2 changes a real eligibility decision;
-2. the stale attempt emits no decision;
-3. a standby worker resumes durable work;
-4. duplicate replay creates one effect;
-5. the final explanation cites current versions;
-6. real Bedrock vectors and Cockroach vector retrieval are visible in evidence;
-7. external Cloud MCP returns `PASS` for all five invariants;
-8. the hosted product runs consistently with no fixture fallback;
-9. a buyer understands why the recommendation changed before seeing infrastructure details.
+P0 is complete only when current-state evidence proves every checklist item. Targets, local fixture results, deleted side repositories and screenshots without matching database IDs do not count.

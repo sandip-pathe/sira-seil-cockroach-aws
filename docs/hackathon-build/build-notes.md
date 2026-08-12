@@ -1,5 +1,13 @@
 # Build notes
 
+## 2026-08-13 approved-architecture baseline
+
+- Approach B approved: qualified SIRA/SEIL agent marketplace with CockroachDB authority and AWS hosting/AI/transport.
+- Full baseline command: `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1`.
+- Passed before implementation: Ruff lint, Ruff format, strict mypy, and 256/265 pytest cases.
+- Existing red baseline: nine decision-fixture/ranking tests and one assertion that references the deliberately removed PostgreSQL migration; aggregate coverage is 72.48% versus the configured 75% threshold.
+- These failures are not accepted as completion. New Cockroach work receives focused green suites first; the legacy drift is repaired or explicitly retired with replacement coverage before final release.
+
 ## 2026-08-12 - planning and product lock
 
 Deepening rounds: 0. The founder asked Codex to make implementation tradeoffs autonomously.

@@ -6,7 +6,7 @@ Date: 2026-08-13
 
 Canonical repository: `https://github.com/sandip-pathe/sira-seil-cockroach-aws` (private during construction)
 
-Current implementation commit: `f8db5e8`
+Current implementation commit: `3b634bd` plus the active uncommitted implementation layer described by `git status`.
 
 ## Product lock
 
@@ -24,16 +24,16 @@ Do not rename the product around memory. Do not build a separate proof/infrastru
 
 ## Current truth
 
-The root product has no CockroachDB implementation yet. It is intentionally between persistence runtimes after cleanup. Deleted side-repository tests do not count.
+Approach B, the production qualified-agent-marketplace architecture, was approved on 2026-08-13 after three adversarial design reviews. The repository architecture is in `architecture.md`; `plan.md` and `checklist.md` now use P0/P1/P2 gates.
 
-Next: add the root CockroachDB compatibility slice, then the minimal schema, Bedrock/vector retrieval, concurrency/recovery protocol, product integration, AWS hosting, and real Cloud MCP proof. `checklist.md` is authoritative.
+Implementation starts with cloud/compatibility preflight and the Cockroach correctness kernel. Deleted side-repository work, targets and fixtures do not count as implementation evidence. `checklist.md` is authoritative.
 
 ## Required live claim
 
-1. SIRA snapshots seller pack v1 (`EU hosting available`).
-2. SEIL publishes v2 (`US-only`) during evaluation.
+1. SIRA snapshots the active v1 Product Bundle (`EU hosting available`).
+2. SEIL atomically activates the v2 Product Bundle (`US-only`) after `SNAPSHOT_COMPLETE`.
 3. The stale v1 attempt is invalidated and emits no decision.
-4. One replacement uses v2 and blocks the lower-cost option.
+4. One direct replacement uses v2 and blocks the lower-cost option.
 5. A standby worker resumes durable work after interruption.
 6. Duplicate delivery creates one effect and one decision.
 7. Bedrock and Cockroach vector retrieval are real.
@@ -41,13 +41,14 @@ Next: add the root CockroachDB compatibility slice, then the minimal schema, Bed
 
 ## Read order
 
-1. `checklist.md` - current execution contract.
-2. `plan.md` - current status, architecture, and remaining order.
-3. `prd.md` - product behavior.
-4. `spec.md` - technical invariants.
-5. `test-plan.md` - proof contract.
-6. `provenance.md` - reuse disclosure.
+1. `architecture.md` - approved product, data, agent, AWS and Cockroach contract.
+2. `checklist.md` - evidence-gated P0/P1/P2 execution contract.
+3. `plan.md` - implementation order and cut lines.
+4. `prd.md` - product behavior.
+5. `spec.md` - technical invariants; update when implementation changes a contract.
+6. `test-plan.md` - proof contract.
+7. `provenance.md` - reuse disclosure.
 
 ## Resume instruction
 
-> Continue the SIRA + SEIL CockroachDB x AWS build in the root repository. Read `docs/hackathon-build/00-HANDOFF.md`, `checklist.md`, and `plan.md`. Work autonomously from the first unchecked task, use focused commits, push only the intended paths, and never count deleted side-repository work as evidence.
+> Continue the SIRA + SEIL CockroachDB x AWS build in the root repository. Read `docs/hackathon-build/architecture.md`, `00-HANDOFF.md`, `checklist.md`, and `plan.md`. Work autonomously from the first unchecked task, use focused commits, and never count targets, fixtures, or deleted side-repository work as evidence.

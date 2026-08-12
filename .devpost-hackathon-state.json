@@ -20,9 +20,11 @@
   },
   "current_stage": "build",
   "completed_stages": [
-    "start-hackathon"
+    "start-hackathon",
+    "review",
+    "resources"
   ],
-  "rules_acknowledged": false,
+  "rules_acknowledged": true,
   "learning": {
     "status": "active",
     "current_step": "checklist",
