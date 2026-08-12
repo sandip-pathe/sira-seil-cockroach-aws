@@ -1,8 +1,11 @@
 # SIRA + SEIL - CockroachDB x AWS build handoff
 
-Status: active implementation  
-Date: 2026-08-13  
-Canonical repository: `https://github.com/sandip-pathe/sira-seil-cockroach-aws` (private during construction)  
+Status: active implementation
+
+Date: 2026-08-13
+
+Canonical repository: `https://github.com/sandip-pathe/sira-seil-cockroach-aws` (private during construction)
+
 Current implementation commit: `f8db5e8`
 
 ## Product lock

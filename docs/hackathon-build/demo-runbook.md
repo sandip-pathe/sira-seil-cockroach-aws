@@ -1,7 +1,9 @@
 # Judge demo runbook
 
-Target length: 2:30–2:45.  
-Scenario: synthetic customer-support AI purchase. The buyer requires EU hosting.  
+Target length: 2:30–2:45.
+
+Scenario: synthetic customer-support AI purchase. The buyer requires EU hosting.
+
 Product labels: `privacy-safe option` and `lower-cost option`.
 
 ## What the video must prove

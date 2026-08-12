@@ -1,7 +1,9 @@
 # Technical specification — SIRA + SEIL on CockroachDB and AWS
 
-Status: draft for review  
-Date: 2026-08-12  
+Status: draft for review
+
+Date: 2026-08-12
+
 Source product boundary: tag `cockroachdb-hackathon-start`; active cleanup commit `f8db5e8`
 
 ## 1. Technical claim

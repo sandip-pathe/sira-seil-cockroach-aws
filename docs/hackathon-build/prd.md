@@ -1,7 +1,9 @@
 # Product requirements — SIRA + SEIL CockroachDB build
 
-Status: draft for build approval  
-Owner: SIRA + SEIL team  
+Status: draft for build approval
+
+Owner: SIRA + SEIL team
+
 Target: CockroachDB × AWS Hackathon
 
 ## Product statement

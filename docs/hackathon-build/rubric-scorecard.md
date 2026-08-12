@@ -20,7 +20,7 @@ CockroachDB creates asymmetric value through one combination: serializable state
 | Production Readiness | 3/10 | 9/10 | Tenant isolation, authority boundaries, retry behavior, worker recovery, duplicate safety, traces, fail-closed hosted mode, and honest limits | Cross-tenant retrieval, fixture fallback, leaked secrets, unbounded retries, or “production-grade” language without tests |
 | Creativity & Originality | 7/10 | 9/10 | A two-sided buyer/seller system shows why concurrent agent state needs database correctness, not just storage | Rebranding as a memory app, copying a standard RAG demo, or showing MCP as a chat-to-SQL trick |
 
-Current evidence-backed total: **22/50**.  
+Current evidence-backed total: **22/50**.
 Target total: **45/50** only if every core milestone is demonstrated live.
 
 ## Why this can win
