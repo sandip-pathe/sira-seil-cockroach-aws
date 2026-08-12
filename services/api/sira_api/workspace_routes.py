@@ -163,8 +163,6 @@ async def workspace_connectors(
     context: ContextDependency, service: ServiceDependency
 ) -> list[dict[str, str]]:
     require_permission(context, "can_view_context")
-    senso_ready, senso_meta = service.senso_status()
-    datahub_ready, datahub_meta = service.datahub_status()
     return [
         {
             "id": "business-context",
@@ -172,20 +170,6 @@ async def workspace_connectors(
             "purpose": "Company rules, goals, and buying preferences",
             "status": "Needs setup",
             "meta": "Add company documents or confirm details in chat",
-        },
-        {
-            "id": "senso",
-            "name": "Senso",
-            "purpose": "Company files and decision evidence",
-            "status": "Healthy" if senso_ready else "Needs setup",
-            "meta": senso_meta,
-        },
-        {
-            "id": "datahub",
-            "name": "DataHub",
-            "purpose": "Governed company context for buyer-specific software decisions",
-            "status": "Healthy" if datahub_ready else "Needs setup",
-            "meta": datahub_meta,
         },
         {
             "id": "google-workspace",

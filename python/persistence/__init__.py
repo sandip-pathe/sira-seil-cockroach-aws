@@ -4,7 +4,6 @@ from .database import Database, DatabaseSettings
 from .models import (
     ActionRun,
     Base,
-    BuyerProofAdapterProjection,
     CandidateSetMember,
     CounterfactualRecordModel,
     DecisionGateResult,
@@ -16,8 +15,6 @@ from .models import (
     EvidenceAssessmentRecord,
     IdentityMerge,
     OutcomeCheckpoint,
-    ProofApproval,
-    ProofReceiptCore,
     PurchaseReversal,
     ResultArtifact,
     RobustnessFrontier,
@@ -36,7 +33,6 @@ from .models import (
     SellerReviewSubmission,
     SolutionPlanComponent,
 )
-from .proof_repository import ProofExchangeRepository
 from .repositories import (
     ActionRunSnapshot,
     EvaluationGraphSnapshot,
@@ -48,7 +44,6 @@ __all__ = [
     "ActionRun",
     "ActionRunSnapshot",
     "Base",
-    "BuyerProofAdapterProjection",
     "CandidateSetMember",
     "CounterfactualRecordModel",
     "Database",
@@ -64,9 +59,6 @@ __all__ = [
     "EvidenceAssessmentRecord",
     "IdentityMerge",
     "OutcomeCheckpoint",
-    "ProofApproval",
-    "ProofExchangeRepository",
-    "ProofReceiptCore",
     "PurchaseReversal",
     "ResultArtifact",
     "RobustnessFrontier",

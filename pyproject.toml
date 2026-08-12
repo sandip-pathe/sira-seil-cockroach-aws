@@ -23,16 +23,12 @@ dependencies = [
   "pyyaml>=6.0,<7",
   "rfc8785>=0.1.4,<1",
   "sqlalchemy[asyncio]>=2.0,<2.1",
-  "snowflake-connector-python>=3.17,<4",
   "uvicorn[standard]>=0.35,<1",
 ]
 
 [project.optional-dependencies]
 agents = [
   "openai-agents>=0.2,<1"
-]
-worker = [
-  "temporalio>=1.15,<2"
 ]
 dev = [
   "aiosqlite>=0.21,<1",
@@ -45,7 +41,7 @@ dev = [
   "pytest>=8.4,<9",
   "respx>=0.22,<1",
   "ruff>=0.12,<1",
-  "testcontainers[postgres]>=4.12,<5",
+  "testcontainers>=4.12,<5",
   "types-PyYAML>=6.0,<7"
 ]
 
@@ -57,7 +53,6 @@ packages = [
   "python/agents/sira_agents",
   "python/integrations",
   "python/persistence",
-  "python/proof",
   "services/api/sira_api",
   "services/worker/sira_worker"
 ]

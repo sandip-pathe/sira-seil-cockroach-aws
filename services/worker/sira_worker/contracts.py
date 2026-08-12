@@ -1,4 +1,4 @@
-"""Credential-free Temporal workflow and activity contracts."""
+"""Credential-free durable-work contracts."""
 
 from __future__ import annotations
 
@@ -196,7 +196,7 @@ class PravaShoppingWorkflowResult:
 
 
 def assert_credential_free_contract(value: object) -> None:
-    """Fail closed if a Temporal contract ever gains a credential-like field.
+    """Fail closed if a durable-work contract ever gains a credential-like field.
 
     This check is run by both worker registration and the workflow before dispatch.
     It inspects schema names, not values, and therefore cannot print a secret.
@@ -213,13 +213,13 @@ def assert_credential_free_contract(value: object) -> None:
             for field in fields(item):
                 normalized = field.name.lower()
                 if any(part in normalized for part in FORBIDDEN_CREDENTIAL_FIELD_PARTS):
-                    raise ValueError("Temporal contract contains a prohibited field")
+                    raise ValueError("durable-work contract contains a prohibited field")
                 walk(getattr(item, field.name))
         elif isinstance(item, dict):
             for key, nested in item.items():
                 normalized = str(key).lower()
                 if any(part in normalized for part in FORBIDDEN_CREDENTIAL_FIELD_PARTS):
-                    raise ValueError("Temporal contract contains a prohibited field")
+                    raise ValueError("durable-work contract contains a prohibited field")
                 walk(nested)
         elif isinstance(item, (tuple, list, set, frozenset)):
             for nested in item:
@@ -252,4 +252,4 @@ def assert_all_contract_schemas_are_credential_free() -> None:
         for field in fields(contract_type):
             normalized = field.name.lower()
             if any(part in normalized for part in FORBIDDEN_CREDENTIAL_FIELD_PARTS):
-                raise RuntimeError("Temporal contract schema contains a prohibited field")
+                raise RuntimeError("durable-work contract schema contains a prohibited field")

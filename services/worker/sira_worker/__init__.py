@@ -1,8 +1,4 @@
-"""Temporal worker boundary for SIRA + SEIL.
-
-Importing this package does not require the optional Temporal dependency.  Runtime
-modules load it only when a worker is actually constructed.
-"""
+"""Durable worker boundary for SIRA + SEIL."""
 
 from sira_worker.contracts import (
     CheckoutActivityResult,

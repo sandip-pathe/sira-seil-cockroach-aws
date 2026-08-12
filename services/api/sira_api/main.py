@@ -6,7 +6,6 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
-from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -31,24 +30,16 @@ from .marketplace import (
     SellerPrincipalBinding,
     StaticSellerOrganizationDirectory,
 )
-from .prava_mcp_routes import router as prava_mcp_router
-from .prava_mcp_service import PravaMcpConnectionService
-from .proof_routes import router as proof_router
-from .proof_runtime import ProofWorkspaceRuntime
 from .routes import public_router, router
 from .routes_v2 import router_v2
 from .schemas import ErrorEnvelope
 from .seller_routes import seller_router
 from .seller_service import SellerEvidenceService
-from .senso_runtime import activate_senso, close_senso
 from .service import WorkflowService, translate_persistence_conflict
-from .snowflake_routes import router as snowflake_router
-from .snowflake_service import SnowflakeDecisionService
 from .workspace_routes import workspace_router
 from .workspace_service import WorkspaceService
 
 logger = logging.getLogger(__name__)
-REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def operation_id(route: APIRoute) -> str:
@@ -184,13 +175,8 @@ def create_app(
             resolved_database,
             development_fixture_mode=resolved_settings.development_fixture_mode,
         )
-        senso_providers, senso_error = await activate_senso(resolved_settings)
-        proof_runtime = ProofWorkspaceRuntime(REPO_ROOT)
         application.state.workflow_service = workflow_service
         application.state.seller_evidence_service = seller_evidence_service
-        application.state.proof_runtime = proof_runtime
-        snowflake_decision_service = SnowflakeDecisionService(resolved_settings)
-        application.state.snowflake_decision_service = snowflake_decision_service
         application.state.workspace_service = WorkspaceService(
             fixtures,
             api_key=resolved_settings.openai_api_key.get_secret_value(),
@@ -199,20 +185,8 @@ def create_app(
             workflow_service=workflow_service,
             seller_evidence_service=seller_evidence_service,
             database=resolved_database,
-            senso_providers=senso_providers,
-            senso_error=senso_error,
-            snowflake_decision_service=snowflake_decision_service,
-            proof_runtime=proof_runtime,
-        )
-        application.state.prava_mcp_service = PravaMcpConnectionService(
-            resolved_database,
-            root_secret=resolved_settings.browser_return_signing_secret(),
-            public_base_url=resolved_settings.public_base_url,
-            web_base_url=resolved_settings.web_base_url,
         )
         yield
-        await proof_runtime.close()
-        await close_senso(senso_providers)
         close_identity = getattr(resolved_identity_adapter, "aclose", None)
         if close_identity is not None:
             await close_identity()
@@ -251,7 +225,6 @@ def create_app(
             {"name": "stackfile"},
             {"name": "workflows"},
             {"name": "workspace"},
-            {"name": "proof"},
         ],
     )
 
@@ -461,9 +434,6 @@ def create_app(
     application.include_router(seller_router)
     application.include_router(router_v2)
     application.include_router(workspace_router)
-    application.include_router(prava_mcp_router)
-    application.include_router(snowflake_router)
-    application.include_router(proof_router)
     application.include_router(router)
     return application
 

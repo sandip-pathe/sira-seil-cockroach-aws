@@ -93,14 +93,14 @@
         "fact_id": "bf_no_customer_training",
         "display_name": "product.trains on customer data",
         "display_value": "False",
-        "provenance_label": "senso",
+        "provenance_label": "fixture",
         "sensitivity": "restricted"
       },
       {
         "fact_id": "bf_residency_us",
         "display_name": "product.data residency",
         "display_value": "US",
-        "provenance_label": "senso",
+        "provenance_label": "fixture",
         "sensitivity": "confidential"
       },
       {
@@ -121,7 +121,7 @@
         "fact_id": "bf_guest_notice",
         "display_name": "product.guest recording notice",
         "display_value": "True",
-        "provenance_label": "senso",
+        "provenance_label": "fixture",
         "sensitivity": "confidential"
       },
       {

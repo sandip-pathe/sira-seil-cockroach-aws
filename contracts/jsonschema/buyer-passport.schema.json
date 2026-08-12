@@ -85,7 +85,7 @@
           "additionalProperties": false,
           "required": ["provider", "adapter_mode", "content_id", "version_id", "chunk_index", "retrieved_at"],
           "properties": {
-            "provider": { "type": "string", "enum": ["senso", "fixture", "admin_input", "stackfile"] },
+            "provider": { "type": "string", "enum": ["fixture", "admin_input", "stackfile"] },
             "adapter_mode": { "type": "string", "enum": ["PRODUCTION_PROVIDER", "DEVELOPMENT_FIXTURE", "MANUAL_INPUT", "CANONICAL_STACKFILE", "SYSTEM_OBSERVATION"] },
             "content_id": { "$ref": "common.schema.json#/$defs/Identifier" },
             "version_id": { "$ref": "common.schema.json#/$defs/Identifier" },

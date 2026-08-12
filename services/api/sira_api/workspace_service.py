@@ -6,7 +6,6 @@ import asyncio
 import json
 import logging
 import re
-from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC
 from hashlib import sha256
@@ -35,13 +34,11 @@ from persistence.repositories import RecordNotFound
 
 from .errors import ApiProblem
 from .fixtures import DemoFixtureBundle
-from .proof_runtime import ProofWorkspaceRuntime
 from .seil_web_research import (
     OpenAISeilWebResearcher,
     SeilDiscoveredProduct,
     SeilWebResearcher,
 )
-from .snowflake_service import SnowflakeDecisionService
 from .workspace_schemas import WorkspaceChatCreate
 
 logger = logging.getLogger(__name__)
@@ -120,25 +117,6 @@ class WorkspaceService:
     _SELLER_LISTING_IDS: ClassVar[frozenset[str]] = frozenset(
         {"product_fixture_a", "product_fixture_b"}
     )
-    _DATAHUB_BUYING_PROMPTS: ClassVar[frozenset[str]] = frozenset(
-        {
-            "choose a data/ai tool for our actual stack",
-            "choose a customer-support ai for our actual data stack",
-            "choose a support ai for our actual data estate",
-        }
-    )
-    _DATAHUB_PRODUCT_IDENTITIES: ClassVar[dict[str, dict[str, str]]] = {
-        "adapter-a": {
-            "id": "support_ai_cleartext",
-            "name": "Lower-cost option",
-            "seller": "Repository-curated candidate",
-        },
-        "adapter-b": {
-            "id": "support_ai_private_relay",
-            "name": "Privacy-safe option",
-            "seller": "Repository-curated candidate",
-        },
-    }
     _REAL_PRODUCT_EVIDENCE: ClassVar[dict[str, dict[str, Any]]] = {
         "product_fixture_d": {
             "name": "Fathom",
@@ -256,10 +234,6 @@ class WorkspaceService:
         workflow_service: object | None = None,
         seller_evidence_service: object | None = None,
         database: Database | None = None,
-        senso_providers: Mapping[str, object] | None = None,
-        senso_error: str | None = None,
-        snowflake_decision_service: SnowflakeDecisionService | None = None,
-        proof_runtime: ProofWorkspaceRuntime | None = None,
         seil_web_researcher: SeilWebResearcher | None = None,
     ) -> None:
         self.fixtures = fixtures
@@ -272,10 +246,6 @@ class WorkspaceService:
         self.workflow_service = workflow_service
         self.seller_evidence_service = seller_evidence_service
         self.database = database
-        self.senso_providers = dict(senso_providers or {})
-        self.senso_error = senso_error
-        self.snowflake_decision_service = snowflake_decision_service
-        self.proof_runtime = proof_runtime
         self.seil_web_researcher = seil_web_researcher or (
             OpenAISeilWebResearcher(api_key=self.seil_api_key, model=model)
             if self.seil_api_key
@@ -292,30 +262,9 @@ class WorkspaceService:
             services["workflow_service"] = self.workflow_service
         if self.seller_evidence_service is not None:
             services["seller_evidence_service"] = self.seller_evidence_service
-        if self.snowflake_decision_service is not None:
-            services["snowflake_decision_service"] = self.snowflake_decision_service
-        services.update(self.senso_providers)
         return services
 
-    def senso_status(self) -> tuple[bool, str]:
-        if {"senso_buyer", "senso_seller"}.issubset(self.senso_providers):
-            return True, "Buyer and seller folder scopes verified"
-        return False, self.senso_error or "Senso is not configured"
-
-    def datahub_status(self) -> tuple[bool, str]:
-        if self.proof_runtime is None:
-            return False, "Run the DataHub buying evaluation"
-        try:
-            decision = self.proof_runtime.buyer_decision()
-        except ApiProblem:
-            return False, "Run the DataHub buying evaluation"
-        return (
-            True,
-            f"Verified buying context and receipt {decision['decision_hash'][-12:]}",
-        )
-
     def capabilities(self) -> list[dict[str, str | None]]:
-        senso_ready, _ = self.senso_status()
         return [
             {
                 "id": "sira-agent",
@@ -350,13 +299,6 @@ class WorkspaceService:
                 ),
             },
             {
-                "id": "senso",
-                "label": "Private evidence search",
-                "status": "ready" if senso_ready else "degraded",
-                "reason_code": "READY" if senso_ready else "SENSO_SCOPE_UNAVAILABLE",
-                "remediation": None if senso_ready else "Check the scoped Senso connector",
-            },
-            {
                 "id": "product-evidence",
                 "label": "Product Evidence lifecycle",
                 "status": "ready" if self.seller_evidence_service and self.database else "offline",
@@ -365,26 +307,7 @@ class WorkspaceService:
                 else "PRODUCT_EVIDENCE_OFFLINE",
                 "remediation": None
                 if self.seller_evidence_service and self.database
-                else "Start PostgreSQL and the API",
-            },
-            {
-                "id": "snowflake-decision-plane",
-                "label": "Governed evidence and decision ledger",
-                "status": (
-                    "ready"
-                    if self.snowflake_decision_service and self.snowflake_decision_service.enabled
-                    else "offline"
-                ),
-                "reason_code": (
-                    "READY"
-                    if self.snowflake_decision_service and self.snowflake_decision_service.enabled
-                    else "SNOWFLAKE_DISABLED"
-                ),
-                "remediation": (
-                    None
-                    if self.snowflake_decision_service and self.snowflake_decision_service.enabled
-                    else "Configure the Snowflake application identity"
-                ),
+                else "Start the database and API",
             },
         ]
 
@@ -442,15 +365,6 @@ class WorkspaceService:
     async def chat(
         self, body: WorkspaceChatCreate, *, run_context: AgentRunContext
     ) -> dict[str, Any]:
-        if self._routes_to_datahub_fit(body):
-            mission_id, _ = await self._prepare_mission(
-                body=body,
-                run_context=run_context,
-            )
-            return await self._run_datahub_fit_turn(
-                mission_id=mission_id,
-                run_context=run_context,
-            )
         selected_api_key = self.api_key if body.mode == "sira" else self.seil_api_key
         if not selected_api_key:
             raise ApiProblem(
@@ -467,11 +381,6 @@ class WorkspaceService:
         if self._routes_to_marketplace_discovery(body):
             return await self._run_marketplace_discovery_turn(
                 body=body,
-                mission_id=mission_id,
-                run_context=run_context,
-            )
-        if self._routes_to_governed_snowflake(body):
-            return await self._run_governed_snowflake_turn(
                 mission_id=mission_id,
                 run_context=run_context,
             )
@@ -615,46 +524,6 @@ class WorkspaceService:
             except Exception:
                 break
         visible_products = [product for product in self.catalog() if product["id"] in product_ids]
-        snowflake_decision_ready = bool(visible_products) or (
-            "search_published_products" in all_tool_calls
-        )
-        if (
-            body.mode == "sira"
-            and snowflake_decision_ready
-            and self.snowflake_decision_service is not None
-            and self.snowflake_decision_service.enabled
-        ):
-            try:
-                snowflake_result = await self.snowflake_decision_service.create_decision(
-                    organization_id=run_context.organization_id,
-                    context_version=1,
-                    mission_id=mission_id,
-                    actor_id=run_context.actor_id,
-                    idempotency_key=f"workspace-{mission_id}-context-v1",
-                )
-                snowflake_artifact = await self._persist_snowflake_artifact(
-                    mission_id=mission_id,
-                    run_context=run_context,
-                    result=snowflake_result,
-                )
-                all_tool_calls.append("evaluate_cited_decision")
-                visible_products = self._snowflake_products(snowflake_result)
-                answer = self._snowflake_answer(snowflake_result)
-                governed_persisted = await self._persist_turn(
-                    mission_id=mission_id,
-                    answer=answer,
-                    run_context=run_context,
-                    tool_calls=("evaluate_cited_decision",),
-                    proposals=(),
-                    turn_key=f"{run_context.request_id or uuid4().hex}:snowflake",
-                )
-                governed_persisted["artifacts"] = [
-                    *persisted["artifacts"],
-                    snowflake_artifact,
-                ]
-                persisted = governed_persisted
-            except Exception:
-                logger.exception("Snowflake decision enrichment failed")
         panel = "catalog" if visible_products else None
         return {
             "conversation_id": mission_id,
@@ -671,11 +540,6 @@ class WorkspaceService:
             "attention": answer.attention.model_dump(mode="json") if answer.attention else None,
             "advisory_only": False,
         }
-
-    @classmethod
-    def _routes_to_datahub_fit(cls, body: WorkspaceChatCreate) -> bool:
-        normalized = " ".join(body.message.strip().casefold().split()).rstrip(".!?")
-        return body.mode == "sira" and normalized in cls._DATAHUB_BUYING_PROMPTS
 
     @staticmethod
     def _routes_to_marketplace_discovery(body: WorkspaceChatCreate) -> bool:
@@ -908,417 +772,6 @@ class WorkspaceService:
             enriched["why_company"] = "No evidence yet for the stated company integrations."
             enriched["requirement_coverage"] = f"0/{len(required)} stated integrations"
         return enriched
-
-    async def _run_datahub_fit_turn(
-        self,
-        *,
-        mission_id: str,
-        run_context: AgentRunContext,
-    ) -> dict[str, Any]:
-        if self.proof_runtime is None:
-            raise ApiProblem(
-                code="DATAHUB_DECISION_UNAVAILABLE",
-                message="The verified DataHub buying decision is not available.",
-                status_code=503,
-                retryable=False,
-                next_action="run_proof_demo",
-            )
-        decision = self.proof_runtime.buyer_decision()
-        products = self._datahub_products(decision)
-        artifact = self._datahub_decision_artifact(decision)
-        answer = MissionTurnOutput(
-            message=(
-                "The privacy-safe option is the best technical fit for the stack you actually run. "
-                "DataHub shows that customer email is governed PII, which makes raw PII egress "
-                "a hard requirement: the privacy-safe option passed that gate, while the "
-                "lower-cost option returned the synthetic email unredacted. Removing only the "
-                "PII classification changes the winner to the lower-cost option; restoring it "
-                "changes the winner back. The decision receipt was written to DataHub and reread. "
-                "These are evaluation roles "
-                "backed by repository-curated evidence, so commercial terms still need validation."
-            ),
-            mission_state="SYNTHESIZING",
-            artifacts=[artifact],
-            show_product_ids=[product["id"] for product in products],
-            stop_reason="DATAHUB_FIT_DECISION_READY",
-        )
-        tools = (
-            "query_datahub_company_context",
-            "retrieve_seil_product_evidence",
-            "run_buyer_specific_trial",
-            "evaluate_datahub_fit",
-            "reread_datahub_decision_receipt",
-        )
-        persisted = await self._persist_turn(
-            mission_id=mission_id,
-            answer=answer,
-            run_context=run_context,
-            tool_calls=tools,
-            proposals=(),
-            turn_key=f"{run_context.request_id or uuid4().hex}:datahub-fit",
-        )
-        return {
-            "conversation_id": mission_id,
-            "mission_id": mission_id,
-            "message": answer.message,
-            "follow_up_required": False,
-            "panel": "catalog",
-            "products": products,
-            "tool_calls": list(tools),
-            "proposals": [],
-            "mission": persisted["mission"],
-            "events": persisted["events"],
-            "artifacts": persisted["artifacts"],
-            "attention": None,
-            "advisory_only": False,
-        }
-
-    @classmethod
-    def _datahub_products(cls, decision: dict[str, Any]) -> list[dict[str, Any]]:
-        evidence_by_id = {item["adapterId"]: item for item in decision["seller_projections"]}
-        products: list[dict[str, Any]] = []
-        for adapter_id in ("adapter-b", "adapter-a"):
-            evidence = evidence_by_id[adapter_id]
-            identity = cls._DATAHUB_PRODUCT_IDENTITIES[adapter_id]
-            selected = adapter_id == decision["selected_adapter_id"]
-            fixed_price = evidence["fixedPrice"]
-            products.append(
-                {
-                    "id": identity["id"],
-                    "name": identity["name"],
-                    "seller": identity["seller"],
-                    "edition": "Governed Support AI",
-                    "price": f"{fixed_price['currency']} {fixed_price['amount']}",
-                    "billing_unit": "synthetic support case",
-                    "status": "QUALIFIED" if selected else "BLOCKED",
-                    "fit": "Qualified" if selected else "Blocked",
-                    "summary": (
-                        "Redacts governed customer email and passed every buyer-specific gate."
-                        if selected
-                        else "Lower price, but its trial exposed governed customer email."
-                    ),
-                    "why_company": (
-                        "Passed the DataHub-derived PII, schema, and EU-region requirements."
-                        if selected
-                        else (
-                            "Blocked because the buyer's DataHub-governed PII cannot leave "
-                            "unredacted."
-                        )
-                    ),
-                    "requirement_coverage": (
-                        "3 of 3 required gates passed"
-                        if selected
-                        else "2 of 3 required gates passed"
-                    ),
-                    "claims": (
-                        [
-                            "PII redaction passed",
-                            "Required schema supported",
-                            "EU execution region passed",
-                        ]
-                        if selected
-                        else [
-                            "Lower fixed trial price",
-                            "Required schema supported",
-                            "Raw PII egress gate failed",
-                        ]
-                    ),
-                    "integrations": ["datahub", "customer_support", "eu_processing"],
-                    "website": None,
-                    "logo": None,
-                    "evidence_freshness": "Verified in the current DataHub-bound trial",
-                    "source_refs": [
-                        {
-                            "title": "Versioned SEIL seller evidence",
-                            "source_pack_version_id": evidence["sourcePackVersionId"],
-                            "projection_hash": evidence["projectionHash"],
-                            "authority": "SEIL_PUBLISHED",
-                        }
-                    ],
-                }
-            )
-        return products
-
-    @classmethod
-    def _datahub_decision_artifact(cls, decision: dict[str, Any]) -> dict[str, Any]:
-        current_product = cls._DATAHUB_PRODUCT_IDENTITIES["adapter-b"]
-        alternative_product = cls._DATAHUB_PRODUCT_IDENTITIES["adapter-a"]
-        context = decision["datahub_context"]
-        facts = [
-            {
-                "id": f"datahub_fact_{index}",
-                "label": source["label"],
-                "value": source["value"],
-                "source_urn": source["urn"],
-                "source_type": "DATAHUB",
-            }
-            for index, source in enumerate(context["source_details"], start=1)
-        ]
-        requirement_labels = {
-            "RAW_PII_EGRESS_FORBIDDEN": "Do not return raw governed PII",
-            "EXECUTION_REGION_ALLOWED": "Run only in an allowed execution region",
-            "REQUIRED_SCHEMA_SUPPORTED": "Support the governed support-data schema",
-        }
-        requirements = [
-            {
-                "id": gate_id,
-                "label": requirement_labels.get(gate_id, gate_id.replace("_", " ").title()),
-                "status": "REQUIRED",
-                "derived_from": ["DataHub governed metadata"],
-            }
-            for gate_id in decision["requirements"]
-        ]
-        source_refs = [
-            {
-                "title": source["label"],
-                "urn": source["urn"],
-                "fact": source["fact"],
-                "authority": "DATAHUB",
-            }
-            for source in context["source_details"]
-        ]
-        return {
-            "kind": "cited_decision",
-            "title": "DataHub-grounded support AI decision",
-            "authority": "VERIFIED",
-            "payload": {
-                "decision_plane": "DATAHUB",
-                "status": "PASS",
-                "selected_product": {
-                    "id": current_product["id"],
-                    "name": current_product["name"],
-                },
-                "facts": facts,
-                "requirements": requirements,
-                "counterfactual": {
-                    "with_datahub": {
-                        "id": current_product["id"],
-                        "name": current_product["name"],
-                    },
-                    "without_pii": {
-                        "id": alternative_product["id"],
-                        "name": alternative_product["name"],
-                    },
-                    "restored": {
-                        "id": current_product["id"],
-                        "name": current_product["name"],
-                    },
-                    "outcome": "RECOMMENDATION_CHANGED",
-                    "fact": decision["counterfactual"]["fact"],
-                    "source_urn": decision["counterfactual"]["source_urn"],
-                },
-                "negative_control": decision["negative_control"],
-                "receipt": {
-                    "decision_hash": decision["receipt"]["decision_hash"],
-                    "datahub_anchor_urn": decision["receipt"]["anchor_urn"],
-                    "writeback_status": "WRITTEN",
-                    "reread_matched": decision["receipt"]["reread_matched"],
-                },
-                "run_id": decision["run_id"],
-                "input_hash": decision["input_hash"],
-                "decision_hash": decision["decision_hash"],
-            },
-            "source_refs": source_refs,
-        }
-
-    def _routes_to_governed_snowflake(self, body: WorkspaceChatCreate) -> bool:
-        if (
-            body.mode != "sira"
-            or self.snowflake_decision_service is None
-            or not self.snowflake_decision_service.enabled
-        ):
-            return False
-        normalized = body.message.casefold()
-        purchase_intent = any(
-            term in normalized for term in ("find", "recommend", "compare", "evaluate", "buy")
-        )
-        routed = purchase_intent and "meeting" in normalized
-        logger.info(
-            "workspace capability route evaluated",
-            extra={
-                "mode": body.mode,
-                "snowflake_enabled": True,
-                "governed_snowflake_route": routed,
-            },
-        )
-        return routed
-
-    async def _run_governed_snowflake_turn(
-        self,
-        *,
-        mission_id: str,
-        run_context: AgentRunContext,
-    ) -> dict[str, Any]:
-        assert self.snowflake_decision_service is not None
-        try:
-            result = await self.snowflake_decision_service.create_decision(
-                organization_id=run_context.organization_id,
-                context_version=1,
-                mission_id=mission_id,
-                actor_id=run_context.actor_id,
-                idempotency_key=f"workspace-{mission_id}-context-v1",
-            )
-        except Exception as error:
-            logger.exception("Governed Snowflake decision failed")
-            raise ApiProblem(
-                code="SNOWFLAKE_DECISION_UNAVAILABLE",
-                message="The governed decision service is temporarily unavailable.",
-                status_code=503,
-                retryable=True,
-                next_action="retry_later",
-            ) from error
-        answer = self._snowflake_answer(result)
-        tools = (
-            "query_governed_company_context",
-            "retrieve_cited_seller_evidence",
-            "evaluate_cited_decision",
-        )
-        persisted = await self._persist_turn(
-            mission_id=mission_id,
-            answer=answer,
-            run_context=run_context,
-            tool_calls=tools,
-            proposals=(),
-            turn_key=f"{run_context.request_id or uuid4().hex}:snowflake",
-        )
-        artifact = await self._persist_snowflake_artifact(
-            mission_id=mission_id,
-            run_context=run_context,
-            result=result,
-        )
-        persisted["artifacts"] = [*persisted["artifacts"], artifact]
-        return {
-            "conversation_id": mission_id,
-            "mission_id": mission_id,
-            "message": answer.message,
-            "follow_up_required": False,
-            "panel": "catalog",
-            "products": self._snowflake_products(result),
-            "tool_calls": list(tools),
-            "proposals": [],
-            "mission": persisted["mission"],
-            "events": persisted["events"],
-            "artifacts": persisted["artifacts"],
-            "attention": None,
-            "advisory_only": False,
-        }
-
-    @staticmethod
-    def _snowflake_answer(result: dict[str, Any]) -> MissionTurnOutput:
-        selected = str(result.get("selected_product_name") or "No eligible option")
-        evaluated = {
-            str(item.get("product_id")): item for item in result.get("evaluated_products", [])
-        }
-        generic_id = str(result.get("counterfactual", {}).get("after_selected_product_id") or "")
-        generic = evaluated.get(generic_id, {})
-        generic_name = str(generic.get("product_name") or "the generic winner")
-        return MissionTurnOutput(
-            message=(
-                f"{selected} is the best eligible option. Your private HubSpot requirement "
-                "changes the result: without it, "
-                f"{generic_name} would win on price. Snowflake evaluated the governed company "
-                "facts against seller-document evidence and recorded the cited decision."
-            ),
-            mission_state="SYNTHESIZING",
-            stop_reason="GOVERNED_DECISION_READY",
-        )
-
-    @staticmethod
-    def _snowflake_products(result: dict[str, Any]) -> list[dict[str, Any]]:
-        products: list[dict[str, Any]] = []
-        for item in result.get("evaluated_products", []):
-            product_id = str(item["product_id"])
-            eligible = bool(item["eligible"])
-            products.append(
-                {
-                    "id": product_id,
-                    "name": str(item["product_name"]),
-                    "seller": "MeetAI Labs" if product_id == "prod_meetai_a" else "NoteSync",
-                    "edition": ("HubSpot Integration" if product_id == "prod_meetai_a" else "Team"),
-                    "price": f"USD {item['unit_price']}",
-                    "billing_unit": "seat/month",
-                    "status": "QUALIFIED" if eligible else "PASS",
-                    "summary": (
-                        "Fits the private HubSpot requirement and the USD 100 per-seat cap."
-                        if eligible
-                        else (
-                            "Cheaper base tier, but the cited HubSpot tier exceeds the private cap."
-                        )
-                    ),
-                    "claims": [
-                        str(reason).replace("_", " ").title()
-                        for reason in item.get("reason_codes", [])
-                    ],
-                    "integrations": ["hubspot", "google_workspace", "outlook"],
-                    "logo": (
-                        "/products/meetai.svg"
-                        if product_id == "prod_meetai_a"
-                        else "/products/notesync.svg"
-                    ),
-                    "evidence_freshness": "Parsed and evaluated in Snowflake",
-                    "source_refs": [],
-                }
-            )
-        products.sort(key=lambda item: item["status"] != "QUALIFIED")
-        return products
-
-    async def _persist_snowflake_artifact(
-        self,
-        *,
-        mission_id: str,
-        run_context: AgentRunContext,
-        result: dict[str, Any],
-    ) -> dict[str, Any]:
-        citations = [
-            {
-                "citation_type": item.get("citation_type"),
-                "fact_id": item.get("fact_id"),
-                "document_id": item.get("document_id"),
-                "chunk_id": item.get("chunk_id"),
-                "page_number": item.get("page_number"),
-                "exact_excerpt": item.get("exact_excerpt"),
-                "source_hash": item.get("source_hash"),
-            }
-            for item in result.get("citations", [])
-        ]
-        payload = {
-            "request_id": result.get("request_id"),
-            "selected_product": result.get("selected_product_name"),
-            "status": result.get("status"),
-            "reason_codes": result.get("reason_codes", []),
-            "private_context_effect": result.get("counterfactual", {}).get("outcome"),
-            "without_private_context": result.get("counterfactual", {}).get(
-                "after_selected_product_id"
-            ),
-            "evaluated_products": result.get("evaluated_products", []),
-            "run_id": result.get("run_id"),
-            "input_hash": result.get("input_hash"),
-            "decision_hash": result.get("decision_hash"),
-        }
-        if self.database is None:
-            return {
-                "id": f"snowflake-{result['run_id']}",
-                "kind": "cited_decision",
-                "title": "Governed Snowflake decision",
-                "status": "READY",
-                "authority": "VERIFIED",
-                "payload": payload,
-                "source_refs": citations,
-            }
-        async with self.database.transaction(run_context.organization_id) as session:
-            repository = MissionRepository(session, run_context.organization_id)
-            mission = await repository.get_for_actor(mission_id, run_context.actor_id, lock=True)
-            artifact = await repository.add_artifact(
-                mission,
-                kind="cited_decision",
-                title="Governed Snowflake decision",
-                authority="VERIFIED",
-                payload=_canonical_agent_json(payload),
-                source_refs=_canonical_agent_json(citations),
-                created_by="snowflake-decision-plane",
-            )
-            await session.flush()
-            return self._artifact_view(artifact)
 
     async def _run_agent(self, request: AgentRunRequest, *, mode: str) -> Any:
         if mode != "seil":

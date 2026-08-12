@@ -94,7 +94,7 @@ def test_money_is_exact_and_cross_currency_addition_is_rejected() -> None:
 
 def test_hard_buyer_fact_requires_owner_approved_verification() -> None:
     source = SourceRef(
-        provider="senso",
+        provider="fixture",
         content_id="content_demo",
         version_id="version_demo",
         fragment_hash=content_hash({"fragment": "policy"}),

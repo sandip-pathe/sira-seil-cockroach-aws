@@ -1,12 +1,16 @@
 # Source provenance
 
-This repository began as a source snapshot of the SIRA + SEIL platform.
+SIRA and SEIL predate the CockroachDB x AWS hackathon. The repository preserves their original Git history rather than presenting the reused product as a new initial commit.
 
-- Source: <https://github.com/uruja/siel-n-sira>
-- Branch: `core-backend`
-- Commit: `8d917eba039b59b2c1a0f35d832093806101260c`
-- Snapshot date: 8 August 2026
+Original source history:
 
-The DataHub-grounded buying flow was developed in this repository after that snapshot. Project-authored work includes DataHub metadata seeding and MCP orchestration, the requirement compiler, isolated candidate trials, causal counterfactual, decision projection, API validation, and the SIRA inspector experience.
+- upstream: `uruja/siel-n-sira`
+- imported branch: `core-backend`
+- imported commit: `8d917eba039b59b2c1a0f35d832093806101260c`
+- original development began during the prior hackathon window in August 2026
 
-The project integrates but does not vendor DataHub Core 1.7.0, `acryl-datahub` 1.7.0, or `mcp-server-datahub` 0.6.0. Those dependencies retain their own licenses. All demonstrated company data, metadata contents, products, prices, and trial inputs are synthetic.
+New work for the current hackathon begins at the `cockroachdb-hackathon-start` tag. It includes only the CockroachDB state layer, distributed vector retrieval, concurrency and recovery behavior, Cloud MCP inspection, Bedrock integration, and AWS deployment that are actually implemented and verified after that boundary.
+
+Previous sponsor-specific integrations are available in Git history but are not part of the active product or current submission.
+
+All repository fixtures describe synthetic companies, products, prices, and test inputs. Third-party services retain their own licenses. Project-authored code is Apache-2.0 licensed.

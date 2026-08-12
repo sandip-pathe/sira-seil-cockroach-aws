@@ -52,7 +52,7 @@ TEXT_SUFFIXES = {
 }
 PATTERNS = [
     re.compile(
-        r"(?i)(prava_secret_key|senso_[a-z_]*api_key|controlled_merchant_api_key)"
+        r"(?i)(prava_secret_key|controlled_merchant_api_key)"
         r"\s*[=:]\s*['\"]?[A-Za-z0-9_\-]{12,}"
     ),
     re.compile(r"sk-(?:proj-)?[A-Za-z0-9_-]{20,}"),

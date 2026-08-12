@@ -45,61 +45,6 @@ class _UnexpectedRuntime:
         raise AssertionError("a greeting must not start the commerce agent")
 
 
-class _DataHubDecisionRuntime:
-    def buyer_decision(self) -> dict[str, object]:
-        return {
-            "status": "PASS",
-            "run_id": "buyer-proof",
-            "decision_hash": "sha256:" + "b" * 64,
-            "input_hash": "sha256:" + "c" * 64,
-            "selected_adapter_id": "adapter-b",
-            "counterfactual_adapter_id": "adapter-a",
-            "requirements": [
-                "RAW_PII_EGRESS_FORBIDDEN",
-                "EXECUTION_REGION_ALLOWED",
-                "REQUIRED_SCHEMA_SUPPORTED",
-            ],
-            "datahub_context": {
-                "source_details": [
-                    {
-                        "urn": "urn:li:dataset:customer-profile",
-                        "label": "Customer email classification",
-                        "fact": "emailPiiTagged",
-                        "value": True,
-                    }
-                ]
-            },
-            "seller_projections": [
-                {
-                    "adapterId": "adapter-a",
-                    "sourcePackVersionId": "pack-a-v1",
-                    "projectionHash": "sha256:" + "a" * 64,
-                    "fixedPrice": {"currency": "USD", "amount": "0.02"},
-                },
-                {
-                    "adapterId": "adapter-b",
-                    "sourcePackVersionId": "pack-b-v1",
-                    "projectionHash": "sha256:" + "d" * 64,
-                    "fixedPrice": {"currency": "USD", "amount": "0.05"},
-                },
-            ],
-            "negative_control": {
-                "mutation": "unrelated tag",
-                "decision_unchanged": True,
-                "context_fingerprint_unchanged": True,
-            },
-            "counterfactual": {
-                "fact": "customer_profile.email PII tag",
-                "source_urn": "urn:li:dataset:customer-profile",
-            },
-            "receipt": {
-                "decision_hash": "sha256:" + "b" * 64,
-                "anchor_urn": "urn:li:document:sira-buyer-decision",
-                "reread_matched": True,
-            },
-        }
-
-
 def test_catalog_is_derived_from_published_product_evidence() -> None:
     service = WorkspaceService(DemoFixtureBundle.load(), api_key="unused", model="test")
 
@@ -128,50 +73,6 @@ async def test_chat_fails_clearly_when_provider_is_not_configured() -> None:
 
     assert raised.value.code == "AGENT_PROVIDER_NOT_CONFIGURED"
     assert raised.value.status_code == 503
-
-
-@pytest.mark.asyncio
-async def test_datahub_buying_prompt_routes_before_provider_requirement() -> None:
-    service = WorkspaceService(
-        DemoFixtureBundle.load(),
-        api_key="",
-        model="test",
-        proof_runtime=_DataHubDecisionRuntime(),  # type: ignore[arg-type]
-    )
-
-    result = await service.chat(
-        WorkspaceChatCreate(message="Choose a customer-support AI for our actual data stack"),
-        run_context=_run_context(service),
-    )
-
-    assert result["panel"] == "catalog"
-    assert {product["id"] for product in result["products"]} == {
-        "support_ai_cleartext",
-        "support_ai_private_relay",
-    }
-    assert {product["name"] for product in result["products"]} == {
-        "Lower-cost option",
-        "Privacy-safe option",
-    }
-    assert "privacy-safe option" in result["message"]
-    assert "lower-cost option" in result["message"]
-    artifact = result["artifacts"][0]
-    assert artifact["kind"] == "cited_decision"
-    assert artifact["payload"]["decision_plane"] == "DATAHUB"
-    assert artifact["payload"]["receipt"]["reread_matched"] is True
-
-
-@pytest.mark.asyncio
-async def test_datahub_buying_prompt_fails_closed_without_verified_artifact() -> None:
-    service = WorkspaceService(DemoFixtureBundle.load(), api_key="", model="test")
-
-    with pytest.raises(ApiProblem) as raised:
-        await service.chat(
-            WorkspaceChatCreate(message="Choose a customer-support AI for our actual data stack"),
-            run_context=_run_context(service),
-        )
-
-    assert raised.value.code == "DATAHUB_DECISION_UNAVAILABLE"
 
 
 @pytest.mark.asyncio

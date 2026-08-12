@@ -80,7 +80,7 @@
       "required": ["evidence_id", "provider", "content_id", "version_id", "fragment_hash", "retrieved_at"],
       "properties": {
         "evidence_id": { "$ref": "#/$defs/Identifier" },
-        "provider": { "type": "string", "enum": ["senso", "fixture", "merchant", "platform"] },
+        "provider": { "type": "string", "enum": ["fixture", "merchant", "platform"] },
         "content_id": { "$ref": "#/$defs/Identifier" },
         "version_id": { "$ref": "#/$defs/Identifier" },
         "chunk_index": { "type": ["integer", "null"], "minimum": 0 },

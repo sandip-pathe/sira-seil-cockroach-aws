@@ -29,7 +29,6 @@ from persistence.models import (
     SellerReviewSubmission,
 )
 from persistence.repositories import WorkflowRepository, new_id
-from proof.exchange import project_published_adapter
 
 from .errors import ApiProblem
 
@@ -921,17 +920,6 @@ class SellerEvidenceService:
             draft.updated_at = now
             response = self._pack_view(pack)
             publication_event_key = f"seller-pack-published:{pack.id}"
-            buyer_safe_proof_adapter = (
-                project_published_adapter(
-                    source_seller_organization_id=organization_id,
-                    source_pack_version_id=pack.id,
-                    source_pack_content_hash=pack_hash,
-                    publication_event_key=publication_event_key,
-                    published_payload=published_payload,
-                )
-                if published_payload.get("proof_adapter") is not None
-                else None
-            )
             await repository.add_outbox(
                 aggregate_type="seller_pack_version",
                 aggregate_id=pack.id,
@@ -943,7 +931,6 @@ class SellerEvidenceService:
                     "version": version_number,
                     "content_hash": pack_hash,
                     "publisher_authority": pack.publisher_authority,
-                    "buyer_safe_proof_adapter": buyer_safe_proof_adapter,
                 },
             )
             await repository.complete_idempotency(

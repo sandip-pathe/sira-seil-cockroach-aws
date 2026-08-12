@@ -157,7 +157,7 @@ class WorkflowService:
         if self.fixtures is None:
             raise SetupBlocked(
                 "production_decision_pipeline",
-                ["SENSO_PROVIDER_CONFIGURATION", "AGENT_RUNTIME_CONFIGURATION"],
+                ["EVIDENCE_PROVIDER_CONFIGURATION", "AGENT_RUNTIME_CONFIGURATION"],
             )
         return self.fixtures
 
@@ -783,7 +783,7 @@ class WorkflowService:
                             "evaluation",
                             "exact approval",
                             "Prava authorization",
-                            "Temporal checkout",
+                            "durable checkout worker",
                             "fulfillment verification",
                         ],
                     },
