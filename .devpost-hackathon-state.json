@@ -1,0 +1,44 @@
+{
+  "plugin": "devpost-hackathon",
+  "version": 2,
+  "hackathon": {
+    "slug": "cockroachdb-ai",
+    "name": "CockroachDB × AWS Hackathon - Build with Agentic Memory",
+    "url": "https://cockroachdb-ai.devpost.com",
+    "selected": true,
+    "source": "known"
+  },
+  "participant": {
+    "name": "",
+    "display_name": ""
+  },
+  "project": {
+    "name": "SIRA + SEIL",
+    "summary": "SIRA helps companies choose software. SEIL makes seller and public product evidence comparable. CockroachDB keeps concurrent agent work consistent and recoverable.",
+    "ai_usage": "",
+    "codex_usage": ""
+  },
+  "current_stage": "build",
+  "completed_stages": [
+    "start-hackathon"
+  ],
+  "rules_acknowledged": false,
+  "learning": {
+    "status": "active",
+    "current_step": "checklist",
+    "completed_steps": [
+      "onboard",
+      "scope",
+      "prd",
+      "spec",
+      "checklist"
+    ],
+    "plan_file": "docs/hackathon-build/plan.md",
+    "checklist_file": "docs/hackathon-build/checklist.md"
+  },
+  "submission": {
+    "draft_file": "devpost-submission.md",
+    "status": "not-started"
+  },
+  "next_command": "build-project"
+}

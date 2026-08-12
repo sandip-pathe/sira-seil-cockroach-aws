@@ -1,0 +1,64 @@
+# Operations and recovery contract
+
+Status: target operator path for the active repository; not implemented yet.
+
+## Normal commands
+
+```text
+uv run sira-dev status
+uv run sira-dev logs --trace <trace-id>
+uv run sira-demo verify --latest
+uv run sira-demo verify --base-url https://<app> --scenario evidence-race --mcp
+```
+
+Every scenario run prints its scenario ID, mission ID, trace ID, public URL, current step, and next action. Logs are structured and redacted.
+
+## Isolated reset
+
+`sira-demo reset` requires an explicit scenario and the authorized synthetic demo organization. It refuses a missing, wildcard, production, or non-demo tenant. It deletes/reseeds only that scenario’s synthetic rows.
+
+It never resets a shared database, another tenant, or a cloud cluster.
+
+## Recovery drills
+
+### Worker interruption
+
+1. Confirm two workers are active.
+2. Pause after a durable checkpoint.
+3. Stop the active worker.
+4. Observe lease expiry using database time.
+5. Confirm the standby claims a larger fencing token and resumes.
+6. Confirm the old worker cannot checkpoint or finalize.
+
+### Evidence race
+
+1. Reset the synthetic scenario.
+2. Capture seller pack v1.
+3. Publish v2 while evaluation is outside a transaction.
+4. Confirm the v1 attempt becomes invalidated with no decision.
+5. Confirm one replacement attempt uses v2 and one final decision exists.
+
+### Duplicate delivery
+
+Replay the same demo event ten times. The database returns the existing result or a safe no-op. One effect and one mission decision exist.
+
+## Failure help
+
+| Failure | Message | Operator action |
+|---|---|---|
+| CockroachDB unavailable | `Decision state is unavailable. No recommendation was created.` | Check `/ready`, network, certificate, and `DATABASE_URL` |
+| Schema mismatch | `Database schema does not match this build.` | Run the documented migration job with admin credentials |
+| Bedrock denied/throttled | `Evidence search is delayed. The mission is saved and can be retried.` | Check task role, region, and model access |
+| Version conflict | `Evidence changed while SIRA was checking it. Restarting with version 2.` | Normal transition; verify replacement attempt |
+| Lease loss | `This worker stopped. Another worker is continuing from the saved checkpoint.` | Confirm new fencing token; old worker stops |
+| Stale vector | `Some evidence changed and is being refreshed. It will not be used yet.` | Re-embed; require enough current evidence |
+| MCP auth/scope | `The independent integrity check could not reach the scoped demo cluster.` | Fix external client scope; recommendation remains unchanged |
+| Integrity mismatch | `Integrity check failed: <invariant>.` | Stop submission claim and inspect the named attempt |
+
+## Upgrade rule
+
+- forward-only production migration by default;
+- test upgrade from the prior supported migration head on a disposable database;
+- document whether rollback is data-safe before offering it;
+- never run the imported PostgreSQL Alembic chain directly on CockroachDB;
+- stop deployment when compatibility checks or role/policy checks fail.
