@@ -63,6 +63,7 @@ class AgentRunResult:
     runtime: str = "openai-agents"
     advisory_only: bool = True
     ranking_effect: bool = False
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
 
 class _SdkFacade(Protocol):
