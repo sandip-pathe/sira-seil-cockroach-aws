@@ -3,7 +3,12 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from persistence.database import Database, DatabaseSettings, _validated_organization_id
+from persistence.database import (
+    Database,
+    DatabaseSettings,
+    RetryExhausted,
+    _validated_organization_id,
+)
 
 
 class RetryError(Exception):
@@ -50,6 +55,29 @@ async def test_non_retryable_database_error_is_not_replayed() -> None:
         await database.close()
 
     assert attempts == 1
+
+
+async def test_retry_exhaustion_is_visible_and_bounded() -> None:
+    database = Database(DatabaseSettings(database_url="sqlite+aiosqlite:///:memory:"))
+    sessions: list[int] = []
+
+    async def work(session: object) -> None:
+        sessions.append(id(session))
+        raise DBAPIError("SELECT 1", {}, RetryError(), False)
+
+    try:
+        try:
+            await database.run_retryable("org_test", work, max_attempts=3, base_delay_seconds=0)
+        except RetryExhausted as error:
+            assert error.attempts == 3
+            assert error.sqlstate == "40001"
+        else:
+            raise AssertionError("retry exhaustion should be raised")
+    finally:
+        await database.close()
+
+    assert len(sessions) == 3
+    assert len(set(sessions)) == 3
 
 
 async def test_sqlite_transaction_does_not_require_session_variables() -> None:

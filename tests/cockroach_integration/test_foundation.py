@@ -8,7 +8,7 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from persistence.database import Database, DatabaseSettings
+from persistence.database import Database, DatabaseSettings, RetryExhausted
 from persistence.models import PurchaseRequest
 
 pytestmark = pytest.mark.cockroach
@@ -102,3 +102,21 @@ async def test_real_40001_is_replayed_with_a_fresh_transaction() -> None:
     finally:
         await database.close()
     assert attempts == 2
+
+
+async def test_real_40001_retry_exhaustion_is_visible() -> None:
+    database = Database(DatabaseSettings(database_url=_runtime_url()))
+    attempts = 0
+
+    async def work(session: AsyncSession) -> None:
+        nonlocal attempts
+        attempts += 1
+        await session.execute(text("SELECT crdb_internal.force_retry('100ms'::INTERVAL)"))
+
+    try:
+        with pytest.raises(RetryExhausted) as exhausted:
+            await database.run_retryable("org_a", work, max_attempts=3, base_delay_seconds=0)
+        assert exhausted.value.attempts == 3
+        assert attempts == 3
+    finally:
+        await database.close()

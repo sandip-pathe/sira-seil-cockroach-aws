@@ -61,6 +61,18 @@ ResultT = TypeVar("ResultT")
 RetryableWork = Callable[[AsyncSession], Awaitable[ResultT]]
 
 
+class RetryExhausted(RuntimeError):
+    """A visible terminal signal after bounded SQLSTATE 40001 retries."""
+
+    sqlstate = "40001"
+
+    def __init__(self, attempts: int) -> None:
+        self.attempts = attempts
+        super().__init__(
+            f"CockroachDB transaction retry budget exhausted after {attempts} attempts"
+        )
+
+
 class DatabaseSettings(BaseSettings):
     """Database configuration loaded only by server processes."""
 
@@ -163,8 +175,14 @@ class Database:
                 async with self.transaction(tenant) as session:
                     return await work(session)
             except DBAPIError as error:
-                if _sqlstate(error) != "40001" or attempt == max_attempts:
+                if _sqlstate(error) != "40001":
                     raise
+                if attempt == max_attempts:
+                    logger.error(
+                        "CockroachDB transaction retry budget exhausted after %d attempts",
+                        max_attempts,
+                    )
+                    raise RetryExhausted(max_attempts) from error
                 delay = base_delay_seconds * (2 ** (attempt - 1))
                 jitter = random.uniform(0, delay * 0.25)  # noqa: S311
                 logger.info("Retrying CockroachDB transaction after SQLSTATE 40001")
