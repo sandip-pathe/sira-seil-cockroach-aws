@@ -158,6 +158,11 @@ async def test_workspace_settings_are_versioned_tenant_private_and_retry_safe() 
                     select(WorkspaceSettings).where(WorkspaceSettings.id == created["resource_id"])
                 )
             ) is None
+        buyer_analytics = await service.workspace_analytics("org_buyer", party="BUYER", days=30)
+        other_analytics = await service.workspace_analytics("org_other", party="BUYER", days=30)
+        assert buyer_analytics["current_state"]["published_setting_versions"] >= 2
+        assert other_analytics["current_state"]["published_setting_versions"] == 0
+        assert other_analytics["daily_events"] == []
     finally:
         await database.close()
 
