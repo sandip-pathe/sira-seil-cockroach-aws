@@ -20,6 +20,7 @@ from sira_agents.runtime import (
 )
 
 _TOOL_NAME = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
+_THINKING_BLOCK = re.compile(r"<thinking>.*?</thinking>", re.DOTALL | re.IGNORECASE)
 
 
 class BedrockRuntimeError(RuntimeError):
@@ -239,6 +240,9 @@ class BedrockConverseRuntime:
                 "Return only JSON matching this schema: "
                 + json.dumps(schema, sort_keys=True, separators=(",", ":"))
             )
+            instructions.append(
+                "Do not emit markdown fences, thinking tags, analysis, or prose outside the JSON."
+            )
         else:
             instructions.append("Return only a JSON object.")
         return "\n".join(item for item in instructions if item)
@@ -331,10 +335,31 @@ def _parse_output(blocks: list[Any], output_type: type[Any] | None) -> object:
     ).strip()
     if not text:
         raise BedrockRuntimeError("Bedrock returned no final text")
+    # Some Bedrock models wrap an otherwise valid JSON answer in explicitly delimited
+    # reasoning. Strip only those wrappers; the remainder still has to be one strict JSON
+    # document and pass the requested Pydantic schema.
+    text = _THINKING_BLOCK.sub("", text).strip()
+    if text.startswith("```json") and text.endswith("```"):
+        text = text[7:-3].strip()
+    elif text.startswith("```") and text.endswith("```"):
+        text = text[3:-3].strip()
     try:
         value: object = json.loads(text)
     except json.JSONDecodeError as error:
-        raise BedrockRuntimeError("Bedrock final output is not valid JSON") from error
+        # Nova can put a short comparison before its final object. Accept only one JSON
+        # object that consumes the complete suffix; never salvage a partial or ambiguous
+        # document. Schema and grounding validation still run below.
+        start = text.find("{")
+        if start < 0:
+            raise BedrockRuntimeError("Bedrock final output is not valid JSON") from error
+        try:
+            value, end = json.JSONDecoder().raw_decode(text, start)
+        except json.JSONDecodeError as nested_error:
+            raise BedrockRuntimeError("Bedrock final output is not valid JSON") from nested_error
+        if text[end:].strip():
+            raise BedrockRuntimeError(
+                "Bedrock final output has content after its JSON object"
+            ) from error
     if output_type is None:
         if not isinstance(value, Mapping):
             raise BedrockRuntimeError("Bedrock final output must be a JSON object")

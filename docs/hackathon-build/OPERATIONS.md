@@ -24,12 +24,14 @@ profile:
 
 ```powershell
 uv run python scripts/aws-bedrock-smoke.py --region us-east-1 --profile sira-hackathon
+uv run python scripts/evaluate_bedrock_qualification.py --region us-east-1 --profile sira-hackathon
 ```
 
-The command writes `.artifacts/preflight/bedrock.json` with model identifiers, dimensions,
-contract booleans, and a hash of the normalized chat output. It does not persist model text,
-credentials, or AWS identity material. Guardrail intervention and labelled decision quality remain
-separate gates and are stated as such in the artifact.
+The commands write `.artifacts/preflight/bedrock.json` and
+`.artifacts/preflight/bedrock-quality.json`. The latter runs five synthetic labelled cases through
+the production-style inspect-every-candidate tool loop, typed output and grounding validator. Both
+artifacts exclude credentials, raw prompts, raw evidence and raw model output. Guardrail
+intervention remains a separate deployment gate and is stated as such in the artifacts.
 
 ## CockroachDB security and immutability audit
 

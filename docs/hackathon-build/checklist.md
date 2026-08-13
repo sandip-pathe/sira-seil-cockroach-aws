@@ -15,9 +15,9 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 - Live local CockroachDB: `12 passed` covering readiness/FORCE RLS/pool reuse, successful and exhausted real `40001` retries, DVI/current-bundle gates, stale replacement, lease takeover/generation fencing, bilateral isolation, append-only workspace settings, tenant-safe analytics, outbox delivery and atomic introduction. The sanitized security audit passes across `85` tenant tables with zero grant/RLS/immutability violations.
 - Fresh disposable CockroachDB migration reaches `cdb0010` with `90` public tables and is removed after inspection; the local backup/restore verifier also passes matching bounded digests and cleanup.
 - AWS package: CDK build, two topology/IAM tests and synth pass; API/web production images and read-only container smokes pass.
-- AWS provider: live Nova Converse and Titan V2 smoke passes in `us-east-1` with a normalized 1,024-dimensional embedding; Guardrail intervention remains deployment-gated.
+- AWS provider: live Nova Converse and Titan V2 smoke passes in `us-east-1` with a normalized 1,024-dimensional embedding. A separate five-case live Nova qualification evaluation passes typed output, inspect-every-candidate, groundedness and expected-product gates at 100%; Guardrail intervention remains deployment-gated.
 - A disposable local Cockroach backup/restore drill passes with matching schema/count digests and verified temporary-database cleanup. Cockroach Cloud managed backup/restore remains a separate external gate.
-- Not yet evidence: CockroachDB Cloud TLS/Managed MCP/managed backup, deployed AWS URL, hosted rehearsals, browser accessibility/E2E, live Guardrail intervention and labelled live-model quality. Related gates remain open.
+- Not yet evidence: CockroachDB Cloud TLS/Managed MCP/managed backup, deployed AWS URL, hosted rehearsals, browser accessibility/E2E and live Guardrail intervention. Related gates remain open.
 
 ## P0
 
@@ -57,7 +57,7 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
   Build: separate private buyer and buyer-safe Product Bundle vector spaces; Titan V2 metadata; resumable corpus loader; typed Bedrock Converse runtime/tools; Guardrails; budgets; deterministic replay and labelled evaluation set.
   Accept: semantic query finds the expected candidate; relational gates exclude stale/private/ineligible rows; citations are bundle subsets; hard-gate/tool/schema/leakage tests are 100%; fit classification and groundedness meet `architecture.md` thresholds.
   Verify: vector query plan/candidate artifact, live provider smoke, deterministic agent suite and committed evaluation report.
-  Progress: DVI/current-version retrieval, Titan 1,024-dimensional contract, typed Converse tool loop, grounding checks and guardrail boundaries are implemented and locally tested. Live Nova/Titan provider access passes and the deterministic five-case grounding report is 100%; live Guardrail intervention and labelled live-model fit/groundedness remain open.
+  Progress: DVI/current-version retrieval, Titan 1,024-dimensional contract, typed Converse tool loop, grounding checks and guardrail boundaries are implemented and locally tested. Live Nova/Titan access passes; both the deterministic five-case boundary report and the five-case live Nova qualification-quality gate pass at 100%. The live report stores only metrics, IDs, token counts and hashes. Live Guardrail intervention remains open.
 
 - [ ] **7. Implement SQS/S3/observability adapters**
   Build: preseed checksum-verified S3 evidence; Cockroach outbox dispatcher to SQS FIFO; role-configured consumer; durable receipt; bounded retry/DLQ policy; sanitized correlation logs and P0 metrics.

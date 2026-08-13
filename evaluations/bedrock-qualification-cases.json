@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "eu-residency-hard-gate",
+      "requirement": "Select software that can host production customer data in the European Union.",
+      "policy": "EU production hosting is mandatory. Price cannot override this requirement.",
+      "expected_product_id": "atlas-secure",
+      "evidence_by_product": {
+        "atlas-secure": [
+          {"dependency_id": "atlas-hosting-v3", "claim": "Production customer data can be hosted in Frankfurt, Germany."},
+          {"dependency_id": "atlas-price-v2", "claim": "Annual price is USD 42000."}
+        ],
+        "comet-value": [
+          {"dependency_id": "comet-hosting-v4", "claim": "Production customer data is hosted only in the United States."},
+          {"dependency_id": "comet-price-v2", "claim": "Annual price is USD 18000."}
+        ]
+      }
+    },
+    {
+      "id": "budget-hard-gate",
+      "requirement": "Select an issue tracker for a 40-person team with an annual budget below USD 25000.",
+      "policy": "The annual budget is a hard limit. Both candidates otherwise meet the functional requirement.",
+      "expected_product_id": "forge-track",
+      "evidence_by_product": {
+        "forge-track": [
+          {"dependency_id": "forge-fit-v1", "claim": "Supports issue tracking for teams up to 100 people."},
+          {"dependency_id": "forge-price-v5", "claim": "Annual price for 40 users is USD 19200."}
+        ],
+        "northstar-track": [
+          {"dependency_id": "northstar-fit-v1", "claim": "Supports issue tracking for teams up to 100 people."},
+          {"dependency_id": "northstar-price-v5", "claim": "Annual price for 40 users is USD 31200."}
+        ]
+      }
+    },
+    {
+      "id": "sso-security-gate",
+      "requirement": "Select a document platform that supports SAML single sign-on.",
+      "policy": "SAML SSO is mandatory before security approval.",
+      "expected_product_id": "beacon-docs",
+      "evidence_by_product": {
+        "beacon-docs": [
+          {"dependency_id": "beacon-sso-v2", "claim": "The enterprise plan includes SAML 2.0 single sign-on."}
+        ],
+        "sprout-docs": [
+          {"dependency_id": "sprout-sso-v3", "claim": "Supports password and social login; SAML is not available."}
+        ]
+      }
+    },
+    {
+      "id": "india-residency-gate",
+      "requirement": "Select an analytics platform that can keep all production data in India.",
+      "policy": "India data residency is mandatory for this workload.",
+      "expected_product_id": "monsoon-analytics",
+      "evidence_by_product": {
+        "global-lens": [
+          {"dependency_id": "global-regions-v6", "claim": "Available production regions are the United States and Germany."}
+        ],
+        "monsoon-analytics": [
+          {"dependency_id": "monsoon-regions-v2", "claim": "The Mumbai region keeps production data and backups in India."}
+        ]
+      }
+    },
+    {
+      "id": "erp-integration-gate",
+      "requirement": "Select procurement software with a supported AcmeERP connector.",
+      "policy": "A vendor-supported AcmeERP connector is mandatory; custom integration promises do not qualify.",
+      "expected_product_id": "bridge-buy",
+      "evidence_by_product": {
+        "bridge-buy": [
+          {"dependency_id": "bridge-connectors-v7", "claim": "The vendor supports and maintains a production AcmeERP connector."}
+        ],
+        "quick-buy": [
+          {"dependency_id": "quick-connectors-v4", "claim": "AcmeERP is not supported; customers may build a custom webhook integration."}
+        ]
+      }
+    }
+  ]
+}

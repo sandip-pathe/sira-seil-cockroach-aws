@@ -178,6 +178,54 @@ async def test_converse_rejects_non_json_final_output() -> None:
         )
 
 
+async def test_converse_discards_delimited_thinking_before_strict_json() -> None:
+    runtime = BedrockConverseRuntime(
+        client=FakeBedrockClient(
+            responses=[
+                _response(
+                    {
+                        "text": (
+                            "<thinking>private chain of thought</thinking>\n"
+                            "Evidence comparison complete.\n"
+                            '{"recommendation":"qualify","evidence_ids":["ev-1"]}'
+                        )
+                    }
+                )
+            ]
+        ),
+        model_id="test-model",
+    )
+    result = await runtime.run(
+        AgentRunRequest(
+            role=AgentRole.SIRA,
+            instructions="Evaluate.",
+            prompt="Evaluate.",
+            model_context={},
+            output_type=Answer,
+        )
+    )
+
+    assert result.output == Answer(recommendation="qualify", evidence_ids=["ev-1"])
+
+
+async def test_converse_rejects_content_after_json_document() -> None:
+    runtime = BedrockConverseRuntime(
+        client=FakeBedrockClient(
+            responses=[_response({"text": '{"status":"ok"} trailing'})]
+        ),
+        model_id="test-model",
+    )
+    with pytest.raises(BedrockRuntimeError, match="content after"):
+        await runtime.run(
+            AgentRunRequest(
+                role=AgentRole.SIRA,
+                instructions="Evaluate.",
+                prompt="Evaluate.",
+                model_context={},
+            )
+        )
+
+
 async def test_titan_embedding_contract_is_pinned_to_1024_normalized_values() -> None:
     dimension = 1024
     unit = dimension**-0.5
