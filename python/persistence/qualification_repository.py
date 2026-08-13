@@ -189,8 +189,7 @@ class QualificationRepository:
         for decision, dependency in rows:
             active = await self.session.scalar(
                 select(ActiveProductBundle).where(
-                    ActiveProductBundle.organization_id
-                    == dependency.dependency_organization_id,
+                    ActiveProductBundle.organization_id == dependency.dependency_organization_id,
                     ActiveProductBundle.product_id == product_id,
                 )
             )

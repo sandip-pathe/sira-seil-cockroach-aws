@@ -39,9 +39,7 @@ class QualificationPayload(BaseModel):
     organization_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,48}$")
     reason: str | None = Field(default=None, pattern=r"^ACTIVE_PRODUCT_BUNDLE_CHANGED$")
     product_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,64}$")
-    replacement_attempt_id: str | None = Field(
-        default=None, pattern=r"^qattempt_[a-f0-9]{32}$"
-    )
+    replacement_attempt_id: str | None = Field(default=None, pattern=r"^qattempt_[a-f0-9]{32}$")
 
     @model_validator(mode="after")
     def replacement_metadata_is_complete(self) -> QualificationPayload:
