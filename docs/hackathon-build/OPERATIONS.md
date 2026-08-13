@@ -2,6 +2,21 @@
 
 Status: core runtime and safe DLQ controls are implemented; hosted drills remain pending.
 
+## Cockroach Cloud preflight
+
+Run the credential-safe cluster, managed-backup, and restore-readiness check with:
+
+```powershell
+uv run python scripts/cockroach_cloud_doctor.py --cluster <cluster-name>
+```
+
+It writes only booleans, counts, a hashed cluster name, and hashes of CLI output to
+`.artifacts/preflight/cockroach-cloud.json`; it never persists connection details or raw CLI output.
+It fails closed when `ccloud` is unavailable or unauthenticated, the cluster is not a created AWS
+cluster, backups are disabled or absent, restore history is inaccessible, or the installed CLI does
+not expose the documented backup and restore commands. Authenticate interactively with
+`ccloud auth login` before collecting judging evidence.
+
 ## Normal commands
 
 ```text
