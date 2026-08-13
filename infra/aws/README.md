@@ -118,4 +118,6 @@ Use JSON with `updated`, `topic_in_value`, and `key_in_value`. Delivery is not e
 the Lambda's stable source hash is a FIFO optimization, while durable correctness still comes
 from re-reading CockroachDB and consumer/effect uniqueness constraints. The committed stack
 retains these hints in `ChangefeedHintQueueUrl`; live state-reread consumption remains a measured
-P2 extension and cannot interfere with the qualification work queue.
+P2 extension and cannot interfere with the qualification work queue. Create the changefeed only
+for `qualification_active_product_bundles`: inserting an immutable candidate bundle is not a
+business-state change; advancing that active pointer is the authoritative activation event.

@@ -31,9 +31,9 @@ def test_duplicate_changefeed_delivery_has_stable_fifo_identity(monkeypatch: Any
     payload = {
         "payload": [
             {
-                "topic": "product_bundle_versions",
-                "key": ["org_seller", "bundle_v2"],
-                "after": {"id": "bundle_v2", "state": "ACTIVE"},
+                "topic": "qualification_active_product_bundles",
+                "key": ["product_alpha"],
+                "after": {"bundle_id": "bundle_v2", "generation": 2},
                 "updated": "1755040000.0000000000",
             }
         ]
@@ -44,10 +44,39 @@ def test_duplicate_changefeed_delivery_has_stable_fifo_identity(monkeypatch: Any
 
     assert first["statusCode"] == second["statusCode"] == 202
     assert queue.calls[0]["MessageDeduplicationId"] == queue.calls[1]["MessageDeduplicationId"]
-    assert queue.calls[0]["MessageGroupId"] == "bundle_v2"
+    assert queue.calls[0]["MessageGroupId"] == "product_alpha"
     body = json.loads(queue.calls[0]["MessageBody"])
     assert body["authority"] == "HINT_ONLY_REREAD_COCKROACH"
     assert "after" not in body
+
+
+def test_non_authoritative_bundle_insert_and_composite_key_fail_closed(
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setenv("CHANGEFEED_WEBHOOK_TOKEN", "t" * 40)
+    monkeypatch.setenv("REEVALUATION_QUEUE_URL", "https://queue.example.test/reevaluation.fifo")
+    inserted_version = {
+        "payload": [
+            {
+                "topic": "qualification_product_bundles",
+                "key": ["bundle_v2"],
+                "after": {},
+                "updated": "1",
+            }
+        ]
+    }
+    ambiguous_key = {
+        "payload": [
+            {
+                "topic": "qualification_active_product_bundles",
+                "key": ["org_seller", "product_alpha"],
+                "after": {},
+                "updated": "1",
+            }
+        ]
+    }
+    assert handler.lambda_handler(_event(inserted_version), None)["statusCode"] == 400
+    assert handler.lambda_handler(_event(ambiguous_key), None)["statusCode"] == 400
 
 
 def test_auth_malformed_and_unknown_topics_fail_closed(monkeypatch: Any) -> None:

@@ -17,7 +17,7 @@ from typing import Any, Protocol, cast
 
 _MAX_BODY_BYTES = 1024 * 1024
 _MAX_EVENTS = 100
-_TOPICS = frozenset({"product_bundle_versions", "qualification_product_bundles"})
+_TOPICS = frozenset({"qualification_active_product_bundles"})
 
 
 class QueueClient(Protocol):
@@ -76,8 +76,10 @@ def _hints(document: object) -> tuple[dict[str, str], ...]:
             raise ValueError("unsupported event")
         if after is not None and not isinstance(after, Mapping):
             raise ValueError("invalid row")
-        aggregate_id = str(key[-1])
-        if not aggregate_id or len(aggregate_id) > 128 or not isinstance(updated, str):
+        if len(key) != 1:
+            raise ValueError("active bundle key must contain one product id")
+        aggregate_id = str(key[0])
+        if not aggregate_id or len(aggregate_id) > 64 or not isinstance(updated, str):
             raise ValueError("invalid identity")
         canonical = json.dumps(
             {"topic": topic, "key": key, "updated": updated},
