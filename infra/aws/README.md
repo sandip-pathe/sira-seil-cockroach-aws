@@ -44,6 +44,7 @@ $env:DATABASE_ADMIN_URL = "cockroachdb+psycopg://.../sira?sslmode=verify-full"
 $account = aws sts get-caller-identity --query Account --output text --profile $env:AWS_PROFILE
 pnpm --filter @sira/aws-infra exec cdk bootstrap "aws://$account/$env:AWS_REGION"
 uv run python scripts/provision_cloud.py --stage hackathon --profile $env:AWS_PROFILE --region $env:AWS_REGION
+uv run python scripts/deployment_preflight.py --stage hackathon --profile $env:AWS_PROFILE --region $env:AWS_REGION
 pnpm --filter @sira/aws-infra deploy
 ```
 
@@ -51,6 +52,11 @@ pnpm --filter @sira/aws-infra deploy
 least-privilege SQL users, seeds the demo organizations, and writes generated
 credentials directly to `sira-hackathon/runtime` in Secrets Manager. It prints
 only non-secret metadata.
+
+The deployment preflight then fails before CDK creates billable application resources unless the
+AWS caller/region is valid and the runtime secret contains five exact fields, three distinct SQL
+roles targeting one remote TLS-verified application database, and two distinct 32-byte signing
+keys. Its ignored report contains hashes and booleans only.
 
 After deployment, use the `ApplicationUrl` stack output. A custom domain can be
 added later with a CloudFront ACM certificate in `us-east-1`; the default

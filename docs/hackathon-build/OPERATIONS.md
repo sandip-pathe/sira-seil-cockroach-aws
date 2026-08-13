@@ -49,6 +49,19 @@ navigation state. It uses the locally installed Chrome channel and writes failur
 screenshots beneath ignored `.artifacts/playwright`. A pass against a fail-closed authentication
 setup state does not replace the separate hosted authenticated-journey gate.
 
+## Deployment configuration preflight
+
+After provisioning the runtime secret and before CDK deploy, run:
+
+```powershell
+uv run python scripts/deployment_preflight.py --stage hackathon --region us-east-1 --profile sira-hackathon
+```
+
+This fails closed unless the AWS caller and region are usable and the runtime secret contains the
+exact role-separated, remote CockroachDB, verified-TLS and independent-signing-key contract. The
+sanitized `.artifacts/preflight/deployment.json` report persists hashes and booleans, never secret
+values, caller account ID or database hostname.
+
 ## CockroachDB security and immutability audit
 
 Run the audit through an administrative connection that is available only to the migration job:
