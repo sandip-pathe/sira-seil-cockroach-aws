@@ -3,13 +3,20 @@
 .gstack
 .env
 .env.*
+**/.env
+**/.env.*
 *.pem
 **/*.pem
 *.key
 **/*.key
 .venv
 node_modules
+**/node_modules
 .next
+**/.next
+**/cdk.out
+.artifacts
+.git
 dist
 build
 htmlcov
@@ -22,6 +29,5 @@ __pycache__
 .ruff_cache
 .mypy_cache
 .hypothesis
-apps
 docs
 tests

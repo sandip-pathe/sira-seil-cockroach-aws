@@ -4,6 +4,7 @@ const apiBaseUrl = (process.env.SIRA_API_BASE_URL ?? "http://127.0.0.1:8000").re
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  output: "standalone",
   allowedDevOrigins: ["127.0.0.1"],
   transpilePackages: ["@sira/api-client"],
   experimental: {

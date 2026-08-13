@@ -1,9 +1,14 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "infra/*"
 
 allowBuilds:
   '@firebase/util': false
+  esbuild: true
   protobufjs: false
   sharp: true
   unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - aws-cdk@2.1136.0

@@ -27,6 +27,7 @@ EXCLUDED_PARTS = {
     ".mypy_cache",
     ".venv",
     ".next",
+    "cdk.out",
     ".pytest_cache",
     ".ruff_cache",
     "node_modules",
