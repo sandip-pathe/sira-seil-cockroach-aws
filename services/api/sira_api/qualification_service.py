@@ -414,6 +414,118 @@ class QualificationService:
                 "next_cursor": None,
             }
 
+    async def workspace_analytics(
+        self,
+        organization_id: str,
+        *,
+        party: Literal["BUYER", "SELLER"],
+        days: int,
+    ) -> dict[str, Any]:
+        """Derive a bounded, tenant-private operational view from canonical records/events."""
+
+        cutoff = datetime.now().astimezone() - timedelta(days=days)
+        async with self.database.transaction(organization_id) as session:
+            events = (
+                await session.scalars(
+                    select(OutboxEvent)
+                    .where(
+                        OutboxEvent.organization_id == organization_id,
+                        OutboxEvent.occurred_at >= cutoff,
+                    )
+                    .order_by(OutboxEvent.occurred_at)
+                )
+            ).all()
+            event_counts: dict[str, int] = {}
+            daily: dict[str, int] = {}
+            for event in events:
+                event_counts[event.event_type] = event_counts.get(event.event_type, 0) + 1
+                day = event.occurred_at.date().isoformat()
+                daily[day] = daily.get(day, 0) + 1
+
+            if party == "SELLER":
+                opportunity_count = int(
+                    await session.scalar(
+                        select(func.count()).select_from(SellerEngagementProjection)
+                    )
+                    or 0
+                )
+                response_count = int(
+                    await session.scalar(select(func.count()).select_from(SellerResponse)) or 0
+                )
+                active_count = int(
+                    await session.scalar(
+                        select(func.count())
+                        .select_from(MarketplaceEngagement)
+                        .where(
+                            MarketplaceEngagement.seller_organization_id == organization_id,
+                            MarketplaceEngagement.state.in_(
+                                ("OPEN", "RESPONDED", "CONSENT_PENDING")
+                            ),
+                        )
+                    )
+                    or 0
+                )
+                funnel = {
+                    "opportunities_received": opportunity_count,
+                    "responses_recorded": response_count,
+                    "consents_granted": event_counts.get("SELLER_CONSENT_GRANTED", 0),
+                }
+                current_state = {
+                    "active_opportunities": active_count,
+                    "published_setting_versions": event_counts.get(
+                        "WORKSPACE_SETTINGS_VERSION_PUBLISHED", 0
+                    ),
+                }
+            else:
+                mission_count = int(
+                    await session.scalar(select(func.count()).select_from(QualificationMission))
+                    or 0
+                )
+                decision_count = int(
+                    await session.scalar(select(func.count()).select_from(QualificationDecision))
+                    or 0
+                )
+                introduction_count = int(
+                    await session.scalar(select(func.count()).select_from(QualifiedIntroduction))
+                    or 0
+                )
+                active_count = int(
+                    await session.scalar(
+                        select(func.count())
+                        .select_from(QualificationMission)
+                        .where(
+                            QualificationMission.state.not_in(
+                                ("COMPLETED", "REJECTED", "INVALIDATED")
+                            )
+                        )
+                    )
+                    or 0
+                )
+                funnel = {
+                    "missions_created": mission_count,
+                    "decisions_created": decision_count,
+                    "decisions_approved": event_counts.get("QUALIFICATION_DECISION_APPROVED", 0),
+                    "introductions_created": introduction_count,
+                }
+                current_state = {
+                    "active_missions": active_count,
+                    "stale_attempts_detected": event_counts.get("QUALIFICATION_ATTEMPT_STALE", 0),
+                    "published_setting_versions": event_counts.get(
+                        "WORKSPACE_SETTINGS_VERSION_PUBLISHED", 0
+                    ),
+                }
+            return {
+                "workspace": party,
+                "window_days": days,
+                "generated_at": _timestamp(datetime.now().astimezone()),
+                "measurement_label": "OBSERVATIONAL_NOT_CAUSAL",
+                "funnel": funnel,
+                "current_state": current_state,
+                "daily_events": [
+                    {"date": day, "count": count} for day, count in sorted(daily.items())
+                ],
+            }
+
     async def list_company_context(
         self, organization_id: str, *, include_retired: bool = False
     ) -> dict[str, Any]:

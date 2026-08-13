@@ -33,6 +33,7 @@ from .qualification_schemas import (
     QualificationMissionView,
     QualificationMutationView,
     QualificationSellerResponseCreate,
+    WorkspaceAnalyticsView,
     WorkspaceSettingsUpdate,
     WorkspaceSettingsView,
 )
@@ -119,6 +120,26 @@ async def update_workspace_settings(
     )
     response.status_code = code
     return payload
+
+
+@qualification_router.get(
+    "/v1/qualification/analytics",
+    response_model=WorkspaceAnalyticsView,
+    tags=["workspace analytics"],
+    name="qualification_get_workspace_analytics",
+)
+async def get_workspace_analytics(
+    context: ContextDependency,
+    service: ServiceDependency,
+    days: Annotated[int, Query(ge=1, le=90)] = 30,
+) -> dict[str, object]:
+    _require_verified_party(context)
+    require_permission(context, "can_view_context")
+    return await service.workspace_analytics(
+        context.organization_id,
+        party=cast(Literal["BUYER", "SELLER"], context.party),
+        days=days,
+    )
 
 
 @qualification_router.get(

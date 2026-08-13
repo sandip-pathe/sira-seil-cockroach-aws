@@ -1608,6 +1608,16 @@ export interface WorkflowView {
   workflow_id: string;
 }
 
+export interface WorkspaceAnalyticsView {
+  current_state: { [key: string]: number; };
+  daily_events: { [key: string]: unknown; }[];
+  funnel: { [key: string]: number; };
+  generated_at: string;
+  measurement_label: "OBSERVATIONAL_NOT_CAUSAL";
+  window_days: number;
+  workspace: "BUYER" | "SELLER";
+}
+
 export interface WorkspaceChatCreate {
   conversation_id?: string | null;
   history?: WorkspaceMessage[];
@@ -1706,6 +1716,7 @@ export interface Operations {
   qualification_get_marketplace_product: { method: "GET"; path: "/v1/qualification/marketplace/products/{product_id}"; pathParams: { product_id: string; }; queryParams: Record<never, never>; body: never; response: PublicMarketplaceProductView; requiresIdempotency: false; };
   qualification_get_mission: { method: "GET"; path: "/v1/qualification/missions/{mission_id}"; pathParams: { mission_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationMissionView; requiresIdempotency: false; };
   qualification_get_mission_events: { method: "GET"; path: "/v1/qualification/missions/{mission_id}/events"; pathParams: { mission_id: string; }; queryParams: { after?: string | null; limit?: number; }; body: never; response: QualificationEventFeed; requiresIdempotency: false; };
+  qualification_get_workspace_analytics: { method: "GET"; path: "/v1/qualification/analytics"; pathParams: Record<never, never>; queryParams: { days?: number; }; body: never; response: WorkspaceAnalyticsView; requiresIdempotency: false; };
   qualification_get_workspace_settings: { method: "GET"; path: "/v1/qualification/settings"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: WorkspaceSettingsView; requiresIdempotency: false; };
   qualification_list_company_context: { method: "GET"; path: "/v1/qualification/company-context"; pathParams: Record<never, never>; queryParams: { include_retired?: boolean; }; body: never; response: CompanyContextList; requiresIdempotency: false; };
   qualification_record_consent: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/consents"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationConsentCreate; response: QualificationMutationView; requiresIdempotency: true; };

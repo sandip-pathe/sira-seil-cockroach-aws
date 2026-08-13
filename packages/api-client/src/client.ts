@@ -36,6 +36,7 @@ const operations = {
   qualification_get_marketplace_product: { method: "GET", path: "/v1/qualification/marketplace/products/{product_id}", bodyMediaType: null, responseMediaType: "application/json" },
   qualification_get_mission: { method: "GET", path: "/v1/qualification/missions/{mission_id}", bodyMediaType: null, responseMediaType: "application/json" },
   qualification_get_mission_events: { method: "GET", path: "/v1/qualification/missions/{mission_id}/events", bodyMediaType: null, responseMediaType: "application/json" },
+  qualification_get_workspace_analytics: { method: "GET", path: "/v1/qualification/analytics", bodyMediaType: null, responseMediaType: "application/json" },
   qualification_get_workspace_settings: { method: "GET", path: "/v1/qualification/settings", bodyMediaType: null, responseMediaType: "application/json" },
   qualification_list_company_context: { method: "GET", path: "/v1/qualification/company-context", bodyMediaType: null, responseMediaType: "application/json" },
   qualification_record_consent: { method: "POST", path: "/v1/qualification/engagements/{engagement_id}/consents", bodyMediaType: "application/json", responseMediaType: "application/json" },

@@ -147,6 +147,16 @@ class WorkspaceSettingsView(StrictModel):
     updated_at: str | None
 
 
+class WorkspaceAnalyticsView(StrictModel):
+    workspace: Literal["BUYER", "SELLER"]
+    window_days: int = Field(ge=1, le=90)
+    generated_at: str
+    measurement_label: Literal["OBSERVATIONAL_NOT_CAUSAL"]
+    funnel: dict[str, int]
+    current_state: dict[str, int]
+    daily_events: list[dict[str, Any]]
+
+
 class QualificationApprovalCreate(StrictModel):
     action: Literal["APPROVE", "REJECT"]
     reason: str = Field(min_length=3, max_length=1000)

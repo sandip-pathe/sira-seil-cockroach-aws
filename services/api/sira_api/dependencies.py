@@ -46,6 +46,7 @@ _SELLER_ROUTE_ALLOWLIST = frozenset(
         ("GET", "/v1/qualification/inbox"),
         ("GET", "/v1/qualification/settings"),
         ("PUT", "/v1/qualification/settings"),
+        ("GET", "/v1/qualification/analytics"),
         ("GET", "/v1/requirement-briefs/{brief_id}"),
         ("POST", "/v1/engagements/{engagement_id}/consent"),
         ("GET", "/v1/seller/products/search"),

@@ -141,6 +141,42 @@ async def test_workspace_settings_are_versioned_idempotent_and_party_scoped(
 
 
 @pytest.mark.asyncio
+async def test_workspace_analytics_uses_tenant_canonical_records_and_safe_counts(
+    api_client: httpx.AsyncClient,
+) -> None:
+    created = await api_client.post(
+        "/v1/qualification/missions",
+        headers={"Idempotency-Key": "analytics-mission-1"},
+        json=_mission_body(),
+    )
+    assert created.status_code == 201
+
+    buyer = await api_client.get("/v1/qualification/analytics?days=30")
+    assert buyer.status_code == 200
+    payload = buyer.json()
+    assert payload["workspace"] == "BUYER"
+    assert payload["measurement_label"] == "OBSERVATIONAL_NOT_CAUSAL"
+    assert payload["funnel"]["missions_created"] == 1
+    assert payload["current_state"]["active_missions"] == 1
+    assert payload["daily_events"]
+    assert all(set(item) == {"date", "count"} for item in payload["daily_events"])
+
+    seller = await api_client.get(
+        "/v1/qualification/analytics?days=30",
+        headers={
+            "X-Organization-Id": "org_seller_a",
+            "X-Actor-Id": "seller-human",
+            "X-Actor-Party": "SELLER",
+            "X-Actor-Roles": "seller_editor,can_view_context",
+        },
+    )
+    assert seller.status_code == 200
+    assert seller.json()["workspace"] == "SELLER"
+    assert seller.json()["funnel"]["opportunities_received"] == 0
+    assert "missions_created" not in seller.json()["funnel"]
+
+
+@pytest.mark.asyncio
 async def test_qualification_mission_contract_and_idempotency(
     api_client: httpx.AsyncClient,
 ) -> None:
