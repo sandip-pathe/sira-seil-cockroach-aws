@@ -95,7 +95,13 @@ function MarketplaceShell({ children }: { children: ReactNode }) {
 }
 
 function LoadingPanel() {
-  return <div className={styles.skeleton} aria-label="Loading current marketplace state" />;
+  return (
+    <div
+      className={styles.skeleton}
+      role="status"
+      aria-label="Loading current marketplace state"
+    />
+  );
 }
 
 function ErrorPanel({ error, retry }: { error: unknown; retry?: () => void }) {

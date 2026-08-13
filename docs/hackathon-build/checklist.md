@@ -17,7 +17,7 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 - AWS package: CDK build, two topology/IAM tests and synth pass; API/web production images and read-only container smokes pass.
 - AWS provider: live Nova Converse and Titan V2 smoke passes in `us-east-1` with a normalized 1,024-dimensional embedding. A separate five-case live Nova qualification evaluation passes typed output, inspect-every-candidate, groundedness and expected-product gates at 100%; Guardrail intervention remains deployment-gated.
 - A disposable local Cockroach backup/restore drill passes with matching schema/count digests and verified temporary-database cleanup. Cockroach Cloud managed backup/restore remains a separate external gate.
-- Not yet evidence: CockroachDB Cloud TLS/Managed MCP/managed backup, deployed AWS URL, hosted rehearsals, browser accessibility/E2E and live Guardrail intervention. Related gates remain open.
+- Not yet evidence: CockroachDB Cloud TLS/Managed MCP/managed backup, deployed AWS URL, hosted rehearsals, a complete authenticated browser journey and live Guardrail intervention. A 14-case desktop/mobile WCAG A/AA and overflow smoke now passes for all six routes, including fail-closed setup/error states; related hosted gates remain open.
 
 ## P0
 
@@ -75,7 +75,7 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
   Build: `/sira`, `/sira/missions/[id]`, `/seil/products/[id]/evidence`, `/seil/opportunities/[id]`, `/matches/[id]`, `/integrity/[missionId]` over live APIs.
   Accept: each route has loading/empty/partial/error/conflict/stale/success states; controlled race is understandable without console access; keyboard/mobile/WCAG checks pass; no broad unrelated component rewrite.
   Verify: web lint/type/build, browser E2E, accessibility/responsive checks and full local Cockroach journey.
-  Progress: all six routes and versioned company-context UI are implemented; web lint/type/build pass. Browser E2E, accessibility/responsive evidence and a fully driven local race remain open.
+  Progress: all six routes and versioned company-context UI are implemented; web lint/type/build pass. A repeatable Playwright/axe suite passes 14 desktop/mobile route, WCAG A/AA, overflow and keyboard/setup-state checks and caught/fixed one invalid ARIA loading-state contract. A fully authenticated browser journey and controlled race remain open.
 
 - [ ] **10. Deploy the isolated hackathon-demo stack on AWS**
   Build: minimal CDK/ECR/ALB/ECS/SQS/S3/IAM/Secrets/CloudWatch; separate web/API/worker images; production configuration omits the demo controller module/route/permission.

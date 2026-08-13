@@ -33,6 +33,22 @@ the production-style inspect-every-candidate tool loop, typed output and groundi
 artifacts exclude credentials, raw prompts, raw evidence and raw model output. Guardrail
 intervention remains a separate deployment gate and is stated as such in the artifacts.
 
+## Browser accessibility and responsive smoke
+
+Build and start the web application, then run the installed-Chrome suite:
+
+```powershell
+pnpm build:web
+pnpm --filter @sira/web start --hostname 127.0.0.1 --port 3000
+pnpm test:browser
+```
+
+The suite checks every P0 route at desktop and mobile widths for server failures, horizontal
+overflow and WCAG A/AA violations, plus the keyboard contract of the available setup or
+navigation state. It uses the locally installed Chrome channel and writes failure-only traces and
+screenshots beneath ignored `.artifacts/playwright`. A pass against a fail-closed authentication
+setup state does not replace the separate hosted authenticated-journey gate.
+
 ## CockroachDB security and immutability audit
 
 Run the audit through an administrative connection that is available only to the migration job:

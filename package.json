@@ -14,10 +14,13 @@
     "typecheck:client": "pnpm --filter @sira/api-client typecheck",
     "generate:client": "node scripts/generate-client.mjs",
     "check:client": "node scripts/generate-client.mjs --check",
+    "test:browser": "playwright test",
     "format:check": "prettier --check package.json apps/web/package.json apps/web/eslint.config.mjs .prettierrc.json",
     "check:web": "pnpm lint:web && pnpm typecheck:web && pnpm typecheck:client && pnpm check:client"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
+    "@playwright/test": "1.55.0",
     "prettier": "3.6.2",
     "typescript": "5.9.2"
   }
