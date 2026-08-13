@@ -11,7 +11,7 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 
 ## Evidence snapshot (2026-08-13)
 
-- Official repository gate: `369 passed`, `12 skipped` only because the default gate intentionally omits live Cockroach URLs, coverage `75.40%`; Ruff, Mypy, architecture boundaries, OpenAPI drift, deterministic agent evaluation, generated client, web lint/type checks, Prettier and current-tree credential scan pass.
+- Official repository gate: `372 passed`, `12 skipped` only because the default gate intentionally omits live Cockroach URLs, coverage `75.40%`; Ruff, Mypy, architecture boundaries, OpenAPI drift, deterministic agent evaluation, generated client, web lint/type checks, Prettier and current-tree credential scan pass.
 - Live local CockroachDB: `12 passed` covering readiness/FORCE RLS/pool reuse, successful and exhausted real `40001` retries, DVI/current-bundle gates, stale replacement, lease takeover/generation fencing, bilateral isolation, append-only workspace settings, tenant-safe analytics, outbox delivery and atomic introduction. The sanitized security audit passes across `85` tenant tables with zero grant/RLS/immutability violations.
 - Fresh disposable CockroachDB migration reaches `cdb0010` with `90` public tables and is removed after inspection; the local backup/restore verifier also passes matching bounded digests and cleanup.
 - AWS package: CDK build, four topology/IAM/AgentCore tests and synth pass; API/web production images and read-only container smokes passed before Docker Desktop became unresponsive. The new AgentCore ARM64 image contract is committed and synthesized but its local container build remains unverified.
