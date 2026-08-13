@@ -132,6 +132,6 @@ If the correctness kernel fails, shipping is blocked. Approach A is permitted on
 
 ## P1 and P2
 
-Implemented P1 includes editable versioned company context, product portfolio management, interactive S3 ingestion, public DVI marketplace/product pages, durable buyer/seller inboxes, versioned settings/disclosure controls, safe DLQ operations, a credential-safe `ccloud` doctor and GitHub OIDC. Remaining P1 is hosted telemetry evidence and a real restore drill.
+Implemented P1 includes editable versioned company context, product portfolio management, interactive S3 ingestion, public DVI marketplace/product pages, durable buyer/seller inboxes, versioned settings/disclosure controls, safe DLQ operations, a credential-safe local restore verifier, a `ccloud` doctor and GitHub OIDC. Remaining P1 is hosted telemetry and Cockroach Cloud managed restore evidence.
 
 Implemented P2 includes tenant-safe buyer/seller operational analytics derived from canonical records and transactional outbox events, explicitly labelled observational rather than causal. Remaining P2 is live PRAVA execution, Bedrock Automated Reasoning, AgentCore Runtime/evaluation experiments, measured changefeeds/multi-region, more categories and autonomous commercial operations only where authority and provider idempotency are proven.

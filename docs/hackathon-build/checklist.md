@@ -15,7 +15,8 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 - Live local CockroachDB: `12 passed` covering readiness/FORCE RLS/pool reuse, successful and exhausted real `40001` retries, DVI/current-bundle gates, stale replacement, lease takeover/generation fencing, bilateral isolation, append-only workspace settings, tenant-safe analytics, outbox delivery and atomic introduction. The sanitized security audit passes across `85` tenant tables with zero grant/RLS/immutability violations.
 - AWS package: CDK build, two topology/IAM tests and synth pass; API/web production images and read-only container smokes pass.
 - AWS provider: live Nova Converse and Titan V2 smoke passes in `us-east-1` with a normalized 1,024-dimensional embedding; Guardrail intervention remains deployment-gated.
-- Not yet evidence: CockroachDB Cloud TLS/Managed MCP/backup, deployed AWS URL, hosted rehearsals, browser accessibility/E2E, live Guardrail intervention, labelled live-model quality and restore drill. Related gates remain open.
+- A disposable local Cockroach backup/restore drill passes with matching schema/count digests and verified temporary-database cleanup. Cockroach Cloud managed backup/restore remains a separate external gate.
+- Not yet evidence: CockroachDB Cloud TLS/Managed MCP/managed backup, deployed AWS URL, hosted rehearsals, browser accessibility/E2E, live Guardrail intervention and labelled live-model quality. Related gates remain open.
 
 ## P0
 
@@ -91,7 +92,7 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 - [x] Buyer versioned company-context editing, history/retirement, mission pinning and durable decision inbox.
 - [x] Seller product portfolio, durable opportunity inbox and interactive versioned S3 ingestion.
 - [x] Public marketplace search/product pages backed by Bedrock embeddings, DVI and relational active Product Bundle gates.
-- [ ] Restore drill and hosted telemetry evidence. Versioned settings/disclosure controls, tenant-safe marketplace analytics and safe DLQ status/start/cancel controls are implemented.
+- [ ] Cockroach Cloud managed restore and hosted telemetry evidence. A disposable local backup/restore verifier, versioned settings/disclosure controls, tenant-safe marketplace analytics and safe DLQ status/start/cancel controls are implemented.
 - [ ] `ccloud` provision/doctor/backup/restore evidence and GitHub Actions OIDC delivery. Credential-safe doctor and exact-repository OIDC workflow are implemented; Cloud authentication/deployment evidence remains open.
 
 ## P2 after P1 or when independently safe

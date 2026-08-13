@@ -45,6 +45,21 @@ tables grant only `SELECT` and `INSERT`, never `UPDATE`, `DELETE`, or `TRUNCATE`
 artifact contains counts, violations, and a schema fingerprint—not table owners, raw grants, or
 connection data.
 
+## Disposable local restore drill
+
+Run a real CockroachDB backup and restore into a uniquely named temporary database:
+
+```powershell
+uv run python scripts/cockroach_restore_drill.py
+```
+
+The verifier refuses system or unsafe source database names, snapshots only bounded counts and
+the Alembic head, runs `BACKUP` and `RESTORE ... WITH new_db_name`, compares a sanitized digest,
+and drops the temporary database in `finally`. Its ignored artifact is
+`.artifacts/preflight/cockroach-restore.json`; it contains no row payloads, SQL URL, usernames or
+temporary database name. This proves the local restore procedure. Cockroach Cloud managed backup
+and restore evidence remains a separate hosted gate.
+
 ## Normal commands
 
 ```text
