@@ -37,7 +37,6 @@ from integrations.prava.models import PravaCheckoutResult, PravaPaymentStatus, P
 from integrations.prava.protocols import PravaHostedCheckoutProvider
 from persistence.database import Database
 
-
 DESCRIPTOR = AdapterDescriptor.production("test-provider")
 
 
