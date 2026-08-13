@@ -26,20 +26,24 @@ class DispatchResult:
 
 
 async def load_unpublished(
-    database: Database, *, organization_id: str, limit: int = 50
+    database: Database,
+    *,
+    organization_id: str,
+    limit: int = 50,
+    event_types: frozenset[str] | None = None,
 ) -> tuple[OutboxEnvelope, ...]:
     if limit < 1 or limit > 100:
         raise ValueError("outbox batch limit must be between 1 and 100")
     async with database.transaction(organization_id) as session:
+        query = select(OutboxEvent).where(
+            OutboxEvent.organization_id == organization_id,
+            OutboxEvent.published_at.is_(None),
+        )
+        if event_types:
+            query = query.where(OutboxEvent.event_type.in_(event_types))
         events: Sequence[OutboxEvent] = (
             await session.scalars(
-                select(OutboxEvent)
-                .where(
-                    OutboxEvent.organization_id == organization_id,
-                    OutboxEvent.published_at.is_(None),
-                )
-                .order_by(OutboxEvent.occurred_at, OutboxEvent.id)
-                .limit(limit)
+                query.order_by(OutboxEvent.occurred_at, OutboxEvent.id).limit(limit)
             )
         ).all()
         return tuple(
@@ -83,10 +87,16 @@ async def dispatch_batch(
     *,
     organization_id: str,
     limit: int = 50,
+    event_types: frozenset[str] | None = None,
 ) -> DispatchResult:
     """Keep queue I/O outside SQL transactions and mark only acknowledged sends."""
 
-    envelopes = await load_unpublished(database, organization_id=organization_id, limit=limit)
+    envelopes = await load_unpublished(
+        database,
+        organization_id=organization_id,
+        limit=limit,
+        event_types=event_types,
+    )
     published: list[str] = []
     for envelope in envelopes:
         await publisher.publish(envelope)
