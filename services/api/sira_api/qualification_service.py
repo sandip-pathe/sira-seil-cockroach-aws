@@ -779,10 +779,15 @@ class QualificationService:
         async def write(session: AsyncSession) -> tuple[int, dict[str, Any]]:
             organization = await session.get(Organization, organization_id)
             if organization is None:
-                if (
-                    not self.allow_development_tenant_bootstrap
-                    or self.database.engine.dialect.name != "sqlite"
-                ):
+                local_fixture_tenant = (
+                    self.allow_development_tenant_bootstrap
+                    and self.database.engine.dialect.name == "sqlite"
+                )
+                verified_derived_tenant = (
+                    self.allow_development_tenant_bootstrap
+                    and organization_id.startswith(("org_guest_", "org_user_"))
+                )
+                if not local_fixture_tenant and not verified_derived_tenant:
                     raise ApiProblem(
                         code="ORGANIZATION_NOT_PROVISIONED",
                         message=(

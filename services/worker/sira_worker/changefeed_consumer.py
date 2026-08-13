@@ -86,9 +86,12 @@ class ChangefeedHintConsumer:
         except json.JSONDecodeError as error:
             raise ValueError("changefeed hint body is not valid JSON") from error
         hint = ProductBundleChangedHint.model_validate(document)
+        organization_ids = tuple(
+            sorted(set(self.organization_ids) | set(await self.database.organization_ids()))
+        )
         invalidated: list[str] = []
         replacements: list[str] = []
-        for organization_id in self.organization_ids:
+        for organization_id in organization_ids:
 
             async def apply(
                 session: Any, scoped_organization_id: str = organization_id
@@ -102,7 +105,7 @@ class ChangefeedHintConsumer:
             replacements.extend(result.replacement_attempt_ids)
         return ConsumedBundleHint(
             product_id=hint.aggregate_id,
-            organizations_checked=len(self.organization_ids),
+            organizations_checked=len(organization_ids),
             invalidated_decision_ids=tuple(invalidated),
             replacement_attempt_ids=tuple(replacements),
         )

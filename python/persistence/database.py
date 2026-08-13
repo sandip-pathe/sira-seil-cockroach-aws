@@ -192,6 +192,25 @@ class Database:
     async def close(self) -> None:
         await self.engine.dispose()
 
+    async def organization_ids(self, *, limit: int = 10_000) -> tuple[str, ...]:
+        """List durable tenants for trusted background workers.
+
+        This deliberately runs without tenant context and only reads the global organization
+        directory. Runtime credentials have no tenant-table access until a validated ID is set
+        by ``transaction``.
+        """
+
+        if limit < 1 or limit > 10_000:
+            raise ValueError("organization limit must be between 1 and 10000")
+        async with self.engine.connect() as connection:
+            values = (
+                await connection.execute(
+                    text("SELECT id FROM organizations ORDER BY id LIMIT :limit"),
+                    {"limit": limit},
+                )
+            ).scalars()
+            return tuple(_validated_organization_id(str(value)) for value in values)
+
     async def is_ready(
         self,
         *,

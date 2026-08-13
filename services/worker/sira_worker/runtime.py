@@ -92,15 +92,16 @@ def _database(url: SecretStr) -> Database:
 
 
 async def _run_dispatcher(settings: WorkerSettings) -> None:
-    if not settings.organization_ids:
-        raise ValueError("dispatcher requires WORKER_ORGANIZATION_IDS")
     database = _database(settings.worker_database_url)
     client = create_aws_client("sqs", region=settings.aws_region, profile=settings.aws_profile)
     publisher = SqsFifoPublisher(client=cast(Any, client), queue_url=settings.queue_url)
     try:
         while True:
             published = 0
-            for organization_id in settings.organization_ids:
+            organization_ids = tuple(
+                sorted(set(settings.organization_ids) | set(await database.organization_ids()))
+            )
+            for organization_id in organization_ids:
                 result = await dispatch_batch(
                     database,
                     publisher,
@@ -168,8 +169,6 @@ async def _run_qualification_worker(settings: WorkerSettings) -> None:
 
 
 async def _run_changefeed_worker(settings: WorkerSettings) -> None:
-    if not settings.organization_ids:
-        raise ValueError("changefeed worker requires WORKER_ORGANIZATION_IDS")
     database = _database(settings.worker_database_url)
     sqs_client = create_aws_client("sqs", region=settings.aws_region, profile=settings.aws_profile)
     consumer = ChangefeedHintConsumer(

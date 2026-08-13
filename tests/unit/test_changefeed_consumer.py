@@ -31,6 +31,9 @@ class FakeDatabase:
         self.organizations.append(organization_id)
         return await work(object())
 
+    async def organization_ids(self) -> tuple[str, ...]:
+        return ("org_dynamic",)
+
 
 def _message() -> dict[str, str]:
     return {
@@ -73,8 +76,12 @@ async def test_hint_rechecks_each_configured_buyer_and_deletes_after_commit(
     )
 
     assert await consumer.poll_once() == 1
-    assert calls == [("org_a", "product_alpha"), ("org_b", "product_alpha")]
-    assert database.organizations == ["org_a", "org_b"]
+    assert calls == [
+        ("org_a", "product_alpha"),
+        ("org_b", "product_alpha"),
+        ("org_dynamic", "product_alpha"),
+    ]
+    assert database.organizations == ["org_a", "org_b", "org_dynamic"]
     assert queue.deleted[0]["ReceiptHandle"] == "receipt-1"
 
 

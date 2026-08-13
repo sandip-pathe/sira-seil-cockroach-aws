@@ -89,6 +89,19 @@ async def test_sqlite_transaction_does_not_require_session_variables() -> None:
         await database.close()
 
 
+async def test_background_worker_discovers_durable_organizations() -> None:
+    database = Database(DatabaseSettings(database_url="sqlite+aiosqlite:///:memory:"))
+    try:
+        async with database.engine.begin() as connection:
+            await connection.execute(text("CREATE TABLE organizations (id TEXT PRIMARY KEY)"))
+            await connection.execute(
+                text("INSERT INTO organizations (id) VALUES ('org_b'), ('org_a')")
+            )
+        assert await database.organization_ids() == ("org_a", "org_b")
+    finally:
+        await database.close()
+
+
 def test_organization_id_is_strictly_bounded() -> None:
     assert _validated_organization_id("org_valid-01") == "org_valid-01"
     for invalid in ("", " org", "org.with.dot", "x" * 49, "org/escape"):

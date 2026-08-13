@@ -37,6 +37,9 @@ class FakeDatabase:
     async def close(self) -> None:
         self.closed = True
 
+    async def organization_ids(self) -> tuple[str, ...]:
+        return ("org_dynamic",)
+
 
 class FakeEmbedding:
     async def embed(self, text: str) -> SimpleNamespace:
@@ -143,15 +146,14 @@ async def test_marketplace_retrieval_reuses_embedding_and_dvi_contract(
 async def test_dispatcher_requires_scope_and_closes_database(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    with pytest.raises(ValueError, match="WORKER_ORGANIZATION_IDS"):
-        await worker_runtime._run_dispatcher(_settings(organization_ids=()))
-
     database = FakeDatabase()
     dispatched: list[str] = []
 
     async def dispatch(*_args: object, organization_id: str, **_kwargs: object) -> SimpleNamespace:
         dispatched.append(organization_id)
-        raise asyncio.CancelledError
+        if organization_id == "org_dynamic":
+            raise asyncio.CancelledError
+        return SimpleNamespace(published=0)
 
     monkeypatch.setattr(worker_runtime, "_database", lambda _url: cast(Database, database))
     monkeypatch.setattr(worker_runtime, "create_aws_client", lambda *_args, **_kwargs: object())
@@ -160,7 +162,7 @@ async def test_dispatcher_requires_scope_and_closes_database(
 
     with pytest.raises(asyncio.CancelledError):
         await worker_runtime._run_dispatcher(_settings())
-    assert dispatched == ["org_a"]
+    assert dispatched == ["org_a", "org_dynamic"]
     assert database.closed is True
 
 
