@@ -85,7 +85,7 @@ ignore = ["S101"]
 "tests/**/*.py" = ["S105", "S106", "S311"]
 "tests/integration/test_persistence.py" = ["S603", "ASYNC221"]
 "fixtures/**/*.py" = ["S105", "S106"]
-"services/api/alembic/versions/*.py" = ["E501"]
+"services/api/alembic/versions/*.py" = ["E501", "S608"]
 "services/api/sira_api/schemas.py" = ["S105"]
 
 [tool.mypy]

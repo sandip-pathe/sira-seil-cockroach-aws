@@ -9,6 +9,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import JSON, Integer, Text, engine_from_config, pool
 
+from persistence import qualification_models as _qualification_models  # noqa: F401
 from persistence.models import Base
 
 config = context.config
@@ -16,29 +17,32 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+_PARTIAL_INDEX_NAMES = {
+    "uq_charged_or_uncertain_intent",
+    "uq_open_payment_attempt",
+    "uq_provider_event_ref",
+    "uq_qualification_current_decision",
+}
 
 
 def _include_object(
     _object: object,
     name: str | None,
     object_type: str,
-    _reflected: bool,
-    _compare_to: object | None,
+    reflected: bool,
+    compare_to: object | None,
 ) -> bool:
     # The Cockroach adapter reflects index columns as expression objects, which
     # otherwise produces false remove/add pairs on every autogenerate pass.
     if object_type == "index":
-        return False
+        if name in _PARTIAL_INDEX_NAMES:
+            return False
+        return not reflected and compare_to is None
     # Cockroach reflects partial unique indexes as constraints. The indexes are
     # maintained explicitly by migrations and verified by integration tests.
     return not (
         object_type == "unique_constraint"
-        and name
-        in {
-            "uq_charged_or_uncertain_intent",
-            "uq_open_payment_attempt",
-            "uq_provider_event_ref",
-        }
+        and name in _PARTIAL_INDEX_NAMES
     )
 
 

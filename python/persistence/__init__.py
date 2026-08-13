@@ -1,4 +1,4 @@
-"""PostgreSQL persistence boundary for SIRA + SEIL."""
+"""CockroachDB persistence boundary for SIRA + SEIL."""
 
 from .database import Database, DatabaseSettings
 from .models import (

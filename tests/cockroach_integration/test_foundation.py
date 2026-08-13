@@ -23,9 +23,17 @@ def _runtime_url() -> str:
 
 async def test_runtime_is_ready_and_rls_denies_cross_tenant_rows() -> None:
     database = Database(DatabaseSettings(database_url=_runtime_url()))
+    admin = Database(DatabaseSettings(database_url=_runtime_url().replace("sira_app@", "root@")))
     suffix = uuid4().hex
     record_id = f"pr_{suffix}"
     try:
+        async with admin.transaction("org_a") as session:
+            await session.execute(
+                text(
+                    "UPSERT INTO organizations (id, name, version) "
+                    "VALUES ('org_a', 'Tenant A', 1), ('org_b', 'Tenant B', 1)"
+                )
+            )
         assert await database.is_ready()
         async with database.transaction("org_a") as session:
             session.add(
@@ -73,6 +81,7 @@ async def test_runtime_is_ready_and_rls_denies_cross_tenant_rows() -> None:
             )
     finally:
         await database.close()
+        await admin.close()
 
 
 async def test_real_40001_is_replayed_with_a_fresh_transaction() -> None:
