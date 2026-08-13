@@ -97,12 +97,12 @@ P0 is complete only when current-state evidence proves every checklist item. Tar
 Implemented and locally verified:
 
 - Cockroach-aware engine, transaction-local tenant context, runtime-role/schema/RLS readiness, and whole-callback fresh-session `40001` retries;
-- migrations through `cdb0008`, Product Bundles, DVI-backed retrieval, attempts/leases/fences/snapshots/replacements, durable receipts/effects, bilateral consent and introductions;
+- migrations through `cdb0009`, Product Bundles, DVI-backed retrieval, attempts/leases/fences/snapshots/replacements, durable receipts/effects, bilateral consent and introductions;
 - typed Bedrock Converse and Titan adapters, S3 content-addressed evidence, SQS FIFO outbox/consumer boundaries, and role-separated worker entrypoints;
-- the six P0 product routes plus editable versioned company context;
+- the six P0 product routes plus editable versioned company context, durable buyer/seller inboxes and interactive S3 evidence ingestion;
 - CloudFront-to-internal-ALB ECS architecture, separate API/web/dispatcher/qualification services, S3/SQS/Secrets/Guardrail/CloudWatch resources, least-privilege task roles, and production images;
 - PRAVA and controlled-merchant payment/reconciliation boundaries remain human-authorized and credential-isolated.
 
-Evidence currently passing: the official repository gate (`313 passed`, coverage `75.07%`, OpenAPI/client/web/credential checks), all `10` live local Cockroach integration tests, CDK build/tests/synth, and API/web container smoke checks. These results prove local implementation, not hosted deployment.
+Evidence currently passing: the official repository gate (`329 passed`, coverage `75.34%`, OpenAPI/client/web/credential checks), all `11` live local Cockroach integration tests, an `83`-table zero-violation RLS/grant/immutability audit, live Nova Converse/Titan V2 provider smoke, CDK build/tests/synth, and API/web container smoke checks. These results prove local implementation and AWS model access, not hosted deployment.
 
-Still externally gated or incomplete: CockroachDB Cloud TLS/backup and Managed MCP evidence, live Bedrock provider smoke/evaluation report, AWS deployment/hosted rehearsals, interactive S3 ingestion, browser accessibility/E2E evidence, full DLQ/restore operations, and `ccloud`/GitHub OIDC evidence.
+Still externally gated or incomplete: CockroachDB Cloud TLS/backup and Managed MCP evidence, live Guardrail intervention and labelled model-quality evaluation, AWS deployment/hosted rehearsals, browser accessibility/E2E evidence, restore operations, public DVI marketplace pages, settings/disclosure persistence, and advanced AgentCore/Automated Reasoning/changefeed/multi-region experiments.

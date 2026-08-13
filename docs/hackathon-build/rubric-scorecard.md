@@ -1,6 +1,6 @@
 # Hackathon rubric scorecard
 
-The current score reflects evidence available today. The target applies only after every core milestone passes on the hosted build.
+The current score reflects verified local and provider evidence. The target applies only after every core milestone passes on the hosted build.
 
 ## Product thesis
 
@@ -14,13 +14,14 @@ CockroachDB creates asymmetric value through one combination: serializable state
 
 | Criterion | Current | Hosted target | What earns the target | What would lose it |
 |---|---:|---:|---|---|
-| Agentic Memory Design | 4/10 | 9.5/10 | Buyer context, seller versions, research, mission checkpoints, events, effects, vectors, and decisions are durable and causally used; stale evidence invalidates a result that would otherwise be wrong | A chat-history table, toy CRUD, fixtures, or a database used only to save the final answer |
-| Technical Implementation | 2/10 | 9/10 | Real distributed vector index, real Bedrock embeddings, short serializable transactions, 40001 retries, fencing, idempotency, scoped MCP integrity verdict, and deterministic race tests | Long transactions around model calls, vector-only decisions, hidden hard-coded outcomes, or generic PostgreSQL code with a CockroachDB URL |
+| Agentic Memory Design | 8.5/10 | 9.5/10 | Buyer context, seller versions, research, mission checkpoints, events, effects, vectors, and decisions are durable and causally used; stale evidence invalidates a result that would otherwise be wrong | A chat-history table, toy CRUD, fixtures, or a database used only to save the final answer |
+| Technical Implementation | 7.5/10 | 9/10 | Real distributed vector index, real Bedrock embeddings, short serializable transactions, 40001 retries, fencing, idempotency, scoped MCP integrity verdict, and deterministic race tests | Long transactions around model calls, vector-only decisions, hidden hard-coded outcomes, or generic PostgreSQL code with a CockroachDB URL |
 | Real-World Impact | 6/10 | 8.5/10 | Direct buyer value: a corrected seller fact prevents an unsuitable shortlist; seller value: accurate, comparable evidence; clear AI/data-tool wedge | Generic procurement claims, no costly user problem, or infrastructure footage with no buying outcome |
-| Production Readiness | 3/10 | 9/10 | Tenant isolation, authority boundaries, retry behavior, worker recovery, duplicate safety, traces, fail-closed hosted mode, and honest limits | Cross-tenant retrieval, fixture fallback, leaked secrets, unbounded retries, or “production-grade” language without tests |
-| Creativity & Originality | 7/10 | 9/10 | A two-sided buyer/seller system shows why concurrent agent state needs database correctness, not just storage | Rebranding as a memory app, copying a standard RAG demo, or showing MCP as a chat-to-SQL trick |
+| Production Readiness | 7.5/10 | 9/10 | Tenant isolation, authority boundaries, retry behavior, worker recovery, duplicate safety, traces, fail-closed hosted mode, and honest limits | Cross-tenant retrieval, fixture fallback, leaked secrets, unbounded retries, or “production-grade” language without tests |
+| Creativity & Originality | 8/10 | 9/10 | A two-sided buyer/seller system shows why concurrent agent state needs database correctness, not just storage | Rebranding as a memory app, copying a standard RAG demo, or showing MCP as a chat-to-SQL trick |
 
-Current evidence-backed total: **22/50**.
+Current evidence-backed total: **38/50**. This reflects the passing local Cockroach correctness
+suite, RLS/grant audit, AWS model smoke, production build and repository gates—not a hosted demo.
 Target total: **45/50** only if every core milestone is demonstrated live.
 
 ## Why this can win

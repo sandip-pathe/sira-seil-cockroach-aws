@@ -11,10 +11,11 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 
 ## Evidence snapshot (2026-08-13)
 
-- Official repository gate: `313 passed`, `10 skipped` only because the default gate intentionally omits live Cockroach URLs, coverage `75.07%`; Ruff, Mypy, OpenAPI drift, generated client, web lint/type checks, Prettier and current-tree credential scan pass.
-- Live local CockroachDB: `10 passed` covering readiness/FORCE RLS/pool reuse, real `40001`, DVI/current-bundle gates, stale replacement, generation fencing, bilateral isolation, outbox delivery and atomic introduction.
+- Official repository gate: `329 passed`, `11 skipped` only because the default gate intentionally omits live Cockroach URLs, coverage `75.34%`; Ruff, Mypy, OpenAPI drift, generated client, web lint/type checks, Prettier and current-tree credential scan pass.
+- Live local CockroachDB: `11 passed` covering readiness/FORCE RLS/pool reuse, successful and exhausted real `40001` retries, DVI/current-bundle gates, stale replacement, lease takeover/generation fencing, bilateral isolation, outbox delivery and atomic introduction. The sanitized security audit passes across `83` tenant tables with zero grant/RLS/immutability violations.
 - AWS package: CDK build, two topology/IAM tests and synth pass; API/web production images and read-only container smokes pass.
-- Not yet evidence: CockroachDB Cloud/Managed MCP/backup, live Bedrock calls, deployed AWS URL, hosted rehearsals, browser accessibility/E2E, interactive S3 ingestion, `ccloud`, GitHub OIDC and restore drill. Related gates remain open.
+- AWS provider: live Nova Converse and Titan V2 smoke passes in `us-east-1` with a normalized 1,024-dimensional embedding; Guardrail intervention remains deployment-gated.
+- Not yet evidence: CockroachDB Cloud TLS/Managed MCP/backup, deployed AWS URL, hosted rehearsals, browser accessibility/E2E, live Guardrail intervention, labelled live-model quality and restore drill. Related gates remain open.
 
 ## P0
 
@@ -42,25 +43,25 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
   Build: immutable buyer-context/brief/evidence/Product Twin/catalog/Product Bundle versions; embeddings; missions, attempts, input/dependencies, checkpoints; decisions/citations; engagements/responses/consents/introductions; idempotency, events, outbox, consumer receipts and effects.
   Accept: active Product Bundle activation is atomic; published business inputs are insert-only for application roles; all tenant FKs are scoped; unique constraints enforce one direct successor, current decision, consent/digest, consumer receipt and semantic effect.
   Verify: fresh migration, schema assertions, immutable-write negatives, RLS/grant audit and migration smoke.
-  Progress: migrations through `cdb0008`, tenant FKs/constraints, Product Bundles, embeddings, missions/attempts/decisions/engagements/receipts/effects and versioned company context are implemented and fresh-migration checked. A complete immutable-write/grant audit artifact remains open.
+  Progress: migrations through `cdb0009`, tenant FKs/constraints, Product Bundles, embeddings, missions/attempts/decisions/engagements/receipts/effects, versioned company context and immutable S3 object identity are implemented and fresh-migration checked. The local 83-table RLS/grant/immutability audit passes; repeat it against CockroachDB Cloud before submission.
 
 - [ ] **5. Prove the correctness kernel on real CockroachDB**
   Build: database-time claim/lease/generation, committed snapshot, controlled barrier, checkpoint, stale finalization, one direct replacement, bounded chain, lease takeover, durable duplicate suppression and atomic qualified introduction.
   Accept: v1 emits no result after v2 activation; one replacement cites v2; old generation cannot write; repeated outbox/finalization/effect calls leave counts at one; `40001` exhaustion is visible.
   Verify: deterministic barrier, concurrent finalizer, worker-kill/takeover and duplicate-delivery integration tests.
-  Progress: the live suite proves database-time leases, generation fence rejection, stale v1 invalidation, one v2 replacement, durable outbox handling and one introduction. Deterministic worker-kill/takeover and retry-exhaustion artifacts remain open.
+  Progress: the live suite proves database-time leases, expired-lease takeover with a larger generation, old-worker fence rejection, stale v1 invalidation, one v2 replacement, durable outbox handling, one introduction and visible bounded retry exhaustion. Hosted ECS worker-stop evidence remains open.
 
 - [ ] **6. Implement DVI and Bedrock agent quality**
   Build: separate private buyer and buyer-safe Product Bundle vector spaces; Titan V2 metadata; resumable corpus loader; typed Bedrock Converse runtime/tools; Guardrails; budgets; deterministic replay and labelled evaluation set.
   Accept: semantic query finds the expected candidate; relational gates exclude stale/private/ineligible rows; citations are bundle subsets; hard-gate/tool/schema/leakage tests are 100%; fit classification and groundedness meet `architecture.md` thresholds.
   Verify: vector query plan/candidate artifact, live provider smoke, deterministic agent suite and committed evaluation report.
-  Progress: DVI/current-version retrieval, Titan 1,024-dimensional contract, typed Converse tool loop and guardrail boundaries are implemented and locally tested. Live Bedrock access and the labelled evaluation report remain open.
+  Progress: DVI/current-version retrieval, Titan 1,024-dimensional contract, typed Converse tool loop, grounding checks and guardrail boundaries are implemented and locally tested. Live Nova/Titan provider access passes and the deterministic five-case grounding report is 100%; live Guardrail intervention and labelled live-model fit/groundedness remain open.
 
 - [ ] **7. Implement SQS/S3/observability adapters**
   Build: preseed checksum-verified S3 evidence; Cockroach outbox dispatcher to SQS FIFO; role-configured consumer; durable receipt; bounded retry/DLQ policy; sanitized correlation logs and P0 metrics.
   Accept: dispatcher crash/redelivery is harmless beyond FIFO's dedup window; message deletion follows result commit; secrets/private prompts are absent from logs.
   Verify: adapter contract tests, duplicate/redrive integration test, IAM policy assertions and log scan.
-  Progress: checksum/version-bound S3, FIFO publisher, dispatcher, qualification consumer, durable receipt, DLQ policy, CloudWatch resources and IAM assertions are implemented. Hosted redrive and log-scan evidence remain open.
+  Progress: checksum/version-bound interactive S3 upload, FIFO publisher, dispatcher, qualification consumer, durable receipt, DLQ policy/redrive controls, CloudWatch resources and IAM assertions are implemented. Hosted redrive and log-scan evidence remain open.
 
 - [ ] **8. Implement P0 API and fail-closed composition**
   Build: briefs, missions/events, v2 bundle publication, engagement/response, decision approval/rejection, consent/introduction and integrity endpoints with auth-derived parties, idempotency and ETags.
@@ -87,11 +88,11 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 
 ## P1 after every P0 gate
 
-- [ ] Buyer versioned company-context editing and decision history/inbox. Context editing/history/retirement and mission pinning are implemented; inbox remains open.
-- [ ] Seller product portfolio, opportunity inbox and interactive versioned S3 ingestion.
+- [x] Buyer versioned company-context editing, history/retirement, mission pinning and durable decision inbox.
+- [x] Seller product portfolio, durable opportunity inbox and interactive versioned S3 ingestion.
 - [ ] Public marketplace/product pages backed by published Product Bundles and DVI.
-- [ ] Settings/disclosure management, complete DLQ/replay operations, restore drill and broader telemetry.
-- [ ] `ccloud` provision/doctor/backup/restore evidence and GitHub Actions OIDC delivery.
+- [ ] Settings/disclosure management, restore drill and broader telemetry. Safe DLQ status/start/cancel controls are implemented.
+- [ ] `ccloud` provision/doctor/backup/restore evidence and GitHub Actions OIDC delivery. Credential-safe doctor and exact-repository OIDC workflow are implemented; Cloud authentication/deployment evidence remains open.
 
 ## P2 after P1 or when independently safe
 

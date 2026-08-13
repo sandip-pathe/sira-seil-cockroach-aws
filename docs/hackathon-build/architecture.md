@@ -57,8 +57,8 @@ CloudWatch/OpenTelemetry: sanitized correlated events and P0 metrics.
 | Web/API hosting | CloudFront is the only public HTTPS edge. A VPC origin reaches one internal ALB, which routes to separate Next.js 16 and FastAPI ECS/Fargate services. Amplify is excluded because current SSR support ends at Next.js 15. |
 | Agent runtime | Extend the existing typed SIRA/SEIL runtime with a Bedrock Converse adapter. Bedrock Agents Classic is excluded because it is closed to most new accounts. |
 | Queue | Transactional CockroachDB outbox to SQS FIFO. SQS is delivery; CockroachDB remains authority and durable deduplication. |
-| Documents | Preseeded, encrypted, versioned S3 objects in P0. Interactive ingestion is P1. |
-| Infrastructure | Minimal TypeScript CDK, ECR images, per-task IAM roles and Secrets Manager. GitHub OIDC is P1 if it cannot land before the core flow. |
+| Documents | Encrypted, versioned, checksum-addressed S3 objects with interactive seller ingestion. CockroachDB stores immutable object identity and claim bindings. |
+| Infrastructure | TypeScript CDK, per-task IAM roles, Secrets Manager and an exact-repository GitHub OIDC entry role. |
 | Payment | PRAVA is P2 after every P0 gate. Agents never hold payment credentials. |
 | Multi-region/AgentCore/changefeeds | P2 experiments only after measured need and a green core. AgentCore Memory remains excluded. |
 
@@ -132,6 +132,6 @@ If the correctness kernel fails, shipping is blocked. Approach A is permitted on
 
 ## P1 and P2
 
-P1 adds editable versioned company context, product portfolio management, interactive S3 ingestion, public marketplace/search pages, inboxes/settings, full DLQ operations, broader telemetry/restore drills, `ccloud` evidence and GitHub OIDC.
+Implemented P1 includes editable versioned company context, product portfolio management, interactive S3 ingestion, durable buyer/seller inboxes, safe DLQ operations, a credential-safe `ccloud` doctor and GitHub OIDC. Remaining P1 is public DVI marketplace pages, persisted settings/disclosure controls, broader telemetry and a real restore drill.
 
 P2 adds PRAVA execution, Bedrock Automated Reasoning, AgentCore Runtime/evaluation experiments, measured changefeeds/multi-region, analytics, more categories and autonomous commercial operations only where authority and provider idempotency are proven.

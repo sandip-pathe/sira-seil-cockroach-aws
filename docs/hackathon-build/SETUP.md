@@ -1,10 +1,26 @@
 # Setup contract
 
-Status: target interface for the active repository; not implemented yet.
+Status: repository setup and verification are implemented; the unified `sira-dev`/`sira-demo`
+operator interface below remains a target convenience layer.
 
 ## Fast path
 
-A developer with existing CockroachDB Cloud and AWS access should reach a healthy synthetic workflow in under 15 minutes:
+A developer with existing CockroachDB Cloud and AWS access should reach a healthy synthetic workflow in under 15 minutes.
+
+Current implemented local verification path:
+
+```powershell
+uv sync --frozen --all-extras
+docker compose up -d --wait cockroach
+$env:SIRA_TEST_DATABASE_URL = "cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira?ssl=disable"
+$env:SIRA_TEST_WORKER_DATABASE_URL = "cockroachdb+asyncpg://sira_worker_app@127.0.0.1:26257/sira?ssl=disable"
+$env:SIRA_TEST_CATALOG_DATABASE_URL = "cockroachdb+asyncpg://sira_catalog_app@127.0.0.1:26257/sira?ssl=disable"
+uv run pytest tests/cockroach_integration -q
+powershell -ExecutionPolicy Bypass -File scripts/check.ps1
+pnpm build:web
+```
+
+Target unified wrapper once the hosted scenario controller exists:
 
 ```powershell
 uv sync --frozen --all-extras

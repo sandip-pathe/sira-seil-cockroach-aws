@@ -1,6 +1,6 @@
 # Configuration contract
 
-Status: target configuration for the active repository; not implemented yet.
+Status: implemented runtime configuration contract; external Cloud credentials and hosted evidence remain pending.
 
 ## Credential groups
 
