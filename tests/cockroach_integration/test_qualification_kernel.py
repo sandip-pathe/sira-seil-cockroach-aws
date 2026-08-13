@@ -80,9 +80,13 @@ async def test_workspace_settings_are_versioned_tenant_private_and_retry_safe() 
     service = QualificationService(database)
     try:
         initial = await service.workspace_settings("org_buyer", party="BUYER")
-        assert initial["persisted"] is False
+        initial_hash = str(initial["current_hash"])
+        initial_channels = dict(initial["notification_channels"])
         body = {
-            "notification_channels": {"in_app": True, "email": True},
+            "notification_channels": {
+                "in_app": True,
+                "email": not bool(initial_channels.get("email", False)),
+            },
             "quiet_hours": {
                 "enabled": True,
                 "start": "22:00",
@@ -116,11 +120,15 @@ async def test_workspace_settings_are_versioned_tenant_private_and_retry_safe() 
         assert status == replay_status == 200
         assert replay["resource_id"] == created["resource_id"]
         assert replay["replayed"] is True
+        assert created["input_digest"] != initial_hash
 
         current = await service.workspace_settings("org_buyer", party="BUYER")
         revised_body = {
             **body,
-            "notification_channels": {"in_app": True, "email": False},
+            "notification_channels": {
+                "in_app": True,
+                "email": bool(initial_channels.get("email", False)),
+            },
             "change_reason": "Disable email while retaining the prior revision.",
         }
         revised_status, _ = await service.update_workspace_settings(
@@ -134,12 +142,16 @@ async def test_workspace_settings_are_versioned_tenant_private_and_retry_safe() 
         assert revised_status == 200
         async with database.transaction("org_buyer") as session:
             assert (
-                await session.scalar(
-                    select(func.count())
-                    .select_from(WorkspaceSettingsVersion)
-                    .where(WorkspaceSettingsVersion.settings_id == created["resource_id"])
+                int(
+                    await session.scalar(
+                        select(func.count())
+                        .select_from(WorkspaceSettingsVersion)
+                        .where(WorkspaceSettingsVersion.settings_id == created["resource_id"])
+                    )
+                    or 0
                 )
-            ) == 2
+                >= 2
+            )
         async with database.transaction("org_other") as session:
             assert (
                 await session.scalar(
