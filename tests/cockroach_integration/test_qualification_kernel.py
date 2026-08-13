@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import math
 import os
+import threading
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
+from typing import Any
 from uuid import uuid4
 
 import pytest
+from sira_agents.bedrock_runtime import TitanEmbeddingClient
 from sira_worker.outbox_dispatcher import dispatch_batch
+from sira_worker.qualification import QualificationWorker
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import DBAPIError
 
@@ -197,17 +204,6 @@ async def test_v2_activation_rejects_v1_finalization_and_creates_one_replacement
             )
             await session.flush()
             session.add(
-                QualificationMissionBundle(
-                    id=f"mission_bundle_{suffix}",
-                    mission_id=mission_id,
-                    product_id=product_id,
-                    seller_organization_id=seller_id,
-                    bundle_id=bundle_v1,
-                    bundle_digest=digest_v1,
-                    organization_id="org_buyer",
-                )
-            )
-            session.add(
                 QualificationAttempt(
                     id=attempt_id,
                     mission_id=mission_id,
@@ -216,6 +212,19 @@ async def test_v2_activation_rejects_v1_finalization_and_creates_one_replacement
                     replacement_depth=0,
                     state="QUEUED",
                     generation=0,
+                    organization_id="org_buyer",
+                )
+            )
+            await session.flush()
+            session.add(
+                QualificationMissionBundle(
+                    id=f"mission_bundle_{suffix}",
+                    mission_id=mission_id,
+                    attempt_id=attempt_id,
+                    product_id=product_id,
+                    seller_organization_id=seller_id,
+                    bundle_id=bundle_v1,
+                    bundle_digest=digest_v1,
                     organization_id="org_buyer",
                 )
             )
@@ -352,6 +361,8 @@ async def test_generation_fence_and_atomic_introduction_are_idempotent() -> None
                     seller_organization_id="org_seller_a",
                     product_id="meeting-product",
                     input_digest=digest,
+                    buyer_safe_requirement={"category": "meeting intelligence"},
+                    buyer_safe_hash=content_hash({"category": "meeting intelligence"}),
                     state="CONSENT_PENDING",
                     expires_at=now + timedelta(hours=1),
                 )
@@ -464,6 +475,8 @@ async def test_runtime_roles_enforce_published_and_bilateral_boundaries() -> Non
                     seller_organization_id="org_seller_a",
                     product_id=product_id,
                     input_digest=content_hash({"security": suffix}),
+                    buyer_safe_requirement={"category": "meeting intelligence"},
+                    buyer_safe_hash=content_hash({"category": "meeting intelligence"}),
                     state="OPEN",
                     expires_at=datetime.now(UTC) + timedelta(hours=1),
                 )
@@ -598,6 +611,18 @@ async def test_dvi_retrieves_current_published_candidates_across_sellers() -> No
         assert candidates[0].cosine_distance == pytest.approx(0.0)
         assert "qualification_product_embedding_dvi" in "\n".join(plan)
 
+        with pytest.raises(DBAPIError):
+            async with catalog_database.transaction("org_buyer") as session:
+                await session.execute(text("SELECT id FROM qualification_missions LIMIT 1"))
+        with pytest.raises(DBAPIError):
+            async with catalog_database.transaction("org_buyer") as session:
+                await session.execute(
+                    text(
+                        "INSERT INTO qualification_product_embeddings "
+                        "SELECT * FROM qualification_product_embeddings LIMIT 0"
+                    )
+                )
+
         async with database.transaction("org_buyer") as session:
             assert (
                 await search_published_candidates(
@@ -613,3 +638,212 @@ async def test_dvi_retrieves_current_published_candidates_across_sellers() -> No
         await database.close()
         await catalog_database.close()
         await admin.close()
+
+
+async def test_worker_replaces_stale_attempt_and_completes_against_v2() -> None:
+    database = Database(DatabaseSettings(database_url=_runtime_url()))
+    worker_database = Database(DatabaseSettings(database_url=_worker_url()))
+    catalog_database = Database(DatabaseSettings(database_url=_catalog_url()))
+    suffix = uuid4().hex[:8]
+    category = f"worker-{suffix}"
+    product_id = f"product_target_{suffix}"
+    mission_id = f"mission_worker_{suffix}"
+    query_vector = (1.0,) + (0.0,) * 1023
+    first_model_call = threading.Event()
+    resume_model = threading.Event()
+
+    class AdaptiveBedrock:
+        def __init__(self) -> None:
+            self.converse_count = 0
+
+        def invoke_model(self, **_kwargs: Any) -> dict[str, Any]:
+            return {
+                "body": BytesIO(
+                    json.dumps(
+                        {
+                            "embedding": list(query_vector),
+                            "inputTextTokenCount": 5,
+                        }
+                    ).encode()
+                )
+            }
+
+        def converse(self, **kwargs: Any) -> dict[str, Any]:
+            self.converse_count += 1
+            messages = kwargs["messages"]
+            last_content = messages[-1]["content"]
+            if any("toolResult" in block for block in last_content):
+                tool_results = [block["toolResult"] for block in last_content]
+                evidence = [result["content"][0]["json"] for result in tool_results]
+                selected = next(
+                    item for item in evidence if item["product_id"] == product_id
+                )
+                citations = [selected["product_id"]]
+                if selected["catalog"]:
+                    citations.append(selected["catalog"][0]["dependency_id"])
+                output = {
+                    "recommended_product_id": product_id,
+                    "summary": "Current evidence satisfies the requirement.",
+                    "cited_dependency_ids": citations,
+                    "criteria": [{"criterion": "hosting", "result": "PASS"}],
+                    "confidence": 0.91,
+                }
+                return {
+                    "stopReason": "end_turn",
+                    "output": {
+                        "message": {
+                            "role": "assistant",
+                            "content": [{"text": json.dumps(output)}],
+                        }
+                    },
+                    "usage": {"inputTokens": 50, "outputTokens": 20, "totalTokens": 70},
+                }
+
+            request = json.loads(messages[0]["content"][0]["text"])
+            candidate_ids = request["context"]["candidate_product_ids"]
+            if self.converse_count == 1:
+                first_model_call.set()
+                assert resume_model.wait(timeout=10)
+            return {
+                "stopReason": "tool_use",
+                "output": {
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "toolUse": {
+                                    "toolUseId": f"tool-{index}",
+                                    "name": "retrieve_product_evidence",
+                                    "input": {"product_id": candidate_id},
+                                }
+                            }
+                            for index, candidate_id in enumerate(candidate_ids)
+                        ],
+                    }
+                },
+                "usage": {"inputTokens": 30, "outputTokens": 10, "totalTokens": 40},
+            }
+
+    async def add_embedding(
+        organization_id: str,
+        current_product_id: str,
+        bundle_id: str,
+        version: int,
+        vector: tuple[float, ...],
+    ) -> None:
+        vector_literal = "[" + ",".join(str(value) for value in vector) + "]"
+        async with database.transaction(organization_id) as session:
+            session.add(
+                ProductEmbedding(
+                    id=f"embedding_{current_product_id}_{version}",
+                    bundle_id=bundle_id,
+                    product_id=current_product_id,
+                    category=category,
+                    visibility="BUYER_SAFE",
+                    content_hash=content_hash(
+                        {"product_id": current_product_id, "version": version}
+                    ),
+                    model_id="amazon.titan-embed-text-v2:0",
+                    dimensions=1024,
+                    embedding=vector_literal,
+                    organization_id=organization_id,
+                )
+            )
+
+    bedrock = AdaptiveBedrock()
+    try:
+        await _ensure_organizations()
+        bundle_v1, _digest_v1 = await _seed_bundle(
+            database,
+            organization_id="org_seller_a",
+            product_id=product_id,
+            version=1,
+        )
+        await add_embedding("org_seller_a", product_id, bundle_v1, 1, query_vector)
+        for index in range(1, 20):
+            other_product = f"product_other_{index:02d}_{suffix}"
+            organization_id = "org_seller_a" if index % 2 == 0 else "org_seller_b"
+            angle = 0.2 + index * 0.02
+            vector = (math.cos(angle), math.sin(angle)) + (0.0,) * 1022
+            bundle_id, _digest = await _seed_bundle(
+                database,
+                organization_id=organization_id,
+                product_id=other_product,
+                version=1,
+            )
+            await add_embedding(organization_id, other_product, bundle_id, 1, vector)
+
+        async with database.transaction("org_buyer") as session:
+            session.add(
+                QualificationMission(
+                    id=mission_id,
+                    buyer_context_version_id=f"context_{suffix}",
+                    buyer_context_hash=content_hash({"company": "Buyer"}),
+                    buyer_context_payload={"company": "Buyer"},
+                    requirement_brief_version_id=f"brief_{suffix}",
+                    requirement_brief_hash=content_hash({"category": category}),
+                    requirement_brief_payload={
+                        "category": category,
+                        "goal": "Choose EU-hosted meeting intelligence",
+                        "seller_visible_requirements": {"hosting_region": "EU"},
+                    },
+                    procurement_policy_version="policy-v1",
+                    procurement_policy_hash=content_hash({"human_approval": True}),
+                    procurement_policy_payload={"human_approval": True},
+                    trace_id=f"trace_worker_{suffix}",
+                    state="READY",
+                    version=1,
+                    organization_id="org_buyer",
+                )
+            )
+
+        worker = QualificationWorker(
+            worker_database=worker_database,
+            catalog_database=catalog_database,
+            embedding_client=TitanEmbeddingClient(client=bedrock),
+            bedrock_client=bedrock,
+            model_id="amazon.nova-micro-v1:0",
+            lease_owner="worker-test",
+        )
+        run_task = asyncio.create_task(
+            worker.run_mission(organization_id="org_buyer", mission_id=mission_id)
+        )
+        assert await asyncio.to_thread(first_model_call.wait, 10)
+        bundle_v2, _digest_v2 = await _seed_bundle(
+            database,
+            organization_id="org_seller_a",
+            product_id=product_id,
+            version=2,
+        )
+        await add_embedding("org_seller_a", product_id, bundle_v2, 2, query_vector)
+        resume_model.set()
+        result = await run_task
+
+        assert result.state == "COMPLETED"
+        assert result.decision_id is not None
+        assert len(result.attempts) == 2
+        async with database.transaction("org_buyer") as session:
+            attempts = (
+                await session.scalars(
+                    select(QualificationAttempt)
+                    .where(QualificationAttempt.mission_id == mission_id)
+                    .order_by(QualificationAttempt.replacement_depth)
+                )
+            ).all()
+            assert [attempt.state for attempt in attempts] == ["STALE", "COMPLETED"]
+            bundles = (
+                await session.scalars(
+                    select(QualificationMissionBundle)
+                    .where(
+                        QualificationMissionBundle.mission_id == mission_id,
+                        QualificationMissionBundle.product_id == product_id,
+                    )
+                    .order_by(QualificationMissionBundle.attempt_id)
+                )
+            ).all()
+            assert {bundle.bundle_id for bundle in bundles} == {bundle_v1, bundle_v2}
+    finally:
+        resume_model.set()
+        await database.close()
+        await worker_database.close()
+        await catalog_database.close()

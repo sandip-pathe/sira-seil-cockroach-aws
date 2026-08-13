@@ -202,7 +202,7 @@ class QualificationRepository:
                 select(QualificationMissionBundle)
                 .where(
                     QualificationMissionBundle.organization_id == self.organization_id,
-                    QualificationMissionBundle.mission_id == mission.id,
+                    QualificationMissionBundle.attempt_id == attempt.id,
                 )
                 .order_by(QualificationMissionBundle.product_id)
             )

@@ -280,6 +280,7 @@ class QualificationMissionBundle(Base, TenantOwned):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     mission_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    attempt_id: Mapped[str] = mapped_column(String(64), nullable=False)
     product_id: Mapped[str] = mapped_column(String(64), nullable=False)
     seller_organization_id: Mapped[str] = mapped_column(String(64), nullable=False)
     bundle_id: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -287,11 +288,19 @@ class QualificationMissionBundle(Base, TenantOwned):
 
     __table_args__ = (
         UniqueConstraint(
-            "organization_id", "mission_id", "product_id", name="uq_qualification_mission_product"
+            "organization_id",
+            "attempt_id",
+            "product_id",
+            name="uq_qualification_attempt_product",
         ),
         ForeignKeyConstraint(
             ["organization_id", "mission_id"],
             ["qualification_missions.organization_id", "qualification_missions.id"],
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "attempt_id"],
+            ["qualification_attempts.organization_id", "qualification_attempts.id"],
             ondelete="RESTRICT",
         ),
     )
@@ -486,6 +495,10 @@ class MarketplaceEngagement(Base, Timestamped):
     )
     product_id: Mapped[str] = mapped_column(String(64), nullable=False)
     input_digest: Mapped[str] = mapped_column(String(80), nullable=False)
+    buyer_safe_requirement: Mapped[dict[str, Any]] = mapped_column(
+        JSON_DOCUMENT, nullable=False
+    )
+    buyer_safe_hash: Mapped[str] = mapped_column(String(80), nullable=False)
     state: Mapped[str] = mapped_column(String(24), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
