@@ -20,6 +20,7 @@ from sqlalchemy.engine import make_url
 from integrations.automated_reasoning import BedrockAutomatedReasoningReviewer
 from integrations.aws_services import SqsFifoPublisher, create_aws_client
 from persistence.database import Database, DatabaseSettings
+from sira_worker.changefeed_consumer import ChangefeedHintConsumer, SqsHintClient
 from sira_worker.outbox_dispatcher import dispatch_batch
 from sira_worker.qualification import QualificationWorker
 from sira_worker.queue_consumer import QualificationQueueConsumer, SqsConsumerClient
@@ -31,7 +32,7 @@ _QUALIFICATION_EVENTS = frozenset({"QUALIFICATION_MISSION_READY"})
 class WorkerSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 
-    worker_mode: Literal["dispatcher", "qualification"] = Field(
+    worker_mode: Literal["dispatcher", "qualification", "changefeed"] = Field(
         default="qualification", validation_alias="SIRA_WORKER_MODE"
     )
     worker_database_url: SecretStr = Field(validation_alias="SIRA_WORKER_DATABASE_URL")
@@ -166,6 +167,30 @@ async def _run_qualification_worker(settings: WorkerSettings) -> None:
         await catalog_database.close()
 
 
+async def _run_changefeed_worker(settings: WorkerSettings) -> None:
+    if not settings.organization_ids:
+        raise ValueError("changefeed worker requires WORKER_ORGANIZATION_IDS")
+    database = _database(settings.worker_database_url)
+    sqs_client = create_aws_client("sqs", region=settings.aws_region, profile=settings.aws_profile)
+    consumer = ChangefeedHintConsumer(
+        client=cast(SqsHintClient, sqs_client),
+        queue_url=settings.queue_url,
+        database=database,
+        organization_ids=settings.organization_ids,
+    )
+    try:
+        while True:
+            try:
+                await consumer.poll_once()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("Changefeed hint failed; SQS will redeliver it")
+                await asyncio.sleep(settings.idle_delay_seconds)
+    finally:
+        await database.close()
+
+
 async def run() -> None:
     settings = WorkerSettings()
     settings.assert_safe_runtime()
@@ -176,8 +201,10 @@ async def run() -> None:
     logger.info("Starting SIRA worker mode=%s", settings.worker_mode)
     if settings.worker_mode == "dispatcher":
         await _run_dispatcher(settings)
-    else:
+    elif settings.worker_mode == "qualification":
         await _run_qualification_worker(settings)
+    else:
+        await _run_changefeed_worker(settings)
 
 
 def main() -> None:

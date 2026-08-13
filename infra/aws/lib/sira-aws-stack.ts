@@ -439,6 +439,7 @@ export class SiraAwsStack extends cdk.Stack {
     const webLogs = this.logGroup(`${name}/web`);
     const dispatcherLogs = this.logGroup(`${name}/dispatcher`);
     const workerLogs = this.logGroup(`${name}/qualification-worker`);
+    const changefeedWorkerLogs = this.logGroup(`${name}/changefeed-worker`);
 
     const apiTask = new ecs.FargateTaskDefinition(this, "ApiTask", {
       cpu: 512,
@@ -660,7 +661,31 @@ export class SiraAwsStack extends cdk.Stack {
     experimentRuntime.grantInvokeRuntime(qualificationTask.taskRole);
     this.service(cluster, "QualificationService", qualificationTask, 1);
 
-    this.observability(name, qualificationQueue, deadLetterQueue, apiTargetGroup);
+    const changefeedTask = this.workerTask(
+      "ChangefeedTask",
+      apiImage,
+      changefeedWorkerLogs,
+      {
+        APP_ENV: "production",
+        LOG_LEVEL: "INFO",
+        AWS_REGION: this.region,
+        SIRA_WORKER_MODE: "changefeed",
+        SIRA_SQS_QUEUE_URL: changefeedHintQueue.queueUrl,
+        WORKER_ORGANIZATION_IDS: props.workerOrganizationIds,
+      },
+      { SIRA_WORKER_DATABASE_URL: workerDatabaseSecret },
+    );
+    changefeedHintQueue.grantConsumeMessages(changefeedTask.taskRole);
+    this.service(cluster, "ChangefeedService", changefeedTask, 1);
+
+    this.observability(
+      name,
+      qualificationQueue,
+      deadLetterQueue,
+      changefeedHintQueue,
+      changefeedDeadLetterQueue,
+      apiTargetGroup,
+    );
 
     new cdk.CfnOutput(this, "ApplicationUrl", {
       value: applicationOrigin,
@@ -773,6 +798,8 @@ export class SiraAwsStack extends cdk.Stack {
     name: string,
     queue: sqs.Queue,
     deadLetterQueue: sqs.Queue,
+    changefeedQueue: sqs.Queue,
+    changefeedDeadLetterQueue: sqs.Queue,
     apiTargetGroup: elbv2.ApplicationTargetGroup,
   ): void {
     const dlqAlarm = new cloudwatch.Alarm(this, "DlqAlarm", {
@@ -787,6 +814,24 @@ export class SiraAwsStack extends cdk.Stack {
     const ageAlarm = new cloudwatch.Alarm(this, "QueueAgeAlarm", {
       alarmName: `${name}-qualification-oldest-message`,
       metric: queue.metricApproximateAgeOfOldestMessage({
+        period: cdk.Duration.minutes(1),
+      }),
+      threshold: 300,
+      evaluationPeriods: 2,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    const changefeedDlqAlarm = new cloudwatch.Alarm(this, "ChangefeedDlqAlarm", {
+      alarmName: `${name}-changefeed-dlq-not-empty`,
+      metric: changefeedDeadLetterQueue.metricApproximateNumberOfMessagesVisible({
+        period: cdk.Duration.minutes(1),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    const changefeedAgeAlarm = new cloudwatch.Alarm(this, "ChangefeedQueueAgeAlarm", {
+      alarmName: `${name}-changefeed-oldest-message`,
+      metric: changefeedQueue.metricApproximateAgeOfOldestMessage({
         period: cdk.Duration.minutes(1),
       }),
       threshold: 300,
@@ -809,6 +854,8 @@ export class SiraAwsStack extends cdk.Stack {
     dashboard.addWidgets(
       new cloudwatch.AlarmWidget({ title: "Qualification queue", alarm: ageAlarm }),
       new cloudwatch.AlarmWidget({ title: "Dead letters", alarm: dlqAlarm }),
+      new cloudwatch.AlarmWidget({ title: "Changefeed hints", alarm: changefeedAgeAlarm }),
+      new cloudwatch.AlarmWidget({ title: "Changefeed dead letters", alarm: changefeedDlqAlarm }),
       new cloudwatch.AlarmWidget({ title: "Application 5xx", alarm: apiAlarm }),
     );
   }

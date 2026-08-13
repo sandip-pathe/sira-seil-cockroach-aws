@@ -59,6 +59,13 @@ class FinalizationResult:
     replacement_attempt_id: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class BundleInvalidationResult:
+    product_id: str
+    invalidated_decision_ids: tuple[str, ...]
+    replacement_attempt_ids: tuple[str, ...]
+
+
 class QualificationRepository:
     """Apply the P0 invariants inside one caller-owned transaction."""
 
@@ -148,6 +155,104 @@ class QualificationRepository:
             },
         )
         return bundle
+
+    async def invalidate_decisions_for_active_bundle(
+        self, *, product_id: str
+    ) -> BundleInvalidationResult:
+        """Re-read the active pointer and retire buyer decisions pinned to older truth.
+
+        The CDC payload is intentionally ignored. This method runs in each buyer tenant,
+        relies on Cockroach's public active-pointer read policy, and leaves already-issued
+        commercial effects as immutable history. Any replacement still travels through the
+        normal queue, snapshot, Bedrock and fenced-finalization path.
+        """
+
+        rows = (
+            await self.session.execute(
+                select(QualificationDecision, DecisionDependency)
+                .join(
+                    DecisionDependency,
+                    (DecisionDependency.organization_id == QualificationDecision.organization_id)
+                    & (DecisionDependency.decision_id == QualificationDecision.id),
+                )
+                .where(
+                    QualificationDecision.organization_id == self.organization_id,
+                    QualificationDecision.current.is_(True),
+                    DecisionDependency.dependency_kind == "PRODUCT_BUNDLE",
+                    DecisionDependency.dependency_id == product_id,
+                )
+                .order_by(QualificationDecision.id)
+            )
+        ).all()
+        invalidated: list[str] = []
+        replacements: list[str] = []
+        for decision, dependency in rows:
+            active = await self.session.scalar(
+                select(ActiveProductBundle).where(
+                    ActiveProductBundle.organization_id
+                    == dependency.dependency_organization_id,
+                    ActiveProductBundle.product_id == product_id,
+                )
+            )
+            if (
+                active is not None
+                and active.bundle_id == dependency.dependency_version
+                and active.bundle_digest == dependency.dependency_hash
+            ):
+                continue
+            decision.current = False
+            decision.approval_state = "INVALIDATED"
+            invalidated.append(decision.id)
+            engagements = (
+                await self.session.scalars(
+                    select(MarketplaceEngagement).where(
+                        MarketplaceEngagement.buyer_organization_id == self.organization_id,
+                        MarketplaceEngagement.decision_id == decision.id,
+                        MarketplaceEngagement.state.notin_(("INTRODUCED", "EXPIRED")),
+                    )
+                )
+            ).all()
+            for engagement in engagements:
+                engagement.state = "INVALIDATED"
+            if active is None:
+                continue
+            attempt = await self.session.scalar(
+                select(QualificationAttempt).where(
+                    QualificationAttempt.organization_id == self.organization_id,
+                    QualificationAttempt.id == decision.attempt_id,
+                )
+            )
+            mission = await self.session.scalar(
+                select(QualificationMission).where(
+                    QualificationMission.organization_id == self.organization_id,
+                    QualificationMission.id == decision.mission_id,
+                )
+            )
+            if attempt is None or mission is None or mission.state in {"FAILED", "CANCELLED"}:
+                continue
+            replacement = await self._replacement_for(attempt)
+            mission.state = "READY"
+            replacements.append(replacement.id)
+            self._outbox(
+                event_type="QUALIFICATION_MISSION_READY",
+                aggregate_type="QUALIFICATION_MISSION",
+                aggregate_id=mission.id,
+                event_key=(
+                    f"qualification-mission-ready:{mission.id}:"
+                    f"bundle:{product_id}:{active.generation}"
+                ),
+                payload={
+                    "mission_id": mission.id,
+                    "trace_id": mission.trace_id,
+                    "organization_id": self.organization_id,
+                    "reason": "ACTIVE_PRODUCT_BUNDLE_CHANGED",
+                    "product_id": product_id,
+                    "replacement_attempt_id": replacement.id,
+                },
+            )
+        if invalidated:
+            await self.session.flush()
+        return BundleInvalidationResult(product_id, tuple(invalidated), tuple(replacements))
 
     async def claim_attempt(
         self,

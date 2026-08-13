@@ -24,8 +24,8 @@ function template(): Template {
 test("synthesizes isolated durable application topology", () => {
   const rendered = template();
 
-  rendered.resourceCountIs("AWS::ECS::Service", 4);
-  rendered.resourceCountIs("AWS::ECS::TaskDefinition", 4);
+  rendered.resourceCountIs("AWS::ECS::Service", 5);
+  rendered.resourceCountIs("AWS::ECS::TaskDefinition", 5);
   rendered.resourceCountIs("AWS::SQS::Queue", 4);
   rendered.resourceCountIs("AWS::S3::Bucket", 1);
   rendered.resourceCountIs("AWS::CloudFront::Distribution", 1);
@@ -105,6 +105,8 @@ test("bridges authenticated at-least-once changefeed hints through a bounded Lam
   assert.match(serialized, /secretsmanager:GetSecretValue/);
   assert.match(serialized, /changefeed-hint\.fifo/);
   assert.match(serialized, /changefeed-hint-dlq\.fifo/);
+  assert.match(serialized, /SIRA_WORKER_MODE/);
+  assert.match(serialized, /changefeed/);
 });
 
 test("keeps Automated Reasoning explanatory and gives it an immutable policy version", () => {
@@ -159,7 +161,7 @@ test("keeps tasks private and gives Bedrock only to the qualification role", () 
   const rendered = template();
 
   const services = rendered.findResources("AWS::ECS::Service");
-  assert.equal(Object.keys(services).length, 4);
+  assert.equal(Object.keys(services).length, 5);
   for (const service of Object.values(services)) {
     assert.equal(
       service.Properties.NetworkConfiguration.AwsvpcConfiguration.AssignPublicIp,

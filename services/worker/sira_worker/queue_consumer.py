@@ -37,6 +37,20 @@ class QualificationPayload(BaseModel):
     mission_id: str = Field(pattern=r"^qmission_[a-f0-9]{32}$")
     trace_id: str = Field(min_length=1, max_length=128)
     organization_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,48}$")
+    reason: str | None = Field(default=None, pattern=r"^ACTIVE_PRODUCT_BUNDLE_CHANGED$")
+    product_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    replacement_attempt_id: str | None = Field(
+        default=None, pattern=r"^qattempt_[a-f0-9]{32}$"
+    )
+
+    @model_validator(mode="after")
+    def replacement_metadata_is_complete(self) -> QualificationPayload:
+        values = (self.reason, self.product_id, self.replacement_attempt_id)
+        if any(value is not None for value in values) and not all(
+            value is not None for value in values
+        ):
+            raise ValueError("bundle replacement metadata must be complete")
+        return self
 
 
 class QualificationEnvelope(BaseModel):
@@ -58,7 +72,8 @@ class QualificationEnvelope(BaseModel):
             raise ValueError("queue envelope organization scope is inconsistent")
         if self.aggregate_id != self.payload.mission_id:
             raise ValueError("queue envelope mission identity is inconsistent")
-        if self.event_key != f"qualification-mission-ready:{self.aggregate_id}":
+        base_key = f"qualification-mission-ready:{self.aggregate_id}"
+        if self.event_key != base_key and not self.event_key.startswith(f"{base_key}:bundle:"):
             raise ValueError("queue envelope event key is inconsistent")
         return self
 

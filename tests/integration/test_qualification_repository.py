@@ -7,11 +7,12 @@ from sqlalchemy import select
 
 from domain import content_hash
 from persistence.database import Database, DatabaseSettings
-from persistence.models import Base
+from persistence.models import Base, OutboxEvent
 from persistence.qualification_models import (
     ActiveProductBundle,
     CatalogProjectionVersion,
     DecisionDependency,
+    MarketplaceEngagement,
     ProductBundle,
     ProductBundleMember,
     ProductTwinVersion,
@@ -319,5 +320,88 @@ async def test_repository_invalidates_stale_bundle_and_creates_one_replacement()
             assert stale_attempt is not None
             replacement = await repository._replacement_for(stale_attempt)
             assert replacement.id == stale.replacement_attempt_id
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_bundle_hint_reread_invalidates_current_decision_and_schedules_once() -> None:
+    database = await _database()
+    bundle_v1, digest_v1 = await _seed_bundle(database, version=1)
+    await _seed_mission_attempt(
+        database,
+        bundle_id=bundle_v1,
+        bundle_digest=digest_v1,
+        attempt_id="attempt-hint",
+    )
+    try:
+        async with database.transaction("org_seller") as session:
+            await QualificationRepository(session, "org_seller").activate_bundle(
+                bundle_id=bundle_v1, actor_id="seller", expected_digest=digest_v1
+            )
+        async with database.transaction("org_buyer") as session:
+            repository = QualificationRepository(session, "org_buyer")
+            lease = await repository.claim_attempt(
+                attempt_id="attempt-hint", lease_owner="worker", lease_seconds=300
+            )
+            await repository.snapshot_attempt(lease=lease)
+            completed = await repository.finalize_attempt(
+                lease=lease,
+                recommended_product_id="product-qualified",
+                payload={"summary": "qualified"},
+                cited_dependency_ids=frozenset({"product-qualified", "catalog-1"}),
+            )
+            mission = await session.get(QualificationMission, "mission-attempt-hint")
+            assert mission is not None
+            mission.state = "AWAITING_APPROVAL"
+            session.add(
+                MarketplaceEngagement(
+                    id="engagement-hint",
+                    mission_id=mission.id,
+                    decision_id=str(completed.decision_id),
+                    buyer_organization_id="org_buyer",
+                    seller_organization_id="org_seller",
+                    product_id="product-qualified",
+                    input_digest=str(lease.attempt_id),
+                    buyer_safe_requirement={"hosting": "EU"},
+                    buyer_safe_hash=content_hash({"hosting": "EU"}),
+                    state="OPEN",
+                    expires_at=datetime.now(UTC),
+                )
+            )
+
+        bundle_v2, digest_v2 = await _seed_bundle(database, version=2)
+        async with database.transaction("org_seller") as session:
+            await QualificationRepository(session, "org_seller").activate_bundle(
+                bundle_id=bundle_v2, actor_id="seller", expected_digest=digest_v2
+            )
+
+        async with database.transaction("org_buyer") as session:
+            repository = QualificationRepository(session, "org_buyer")
+            first = await repository.invalidate_decisions_for_active_bundle(
+                product_id="product-qualified"
+            )
+            second = await repository.invalidate_decisions_for_active_bundle(
+                product_id="product-qualified"
+            )
+            assert first.invalidated_decision_ids == (completed.decision_id,)
+            assert len(first.replacement_attempt_ids) == 1
+            assert second.invalidated_decision_ids == ()
+            decision = await session.get(QualificationDecision, completed.decision_id)
+            engagement = await session.get(MarketplaceEngagement, "engagement-hint")
+            mission = await session.get(QualificationMission, "mission-attempt-hint")
+            assert decision is not None and decision.current is False
+            assert decision.approval_state == "INVALIDATED"
+            assert engagement is not None and engagement.state == "INVALIDATED"
+            assert mission is not None and mission.state == "READY"
+            ready_events = (
+                await session.scalars(
+                    select(OutboxEvent).where(
+                        OutboxEvent.event_type == "QUALIFICATION_MISSION_READY",
+                        OutboxEvent.event_key.like("%:bundle:product-qualified:%"),
+                    )
+                )
+            ).all()
+            assert len(ready_events) == 1
     finally:
         await database.close()
