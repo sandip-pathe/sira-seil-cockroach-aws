@@ -4,20 +4,23 @@ import type { QualificationIntegrityView, QualificationMissionView } from "@sira
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
+  Archive,
   BadgeCheck,
+  BookOpen,
   Check,
   CircleAlert,
   Database,
   GitCompareArrows,
   LoaderCircle,
   LockKeyhole,
+  Plus,
   RefreshCw,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import {
   buyerDevelopmentHeaders,
@@ -118,6 +121,21 @@ export function QualificationHome() {
     "Select an EU-hosted meeting intelligence platform for our 40-person sales team.",
   );
   const [budget, setBudget] = useState("25000");
+  const [selectedContext, setSelectedContext] = useState<string[]>([]);
+  const contextInitialized = useRef(false);
+  const context = useQuery({
+    queryKey: ["company-context", "active"],
+    queryFn: () => getBrowserApiClient().request("qualification_list_company_context", {
+      headers: buyerDevelopmentHeaders,
+      query: { include_retired: false },
+    }),
+  });
+  useEffect(() => {
+    if (!contextInitialized.current && context.data) {
+      setSelectedContext(context.data.items.map((item) => text(item.id)).filter(Boolean));
+      contextInitialized.current = true;
+    }
+  }, [context.data]);
 
   const create = useMutation({
     mutationFn: () => getBrowserApiClient().request("qualification_create_mission", {
@@ -125,6 +143,7 @@ export function QualificationHome() {
       idempotencyKey: createIdempotencyKey("qualification-mission"),
       body: {
         buyer_context: { company, annual_budget: budget, decision_owner: "Revenue operations" },
+        company_context_item_ids: selectedContext,
         requirement_brief: {
           category,
           goal,
@@ -194,6 +213,34 @@ export function QualificationHome() {
             <input id="company" value={company} onChange={(event) => setCompany(event.target.value)} required maxLength={120} />
           </div>
           <div className={styles.field}>
+            <div className={styles.fieldLabelRow}>
+              <label>Company memory</label>
+              <Link className={styles.inlineLink} href="/sira/company-memory">Manage</Link>
+            </div>
+            {context.isLoading ? <span className={styles.fieldHint}>Loading durable context...</span> : null}
+            {context.data?.items.length === 0 ? (
+              <span className={styles.fieldHint}>No saved context yet. The mission can still use its private one-time brief.</span>
+            ) : (
+              <div className={styles.contextPicker}>
+                {context.data?.items.map((item) => {
+                  const id = text(item.id);
+                  return (
+                    <label className={styles.contextChoice} key={id}>
+                      <input
+                        type="checkbox"
+                        checked={selectedContext.includes(id)}
+                        onChange={(event) => setSelectedContext((current) => event.target.checked
+                          ? [...current, id]
+                          : current.filter((value) => value !== id))}
+                      />
+                      <span><strong>{text(item.label)}</strong><small>{text(item.kind)} · v{number(item.current_version)}</small></span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className={styles.field}>
             <label htmlFor="category">Category</label>
             <input id="category" value={category} onChange={(event) => setCategory(event.target.value)} required minLength={2} maxLength={80} />
           </div>
@@ -217,6 +264,128 @@ export function QualificationHome() {
             {create.isPending ? "Committing mission…" : "Commit mission to CockroachDB"}
           </button>
         </div>
+      </div>
+    </MarketplaceShell>
+  );
+}
+
+export function CompanyContextManager() {
+  const queryClient = useQueryClient();
+  const [kind, setKind] = useState<"REQUIREMENT" | "CONSTRAINT" | "STACK" | "POLICY" | "PREFERENCE" | "NOTE">("CONSTRAINT");
+  const [label, setLabel] = useState("");
+  const [statement, setStatement] = useState("");
+  const [editing, setEditing] = useState<JsonMap | null>(null);
+  const context = useQuery({
+    queryKey: ["company-context", "all"],
+    queryFn: () => getBrowserApiClient().request("qualification_list_company_context", {
+      headers: buyerDevelopmentHeaders,
+      query: { include_retired: true },
+    }),
+  });
+  const save = useMutation({
+    mutationFn: () => editing
+      ? getBrowserApiClient().request("qualification_update_company_context", {
+          pathParams: { item_id: text(editing.id) },
+          headers: { ...buyerDevelopmentHeaders, "If-Match": text(editing.etag) },
+          idempotencyKey: createIdempotencyKey("company-context-update"),
+          body: {
+            label,
+            payload: { statement },
+            change_reason: "Buyer corrected durable company context",
+          },
+        })
+      : getBrowserApiClient().request("qualification_create_company_context", {
+          headers: buyerDevelopmentHeaders,
+          idempotencyKey: createIdempotencyKey("company-context-create"),
+          body: {
+            kind,
+            label,
+            payload: { statement },
+            change_reason: "Buyer added durable company context",
+          },
+        }),
+    onSuccess: async () => {
+      setLabel("");
+      setStatement("");
+      setEditing(null);
+      await queryClient.invalidateQueries({ queryKey: ["company-context"] });
+    },
+  });
+  const retire = useMutation({
+    mutationFn: (item: JsonMap) => getBrowserApiClient().request(
+      "qualification_retire_company_context",
+      {
+        pathParams: { item_id: text(item.id) },
+        headers: { ...buyerDevelopmentHeaders, "If-Match": text(item.etag) },
+        idempotencyKey: createIdempotencyKey("company-context-retire"),
+      },
+    ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["company-context"] }),
+  });
+
+  const beginEdit = (item: JsonMap) => {
+    setEditing(item);
+    setKind(text(item.kind, "NOTE") as typeof kind);
+    setLabel(text(item.label));
+    setStatement(text(map(item.payload).statement));
+  };
+
+  return (
+    <MarketplaceShell>
+      <section className={styles.contextHero}>
+        <p className={styles.eyebrow}><BookOpen size={15} /> Versioned company context</p>
+        <h1 className={styles.sectionTitle}>Company memory you can inspect and correct.</h1>
+        <p className={styles.lead}>Structured buyer facts remain private, immutable by version, and explicitly pinned into each mission. Retiring a fact never rewrites prior decisions.</p>
+      </section>
+      <div className={styles.contextLayout}>
+        <section className={`${styles.card} ${styles.formCard}`}>
+          <div className={styles.formHead}>
+            <h2>{editing ? "Publish a correction" : "Add company context"}</h2>
+            <span className={styles.stepBadge}>{editing ? `v${number(editing.current_version) + 1}` : "New"}</span>
+          </div>
+          <div className={styles.field}>
+            <label htmlFor="context-kind">Type</label>
+            <select id="context-kind" value={kind} disabled={Boolean(editing)} onChange={(event) => setKind(event.target.value as typeof kind)}>
+              {(["REQUIREMENT", "CONSTRAINT", "STACK", "POLICY", "PREFERENCE", "NOTE"] as const).map((value) => <option key={value}>{value}</option>)}
+            </select>
+          </div>
+          <div className={styles.field}>
+            <label htmlFor="context-label">Label</label>
+            <input id="context-label" value={label} maxLength={160} onChange={(event) => setLabel(event.target.value)} placeholder="EU data residency" />
+          </div>
+          <div className={styles.field}>
+            <label htmlFor="context-statement">Authoritative statement</label>
+            <textarea id="context-statement" value={statement} maxLength={2000} onChange={(event) => setStatement(event.target.value)} placeholder="Customer data must remain inside the European Union." />
+          </div>
+          {save.error ? <ErrorPanel error={save.error} /> : null}
+          <div className={styles.buttonRow}>
+            <button className={styles.button} type="button" disabled={save.isPending || label.length < 2 || statement.length < 2} onClick={() => save.mutate()}>
+              <Plus size={16} /> {editing ? "Publish correction" : "Save context"}
+            </button>
+            {editing ? <button className={styles.secondaryButton} type="button" onClick={() => { setEditing(null); setLabel(""); setStatement(""); }}>Cancel</button> : null}
+          </div>
+        </section>
+        <section className={styles.contextStack} aria-live="polite">
+          {context.isLoading ? <LoadingPanel /> : null}
+          {context.error ? <ErrorPanel error={context.error} retry={() => context.refetch()} /> : null}
+          {context.data?.items.length === 0 ? <div className={styles.empty}><BookOpen size={22} /><strong>No durable context yet.</strong><span>Add the first reusable buyer fact.</span></div> : null}
+          {context.data?.items.map((item) => (
+            <article className={`${styles.panel} ${styles.contextCard}`} key={text(item.id)}>
+              <div className={styles.contextCardHead}>
+                <div><span className={styles.pill}>{text(item.kind)}</span><h2>{text(item.label)}</h2></div>
+                <StateBadge value={text(item.state)} />
+              </div>
+              <p>{text(map(item.payload).statement, "Structured context payload")}</p>
+              <div className={styles.contextMeta}><span>Version {number(item.current_version)}</span><code>{shortHash(item.current_hash)}</code></div>
+              {text(item.state) === "ACTIVE" ? (
+                <div className={styles.buttonRow}>
+                  <button className={styles.secondaryButton} type="button" onClick={() => beginEdit(item)}>Correct</button>
+                  <button className={styles.secondaryButton} type="button" disabled={retire.isPending} onClick={() => retire.mutate(item)}><Archive size={15} /> Retire</button>
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </section>
       </div>
     </MarketplaceShell>
   );

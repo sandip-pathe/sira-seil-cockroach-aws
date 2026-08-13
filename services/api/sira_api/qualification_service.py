@@ -17,6 +17,8 @@ from persistence.qualification_models import (
     AttemptCheckpoint,
     AttemptDependency,
     BuyerEngagementProjection,
+    CompanyContextItem,
+    CompanyContextVersion,
     DecisionDependency,
     MarketplaceConsent,
     MarketplaceEngagement,
@@ -62,6 +64,247 @@ class QualificationService:
     ) -> None:
         self.database = database
         self.allow_development_tenant_bootstrap = allow_development_tenant_bootstrap
+
+    async def list_company_context(
+        self, organization_id: str, *, include_retired: bool = False
+    ) -> dict[str, Any]:
+        async with self.database.transaction(organization_id) as session:
+            query = select(CompanyContextItem).where(
+                CompanyContextItem.organization_id == organization_id
+            )
+            if not include_retired:
+                query = query.where(CompanyContextItem.state == "ACTIVE")
+            items = (
+                await session.scalars(
+                    query.order_by(CompanyContextItem.kind, CompanyContextItem.label)
+                )
+            ).all()
+            return {"items": [await self._context_payload(session, item) for item in items]}
+
+    async def company_context_view(
+        self, organization_id: str, item_id: str
+    ) -> dict[str, Any]:
+        async with self.database.transaction(organization_id) as session:
+            item = await self._company_context_item(session, organization_id, item_id)
+            versions = (
+                await session.scalars(
+                    select(CompanyContextVersion)
+                    .where(
+                        CompanyContextVersion.organization_id == organization_id,
+                        CompanyContextVersion.item_id == item.id,
+                    )
+                    .order_by(CompanyContextVersion.version.desc())
+                )
+            ).all()
+            return {
+                "item": await self._context_payload(session, item),
+                "versions": [self._context_version_payload(version) for version in versions],
+            }
+
+    async def create_company_context(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        idempotency_key: str,
+        body: dict[str, Any],
+    ) -> tuple[int, dict[str, Any]]:
+        request_hash = content_hash(body)
+
+        async def write(session: AsyncSession) -> tuple[int, dict[str, Any]]:
+            repository = WorkflowRepository(session, organization_id)
+            claim = await repository.claim_idempotency(
+                actor_id=actor_id,
+                operation="qualification.company_context.create",
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+            )
+            if claim.replay:
+                payload = dict(claim.record.response_payload or {})
+                payload["replayed"] = True
+                return int(claim.record.response_status or 201), payload
+            item_id = new_id("ctxitem")
+            version_id = new_id("ctxver")
+            payload = dict(body["payload"])
+            digest = content_hash(payload)
+            item = CompanyContextItem(
+                id=item_id,
+                kind=body["kind"],
+                label=body["label"],
+                state="ACTIVE",
+                current_version_id=version_id,
+                current_version=1,
+                current_hash=digest,
+                organization_id=organization_id,
+            )
+            session.add(item)
+            session.add(
+                CompanyContextVersion(
+                    id=version_id,
+                    item_id=item_id,
+                    version=1,
+                    content_hash=digest,
+                    payload=payload,
+                    changed_by_actor_id=actor_id,
+                    change_reason=body["change_reason"],
+                    organization_id=organization_id,
+                )
+            )
+            await repository.add_outbox(
+                aggregate_type="COMPANY_CONTEXT_ITEM",
+                aggregate_id=item_id,
+                event_type="COMPANY_CONTEXT_VERSION_PUBLISHED",
+                event_key=f"company-context-version:{version_id}",
+                payload={"item_id": item_id, "version_id": version_id, "content_hash": digest},
+            )
+            response = {
+                "resource_type": "company_context_item",
+                "resource_id": item_id,
+                "state": "ACTIVE",
+                "input_digest": digest,
+                "replayed": False,
+            }
+            await repository.complete_idempotency(
+                claim.record,
+                response_status=201,
+                response_payload=response,
+                response_reference=item_id,
+            )
+            return 201, response
+
+        return await self.database.run_retryable(organization_id, write)
+
+    async def update_company_context(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        item_id: str,
+        if_match: str,
+        idempotency_key: str,
+        body: dict[str, Any],
+    ) -> tuple[int, dict[str, Any]]:
+        request_hash = content_hash(body)
+
+        async def write(session: AsyncSession) -> tuple[int, dict[str, Any]]:
+            item = await self._company_context_item(session, organization_id, item_id)
+            _verify_match(if_match, item.current_hash)
+            if item.state != "ACTIVE":
+                raise ApiProblem(
+                    code="COMPANY_CONTEXT_RETIRED",
+                    message="Retired context cannot be revised.",
+                    status_code=409,
+                    next_action="create_replacement_context",
+                )
+            repository = WorkflowRepository(session, organization_id)
+            claim = await repository.claim_idempotency(
+                actor_id=actor_id,
+                operation=f"qualification.company_context.update:{item_id}",
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+            )
+            if claim.replay:
+                payload = dict(claim.record.response_payload or {})
+                payload["replayed"] = True
+                return int(claim.record.response_status or 200), payload
+            payload = dict(body["payload"])
+            digest = content_hash(payload)
+            if digest == item.current_hash and body["label"] == item.label:
+                raise ApiProblem(
+                    code="COMPANY_CONTEXT_UNCHANGED",
+                    message="The proposed revision is identical to the current version.",
+                    status_code=409,
+                    next_action="change_context_or_cancel",
+                )
+            version_id = new_id("ctxver")
+            version = item.current_version + 1
+            session.add(
+                CompanyContextVersion(
+                    id=version_id,
+                    item_id=item.id,
+                    version=version,
+                    content_hash=digest,
+                    payload=payload,
+                    changed_by_actor_id=actor_id,
+                    change_reason=body["change_reason"],
+                    organization_id=organization_id,
+                )
+            )
+            item.label = body["label"]
+            item.current_version_id = version_id
+            item.current_version = version
+            item.current_hash = digest
+            await repository.add_outbox(
+                aggregate_type="COMPANY_CONTEXT_ITEM",
+                aggregate_id=item.id,
+                event_type="COMPANY_CONTEXT_VERSION_PUBLISHED",
+                event_key=f"company-context-version:{version_id}",
+                payload={"item_id": item.id, "version_id": version_id, "content_hash": digest},
+            )
+            response = {
+                "resource_type": "company_context_item",
+                "resource_id": item.id,
+                "state": item.state,
+                "input_digest": digest,
+                "replayed": False,
+            }
+            await repository.complete_idempotency(
+                claim.record,
+                response_status=200,
+                response_payload=response,
+                response_reference=item.id,
+            )
+            return 200, response
+
+        return await self.database.run_retryable(organization_id, write)
+
+    async def retire_company_context(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        item_id: str,
+        if_match: str,
+        idempotency_key: str,
+    ) -> tuple[int, dict[str, Any]]:
+        async def write(session: AsyncSession) -> tuple[int, dict[str, Any]]:
+            item = await self._company_context_item(session, organization_id, item_id)
+            _verify_match(if_match, item.current_hash)
+            repository = WorkflowRepository(session, organization_id)
+            claim = await repository.claim_idempotency(
+                actor_id=actor_id,
+                operation=f"qualification.company_context.retire:{item_id}",
+                idempotency_key=idempotency_key,
+                request_hash=content_hash({"item_id": item_id, "digest": item.current_hash}),
+            )
+            if claim.replay:
+                payload = dict(claim.record.response_payload or {})
+                payload["replayed"] = True
+                return int(claim.record.response_status or 200), payload
+            item.state = "RETIRED"
+            await repository.add_outbox(
+                aggregate_type="COMPANY_CONTEXT_ITEM",
+                aggregate_id=item.id,
+                event_type="COMPANY_CONTEXT_RETIRED",
+                event_key=f"company-context-retired:{item.id}:{item.current_hash}",
+                payload={"item_id": item.id, "content_hash": item.current_hash},
+            )
+            response = {
+                "resource_type": "company_context_item",
+                "resource_id": item.id,
+                "state": "RETIRED",
+                "input_digest": item.current_hash,
+                "replayed": False,
+            }
+            await repository.complete_idempotency(
+                claim.record,
+                response_status=200,
+                response_payload=response,
+                response_reference=item.id,
+            )
+            return 200, response
+
+        return await self.database.run_retryable(organization_id, write)
 
     async def create_mission(
         self,
@@ -109,6 +352,47 @@ class QualificationService:
                 return int(claim.record.response_status or 201), payload
             mission_id = new_id("qmission")
             buyer_context = dict(body["buyer_context"])
+            context_item_ids = list(body.get("company_context_item_ids", []))
+            if context_item_ids:
+                context_items = (
+                    await session.scalars(
+                        select(CompanyContextItem).where(
+                            CompanyContextItem.organization_id == organization_id,
+                            CompanyContextItem.id.in_(context_item_ids),
+                            CompanyContextItem.state == "ACTIVE",
+                        )
+                    )
+                ).all()
+                if {item.id for item in context_items} != set(context_item_ids):
+                    raise ApiProblem(
+                        code="COMPANY_CONTEXT_SELECTION_INVALID",
+                        message="One or more selected context items are missing or retired.",
+                        status_code=409,
+                        next_action="reload_company_context",
+                    )
+                versions = (
+                    await session.scalars(
+                        select(CompanyContextVersion).where(
+                            CompanyContextVersion.organization_id == organization_id,
+                            CompanyContextVersion.id.in_(
+                                [item.current_version_id for item in context_items]
+                            ),
+                        )
+                    )
+                ).all()
+                by_id = {version.id: version for version in versions}
+                buyer_context["company_memory"] = [
+                    {
+                        "item_id": item.id,
+                        "kind": item.kind,
+                        "label": item.label,
+                        "version_id": item.current_version_id,
+                        "version": item.current_version,
+                        "content_hash": item.current_hash,
+                        "payload": by_id[item.current_version_id].payload,
+                    }
+                    for item in sorted(context_items, key=lambda value: value.id)
+                ]
             brief = dict(body["requirement_brief"])
             policy = dict(body["procurement_policy"])
             mission = QualificationMission(
@@ -1058,6 +1342,57 @@ class QualificationService:
             "shared_fields_hash": introduction.shared_fields_hash,
             "receipt": introduction.receipt_payload,
             "created_at": _timestamp(introduction.created_at),
+        }
+
+    async def _company_context_item(
+        self, session: AsyncSession, organization_id: str, item_id: str
+    ) -> CompanyContextItem:
+        item = await session.scalar(
+            select(CompanyContextItem).where(
+                CompanyContextItem.organization_id == organization_id,
+                CompanyContextItem.id == item_id,
+            )
+        )
+        if item is None:
+            raise self._not_found("COMPANY_CONTEXT", "Company context item was not found.")
+        return item
+
+    async def _context_payload(
+        self, session: AsyncSession, item: CompanyContextItem
+    ) -> dict[str, Any]:
+        version = await session.scalar(
+            select(CompanyContextVersion).where(
+                CompanyContextVersion.organization_id == item.organization_id,
+                CompanyContextVersion.id == item.current_version_id,
+                CompanyContextVersion.content_hash == item.current_hash,
+            )
+        )
+        if version is None:
+            raise PersistenceConflict("company context head has no immutable version")
+        return {
+            "id": item.id,
+            "kind": item.kind,
+            "label": item.label,
+            "state": item.state,
+            "current_version_id": item.current_version_id,
+            "current_version": item.current_version,
+            "current_hash": item.current_hash,
+            "etag": _etag_value(item.current_hash),
+            "payload": version.payload,
+            "created_at": _timestamp(item.created_at),
+            "updated_at": _timestamp(item.updated_at),
+        }
+
+    @staticmethod
+    def _context_version_payload(version: CompanyContextVersion) -> dict[str, Any]:
+        return {
+            "id": version.id,
+            "version": version.version,
+            "content_hash": version.content_hash,
+            "payload": version.payload,
+            "changed_by_actor_id": version.changed_by_actor_id,
+            "change_reason": version.change_reason,
+            "created_at": _timestamp(version.created_at),
         }
 
     @staticmethod

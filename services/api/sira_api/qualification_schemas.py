@@ -57,6 +57,7 @@ class RequirementBriefCreate(StrictModel):
 
 class QualificationMissionCreate(StrictModel):
     buyer_context: dict[str, Any]
+    company_context_item_ids: list[str] = Field(default_factory=list, max_length=100)
     requirement_brief: RequirementBriefCreate
     procurement_policy: dict[str, Any]
 
@@ -64,6 +65,49 @@ class QualificationMissionCreate(StrictModel):
     @classmethod
     def exact_private_inputs(cls, value: dict[str, Any]) -> dict[str, Any]:
         return cast(dict[str, Any], _validate_exact_json(value))
+
+    @field_validator("company_context_item_ids")
+    @classmethod
+    def unique_context_items(cls, value: list[str]) -> list[str]:
+        if len(value) != len(set(value)):
+            raise ValueError("company context item IDs must be unique")
+        return value
+
+
+class CompanyContextCreate(StrictModel):
+    kind: Literal["REQUIREMENT", "CONSTRAINT", "STACK", "POLICY", "PREFERENCE", "NOTE"]
+    label: str = Field(min_length=2, max_length=160)
+    payload: dict[str, Any]
+    change_reason: str = Field(min_length=3, max_length=500)
+
+    @field_validator("payload")
+    @classmethod
+    def exact_payload(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if not value:
+            raise ValueError("payload must not be empty")
+        return cast(dict[str, Any], _validate_exact_json(value, path="payload"))
+
+
+class CompanyContextUpdate(StrictModel):
+    label: str = Field(min_length=2, max_length=160)
+    payload: dict[str, Any]
+    change_reason: str = Field(min_length=3, max_length=500)
+
+    @field_validator("payload")
+    @classmethod
+    def exact_payload(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if not value:
+            raise ValueError("payload must not be empty")
+        return cast(dict[str, Any], _validate_exact_json(value, path="payload"))
+
+
+class CompanyContextList(StrictModel):
+    items: list[dict[str, Any]]
+
+
+class CompanyContextView(StrictModel):
+    item: dict[str, Any]
+    versions: list[dict[str, Any]]
 
 
 class QualificationApprovalCreate(StrictModel):

@@ -225,6 +225,115 @@
   font-size: 11px;
 }
 
+.fieldLabelRow,
+.contextCardHead,
+.contextMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.inlineLink {
+  color: var(--sira);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.contextPicker {
+  display: grid;
+  gap: 8px;
+  max-height: 168px;
+  overflow: auto;
+}
+
+.contextChoice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgb(248 247 243 / 75%);
+  cursor: pointer;
+}
+
+.contextChoice input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+}
+
+.contextChoice strong,
+.contextChoice small {
+  display: block;
+}
+
+.contextChoice strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.contextChoice small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.contextHero {
+  max-width: 820px;
+  margin-bottom: 42px;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-brand);
+  font-size: clamp(36px, 5vw, 62px);
+  line-height: 1.02;
+  letter-spacing: -0.055em;
+}
+
+.contextLayout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.78fr) minmax(0, 1.22fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.contextStack {
+  display: grid;
+  gap: 14px;
+}
+
+.contextCard {
+  padding: 24px;
+}
+
+.contextCardHead h2 {
+  margin-top: 9px;
+}
+
+.contextCard p {
+  margin: 18px 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.contextMeta {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.contextMeta code {
+  color: var(--ink);
+  font-family: var(--font-mono);
+}
+
 .button,
 .secondaryButton,
 .dangerButton {
@@ -584,7 +693,8 @@
 
 @media (max-width: 900px) {
   .hero,
-  .dashboard {
+  .dashboard,
+  .contextLayout {
     grid-template-columns: 1fr;
   }
 

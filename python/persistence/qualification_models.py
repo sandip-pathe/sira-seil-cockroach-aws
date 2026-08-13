@@ -34,6 +34,107 @@ class Vector1024(UserDefinedType[str]):
         return "VECTOR(1024)"
 
 
+class CompanyContextItem(Base, TenantOwned, Timestamped):
+    __tablename__ = "qualification_company_context_items"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False)
+    current_version_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    current_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    current_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('REQUIREMENT','CONSTRAINT','STACK','POLICY','PREFERENCE','NOTE')",
+            name="ck_qualification_context_kind",
+        ),
+        CheckConstraint(
+            "state IN ('ACTIVE','RETIRED')", name="ck_qualification_context_state"
+        ),
+        CheckConstraint("current_version >= 1", name="ck_qualification_context_version"),
+        UniqueConstraint(
+            "organization_id", "id", name="uq_qualification_context_item_tenant_id"
+        ),
+        UniqueConstraint(
+            "organization_id",
+            "id",
+            "current_version_id",
+            "current_hash",
+            name="uq_qualification_context_current_binding",
+        ),
+    )
+
+
+class CompanyContextVersion(Base, TenantOwned, Timestamped):
+    __tablename__ = "qualification_company_context_versions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    item_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    changed_by_actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    change_reason: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("version >= 1", name="ck_qualification_context_revision"),
+        UniqueConstraint(
+            "organization_id", "item_id", "version", name="uq_qualification_context_revision"
+        ),
+        UniqueConstraint(
+            "organization_id", "id", "content_hash", name="uq_qualification_context_binding"
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "item_id"],
+            [
+                "qualification_company_context_items.organization_id",
+                "qualification_company_context_items.id",
+            ],
+            ondelete="RESTRICT",
+        ),
+    )
+
+
+class CompanyContextEmbedding(Base, TenantOwned, Timestamped):
+    __tablename__ = "qualification_company_context_embeddings"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    item_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    version_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    model_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding: Mapped[str] = mapped_column(Vector1024(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("dimensions = 1024", name="ck_qualification_context_embedding_dimensions"),
+        UniqueConstraint(
+            "organization_id",
+            "version_id",
+            "content_hash",
+            name="uq_qualification_context_embedding",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "version_id", "content_hash"],
+            [
+                "qualification_company_context_versions.organization_id",
+                "qualification_company_context_versions.id",
+                "qualification_company_context_versions.content_hash",
+            ],
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_qualification_context_embedding_scope",
+            "organization_id",
+            "kind",
+            "version_id",
+        ),
+    )
+
+
 class ProductTwinVersion(Base, TenantOwned, Timestamped):
     __tablename__ = "qualification_product_twin_versions"
 

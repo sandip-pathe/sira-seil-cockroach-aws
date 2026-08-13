@@ -179,11 +179,33 @@ export interface CatalogProductView {
   why_company?: string | null;
 }
 
+export interface CompanyContextCreate {
+  change_reason: string;
+  kind: "REQUIREMENT" | "CONSTRAINT" | "STACK" | "POLICY" | "PREFERENCE" | "NOTE";
+  label: string;
+  payload: { [key: string]: unknown; };
+}
+
+export interface CompanyContextList {
+  items: { [key: string]: unknown; }[];
+}
+
 export interface CompanyContextProjection {
   company_profile_version: number;
   company_stack_snapshot: number;
   facts_used: CompanyFactProjection[];
   hidden_fact_count: number;
+}
+
+export interface CompanyContextUpdate {
+  change_reason: string;
+  label: string;
+  payload: { [key: string]: unknown; };
+}
+
+export interface CompanyContextView {
+  item: { [key: string]: unknown; };
+  versions: { [key: string]: unknown; }[];
 }
 
 export interface CompanyFactProjection {
@@ -921,6 +943,7 @@ export interface QualificationIntroductionCreate {
 
 export interface QualificationMissionCreate {
   buyer_context: { [key: string]: unknown; };
+  company_context_item_ids?: string[];
   procurement_policy: { [key: string]: unknown; };
   requirement_brief: RequirementBriefCreate;
 }
@@ -1606,15 +1629,20 @@ export interface Operations {
   list_decision_requests: { method: "GET"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: DecisionIndexView; requiresIdempotency: false; };
   lock_purchase_intent: { method: "POST"; path: "/v1/decisions/{decision_id}/purchase-intents"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: PurchaseIntentCreate; response: PurchaseIntentView; requiresIdempotency: true; };
   purchase_status: { method: "GET"; path: "/v1/purchase-intents/{intent_id}/status"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: never; response: PurchaseStatusView; requiresIdempotency: false; };
+  qualification_create_company_context: { method: "POST"; path: "/v1/qualification/company-context"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: CompanyContextCreate; response: QualificationMutationView; requiresIdempotency: true; };
   qualification_create_introduction: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/introduction"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationIntroductionCreate; response: QualificationMutationView; requiresIdempotency: true; };
   qualification_create_mission: { method: "POST"; path: "/v1/qualification/missions"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: QualificationMissionCreate; response: QualificationMutationView; requiresIdempotency: true; };
   qualification_decide_approval: { method: "POST"; path: "/v1/qualification/decisions/{decision_id}/approval"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: QualificationApprovalCreate; response: QualificationMutationView; requiresIdempotency: true; };
+  qualification_get_company_context: { method: "GET"; path: "/v1/qualification/company-context/{item_id}"; pathParams: { item_id: string; }; queryParams: Record<never, never>; body: never; response: CompanyContextView; requiresIdempotency: false; };
   qualification_get_engagement: { method: "GET"; path: "/v1/qualification/engagements/{engagement_id}"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationEngagementView; requiresIdempotency: false; };
   qualification_get_integrity: { method: "GET"; path: "/v1/qualification/missions/{mission_id}/integrity"; pathParams: { mission_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationIntegrityView; requiresIdempotency: false; };
   qualification_get_mission: { method: "GET"; path: "/v1/qualification/missions/{mission_id}"; pathParams: { mission_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationMissionView; requiresIdempotency: false; };
   qualification_get_mission_events: { method: "GET"; path: "/v1/qualification/missions/{mission_id}/events"; pathParams: { mission_id: string; }; queryParams: { after?: string | null; limit?: number; }; body: never; response: QualificationEventFeed; requiresIdempotency: false; };
+  qualification_list_company_context: { method: "GET"; path: "/v1/qualification/company-context"; pathParams: Record<never, never>; queryParams: { include_retired?: boolean; }; body: never; response: CompanyContextList; requiresIdempotency: false; };
   qualification_record_consent: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/consents"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationConsentCreate; response: QualificationMutationView; requiresIdempotency: true; };
   qualification_record_seller_response: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/responses"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationSellerResponseCreate; response: QualificationMutationView; requiresIdempotency: true; };
+  qualification_retire_company_context: { method: "POST"; path: "/v1/qualification/company-context/{item_id}/retire"; pathParams: { item_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationMutationView; requiresIdempotency: true; };
+  qualification_update_company_context: { method: "PUT"; path: "/v1/qualification/company-context/{item_id}"; pathParams: { item_id: string; }; queryParams: Record<never, never>; body: CompanyContextUpdate; response: QualificationMutationView; requiresIdempotency: true; };
   record_consent: { method: "POST"; path: "/v1/engagements/{engagement_id}/consent"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: ConsentCreate; response: EngagementView; requiresIdempotency: true; };
   record_purchase_outcome: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/outcome-checkpoints"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: OutcomeCheckpointCreate; response: OutcomeCheckpointView; requiresIdempotency: true; };
   record_solution_option_feedback: { method: "POST"; path: "/v1/decision-requests/{request_id}/solution-options/{solution_plan_id}/actions"; pathParams: { request_id: string; solution_plan_id: string; }; queryParams: Record<never, never>; body: OptionFeedbackCreate; response: OptionFeedbackView; requiresIdempotency: true; };

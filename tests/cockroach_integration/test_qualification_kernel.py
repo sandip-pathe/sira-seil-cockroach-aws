@@ -28,6 +28,8 @@ from persistence.qualification_catalog import (
 )
 from persistence.qualification_models import (
     CatalogProjectionVersion,
+    CompanyContextItem,
+    CompanyContextVersion,
     DecisionDependency,
     MarketplaceConsent,
     MarketplaceEngagement,
@@ -67,6 +69,95 @@ def _catalog_url() -> str:
     if not value:
         pytest.skip("SIRA_TEST_CATALOG_DATABASE_URL is required")
     return value
+
+
+@pytest.mark.asyncio
+async def test_company_context_is_versioned_tenant_private_and_pinned() -> None:
+    await _ensure_organizations()
+    database = Database(DatabaseSettings(database_url=_runtime_url()))
+    service = QualificationService(database)
+    try:
+        status, created = await service.create_company_context(
+            organization_id="org_buyer",
+            actor_id="buyer-user",
+            idempotency_key=f"context-create-{uuid4().hex}",
+            body={
+                "kind": "CONSTRAINT",
+                "label": "EU residency",
+                "payload": {"hosting_region": "EU"},
+                "change_reason": "Initial context",
+            },
+        )
+        assert status == 201
+        item_id = str(created["resource_id"])
+        view = await service.company_context_view("org_buyer", item_id)
+        etag = str(view["item"]["etag"])
+        old_hash = str(view["item"]["current_hash"])
+
+        status, revised = await service.update_company_context(
+            organization_id="org_buyer",
+            actor_id="buyer-user",
+            item_id=item_id,
+            if_match=etag,
+            idempotency_key=f"context-update-{uuid4().hex}",
+            body={
+                "label": "EU customer-data residency",
+                "payload": {"hosting_region": "EU", "scope": "customer_data"},
+                "change_reason": "Clarified scope",
+            },
+        )
+        assert status == 200
+        assert revised["input_digest"] != old_hash
+
+        history = await service.company_context_view("org_buyer", item_id)
+        assert [value["version"] for value in history["versions"]] == [2, 1]
+        assert history["versions"][1]["content_hash"] == old_hash
+
+        mission_status, mission = await service.create_mission(
+            organization_id="org_buyer",
+            actor_id="buyer-user",
+            idempotency_key=f"context-mission-{uuid4().hex}",
+            trace_id=f"trace-{uuid4().hex}",
+            body={
+                "buyer_context": {"company": "Buyer"},
+                "company_context_item_ids": [item_id],
+                "requirement_brief": {
+                    "category": "meeting intelligence",
+                    "goal": "Select a compliant meeting intelligence platform.",
+                    "seller_visible_requirements": {"hosting_region": "EU"},
+                    "criteria": [
+                        {
+                            "id": "residency",
+                            "label": "EU residency",
+                            "requirement": "Customer data remains in the EU.",
+                            "priority": "MUST",
+                        }
+                    ],
+                },
+                "procurement_policy": {"human_approval": True},
+            },
+        )
+        assert mission_status == 201
+        projection = await service.mission_view("org_buyer", str(mission["resource_id"]))
+        pinned = projection["mission"]["buyer_context"]["company_memory"][0]
+        assert pinned["version"] == 2
+        assert pinned["content_hash"] == revised["input_digest"]
+
+        async with database.transaction("org_other") as session:
+            assert (
+                await session.scalar(
+                    select(CompanyContextItem).where(CompanyContextItem.id == item_id)
+                )
+            ) is None
+            assert (
+                await session.scalar(
+                    select(func.count())
+                    .select_from(CompanyContextVersion)
+                    .where(CompanyContextVersion.item_id == item_id)
+                )
+            ) == 0
+    finally:
+        await database.close()
 
 
 async def _ensure_organizations() -> None:

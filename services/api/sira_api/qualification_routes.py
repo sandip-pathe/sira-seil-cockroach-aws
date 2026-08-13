@@ -16,6 +16,10 @@ from .dependencies import (
 )
 from .errors import ApiProblem
 from .qualification_schemas import (
+    CompanyContextCreate,
+    CompanyContextList,
+    CompanyContextUpdate,
+    CompanyContextView,
     QualificationApprovalCreate,
     QualificationConsentCreate,
     QualificationEngagementView,
@@ -52,6 +56,131 @@ def _require_buyer(context: RequestContext) -> None:
             status_code=403,
             next_action="use_authorized_buyer_identity",
         )
+
+
+@qualification_router.get(
+    "/v1/qualification/company-context",
+    response_model=CompanyContextList,
+    tags=["company context"],
+    name="qualification_list_company_context",
+)
+async def list_company_context(
+    context: ContextDependency,
+    service: ServiceDependency,
+    include_retired: bool = False,
+) -> dict[str, object]:
+    _require_buyer(context)
+    require_permission(context, "can_view_context")
+    return await service.list_company_context(
+        context.organization_id, include_retired=include_retired
+    )
+
+
+@qualification_router.get(
+    "/v1/qualification/company-context/{item_id}",
+    response_model=CompanyContextView,
+    tags=["company context"],
+    name="qualification_get_company_context",
+)
+async def get_company_context(
+    item_id: str,
+    response: Response,
+    context: ContextDependency,
+    service: ServiceDependency,
+) -> dict[str, object]:
+    _require_buyer(context)
+    require_permission(context, "can_view_context")
+    payload = await service.company_context_view(context.organization_id, item_id)
+    item = payload["item"]
+    if isinstance(item, dict) and isinstance(item.get("current_hash"), str):
+        response.headers["ETag"] = f'"{item["current_hash"]}"'
+    return payload
+
+
+@qualification_router.post(
+    "/v1/qualification/company-context",
+    response_model=QualificationMutationView,
+    status_code=status.HTTP_201_CREATED,
+    tags=["company context"],
+    name="qualification_create_company_context",
+)
+async def create_company_context(
+    body: CompanyContextCreate,
+    response: Response,
+    context: ContextDependency,
+    service: ServiceDependency,
+    idempotency_key: IdempotencyDependency,
+) -> dict[str, object]:
+    _require_buyer(context)
+    require_human_identity(context)
+    require_permission(context, "can_manage_procurement_gate")
+    code, payload = await service.create_company_context(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        idempotency_key=idempotency_key,
+        body=body.model_dump(mode="json"),
+    )
+    response.status_code = code
+    response.headers["Location"] = f"/v1/qualification/company-context/{payload['resource_id']}"
+    return payload
+
+
+@qualification_router.put(
+    "/v1/qualification/company-context/{item_id}",
+    response_model=QualificationMutationView,
+    tags=["company context"],
+    name="qualification_update_company_context",
+)
+async def update_company_context(
+    item_id: str,
+    body: CompanyContextUpdate,
+    response: Response,
+    context: ContextDependency,
+    service: ServiceDependency,
+    idempotency_key: IdempotencyDependency,
+    if_match: IfMatchDependency,
+) -> dict[str, object]:
+    _require_buyer(context)
+    require_human_identity(context)
+    require_permission(context, "can_manage_procurement_gate")
+    code, payload = await service.update_company_context(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        item_id=item_id,
+        if_match=if_match,
+        idempotency_key=idempotency_key,
+        body=body.model_dump(mode="json"),
+    )
+    response.status_code = code
+    return payload
+
+
+@qualification_router.post(
+    "/v1/qualification/company-context/{item_id}/retire",
+    response_model=QualificationMutationView,
+    tags=["company context"],
+    name="qualification_retire_company_context",
+)
+async def retire_company_context(
+    item_id: str,
+    response: Response,
+    context: ContextDependency,
+    service: ServiceDependency,
+    idempotency_key: IdempotencyDependency,
+    if_match: IfMatchDependency,
+) -> dict[str, object]:
+    _require_buyer(context)
+    require_human_identity(context)
+    require_permission(context, "can_manage_procurement_gate")
+    code, payload = await service.retire_company_context(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        item_id=item_id,
+        if_match=if_match,
+        idempotency_key=idempotency_key,
+    )
+    response.status_code = code
+    return payload
 
 
 @qualification_router.post(
