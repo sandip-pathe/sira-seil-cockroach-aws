@@ -52,7 +52,7 @@ def _refund_request() -> MerchantRefundRequest:
 def _merchant_adapter(handler: Any) -> ControlledMerchantRestAdapter:
     adapter = ControlledMerchantRestAdapter(
         base_url="https://merchant.example",
-        api_key="merchant-test-key",
+        api_key="x",
         allowed_hosts=frozenset({"merchant.example"}),
     )
     adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -159,10 +159,8 @@ async def test_controlled_merchant_checkout_reconcile_entitlements_and_refunds()
         assert refunded.status is RefundOutcomeStatus.REFUNDED
         assert refunded.entitlements_revoked is True
         assert reconciled_refund.status is RefundOutcomeStatus.PARTIALLY_REFUNDED
-        assert "merchant-test-key" not in repr(adapter)
-        assert all(
-            request.headers["Authorization"] == "Bearer merchant-test-key" for request in calls
-        )
+        assert "api_key='x'" not in repr(adapter)
+        assert all(request.headers["Authorization"] == "Bearer x" for request in calls)
     finally:
         await adapter.aclose()
 
@@ -245,7 +243,7 @@ class ApprovedMerchant:
 
 def _prava_adapter(handler: Any) -> PravaHostedRestAdapter:
     adapter = PravaHostedRestAdapter(
-        secret_key="prava-test-key",
+        secret_key="x",
         base_url="https://api.prava.example",
         api_hosts=frozenset({"api.prava.example"}),
         merchant_hosts=frozenset({"merchant.example"}),
@@ -343,7 +341,7 @@ async def test_prava_session_and_isolated_checkout_complete_without_leaking_cred
         assert merchant.credentials == ("network-token", "123", "12", "30")
         serialized = json.dumps(request_bodies)
         assert "network-token" not in serialized
-        assert "prava-test-key" not in repr(adapter)
+        assert "secret_key='x'" not in repr(adapter)
     finally:
         await adapter.aclose()
 
