@@ -95,6 +95,7 @@ export function InboxPage({ workspace }: { workspace: InboxWorkspace }) {
           <Link aria-current="page" href={`/${workspace}/inbox`}>
             Inbox
           </Link>
+          <Link href={`/${workspace}/analytics`}>Analytics</Link>
           <Link href={`/${workspace}/settings/profile`}>Profile</Link>
         </nav>
       </header>

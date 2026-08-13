@@ -427,6 +427,11 @@ export function ProfileSettingsModal({
                     { label: "Region and time zone", value: "India · Asia/Kolkata" },
                     { label: "Appearance", value: "Light" },
                     { label: "Reduced motion", value: "Uses system preference" },
+                    {
+                      href: `/${workspace}/analytics`,
+                      label: "Operations analytics",
+                      value: "Open tenant-safe metrics",
+                    },
                   ]}
                 />
               ) : null}
