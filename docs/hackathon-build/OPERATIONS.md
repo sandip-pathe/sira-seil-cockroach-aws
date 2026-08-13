@@ -17,6 +17,20 @@ cluster, backups are disabled or absent, restore history is inaccessible, or the
 not expose the documented backup and restore commands. Authenticate interactively with
 `ccloud auth login` before collecting judging evidence.
 
+## Bedrock provider preflight
+
+Run the live Converse and Titan Text Embeddings V2 contract smoke with an authenticated AWS
+profile:
+
+```powershell
+uv run python scripts/aws-bedrock-smoke.py --region us-east-1 --profile sira-hackathon
+```
+
+The command writes `.artifacts/preflight/bedrock.json` with model identifiers, dimensions,
+contract booleans, and a hash of the normalized chat output. It does not persist model text,
+credentials, or AWS identity material. Guardrail intervention and labelled decision quality remain
+separate gates and are stated as such in the artifact.
+
 ## Normal commands
 
 ```text
