@@ -37,6 +37,7 @@ from persistence.qualification_models import (
     QualificationMission,
     QualificationMissionBundle,
     QualifiedIntroduction,
+    SellerResponse,
 )
 from persistence.qualification_repository import QualificationRepository
 from persistence.repositories import PersistenceConflict
@@ -487,6 +488,42 @@ async def test_runtime_roles_enforce_published_and_bilateral_boundaries() -> Non
                     MarketplaceEngagement.id == engagement_id
                 )
             ) == engagement_id
+            session.add(
+                SellerResponse(
+                    id=f"response_security_{suffix}",
+                    engagement_id=engagement_id,
+                    buyer_organization_id="org_buyer",
+                    seller_organization_id="org_seller_a",
+                    input_digest=content_hash({"security": suffix}),
+                    response="FIT",
+                    cited_evidence_ids=[],
+                    message="The published evidence is current.",
+                    actor_id="human_seller",
+                    organization_id="org_seller_a",
+                )
+            )
+        async with database.transaction("org_buyer") as session:
+            assert await session.scalar(
+                select(SellerResponse.id).where(
+                    SellerResponse.engagement_id == engagement_id
+                )
+            ) == f"response_security_{suffix}"
+        with pytest.raises(DBAPIError):
+            async with database.transaction("org_buyer") as session:
+                session.add(
+                    SellerResponse(
+                        id=f"forged_response_{suffix}",
+                        engagement_id=engagement_id,
+                        buyer_organization_id="org_buyer",
+                        seller_organization_id="org_seller_a",
+                        input_digest=content_hash({"security": suffix}),
+                        response="FIT",
+                        cited_evidence_ids=[],
+                        message=None,
+                        actor_id="human_buyer",
+                        organization_id="org_seller_a",
+                    )
+                )
         async with database.transaction("org_other") as session:
             assert (
                 await session.scalar(
@@ -496,6 +533,11 @@ async def test_runtime_roles_enforce_published_and_bilateral_boundaries() -> Non
                 )
                 is None
             )
+            assert await session.scalar(
+                select(SellerResponse.id).where(
+                    SellerResponse.engagement_id == engagement_id
+                )
+            ) is None
     finally:
         await database.close()
         await worker_database.close()

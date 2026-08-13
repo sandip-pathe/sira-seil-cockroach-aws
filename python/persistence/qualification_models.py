@@ -542,6 +542,12 @@ class SellerResponse(Base, TenantOwned, Timestamped):
     engagement_id: Mapped[str] = mapped_column(
         ForeignKey("marketplace_engagements.id", ondelete="RESTRICT"), nullable=False
     )
+    buyer_organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False
+    )
+    seller_organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False
+    )
     input_digest: Mapped[str] = mapped_column(String(80), nullable=False)
     response: Mapped[str] = mapped_column(String(24), nullable=False)
     cited_evidence_ids: Mapped[list[Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
@@ -549,6 +555,14 @@ class SellerResponse(Base, TenantOwned, Timestamped):
     actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
 
     __table_args__ = (
+        CheckConstraint(
+            "buyer_organization_id <> seller_organization_id",
+            name="ck_marketplace_response_distinct_parties",
+        ),
+        CheckConstraint(
+            "organization_id = seller_organization_id",
+            name="ck_marketplace_response_seller_owned",
+        ),
         CheckConstraint(
             "response IN ('FIT','ANTI_FIT','NEEDS_INFO')", name="ck_marketplace_seller_response"
         ),
