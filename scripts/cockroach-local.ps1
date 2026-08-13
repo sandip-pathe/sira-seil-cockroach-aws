@@ -34,7 +34,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 docker compose exec -T cockroach cockroach sql --insecure --host=localhost:26257 --database=sira `
-    --execute="GRANT CONNECT ON DATABASE sira TO sira_app, sira_worker_app, sira_catalog_app; GRANT sira_runtime TO sira_app, sira_worker_app; GRANT sira_catalog_reader TO sira_catalog_app;"
+    --execute="GRANT CONNECT ON DATABASE sira TO sira_app, sira_worker_app, sira_catalog_app; GRANT sira_runtime TO sira_app, sira_worker_app; GRANT sira_catalog_reader TO sira_catalog_app; UPSERT INTO organizations (id, name, version) VALUES ('org_demo', 'SIRA Demo Buyer', 1), ('org_consultco', 'ConsultCo Demo Buyer', 1), ('org_seller_a', 'Atlas Seller', 1), ('org_seller_b', 'Beacon Seller', 1);"
 if ($LASTEXITCODE -ne 0) {
     throw "CockroachDB runtime role setup failed"
 }

@@ -20,7 +20,7 @@ export const WEB_DATA_MODE: WebDataMode =
   configuredDataMode ?? (process.env.NODE_ENV === "production" ? "api" : "fixture");
 
 function guestWorkspaceHeaders(mode: "sira" | "seil"): Readonly<Record<string, string>> {
-  const developmentIdentity = mode === "sira"
+  const developmentIdentity: Record<string, string> = mode === "sira"
     ? {
         "X-Actor-Party": "BUYER",
         "X-Actor-Roles": [
@@ -28,7 +28,9 @@ function guestWorkspaceHeaders(mode: "sira" | "seil"): Readonly<Record<string, s
           "can_view_context",
           "can_select_recommendation",
           "can_manage_procurement_gate",
+          "can_approve_purchase",
         ].join(","),
+        "X-Step-Up-Verified": "true",
       }
     : {
         "X-Actor-Party": "SELLER",

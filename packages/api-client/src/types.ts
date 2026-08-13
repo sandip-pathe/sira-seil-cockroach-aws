@@ -887,6 +887,66 @@ export interface PurchaseStatusView {
   purchase_state: "AWAITING_APPROVAL" | "APPROVED_NOT_STARTED" | "PAYMENT_IN_PROGRESS" | "PAYMENT_NOT_COMPLETED" | "PAYMENT_UNCERTAIN" | "PAID_UNFULFILLED" | "PURCHASE_FULFILLED" | "REFUND_PENDING" | "REFUNDED";
 }
 
+export interface QualificationApprovalCreate {
+  action: "APPROVE" | "REJECT";
+  reason: string;
+}
+
+export interface QualificationConsentCreate {
+  shared_fields: { [key: string]: unknown; };
+}
+
+export interface QualificationEngagementView {
+  consents: { [key: string]: unknown; }[];
+  engagement: { [key: string]: unknown; };
+  introduction: { [key: string]: unknown; } | null;
+  seller_response: { [key: string]: unknown; } | null;
+}
+
+export interface QualificationEventFeed {
+  events: { [key: string]: unknown; }[];
+  next_cursor: string | null;
+}
+
+export interface QualificationIntegrityView {
+  checked_at: string;
+  checks: { [key: string]: unknown; }[];
+  mission_id: string;
+  verdict: "PASS" | "FAIL" | "PENDING";
+}
+
+export interface QualificationIntroductionCreate {
+  shared_fields: { [key: string]: unknown; };
+}
+
+export interface QualificationMissionCreate {
+  buyer_context: { [key: string]: unknown; };
+  procurement_policy: { [key: string]: unknown; };
+  requirement_brief: RequirementBriefCreate;
+}
+
+export interface QualificationMissionView {
+  attempts: { [key: string]: unknown; }[];
+  decision: { [key: string]: unknown; } | null;
+  engagement: { [key: string]: unknown; } | null;
+  integrity: { [key: string]: unknown; };
+  mission: { [key: string]: unknown; };
+}
+
+export interface QualificationMutationView {
+  input_digest?: string | null;
+  replayed?: boolean;
+  resource_id: string;
+  resource_type: string;
+  state: string;
+}
+
+export interface QualificationSellerResponseCreate {
+  cited_evidence_ids?: string[];
+  message?: string | null;
+  response: "FIT" | "ANTI_FIT" | "NEEDS_INFO";
+}
+
 export type RankStability = "STABLE" | "UNSTABLE" | "UNDETERMINED";
 
 export interface RankStabilityProjection {
@@ -982,6 +1042,13 @@ export interface ReceiptView {
 
 export type RequestVisibility = "PRIVATE" | "SELECTIVE" | "OPEN_RFP";
 
+export interface RequirementBriefCreate {
+  category: string;
+  criteria: RequirementCriterion[];
+  goal: string;
+  seller_visible_requirements?: { [key: string]: unknown; };
+}
+
 export interface RequirementBriefView {
   allowed_stack_context: { [key: string]: unknown; };
   category_id: string;
@@ -1000,6 +1067,13 @@ export interface RequirementBriefView {
   team: { [key: string]: unknown; };
   version: number;
   visibility: RequestVisibility;
+}
+
+export interface RequirementCriterion {
+  id: string;
+  label: string;
+  priority?: "MUST" | "SHOULD" | "COULD";
+  requirement: string;
 }
 
 export interface ResultArtifact {
@@ -1532,6 +1606,15 @@ export interface Operations {
   list_decision_requests: { method: "GET"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: DecisionIndexView; requiresIdempotency: false; };
   lock_purchase_intent: { method: "POST"; path: "/v1/decisions/{decision_id}/purchase-intents"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: PurchaseIntentCreate; response: PurchaseIntentView; requiresIdempotency: true; };
   purchase_status: { method: "GET"; path: "/v1/purchase-intents/{intent_id}/status"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: never; response: PurchaseStatusView; requiresIdempotency: false; };
+  qualification_create_introduction: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/introduction"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationIntroductionCreate; response: QualificationMutationView; requiresIdempotency: true; };
+  qualification_create_mission: { method: "POST"; path: "/v1/qualification/missions"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: QualificationMissionCreate; response: QualificationMutationView; requiresIdempotency: true; };
+  qualification_decide_approval: { method: "POST"; path: "/v1/qualification/decisions/{decision_id}/approval"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: QualificationApprovalCreate; response: QualificationMutationView; requiresIdempotency: true; };
+  qualification_get_engagement: { method: "GET"; path: "/v1/qualification/engagements/{engagement_id}"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationEngagementView; requiresIdempotency: false; };
+  qualification_get_integrity: { method: "GET"; path: "/v1/qualification/missions/{mission_id}/integrity"; pathParams: { mission_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationIntegrityView; requiresIdempotency: false; };
+  qualification_get_mission: { method: "GET"; path: "/v1/qualification/missions/{mission_id}"; pathParams: { mission_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationMissionView; requiresIdempotency: false; };
+  qualification_get_mission_events: { method: "GET"; path: "/v1/qualification/missions/{mission_id}/events"; pathParams: { mission_id: string; }; queryParams: { after?: string | null; limit?: number; }; body: never; response: QualificationEventFeed; requiresIdempotency: false; };
+  qualification_record_consent: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/consents"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationConsentCreate; response: QualificationMutationView; requiresIdempotency: true; };
+  qualification_record_seller_response: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/responses"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationSellerResponseCreate; response: QualificationMutationView; requiresIdempotency: true; };
   record_consent: { method: "POST"; path: "/v1/engagements/{engagement_id}/consent"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: ConsentCreate; response: EngagementView; requiresIdempotency: true; };
   record_purchase_outcome: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/outcome-checkpoints"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: OutcomeCheckpointCreate; response: OutcomeCheckpointView; requiresIdempotency: true; };
   record_solution_option_feedback: { method: "POST"; path: "/v1/decision-requests/{request_id}/solution-options/{solution_plan_id}/actions"; pathParams: { request_id: string; solution_plan_id: string; }; queryParams: Record<never, never>; body: OptionFeedbackCreate; response: OptionFeedbackView; requiresIdempotency: true; };

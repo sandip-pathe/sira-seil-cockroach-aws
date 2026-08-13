@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain import content_hash
 from persistence.database import Database
-from persistence.models import OutboxEvent
+from persistence.models import Organization, OutboxEvent
 from persistence.qualification_models import (
     ActiveProductBundle,
     AttemptCheckpoint,
@@ -57,8 +57,11 @@ def _verify_match(provided: str, expected: str) -> None:
 
 
 class QualificationService:
-    def __init__(self, database: Database) -> None:
+    def __init__(
+        self, database: Database, *, allow_development_tenant_bootstrap: bool = False
+    ) -> None:
         self.database = database
+        self.allow_development_tenant_bootstrap = allow_development_tenant_bootstrap
 
     async def create_mission(
         self,
@@ -72,6 +75,27 @@ class QualificationService:
         request_hash = content_hash(body)
 
         async def write(session: AsyncSession) -> tuple[int, dict[str, Any]]:
+            organization = await session.get(Organization, organization_id)
+            if organization is None:
+                if (
+                    not self.allow_development_tenant_bootstrap
+                    or self.database.engine.dialect.name != "sqlite"
+                ):
+                    raise ApiProblem(
+                        code="ORGANIZATION_NOT_PROVISIONED",
+                        message=(
+                            "The verified organization is not provisioned in canonical state."
+                        ),
+                        status_code=403,
+                    )
+                session.add(
+                    Organization(
+                        id=organization_id,
+                        name="Development qualification workspace",
+                        version=1,
+                    )
+                )
+                await session.flush()
             repository = WorkflowRepository(session, organization_id)
             claim = await repository.claim_idempotency(
                 actor_id=actor_id,

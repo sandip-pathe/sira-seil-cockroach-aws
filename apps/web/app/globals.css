@@ -25,9 +25,9 @@
   --info: #2e5aac;
   --info-bg: #eaf0ff;
   --overlay-shadow: 0 18px 48px rgb(19 32 28 / 18%);
-  --font-ui: var(--font-geist-sans), "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-geist-mono), Consolas, "SFMono-Regular", monospace;
-  --font-brand: var(--font-montserrat), "Montserrat", "Segoe UI", sans-serif;
+  --font-ui: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Code", Consolas, "SFMono-Regular", monospace;
+  --font-brand: "Arial Nova", "Aptos Display", "Segoe UI", sans-serif;
   --brand-ink: #000000;
 }
 

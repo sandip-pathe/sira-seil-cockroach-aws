@@ -179,7 +179,12 @@ def create_app(
         )
         application.state.workflow_service = workflow_service
         application.state.seller_evidence_service = seller_evidence_service
-        application.state.qualification_service = QualificationService(resolved_database)
+        application.state.qualification_service = QualificationService(
+            resolved_database,
+            allow_development_tenant_bootstrap=(
+                resolved_settings.is_development or resolved_settings.guest_session_enabled
+            ),
+        )
         application.state.workspace_service = WorkspaceService(
             fixtures,
             api_key=resolved_settings.openai_api_key.get_secret_value(),
