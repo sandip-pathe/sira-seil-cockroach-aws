@@ -60,7 +60,7 @@ class FakeIdentityAdapter:
 def production_settings() -> ApiSettings:
     return ApiSettings(
         app_env="production",
-        database_url="postgresql+asyncpg://localhost:5432/sira",
+        database_url="cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira?ssl=disable",
         development_fixture_mode=False,
         demo_reset_enabled=False,
         browser_return_signing_key="production-test-browser-return-key",
@@ -84,8 +84,8 @@ def test_production_configuration_rejects_development_modes_including_defaults()
         )
 
 
-def test_production_configuration_requires_postgresql() -> None:
-    with pytest.raises(ValidationError, match="PostgreSQL DATABASE_URL"):
+def test_production_configuration_requires_cockroachdb() -> None:
+    with pytest.raises(ValidationError, match="CockroachDB DATABASE_URL"):
         ApiSettings(
             app_env="production",
             database_url="sqlite+aiosqlite:///:memory:",
@@ -98,7 +98,7 @@ def test_production_configuration_requires_stable_browser_return_signing_key() -
     with pytest.raises(ValidationError, match="32-byte BROWSER_RETURN_SIGNING_KEY"):
         ApiSettings(
             app_env="production",
-            database_url="postgresql+asyncpg://localhost:5432/sira",
+            database_url="cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira?ssl=disable",
             development_fixture_mode=False,
             demo_reset_enabled=False,
         )
@@ -118,10 +118,10 @@ def test_app_startup_rechecks_runtime_modes_after_settings_mutation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_app_rejects_injected_non_postgresql_database_in_production() -> None:
+async def test_app_rejects_injected_non_cockroach_database_in_production() -> None:
     database = Database(DatabaseSettings(database_url="sqlite+aiosqlite:///:memory:"))
     try:
-        with pytest.raises(ValueError, match="PostgreSQL database engine"):
+        with pytest.raises(ValueError, match="CockroachDB database engine"):
             create_app(settings=production_settings(), database=database)
     finally:
         await database.close()

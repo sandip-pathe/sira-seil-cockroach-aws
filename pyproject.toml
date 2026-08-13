@@ -23,6 +23,7 @@ dependencies = [
   "pyyaml>=6.0,<7",
   "rfc8785>=0.1.4,<1",
   "sqlalchemy[asyncio]>=2.0,<2.1",
+  "sqlalchemy-cockroachdb>=2.0,<3",
   "uvicorn[standard]>=0.35,<1",
 ]
 
@@ -66,6 +67,7 @@ asyncio_mode = "auto"
 pythonpath = ["python", "python/agents", "services/api", "services/worker"]
 testpaths = ["tests"]
 markers = [
+  "cockroach: requires a live CockroachDB instance",
   "postgres: requires a live PostgreSQL instance or Testcontainers",
   "provider: exercises a real external-provider contract and may require credentials"
 ]
@@ -97,6 +99,7 @@ plugins = ["pydantic.mypy"]
 [tool.coverage.run]
 branch = true
 source = ["python", "services/api", "services/worker"]
+omit = ["services/api/alembic/versions/*"]
 
 [tool.coverage.report]
 show_missing = true

@@ -64,7 +64,7 @@ CloudWatch/OpenTelemetry: sanitized correlated events and P0 metrics.
 - Humans authorize evidence publication, consent, decision approval, contact disclosure and payment.
 - Deterministic services validate, record and enforce authority.
 - Models retrieve, extract, reason, critique, rank and propose. They cannot write authoritative commerce state directly.
-- Buyer-private and seller-private records are structurally separated and use FORCE RLS. Shared embeddings contain only published buyer-safe projections.
+- Buyer-private and seller-private records are structurally separated and use FORCE RLS. CockroachDB RLS derives the verified tenant from transaction-local `application_name`; principal/role capability remains server-validated. This is defense in depth against application mistakes, not protection after compromise of the runtime SQL credential: browser clients never receive that credential, the database is network-restricted, and the runtime identity is a non-owner without admin or `BYPASSRLS`. Shared embeddings contain only published buyer-safe projections.
 - Hosted mode has no fixture, model, identity or stale-vector fallback.
 
 ## Operational memory
@@ -132,4 +132,3 @@ If the correctness kernel fails, shipping is blocked. Approach A is permitted on
 P1 adds editable company memory, product portfolio management, interactive S3 ingestion, public marketplace/search pages, inboxes/settings, full DLQ operations, broader telemetry/restore drills, `ccloud` evidence and GitHub OIDC.
 
 P2 adds PRAVA execution, Bedrock Automated Reasoning, AgentCore Runtime/evaluation experiments, measured changefeeds/multi-region, analytics, more categories and autonomous commercial operations only where authority and provider idempotency are proven.
-

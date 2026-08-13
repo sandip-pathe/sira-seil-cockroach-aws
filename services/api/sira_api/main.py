@@ -92,9 +92,9 @@ def create_app(
     )
     if (
         not resolved_settings.is_development
-        and resolved_database.engine.dialect.name != "postgresql"
+        and resolved_database.engine.dialect.name != "cockroachdb"
     ):
-        raise ValueError("production requires a PostgreSQL database engine with RLS support")
+        raise ValueError("production requires a CockroachDB database engine with RLS support")
     resolved_identity_adapter = identity_adapter
     if resolved_identity_adapter is None and resolved_settings.firebase_project_id:
         resolved_identity_adapter = FirebaseIdentityAdapter(

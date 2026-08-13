@@ -34,7 +34,7 @@ class ApiSettings(BaseSettings):
     )
     web_base_url: str = Field(default="http://localhost:3000", validation_alias="WEB_BASE_URL")
     database_url: str = Field(
-        default="postgresql+asyncpg://localhost:5432/sira",
+        default="cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira?ssl=disable",
         validation_alias="DATABASE_URL",
     )
     browser_return_signing_key: SecretStr = Field(
@@ -97,8 +97,8 @@ class ApiSettings(BaseSettings):
             backend = make_url(self.database_url).get_backend_name()
         except Exception:
             backend = "invalid"
-        if backend != "postgresql":
-            raise ValueError("production requires a PostgreSQL DATABASE_URL")
+        if backend != "cockroachdb":
+            raise ValueError("production requires a CockroachDB DATABASE_URL")
         self.browser_return_signing_secret()
         if self.guest_session_enabled:
             self.guest_session_signing_secret()

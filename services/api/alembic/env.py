@@ -1,4 +1,4 @@
-"""Alembic environment using the administrative PostgreSQL connection."""
+"""Alembic environment using the administrative CockroachDB connection."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from logging.config import fileConfig
 from alembic import context
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import JSON, Integer, Text, engine_from_config, pool
 
 from persistence.models import Base
 
@@ -16,6 +16,50 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
+
+def _include_object(
+    _object: object,
+    name: str | None,
+    object_type: str,
+    _reflected: bool,
+    _compare_to: object | None,
+) -> bool:
+    # The Cockroach adapter reflects index columns as expression objects, which
+    # otherwise produces false remove/add pairs on every autogenerate pass.
+    if object_type == "index":
+        return False
+    # Cockroach reflects partial unique indexes as constraints. The indexes are
+    # maintained explicitly by migrations and verified by integration tests.
+    return not (
+        object_type == "unique_constraint"
+        and name
+        in {
+            "uq_charged_or_uncertain_intent",
+            "uq_open_payment_attempt",
+            "uq_provider_event_ref",
+        }
+    )
+
+
+def _compare_cockroach_type(
+    migration_context: object,
+    _inspected_column: object,
+    _metadata_column: object,
+    inspected_type: object,
+    metadata_type: object,
+) -> bool | None:
+    dialect = getattr(migration_context, "dialect", None)
+    if getattr(dialect, "name", None) != "cockroachdb":
+        return None
+    if isinstance(inspected_type, JSON) and isinstance(metadata_type, JSON):
+        return False
+    # CockroachDB's INT family is 64-bit and reflects SQLAlchemy BigInteger as INTEGER.
+    if isinstance(inspected_type, Integer) and isinstance(metadata_type, Integer):
+        return False
+    if isinstance(metadata_type, Text):
+        return False
+    return None
 
 
 class MigrationSettings(BaseSettings):
@@ -29,7 +73,7 @@ def _database_url() -> str:
     if not value:
         raise RuntimeError("DATABASE_ADMIN_URL is required for migrations")
     # Migrations use a synchronous driver even when the API uses asyncpg.
-    return value.replace("postgresql+asyncpg://", "postgresql+psycopg://", 1)
+    return value.replace("cockroachdb+asyncpg://", "cockroachdb+psycopg://", 1)
 
 
 def run_migrations_offline() -> None:
@@ -57,7 +101,8 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            compare_type=True,
+            compare_type=_compare_cockroach_type,
+            include_object=_include_object,
             render_as_batch=False,
         )
         with context.begin_transaction():

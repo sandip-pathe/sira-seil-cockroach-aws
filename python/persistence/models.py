@@ -1,6 +1,6 @@
-"""SQLAlchemy models for the first complete procurement vertical.
+"""SQLAlchemy models for the complete SIRA/SEIL procurement vertical.
 
-PostgreSQL is the canonical store. JSON columns hold immutable, schema-versioned
+CockroachDB is the canonical store. JSON columns hold immutable, schema-versioned
 snapshots while decision-critical identifiers and lifecycle states stay typed and
 queryable. Provider credentials intentionally have no column in this model.
 """
@@ -31,7 +31,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
-JSON_DOCUMENT = JSON().with_variant(JSONB(none_as_null=True), "postgresql")
+JSON_DOCUMENT = (
+    JSON()
+    .with_variant(JSONB(none_as_null=True), "postgresql")
+    .with_variant(JSONB(none_as_null=True), "cockroachdb")
+)
 
 
 class Base(DeclarativeBase):

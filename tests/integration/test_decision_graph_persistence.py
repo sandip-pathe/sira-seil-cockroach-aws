@@ -392,7 +392,7 @@ def test_graph_migration_forces_rls_for_every_new_tenant_table() -> None:
         / "api"
         / "alembic"
         / "versions"
-        / "23a8fff461fe_add_decision_graph_records.py"
+        / "cdb0002_tenant_rls.py"
     ).read_text(encoding="utf-8")
     assert "FORCE ROW LEVEL SECURITY" in migration
     assert "CREATE POLICY tenant_isolation" in migration
