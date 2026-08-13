@@ -82,8 +82,8 @@
   },
   "evaluation": {
     "id": "eval_dec_consultco_v1",
-    "payload_hash": "sha256:29e36bb06b52021f9d2b681084b344936a06802a0d26143d2c3c1088232f97df",
-    "decision_hash": "sha256:f84add454013606bb983619afb8a79d1e23dd2d64c9a810d113424a9e5f27b17",
+    "payload_hash": "sha256:ae1995bd13efb9d241f6d27639a9275867a1f7046d56b68445aebdfadaa27365",
+    "decision_hash": "sha256:e282ec55ce840984cc09e389e16f92c5fc16773bb8b24a75a72914e7e40c8452",
     "pipeline_version": "decision_graph_v1",
     "engine_version": "engine_v1"
   },
@@ -141,7 +141,7 @@
       {
         "fact_id": "bf_budget_ceiling",
         "display_name": "offer.landed total",
-        "display_value": "1000.00",
+        "display_value": "1200.00",
         "provenance_label": "admin_input",
         "sensitivity": "restricted"
       }
@@ -287,6 +287,190 @@
       "seller_positioning": null
     },
     {
+      "id": "plan_c92be8bb233f6afdfdb8",
+      "action_type": "RENEW",
+      "label": "Renew the incumbent contract",
+      "status": "SUPPORTED",
+      "reason_code": null,
+      "reason": "Meets the frozen Decision rules and supported evidence bounds",
+      "default_comparison": {
+        "cost": {
+          "amount": "1188.00",
+          "currency": "USD",
+          "horizon_days": 365
+        },
+        "stack_change": "Retain or change the current meeting-intelligence instance",
+        "next_action": "Review plan"
+      },
+      "preference_score": {
+        "conservative": {
+          "numerator": 125,
+          "denominator": 2,
+          "display": "62.50"
+        },
+        "optimistic": {
+          "numerator": 275,
+          "denominator": 4,
+          "display": "68.75"
+        }
+      },
+      "ordering_frontier_member": false,
+      "resolution_frontier_member": false,
+      "quote_required": true,
+      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
+      "permitted_resolution": null,
+      "stack_risk": {
+        "lower": "LOW",
+        "base": "LOW",
+        "upper": "LOW"
+      },
+      "total_cost": {
+        "low": {
+          "amount": "1128.00",
+          "currency": "USD"
+        },
+        "base": {
+          "amount": "1188.00",
+          "currency": "USD"
+        },
+        "high": {
+          "amount": "1308.00",
+          "currency": "USD"
+        }
+      },
+      "evidence_coverage": {
+        "hard": {
+          "numerator": 5,
+          "denominator": 5
+        },
+        "decision_material": {
+          "conservative": {
+            "numerator": 15,
+            "denominator": 16
+          },
+          "optimistic": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        }
+      },
+      "maximum_evidence_age_ratio": {
+        "lower": {
+          "numerator": 129601,
+          "denominator": 7776000
+        },
+        "upper": {
+          "numerator": 13,
+          "denominator": 36
+        }
+      },
+      "evidence_frontier": [],
+      "components": [
+        {
+          "product_evidence_id": null,
+          "current_instance_id": "inst_meeting_intelligence_incumbent",
+          "action": "RENEW",
+          "publisher_authority": null,
+          "verification_summary": "Frozen current Stack, contract, usage, and outcome evidence"
+        }
+      ],
+      "merchant": null,
+      "evidence": [],
+      "seller_positioning": null
+    },
+    {
+      "id": "plan_85c84ba1ca0ef55c0659",
+      "action_type": "REUSE_EXISTING",
+      "label": "Reuse the incumbent without a new purchase",
+      "status": "SUPPORTED",
+      "reason_code": null,
+      "reason": "Meets the frozen Decision rules and supported evidence bounds",
+      "default_comparison": {
+        "cost": {
+          "amount": "1188.00",
+          "currency": "USD",
+          "horizon_days": 365
+        },
+        "stack_change": "Retain or change the current meeting-intelligence instance",
+        "next_action": "Review plan"
+      },
+      "preference_score": {
+        "conservative": {
+          "numerator": 125,
+          "denominator": 2,
+          "display": "62.50"
+        },
+        "optimistic": {
+          "numerator": 275,
+          "denominator": 4,
+          "display": "68.75"
+        }
+      },
+      "ordering_frontier_member": false,
+      "resolution_frontier_member": false,
+      "quote_required": false,
+      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
+      "permitted_resolution": null,
+      "stack_risk": {
+        "lower": "LOW",
+        "base": "LOW",
+        "upper": "LOW"
+      },
+      "total_cost": {
+        "low": {
+          "amount": "1188.00",
+          "currency": "USD"
+        },
+        "base": {
+          "amount": "1188.00",
+          "currency": "USD"
+        },
+        "high": {
+          "amount": "1308.00",
+          "currency": "USD"
+        }
+      },
+      "evidence_coverage": {
+        "hard": {
+          "numerator": 5,
+          "denominator": 5
+        },
+        "decision_material": {
+          "conservative": {
+            "numerator": 15,
+            "denominator": 16
+          },
+          "optimistic": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        }
+      },
+      "maximum_evidence_age_ratio": {
+        "lower": {
+          "numerator": 129601,
+          "denominator": 7776000
+        },
+        "upper": {
+          "numerator": 13,
+          "denominator": 36
+        }
+      },
+      "evidence_frontier": [],
+      "components": [
+        {
+          "product_evidence_id": null,
+          "current_instance_id": "inst_meeting_intelligence_incumbent",
+          "action": "REUSE",
+          "publisher_authority": null,
+          "verification_summary": "Frozen current Stack, contract, usage, and outcome evidence"
+        }
+      ],
+      "merchant": null,
+      "evidence": [],
+      "seller_positioning": null
+    },
+    {
       "id": "plan_4dbe680e86cfb408b97e",
       "action_type": "CONFIGURE_EXISTING",
       "label": "Configure the incumbent for the required workflow",
@@ -317,7 +501,7 @@
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
       "quote_required": false,
-      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
+      "quote_policy_reason": "NONE",
       "permitted_resolution": null,
       "stack_risk": {
         "lower": "LOW",
@@ -408,8 +592,8 @@
       },
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
-      "quote_required": true,
-      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
+      "quote_required": false,
+      "quote_policy_reason": "NONE",
       "permitted_resolution": null,
       "stack_risk": {
         "lower": "LOW",
@@ -468,6 +652,113 @@
       ],
       "merchant": null,
       "evidence": [],
+      "seller_positioning": null
+    },
+    {
+      "id": "plan_f2835ba980ee39e9c11d",
+      "action_type": "REPLACE",
+      "label": "Replace the incumbent with Atlas Minutes",
+      "status": "SUPPORTED",
+      "reason_code": null,
+      "reason": "Meets the frozen Decision rules and supported evidence bounds",
+      "default_comparison": {
+        "cost": {
+          "amount": "1174.00",
+          "currency": "USD",
+          "horizon_days": 365
+        },
+        "stack_change": "Replace the meeting-intelligence incumbent; retain dependencies",
+        "next_action": "Review plan"
+      },
+      "preference_score": {
+        "conservative": {
+          "numerator": 475,
+          "denominator": 8,
+          "display": "59.38"
+        },
+        "optimistic": {
+          "numerator": 525,
+          "denominator": 8,
+          "display": "65.62"
+        }
+      },
+      "ordering_frontier_member": false,
+      "resolution_frontier_member": false,
+      "quote_required": false,
+      "quote_policy_reason": "NONE",
+      "permitted_resolution": null,
+      "stack_risk": {
+        "lower": "LOW",
+        "base": "LOW",
+        "upper": "MEDIUM"
+      },
+      "total_cost": {
+        "low": {
+          "amount": "1174.00",
+          "currency": "USD"
+        },
+        "base": {
+          "amount": "1174.00",
+          "currency": "USD"
+        },
+        "high": {
+          "amount": "1194.00",
+          "currency": "USD"
+        }
+      },
+      "evidence_coverage": {
+        "hard": {
+          "numerator": 5,
+          "denominator": 5
+        },
+        "decision_material": {
+          "conservative": {
+            "numerator": 13,
+            "denominator": 16
+          },
+          "optimistic": {
+            "numerator": 7,
+            "denominator": 8
+          }
+        }
+      },
+      "maximum_evidence_age_ratio": {
+        "lower": {
+          "numerator": 1,
+          "denominator": 60
+        },
+        "upper": {
+          "numerator": 1,
+          "denominator": 60
+        }
+      },
+      "evidence_frontier": [],
+      "components": [
+        {
+          "product_evidence_id": "fixture_eligible_runner_up",
+          "current_instance_id": null,
+          "action": "ADD",
+          "publisher_authority": "SELLER_SEALED",
+          "verification_summary": "Frozen Product Evidence evaluated by the Decision Graph"
+        }
+      ],
+      "merchant": null,
+      "evidence": [
+        {
+          "id": "ev_fixture_c_merchant",
+          "label": "Decision-material Product Evidence",
+          "publisher_authority": "SELLER_SEALED",
+          "verification_state": "VERIFIED",
+          "href": "/v1/evidence/ev_fixture_c_merchant"
+        },
+        {
+          "id": "ev_fixture_c_product",
+          "label": "Decision-material Product Evidence",
+          "publisher_authority": "SELLER_SEALED",
+          "verification_state": "VERIFIED",
+          "href": "/v1/evidence/ev_fixture_c_product"
+        }
+      ],
       "seller_positioning": null
     },
     {
@@ -866,297 +1157,6 @@
       ],
       "merchant": null,
       "evidence": [],
-      "seller_positioning": null
-    },
-    {
-      "id": "plan_85c84ba1ca0ef55c0659",
-      "action_type": "REUSE_EXISTING",
-      "label": "Reuse the incumbent without a new purchase",
-      "status": "BLOCKED_BY_COMPANY_REQUIREMENT",
-      "reason_code": "BUYER_POLICY_GATE_BUDGET",
-      "reason": "Required predicate failed",
-      "default_comparison": {
-        "cost": {
-          "amount": "1188.00",
-          "currency": "USD",
-          "horizon_days": 365
-        },
-        "stack_change": "Retain or change the current meeting-intelligence instance",
-        "next_action": "Review blocker"
-      },
-      "preference_score": {
-        "conservative": {
-          "numerator": 125,
-          "denominator": 2,
-          "display": "62.50"
-        },
-        "optimistic": {
-          "numerator": 275,
-          "denominator": 4,
-          "display": "68.75"
-        }
-      },
-      "ordering_frontier_member": false,
-      "resolution_frontier_member": false,
-      "quote_required": false,
-      "quote_policy_reason": "NONE",
-      "permitted_resolution": "PROCUREMENT_GATE",
-      "stack_risk": {
-        "lower": "LOW",
-        "base": "LOW",
-        "upper": "LOW"
-      },
-      "total_cost": {
-        "low": {
-          "amount": "1188.00",
-          "currency": "USD"
-        },
-        "base": {
-          "amount": "1188.00",
-          "currency": "USD"
-        },
-        "high": {
-          "amount": "1308.00",
-          "currency": "USD"
-        }
-      },
-      "evidence_coverage": {
-        "hard": {
-          "numerator": 4,
-          "denominator": 5
-        },
-        "decision_material": {
-          "conservative": {
-            "numerator": 15,
-            "denominator": 16
-          },
-          "optimistic": {
-            "numerator": 1,
-            "denominator": 1
-          }
-        }
-      },
-      "maximum_evidence_age_ratio": {
-        "lower": {
-          "numerator": 129601,
-          "denominator": 7776000
-        },
-        "upper": {
-          "numerator": 13,
-          "denominator": 36
-        }
-      },
-      "evidence_frontier": [],
-      "components": [
-        {
-          "product_evidence_id": null,
-          "current_instance_id": "inst_meeting_intelligence_incumbent",
-          "action": "REUSE",
-          "publisher_authority": null,
-          "verification_summary": "Frozen current Stack, contract, usage, and outcome evidence"
-        }
-      ],
-      "merchant": null,
-      "evidence": [],
-      "seller_positioning": null
-    },
-    {
-      "id": "plan_c92be8bb233f6afdfdb8",
-      "action_type": "RENEW",
-      "label": "Renew the incumbent contract",
-      "status": "BLOCKED_BY_COMPANY_REQUIREMENT",
-      "reason_code": "BUYER_POLICY_GATE_BUDGET",
-      "reason": "Required predicate failed",
-      "default_comparison": {
-        "cost": {
-          "amount": "1188.00",
-          "currency": "USD",
-          "horizon_days": 365
-        },
-        "stack_change": "Retain or change the current meeting-intelligence instance",
-        "next_action": "Review blocker"
-      },
-      "preference_score": {
-        "conservative": {
-          "numerator": 125,
-          "denominator": 2,
-          "display": "62.50"
-        },
-        "optimistic": {
-          "numerator": 275,
-          "denominator": 4,
-          "display": "68.75"
-        }
-      },
-      "ordering_frontier_member": false,
-      "resolution_frontier_member": false,
-      "quote_required": false,
-      "quote_policy_reason": "NONE",
-      "permitted_resolution": "PROCUREMENT_GATE",
-      "stack_risk": {
-        "lower": "LOW",
-        "base": "LOW",
-        "upper": "LOW"
-      },
-      "total_cost": {
-        "low": {
-          "amount": "1128.00",
-          "currency": "USD"
-        },
-        "base": {
-          "amount": "1188.00",
-          "currency": "USD"
-        },
-        "high": {
-          "amount": "1308.00",
-          "currency": "USD"
-        }
-      },
-      "evidence_coverage": {
-        "hard": {
-          "numerator": 4,
-          "denominator": 5
-        },
-        "decision_material": {
-          "conservative": {
-            "numerator": 15,
-            "denominator": 16
-          },
-          "optimistic": {
-            "numerator": 1,
-            "denominator": 1
-          }
-        }
-      },
-      "maximum_evidence_age_ratio": {
-        "lower": {
-          "numerator": 129601,
-          "denominator": 7776000
-        },
-        "upper": {
-          "numerator": 13,
-          "denominator": 36
-        }
-      },
-      "evidence_frontier": [],
-      "components": [
-        {
-          "product_evidence_id": null,
-          "current_instance_id": "inst_meeting_intelligence_incumbent",
-          "action": "RENEW",
-          "publisher_authority": null,
-          "verification_summary": "Frozen current Stack, contract, usage, and outcome evidence"
-        }
-      ],
-      "merchant": null,
-      "evidence": [],
-      "seller_positioning": null
-    },
-    {
-      "id": "plan_f2835ba980ee39e9c11d",
-      "action_type": "REPLACE",
-      "label": "Replace the incumbent with Atlas Minutes",
-      "status": "BLOCKED_BY_COMPANY_REQUIREMENT",
-      "reason_code": "BUYER_POLICY_GATE_BUDGET",
-      "reason": "Required predicate failed",
-      "default_comparison": {
-        "cost": {
-          "amount": "1174.00",
-          "currency": "USD",
-          "horizon_days": 365
-        },
-        "stack_change": "Replace the meeting-intelligence incumbent; retain dependencies",
-        "next_action": "Review blocker"
-      },
-      "preference_score": {
-        "conservative": {
-          "numerator": 475,
-          "denominator": 8,
-          "display": "59.38"
-        },
-        "optimistic": {
-          "numerator": 525,
-          "denominator": 8,
-          "display": "65.62"
-        }
-      },
-      "ordering_frontier_member": false,
-      "resolution_frontier_member": false,
-      "quote_required": false,
-      "quote_policy_reason": "NONE",
-      "permitted_resolution": "PROCUREMENT_GATE",
-      "stack_risk": {
-        "lower": "LOW",
-        "base": "LOW",
-        "upper": "MEDIUM"
-      },
-      "total_cost": {
-        "low": {
-          "amount": "1174.00",
-          "currency": "USD"
-        },
-        "base": {
-          "amount": "1174.00",
-          "currency": "USD"
-        },
-        "high": {
-          "amount": "1194.00",
-          "currency": "USD"
-        }
-      },
-      "evidence_coverage": {
-        "hard": {
-          "numerator": 4,
-          "denominator": 5
-        },
-        "decision_material": {
-          "conservative": {
-            "numerator": 13,
-            "denominator": 16
-          },
-          "optimistic": {
-            "numerator": 7,
-            "denominator": 8
-          }
-        }
-      },
-      "maximum_evidence_age_ratio": {
-        "lower": {
-          "numerator": 1,
-          "denominator": 60
-        },
-        "upper": {
-          "numerator": 1,
-          "denominator": 60
-        }
-      },
-      "evidence_frontier": [],
-      "components": [
-        {
-          "product_evidence_id": "fixture_eligible_runner_up",
-          "current_instance_id": null,
-          "action": "ADD",
-          "publisher_authority": "SELLER_SEALED",
-          "verification_summary": "Frozen Product Evidence evaluated by the Decision Graph"
-        }
-      ],
-      "merchant": null,
-      "evidence": [
-        {
-          "id": "ev_fixture_c_merchant",
-          "label": "Decision-material Product Evidence",
-          "publisher_authority": "SELLER_SEALED",
-          "verification_state": "VERIFIED",
-          "href": "/v1/evidence/ev_fixture_c_merchant"
-        },
-        {
-          "id": "ev_fixture_c_product",
-          "label": "Decision-material Product Evidence",
-          "publisher_authority": "SELLER_SEALED",
-          "verification_state": "VERIFIED",
-          "href": "/v1/evidence/ev_fixture_c_product"
-        }
-      ],
       "seller_positioning": null
     }
   ],

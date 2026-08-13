@@ -44,7 +44,7 @@ def test_required_components_are_closed_in_dependency_order_and_costed_together(
     )
     assert plan.dimensions.total_cost.base is not None
     assert plan.dimensions.total_cost.base.to_dict() == {
-        "amount": "188.00",
+        "amount": "2164.00",
         "currency": "USD",
     }
     assert plan.status is CandidateStatus.SIRA_INELIGIBLE

@@ -24,7 +24,7 @@
     { "gate_id": "gate_residency", "field": "product.data_residency", "operator": "in", "value": ["US"], "source_fact_ids": ["bf_residency_us"], "owner_role": "security_privacy_owner", "overridable": false, "seller_disclosure": "REQUIREMENT_ONLY" },
     { "gate_id": "gate_source_links", "field": "product.source_linked_answers", "operator": "eq", "value": true, "source_fact_ids": ["bf_source_linked_answers"], "owner_role": "operations_owner", "overridable": false, "seller_disclosure": "REQUIREMENT_ONLY" },
     { "gate_id": "gate_guest_notice", "field": "product.guest_recording_notice", "operator": "eq", "value": true, "source_fact_ids": ["bf_guest_notice"], "owner_role": "legal_owner", "overridable": false, "seller_disclosure": "REQUIREMENT_ONLY" },
-    { "gate_id": "gate_budget", "field": "offer.landed_total", "operator": "lte", "value": "1000.00", "source_fact_ids": ["bf_budget_ceiling"], "owner_role": "budget_owner", "overridable": true, "seller_disclosure": "HIDDEN" }
+    { "gate_id": "gate_budget", "field": "offer.landed_total", "operator": "lte", "value": "1200.00", "source_fact_ids": ["bf_budget_ceiling"], "owner_role": "budget_owner", "overridable": true, "seller_disclosure": "HIDDEN" }
   ],
   "preferences": [
     { "criterion_id": "pref_admin_hours", "field": "product.admin_hours_per_month", "weight": 5, "normalization": { "kind": "lower_is_better", "best_at_or_below": 2, "acceptable_at_or_below": 6 }, "owner_role": "operations_owner" },

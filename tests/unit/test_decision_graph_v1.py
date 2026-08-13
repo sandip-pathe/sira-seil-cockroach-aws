@@ -211,7 +211,7 @@ def test_no_action_can_win_when_buying_is_not_supported() -> None:
         replace(
             gate,
             predicates=tuple(
-                replace(predicate, value="120.00")
+                replace(predicate, value="1300.00")
                 if predicate.field == "offer.landed_total"
                 else predicate
                 for predicate in gate.predicates

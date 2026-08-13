@@ -15,7 +15,7 @@
   "evaluation": {
     "evaluation_id": "eval_dec_consultco_v1",
     "evaluated_at": "2026-08-02T12:00:00Z",
-    "evaluation_payload_hash": "sha256:29e36bb06b52021f9d2b681084b344936a06802a0d26143d2c3c1088232f97df",
+    "evaluation_payload_hash": "sha256:ae1995bd13efb9d241f6d27639a9275867a1f7046d56b68445aebdfadaa27365",
     "frozen_versions": {
       "request": "pb_consultco_v1:v1",
       "company_profile": "buyer_passport_v1",
@@ -32,8 +32,11 @@
     },
     "ranked_solution_plan_ids": [
       "plan_5a682ec42084ae355a2d",
+      "plan_c92be8bb233f6afdfdb8",
+      "plan_85c84ba1ca0ef55c0659",
       "plan_4dbe680e86cfb408b97e",
       "plan_93ec4b3649280de531a5",
+      "plan_f2835ba980ee39e9c11d",
       "plan_187dcea7fd15fb084a88"
     ],
     "ordering_frontier_plan_ids": [
@@ -67,12 +70,8 @@
       "pack_version": 1,
       "current_instance_id": null,
       "publisher_authority": "SELLER_SEALED",
-      "status": "SIRA_INELIGIBLE",
-      "primary_reason": {
-        "reason_code": "BUYER_POLICY_GATE_BUDGET",
-        "status": "SIRA_INELIGIBLE",
-        "detail": "Required predicate failed"
-      },
+      "status": "ELIGIBLE",
+      "primary_reason": null,
       "gate_results": [
         {
           "gate_id": "availability_canonical_7f082862a367a9550e4f",
@@ -94,14 +93,8 @@
         },
         {
           "gate_id": "gate_budget",
-          "truth": "FALSE",
-          "reasons": [
-            {
-              "reason_code": "BUYER_POLICY_GATE_BUDGET",
-              "status": "SIRA_INELIGIBLE",
-              "detail": "Required predicate failed"
-            }
-          ],
+          "truth": "TRUE",
+          "reasons": [],
           "evaluated_predicates": [
             "offer.landed_total"
           ],
@@ -1330,7 +1323,7 @@
         "cancel",
         "inst_meeting_intelligence_incumbent"
       ],
-      "rank": 4,
+      "rank": 7,
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
       "quote_required": false,
@@ -1628,11 +1621,11 @@
         "configure_existing",
         "inst_meeting_intelligence_incumbent"
       ],
-      "rank": 2,
+      "rank": 4,
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
       "quote_required": false,
-      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
+      "quote_policy_reason": "NONE",
       "permitted_resolution": null,
       "autonomous_execution_allowed": false,
       "stack_patch_id": null
@@ -1958,13 +1951,9 @@
       ],
       "component_hash": "sha256:b50f465e9b8f36e169a29eddc86559fa3cc7a483311d5e11a61fdaf563627b4c",
       "construction_lifecycle": "CANDIDATE",
-      "lifecycle": "BLOCKED",
-      "status": "SIRA_INELIGIBLE",
-      "primary_reason": {
-        "reason_code": "BUYER_POLICY_GATE_BUDGET",
-        "status": "SIRA_INELIGIBLE",
-        "detail": "Required predicate failed"
-      },
+      "lifecycle": "EXECUTABLE",
+      "status": "ELIGIBLE",
+      "primary_reason": null,
       "gate_results": [
         {
           "gate_id": "availability_current_renew",
@@ -1977,14 +1966,8 @@
         },
         {
           "gate_id": "gate_budget",
-          "truth": "FALSE",
-          "reasons": [
-            {
-              "reason_code": "BUYER_POLICY_GATE_BUDGET",
-              "status": "SIRA_INELIGIBLE",
-              "detail": "Required predicate failed"
-            }
-          ],
+          "truth": "TRUE",
+          "reasons": [],
           "evaluated_predicates": [
             "offer.landed_total"
           ],
@@ -2209,7 +2192,7 @@
         ],
         "payment_required": false,
         "hard_coverage": {
-          "numerator": 4,
+          "numerator": 5,
           "denominator": 5
         },
         "decision_material_coverage": {
@@ -2244,12 +2227,12 @@
         "renew",
         "inst_meeting_intelligence_incumbent"
       ],
-      "rank": null,
+      "rank": 2,
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
-      "quote_required": false,
-      "quote_policy_reason": "NONE",
-      "permitted_resolution": "PROCUREMENT_GATE",
+      "quote_required": true,
+      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
+      "permitted_resolution": null,
       "autonomous_execution_allowed": false,
       "stack_patch_id": null
     },
@@ -2926,13 +2909,9 @@
       ],
       "component_hash": "sha256:769150ec00078eb07932565e567477c916d8413c7a11602709a27d21f2d6ca03",
       "construction_lifecycle": "CANDIDATE",
-      "lifecycle": "BLOCKED",
-      "status": "SIRA_INELIGIBLE",
-      "primary_reason": {
-        "reason_code": "BUYER_POLICY_GATE_BUDGET",
-        "status": "SIRA_INELIGIBLE",
-        "detail": "Required predicate failed"
-      },
+      "lifecycle": "EXECUTABLE",
+      "status": "ELIGIBLE",
+      "primary_reason": null,
       "gate_results": [
         {
           "gate_id": "availability_canonical_7f082862a367a9550e4f",
@@ -2954,14 +2933,8 @@
         },
         {
           "gate_id": "gate_budget",
-          "truth": "FALSE",
-          "reasons": [
-            {
-              "reason_code": "BUYER_POLICY_GATE_BUDGET",
-              "status": "SIRA_INELIGIBLE",
-              "detail": "Required predicate failed"
-            }
-          ],
+          "truth": "TRUE",
+          "reasons": [],
           "evaluated_predicates": [
             "offer.landed_total"
           ],
@@ -3200,7 +3173,7 @@
         ],
         "payment_required": true,
         "hard_coverage": {
-          "numerator": 4,
+          "numerator": 5,
           "denominator": 5
         },
         "decision_material_coverage": {
@@ -3235,12 +3208,12 @@
         "replace",
         "product_fixture_c"
       ],
-      "rank": null,
+      "rank": 6,
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
       "quote_required": false,
       "quote_policy_reason": "NONE",
-      "permitted_resolution": "PROCUREMENT_GATE",
+      "permitted_resolution": null,
       "autonomous_execution_allowed": false,
       "stack_patch_id": null
     },
@@ -3854,11 +3827,11 @@
         "resize",
         "inst_meeting_intelligence_incumbent"
       ],
-      "rank": 3,
+      "rank": 5,
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
-      "quote_required": true,
-      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
+      "quote_required": false,
+      "quote_policy_reason": "NONE",
       "permitted_resolution": null,
       "autonomous_execution_allowed": false,
       "stack_patch_id": null
@@ -3876,13 +3849,9 @@
       ],
       "component_hash": "sha256:3641fe926f24fb377cb7b137fac33481b2a20a9c1264d4732df69f3515471359",
       "construction_lifecycle": "CANDIDATE",
-      "lifecycle": "BLOCKED",
-      "status": "SIRA_INELIGIBLE",
-      "primary_reason": {
-        "reason_code": "BUYER_POLICY_GATE_BUDGET",
-        "status": "SIRA_INELIGIBLE",
-        "detail": "Required predicate failed"
-      },
+      "lifecycle": "EXECUTABLE",
+      "status": "ELIGIBLE",
+      "primary_reason": null,
       "gate_results": [
         {
           "gate_id": "availability_current_reuse_existing",
@@ -3895,14 +3864,8 @@
         },
         {
           "gate_id": "gate_budget",
-          "truth": "FALSE",
-          "reasons": [
-            {
-              "reason_code": "BUYER_POLICY_GATE_BUDGET",
-              "status": "SIRA_INELIGIBLE",
-              "detail": "Required predicate failed"
-            }
-          ],
+          "truth": "TRUE",
+          "reasons": [],
           "evaluated_predicates": [
             "offer.landed_total"
           ],
@@ -4127,7 +4090,7 @@
         ],
         "payment_required": false,
         "hard_coverage": {
-          "numerator": 4,
+          "numerator": 5,
           "denominator": 5
         },
         "decision_material_coverage": {
@@ -4162,13 +4125,13 @@
         "reuse_existing",
         "inst_meeting_intelligence_incumbent"
       ],
-      "rank": null,
+      "rank": 3,
       "ordering_frontier_member": false,
       "resolution_frontier_member": false,
       "quote_required": false,
-      "quote_policy_reason": "NONE",
-      "permitted_resolution": "PROCUREMENT_GATE",
-      "autonomous_execution_allowed": false,
+      "quote_policy_reason": "PRELIMINARY_TOP_THREE",
+      "permitted_resolution": null,
+      "autonomous_execution_allowed": true,
       "stack_patch_id": null
     }
   ],
@@ -4200,18 +4163,18 @@
         ]
       ],
       "tested_limit": 3,
-      "before_evaluation_payload_hash": "sha256:29e36bb06b52021f9d2b681084b344936a06802a0d26143d2c3c1088232f97df",
-      "after_evaluation_payload_hash": "sha256:a76ae30e6406f5609a3c66a67f62c8df2929049276339c98e40789aae6882a01",
-      "generic_evaluation_payload_hash": "sha256:570628e0bc272192a4e63e7945ba589c72616b9855c449d7ac7acccc2f436192",
+      "before_evaluation_payload_hash": "sha256:ae1995bd13efb9d241f6d27639a9275867a1f7046d56b68445aebdfadaa27365",
+      "after_evaluation_payload_hash": "sha256:972a2da57d4752efc6b9060d4dd404a632ebfcd35e64107cc8b1a02847f12c8b",
+      "generic_evaluation_payload_hash": "sha256:1b5c633d0e577359351b6e33ac89483229db101507eaefae30fb8691cc215cee",
       "before_selected_plan_id": "plan_5a682ec42084ae355a2d",
       "after_selected_plan_id": "plan_3bf2f83ab61e5f63ae7c",
       "generic_selected_plan_id": "plan_15ed07224364e2feeb56",
       "changed_gate_ids": [
         "af_fixture_b_shared_client_data"
       ],
-      "record_hash": "sha256:e9ad5f585560c3010f3041eaaa8b02b9e2c5af149571023c292c73dee94cffee"
+      "record_hash": "sha256:51d3e7c0b0c52ed1fa7ac7c72cc848c7e2d4f8513c6f58af277bfb0fe237ac2d"
     }
   ],
   "created_at": "2026-08-02T12:00:00Z",
-  "decision_hash": "sha256:f84add454013606bb983619afb8a79d1e23dd2d64c9a810d113424a9e5f27b17"
+  "decision_hash": "sha256:e282ec55ce840984cc09e389e16f92c5fc16773bb8b24a75a72914e7e40c8452"
 }

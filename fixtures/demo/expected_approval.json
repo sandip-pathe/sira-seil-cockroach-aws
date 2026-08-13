@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "approval_request_id": "apr_consultco_fixture_d",
   "purchase_intent_id": "pi_consultco_fixture_d",
-  "intent_hash": "sha256:277a71a69813260c8651d6572cd17572478ba9bba17e9b525ac639904d9e211d",
+  "intent_hash": "sha256:df2ae1962556c529310d8067fa75ce7a06c5469fa3caccc520298d006d528a66",
   "status": "APPROVED",
   "policy_version": 1,
   "requirement_set_id": "aprs_consultco_v1",
@@ -12,7 +12,7 @@
       "role": "operations_owner",
       "status": "APPROVED",
       "actor_ref": "usr_operations_owner",
-      "approved_intent_hash": "sha256:277a71a69813260c8651d6572cd17572478ba9bba17e9b525ac639904d9e211d",
+      "approved_intent_hash": "sha256:df2ae1962556c529310d8067fa75ce7a06c5469fa3caccc520298d006d528a66",
       "recorded_at": "2026-08-02T01:15:00Z"
     },
     {
@@ -20,7 +20,7 @@
       "role": "security_privacy_owner",
       "status": "APPROVED",
       "actor_ref": "usr_security_owner",
-      "approved_intent_hash": "sha256:277a71a69813260c8651d6572cd17572478ba9bba17e9b525ac639904d9e211d",
+      "approved_intent_hash": "sha256:df2ae1962556c529310d8067fa75ce7a06c5469fa3caccc520298d006d528a66",
       "recorded_at": "2026-08-02T01:16:00Z"
     },
     {
@@ -28,7 +28,7 @@
       "role": "legal_owner",
       "status": "APPROVED",
       "actor_ref": "usr_legal_owner",
-      "approved_intent_hash": "sha256:277a71a69813260c8651d6572cd17572478ba9bba17e9b525ac639904d9e211d",
+      "approved_intent_hash": "sha256:df2ae1962556c529310d8067fa75ce7a06c5469fa3caccc520298d006d528a66",
       "recorded_at": "2026-08-02T01:17:00Z"
     },
     {
@@ -36,13 +36,13 @@
       "role": "budget_owner",
       "status": "APPROVED",
       "actor_ref": "usr_budget_owner",
-      "approved_intent_hash": "sha256:277a71a69813260c8651d6572cd17572478ba9bba17e9b525ac639904d9e211d",
+      "approved_intent_hash": "sha256:df2ae1962556c529310d8067fa75ce7a06c5469fa3caccc520298d006d528a66",
       "recorded_at": "2026-08-02T01:18:00Z"
     }
   ],
   "exact_summary": {
     "decision_version": 1,
-    "decision_hash": "sha256:f84add454013606bb983619afb8a79d1e23dd2d64c9a810d113424a9e5f27b17",
+    "decision_hash": "sha256:e282ec55ce840984cc09e389e16f92c5fc16773bb8b24a75a72914e7e40c8452",
     "selection_id": "selection_consultco_fixture_d",
     "solution_plan_id": "plan_5a682ec42084ae355a2d",
     "merchant_id": "merchant_fixture_d",
