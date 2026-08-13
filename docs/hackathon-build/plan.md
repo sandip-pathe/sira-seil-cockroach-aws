@@ -97,12 +97,12 @@ P0 is complete only when current-state evidence proves every checklist item. Tar
 Implemented and locally verified:
 
 - Cockroach-aware engine, transaction-local tenant context, runtime-role/schema/RLS readiness, and whole-callback fresh-session `40001` retries;
-- migrations through `cdb0009`, Product Bundles, DVI-backed retrieval, attempts/leases/fences/snapshots/replacements, durable receipts/effects, bilateral consent and introductions;
+- migrations through `cdb0010`, Product Bundles, DVI-backed retrieval, attempts/leases/fences/snapshots/replacements, durable receipts/effects, bilateral consent, introductions and append-only workspace settings;
 - typed Bedrock Converse and Titan adapters, S3 content-addressed evidence, SQS FIFO outbox/consumer boundaries, and role-separated worker entrypoints;
-- the six P0 product routes plus editable versioned company context, durable buyer/seller inboxes, interactive S3 evidence ingestion, and public DVI-backed marketplace/product pages;
+- the six P0 product routes plus editable versioned company context, durable buyer/seller inboxes, interactive S3 evidence ingestion, public DVI-backed marketplace/product pages, settings/disclosure controls and buyer/seller analytics;
 - CloudFront-to-internal-ALB ECS architecture, separate API/web/dispatcher/qualification services, S3/SQS/Secrets/Guardrail/CloudWatch resources, least-privilege task roles, and production images;
 - PRAVA and controlled-merchant payment/reconciliation boundaries remain human-authorized and credential-isolated.
 
-Evidence currently passing: the official repository gate (`329 passed`, coverage `75.34%`, OpenAPI/client/web/credential checks), all `11` live local Cockroach integration tests, an `83`-table zero-violation RLS/grant/immutability audit, live Nova Converse/Titan V2 provider smoke, CDK build/tests/synth, and API/web container smoke checks. These results prove local implementation and AWS model access, not hosted deployment.
+Evidence currently passing: the official repository gate (`333 passed`, coverage `75.19%`, OpenAPI/client/web/credential checks), all `12` live local Cockroach integration tests, an `85`-table zero-violation RLS/grant/immutability audit, live Nova Converse/Titan V2 provider smoke, CDK build/tests/synth, production image builds, API/worker import smoke, and HTTP 200 checks for the new settings/analytics surfaces. These results prove local implementation and AWS model access, not hosted deployment.
 
-Still externally gated or incomplete: CockroachDB Cloud TLS/backup and Managed MCP evidence, live Guardrail intervention and labelled model-quality evaluation, AWS deployment/hosted rehearsals, browser accessibility/E2E evidence, restore operations, settings/disclosure persistence, and advanced AgentCore/Automated Reasoning/changefeed/multi-region experiments.
+Still externally gated or incomplete: CockroachDB Cloud TLS/backup and Managed MCP evidence, live Guardrail intervention and labelled model-quality evaluation, AWS deployment/hosted rehearsals, browser accessibility/E2E evidence, restore operations, live PRAVA, and advanced AgentCore/Automated Reasoning/changefeed/multi-region experiments.

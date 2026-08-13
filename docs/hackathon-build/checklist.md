@@ -11,8 +11,8 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 
 ## Evidence snapshot (2026-08-13)
 
-- Official repository gate: `329 passed`, `11 skipped` only because the default gate intentionally omits live Cockroach URLs, coverage `75.34%`; Ruff, Mypy, OpenAPI drift, generated client, web lint/type checks, Prettier and current-tree credential scan pass.
-- Live local CockroachDB: `11 passed` covering readiness/FORCE RLS/pool reuse, successful and exhausted real `40001` retries, DVI/current-bundle gates, stale replacement, lease takeover/generation fencing, bilateral isolation, outbox delivery and atomic introduction. The sanitized security audit passes across `83` tenant tables with zero grant/RLS/immutability violations.
+- Official repository gate: `333 passed`, `12 skipped` only because the default gate intentionally omits live Cockroach URLs, coverage `75.19%`; Ruff, Mypy, OpenAPI drift, generated client, web lint/type checks, Prettier and current-tree credential scan pass.
+- Live local CockroachDB: `12 passed` covering readiness/FORCE RLS/pool reuse, successful and exhausted real `40001` retries, DVI/current-bundle gates, stale replacement, lease takeover/generation fencing, bilateral isolation, append-only workspace settings, tenant-safe analytics, outbox delivery and atomic introduction. The sanitized security audit passes across `85` tenant tables with zero grant/RLS/immutability violations.
 - AWS package: CDK build, two topology/IAM tests and synth pass; API/web production images and read-only container smokes pass.
 - AWS provider: live Nova Converse and Titan V2 smoke passes in `us-east-1` with a normalized 1,024-dimensional embedding; Guardrail intervention remains deployment-gated.
 - Not yet evidence: CockroachDB Cloud TLS/Managed MCP/backup, deployed AWS URL, hosted rehearsals, browser accessibility/E2E, live Guardrail intervention, labelled live-model quality and restore drill. Related gates remain open.
@@ -43,7 +43,7 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
   Build: immutable buyer-context/brief/evidence/Product Twin/catalog/Product Bundle versions; embeddings; missions, attempts, input/dependencies, checkpoints; decisions/citations; engagements/responses/consents/introductions; idempotency, events, outbox, consumer receipts and effects.
   Accept: active Product Bundle activation is atomic; published business inputs are insert-only for application roles; all tenant FKs are scoped; unique constraints enforce one direct successor, current decision, consent/digest, consumer receipt and semantic effect.
   Verify: fresh migration, schema assertions, immutable-write negatives, RLS/grant audit and migration smoke.
-  Progress: migrations through `cdb0009`, tenant FKs/constraints, Product Bundles, embeddings, missions/attempts/decisions/engagements/receipts/effects, versioned company context and immutable S3 object identity are implemented and fresh-migration checked. The local 83-table RLS/grant/immutability audit passes; repeat it against CockroachDB Cloud before submission.
+  Progress: migrations through `cdb0010`, tenant FKs/constraints, Product Bundles, embeddings, missions/attempts/decisions/engagements/receipts/effects, versioned company context/workspace settings and immutable S3 object identity are implemented and fresh-migration checked. The local 85-table RLS/grant/immutability audit passes; repeat it against CockroachDB Cloud before submission.
 
 - [ ] **5. Prove the correctness kernel on real CockroachDB**
   Build: database-time claim/lease/generation, committed snapshot, controlled barrier, checkpoint, stale finalization, one direct replacement, bounded chain, lease takeover, durable duplicate suppression and atomic qualified introduction.
@@ -91,7 +91,7 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 - [x] Buyer versioned company-context editing, history/retirement, mission pinning and durable decision inbox.
 - [x] Seller product portfolio, durable opportunity inbox and interactive versioned S3 ingestion.
 - [x] Public marketplace search/product pages backed by Bedrock embeddings, DVI and relational active Product Bundle gates.
-- [ ] Settings/disclosure management, restore drill and broader telemetry. Safe DLQ status/start/cancel controls are implemented.
+- [ ] Restore drill and hosted telemetry evidence. Versioned settings/disclosure controls, tenant-safe marketplace analytics and safe DLQ status/start/cancel controls are implemented.
 - [ ] `ccloud` provision/doctor/backup/restore evidence and GitHub Actions OIDC delivery. Credential-safe doctor and exact-repository OIDC workflow are implemented; Cloud authentication/deployment evidence remains open.
 
 ## P2 after P1 or when independently safe
@@ -100,4 +100,4 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 - [ ] Bedrock Automated Reasoning as an explanatory policy check, never authority.
 - [ ] AgentCore Runtime/evaluation experiment without AgentCore Memory.
 - [ ] Measured Cockroach changefeed, multi-region and regional-survival experiments.
-- [ ] Analytics, additional categories and outcome-learning surfaces backed by real events.
+- [ ] Additional categories and broader outcome-learning surfaces. Tenant-safe buyer/seller analytics backed by canonical records and transactional outbox events are implemented.
