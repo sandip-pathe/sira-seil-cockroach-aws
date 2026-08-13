@@ -23,10 +23,10 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, make_url
 
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,62}\Z")
-_USERS: Mapping[str, str] = {
-    "sira_app": "sira_runtime",
-    "sira_worker_app": "sira_runtime",
-    "sira_catalog_app": "sira_catalog_reader",
+_USERS: Mapping[str, tuple[str, ...]] = {
+    "sira_app": ("sira_runtime", "sira_api_tenant_bootstrap"),
+    "sira_worker_app": ("sira_runtime", "sira_worker_directory_reader"),
+    "sira_catalog_app": ("sira_catalog_reader",),
 }
 _ORGANIZATIONS: Sequence[tuple[str, str]] = (
     ("org_consultco", "ConsultCo Demo Buyer"),
@@ -83,14 +83,15 @@ def provision_database(admin_url: URL) -> ProvisionedRuntime:
     passwords = {username: secrets.token_urlsafe(36) for username in _USERS}
     engine = create_engine(admin_url, pool_pre_ping=True)
     try:
-        for username, role in _USERS.items():
+        for username, roles in _USERS.items():
             with engine.begin() as connection:
                 connection.execute(text(f'CREATE USER IF NOT EXISTS "{username}"'))
                 connection.execute(
                     text(f'ALTER USER "{username}" WITH PASSWORD :password'),
                     {"password": passwords[username]},
                 )
-                connection.execute(text(f'GRANT "{role}" TO "{username}"'))
+                for role in roles:
+                    connection.execute(text(f'GRANT "{role}" TO "{username}"'))
                 connection.execute(
                     text(f'GRANT CONNECT ON DATABASE "{admin_url.database}" TO "{username}"')
                 )

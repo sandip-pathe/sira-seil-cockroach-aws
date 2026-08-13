@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-EXPECTED_ALEMBIC_HEADS: frozenset[str] = frozenset({"cdb0010"})
+EXPECTED_ALEMBIC_HEADS: frozenset[str] = frozenset({"cdb0011"})
 logger = logging.getLogger(__name__)
 
 _ORGANIZATION_ID = re.compile(r"[A-Za-z0-9_-]{1,48}\Z")
@@ -196,8 +196,8 @@ class Database:
         """List durable tenants for trusted background workers.
 
         This deliberately runs without tenant context and only reads the global organization
-        directory. Runtime credentials have no tenant-table access until a validated ID is set
-        by ``transaction``.
+        directory. The production worker receives a narrow read-only directory role; it still
+        has no tenant-table access until ``transaction`` sets a validated organization ID.
         """
 
         if limit < 1 or limit > 10_000:
