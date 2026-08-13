@@ -31,6 +31,20 @@ contract booleans, and a hash of the normalized chat output. It does not persist
 credentials, or AWS identity material. Guardrail intervention and labelled decision quality remain
 separate gates and are stated as such in the artifact.
 
+## CockroachDB security and immutability audit
+
+Run the audit through an administrative connection that is available only to the migration job:
+
+```powershell
+uv run python scripts/cockroach_security_audit.py
+```
+
+The audit checks every tenant table for enabled and forced RLS, at least one policy, and an owner
+distinct from `sira_runtime`. It additionally proves that immutable version/dependency/citation
+tables grant only `SELECT` and `INSERT`, never `UPDATE`, `DELETE`, or `TRUNCATE`. The persisted
+artifact contains counts, violations, and a schema fingerprint—not table owners, raw grants, or
+connection data.
+
 ## Normal commands
 
 ```text
