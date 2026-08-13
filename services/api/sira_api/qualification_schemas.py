@@ -108,6 +108,45 @@ class CompanyContextView(StrictModel):
     versions: list[dict[str, Any]]
 
 
+class NotificationChannels(StrictModel):
+    in_app: bool = True
+    email: bool = False
+
+
+class QuietHours(StrictModel):
+    enabled: bool = False
+    start: str = Field(default="22:00", pattern=r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
+    end: str = Field(default="07:00", pattern=r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
+    timezone: str = Field(default="Asia/Kolkata", min_length=3, max_length=80)
+
+
+class DisclosureDefaults(StrictModel):
+    allow_anonymized_requirement_preview: bool = True
+    share_organization_name_after_consent: bool = False
+    allow_outcome_follow_up: bool = True
+
+
+class WorkspaceSettingsUpdate(StrictModel):
+    notification_channels: NotificationChannels
+    quiet_hours: QuietHours
+    disclosure_defaults: DisclosureDefaults
+    change_reason: str = Field(min_length=3, max_length=500)
+
+
+class WorkspaceSettingsView(StrictModel):
+    id: str | None
+    party: Literal["BUYER", "SELLER"]
+    current_version: int = Field(ge=0)
+    current_hash: str
+    etag: str
+    persisted: bool
+    notification_channels: NotificationChannels
+    quiet_hours: QuietHours
+    disclosure_defaults: DisclosureDefaults
+    consent_boundary: Literal["BILATERAL_EXACT_FIELD_MATCH_REQUIRED"]
+    updated_at: str | None
+
+
 class QualificationApprovalCreate(StrictModel):
     action: Literal["APPROVE", "REJECT"]
     reason: str = Field(min_length=3, max_length=1000)

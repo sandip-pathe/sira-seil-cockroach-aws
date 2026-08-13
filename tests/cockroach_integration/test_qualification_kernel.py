@@ -43,6 +43,8 @@ from persistence.qualification_models import (
     QualificationMissionBundle,
     QualifiedIntroduction,
     SellerResponse,
+    WorkspaceSettings,
+    WorkspaceSettingsVersion,
 )
 from persistence.qualification_repository import QualificationRepository
 from persistence.repositories import PersistenceConflict
@@ -69,6 +71,85 @@ def _catalog_url() -> str:
     if not value:
         pytest.skip("SIRA_TEST_CATALOG_DATABASE_URL is required")
     return value
+
+
+@pytest.mark.asyncio
+async def test_workspace_settings_are_versioned_tenant_private_and_retry_safe() -> None:
+    await _ensure_organizations()
+    database = Database(DatabaseSettings(database_url=_runtime_url()))
+    service = QualificationService(database)
+    try:
+        initial = await service.workspace_settings("org_buyer", party="BUYER")
+        assert initial["persisted"] is False
+        body = {
+            "notification_channels": {"in_app": True, "email": True},
+            "quiet_hours": {
+                "enabled": True,
+                "start": "22:00",
+                "end": "07:00",
+                "timezone": "Asia/Kolkata",
+            },
+            "disclosure_defaults": {
+                "allow_anonymized_requirement_preview": True,
+                "share_organization_name_after_consent": False,
+                "allow_outcome_follow_up": True,
+            },
+            "change_reason": "Enable durable notification preferences.",
+        }
+        key = f"workspace-settings-{uuid4().hex}"
+        status, created = await service.update_workspace_settings(
+            organization_id="org_buyer",
+            actor_id="buyer-user",
+            party="BUYER",
+            if_match=str(initial["etag"]),
+            idempotency_key=key,
+            body=body,
+        )
+        replay_status, replay = await service.update_workspace_settings(
+            organization_id="org_buyer",
+            actor_id="buyer-user",
+            party="BUYER",
+            if_match=str(initial["etag"]),
+            idempotency_key=key,
+            body=body,
+        )
+        assert status == replay_status == 200
+        assert replay["resource_id"] == created["resource_id"]
+        assert replay["replayed"] is True
+
+        current = await service.workspace_settings("org_buyer", party="BUYER")
+        revised_body = {
+            **body,
+            "notification_channels": {"in_app": True, "email": False},
+            "change_reason": "Disable email while retaining the prior revision.",
+        }
+        revised_status, _ = await service.update_workspace_settings(
+            organization_id="org_buyer",
+            actor_id="buyer-user",
+            party="BUYER",
+            if_match=str(current["etag"]),
+            idempotency_key=f"workspace-settings-{uuid4().hex}",
+            body=revised_body,
+        )
+        assert revised_status == 200
+        async with database.transaction("org_buyer") as session:
+            assert (
+                await session.scalar(
+                    select(func.count())
+                    .select_from(WorkspaceSettingsVersion)
+                    .where(WorkspaceSettingsVersion.settings_id == created["resource_id"])
+                )
+            ) == 2
+        async with database.transaction("org_other") as session:
+            assert (
+                await session.scalar(
+                    select(WorkspaceSettings).where(
+                        WorkspaceSettings.id == created["resource_id"]
+                    )
+                )
+            ) is None
+    finally:
+        await database.close()
 
 
 @pytest.mark.asyncio

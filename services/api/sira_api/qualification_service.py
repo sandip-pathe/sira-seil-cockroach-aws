@@ -34,6 +34,8 @@ from persistence.qualification_models import (
     QualifiedIntroduction,
     SellerEngagementProjection,
     SellerResponse,
+    WorkspaceSettings,
+    WorkspaceSettingsVersion,
 )
 from persistence.qualification_repository import QualificationRepository
 from persistence.repositories import PersistenceConflict, WorkflowRepository, new_id
@@ -61,6 +63,23 @@ def _verify_match(provided: str, expected: str) -> None:
         )
 
 
+def _default_workspace_settings() -> dict[str, Any]:
+    return {
+        "notification_channels": {"in_app": True, "email": False},
+        "quiet_hours": {
+            "enabled": False,
+            "start": "22:00",
+            "end": "07:00",
+            "timezone": "Asia/Kolkata",
+        },
+        "disclosure_defaults": {
+            "allow_anonymized_requirement_preview": True,
+            "share_organization_name_after_consent": False,
+            "allow_outcome_follow_up": True,
+        },
+    }
+
+
 class QualificationService:
     def __init__(
         self,
@@ -74,6 +93,148 @@ class QualificationService:
         self.catalog_database = catalog_database
         self.embedding_client = embedding_client
         self.allow_development_tenant_bootstrap = allow_development_tenant_bootstrap
+
+    async def workspace_settings(
+        self, organization_id: str, *, party: Literal["BUYER", "SELLER"]
+    ) -> dict[str, Any]:
+        async with self.database.transaction(organization_id) as session:
+            settings = await session.scalar(
+                select(WorkspaceSettings).where(
+                    WorkspaceSettings.organization_id == organization_id,
+                    WorkspaceSettings.party == party,
+                )
+            )
+            if settings is None:
+                payload = _default_workspace_settings()
+                digest = content_hash(payload)
+                return self._settings_payload(
+                    party=party,
+                    settings_id=None,
+                    version=0,
+                    digest=digest,
+                    payload=payload,
+                    updated_at=None,
+                )
+            version = await session.scalar(
+                select(WorkspaceSettingsVersion).where(
+                    WorkspaceSettingsVersion.organization_id == organization_id,
+                    WorkspaceSettingsVersion.settings_id == settings.id,
+                    WorkspaceSettingsVersion.id == settings.current_version_id,
+                    WorkspaceSettingsVersion.content_hash == settings.current_hash,
+                )
+            )
+            if version is None:
+                raise PersistenceConflict("workspace settings head has no immutable version")
+            return self._settings_payload(
+                party=party,
+                settings_id=settings.id,
+                version=settings.current_version,
+                digest=settings.current_hash,
+                payload=dict(version.payload),
+                updated_at=settings.updated_at,
+            )
+
+    async def update_workspace_settings(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        party: Literal["BUYER", "SELLER"],
+        if_match: str,
+        idempotency_key: str,
+        body: dict[str, Any],
+    ) -> tuple[int, dict[str, Any]]:
+        payload = {
+            "notification_channels": body["notification_channels"],
+            "quiet_hours": body["quiet_hours"],
+            "disclosure_defaults": body["disclosure_defaults"],
+        }
+        digest = content_hash(payload)
+        request_hash = content_hash({"party": party, "payload": payload})
+
+        async def write(session: AsyncSession) -> tuple[int, dict[str, Any]]:
+            settings = await session.scalar(
+                select(WorkspaceSettings).where(
+                    WorkspaceSettings.organization_id == organization_id,
+                    WorkspaceSettings.party == party,
+                )
+            )
+            repository = WorkflowRepository(session, organization_id)
+            claim = await repository.claim_idempotency(
+                actor_id=actor_id,
+                operation=f"qualification.workspace_settings.update:{party}",
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+            )
+            if claim.replay:
+                replay = dict(claim.record.response_payload or {})
+                replay["replayed"] = True
+                return int(claim.record.response_status or 200), replay
+            expected_hash = (
+                settings.current_hash
+                if settings is not None
+                else content_hash(_default_workspace_settings())
+            )
+            _verify_match(if_match, expected_hash)
+            if settings is not None and digest == settings.current_hash:
+                raise ApiProblem(
+                    code="WORKSPACE_SETTINGS_UNCHANGED",
+                    message="The proposed settings are identical to the current version.",
+                    status_code=409,
+                    next_action="change_settings_or_cancel",
+                )
+            settings_id = settings.id if settings is not None else new_id("wsettings")
+            version_number = settings.current_version + 1 if settings is not None else 1
+            version_id = new_id("wsetver")
+            if settings is None:
+                settings = WorkspaceSettings(
+                    id=settings_id,
+                    party=party,
+                    current_version_id=version_id,
+                    current_version=version_number,
+                    current_hash=digest,
+                    organization_id=organization_id,
+                )
+                session.add(settings)
+            else:
+                settings.current_version_id = version_id
+                settings.current_version = version_number
+                settings.current_hash = digest
+            session.add(
+                WorkspaceSettingsVersion(
+                    id=version_id,
+                    settings_id=settings_id,
+                    version=version_number,
+                    content_hash=digest,
+                    payload=payload,
+                    changed_by_actor_id=actor_id,
+                    change_reason=body["change_reason"],
+                    organization_id=organization_id,
+                )
+            )
+            await repository.add_outbox(
+                aggregate_type="WORKSPACE_SETTINGS",
+                aggregate_id=settings_id,
+                event_type="WORKSPACE_SETTINGS_VERSION_PUBLISHED",
+                event_key=f"workspace-settings-version:{version_id}",
+                payload={"party": party, "version_id": version_id, "content_hash": digest},
+            )
+            response = {
+                "resource_type": "workspace_settings",
+                "resource_id": settings_id,
+                "state": "ACTIVE",
+                "input_digest": digest,
+                "replayed": False,
+            }
+            await repository.complete_idempotency(
+                claim.record,
+                response_status=200,
+                response_payload=response,
+                response_reference=settings_id,
+            )
+            return 200, response
+
+        return await self.database.run_retryable(organization_id, write)
 
     async def search_marketplace(
         self,
@@ -1612,6 +1773,30 @@ class QualificationService:
             "changed_by_actor_id": version.changed_by_actor_id,
             "change_reason": version.change_reason,
             "created_at": _timestamp(version.created_at),
+        }
+
+    @staticmethod
+    def _settings_payload(
+        *,
+        party: Literal["BUYER", "SELLER"],
+        settings_id: str | None,
+        version: int,
+        digest: str,
+        payload: dict[str, Any],
+        updated_at: datetime | None,
+    ) -> dict[str, Any]:
+        return {
+            "id": settings_id,
+            "party": party,
+            "current_version": version,
+            "current_hash": digest,
+            "etag": _etag_value(digest),
+            "persisted": settings_id is not None,
+            **payload,
+            # Preferences can only narrow what is requested. The existing
+            # consent kernel remains the authority for any actual disclosure.
+            "consent_boundary": "BILATERAL_EXACT_FIELD_MATCH_REQUIRED",
+            "updated_at": _timestamp(updated_at) if updated_at is not None else None,
         }
 
     @staticmethod

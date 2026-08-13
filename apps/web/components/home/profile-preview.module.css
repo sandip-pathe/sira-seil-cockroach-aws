@@ -408,6 +408,80 @@
   font-size: 11px;
 }
 
+.preferencePanel {
+  display: grid;
+  gap: 0;
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.toggleRow {
+  min-height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.toggleRow span {
+  display: grid;
+  gap: 3px;
+}
+
+.toggleRow strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.toggleRow small,
+.saveSettings p {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.toggleRow input {
+  width: 38px;
+  height: 20px;
+  accent-color: var(--settings-accent);
+}
+
+.inlineLink {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--settings-accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.consentNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.consentNote svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--settings-accent);
+}
+
+.saveSettings {
+  margin-top: 18px;
+}
+
+.saveSettings p {
+  margin: 6px 0;
+}
+
 .accountAction,
 .accountActionSecondary {
   width: 100%;

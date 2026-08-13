@@ -5,6 +5,7 @@ from typing import cast
 
 import httpx
 import pytest
+from sqlalchemy import select
 
 from domain import content_hash
 from persistence.database import Database
@@ -18,6 +19,8 @@ from persistence.qualification_models import (
     QualificationDecision,
     QualificationMission,
     QualificationMissionBundle,
+    WorkspaceSettings,
+    WorkspaceSettingsVersion,
 )
 
 
@@ -54,6 +57,87 @@ def _mission_body() -> dict[str, object]:
             "maximum_annual_cost": "25000",
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_workspace_settings_are_versioned_idempotent_and_party_scoped(
+    api_client: httpx.AsyncClient,
+) -> None:
+    initial = await api_client.get("/v1/qualification/settings")
+    assert initial.status_code == 200
+    assert initial.json()["persisted"] is False
+    assert initial.json()["party"] == "BUYER"
+    assert initial.json()["current_version"] == 0
+    assert initial.json()["consent_boundary"] == "BILATERAL_EXACT_FIELD_MATCH_REQUIRED"
+    initial_etag = initial.headers["etag"]
+    body = {
+        "notification_channels": {"in_app": True, "email": True},
+        "quiet_hours": {
+            "enabled": True,
+            "start": "21:30",
+            "end": "07:30",
+            "timezone": "Asia/Kolkata",
+        },
+        "disclosure_defaults": {
+            "allow_anonymized_requirement_preview": True,
+            "share_organization_name_after_consent": True,
+            "allow_outcome_follow_up": False,
+        },
+        "change_reason": "Enable assignment email and quiet hours.",
+    }
+    headers = {
+        "Idempotency-Key": "workspace-settings-api-1",
+        "If-Match": initial_etag,
+    }
+    saved = await api_client.put("/v1/qualification/settings", headers=headers, json=body)
+    replay = await api_client.put("/v1/qualification/settings", headers=headers, json=body)
+    assert saved.status_code == replay.status_code == 200
+    assert replay.json()["resource_id"] == saved.json()["resource_id"]
+    assert replay.json()["replayed"] is True
+
+    current = await api_client.get("/v1/qualification/settings")
+    assert current.status_code == 200
+    assert current.json()["persisted"] is True
+    assert current.json()["current_version"] == 1
+    assert current.json()["notification_channels"]["email"] is True
+    assert current.json()["disclosure_defaults"]["allow_outcome_follow_up"] is False
+    assert current.headers["etag"] == f'"{saved.json()["input_digest"]}"'
+
+    stale = await api_client.put(
+        "/v1/qualification/settings",
+        headers={"Idempotency-Key": "workspace-settings-api-stale", "If-Match": initial_etag},
+        json={**body, "change_reason": "Attempt a stale overwrite."},
+    )
+    assert stale.status_code == 412
+
+    seller_headers = {
+        "X-Organization-Id": "org_seller_a",
+        "X-Actor-Id": "seller-human",
+        "X-Actor-Party": "SELLER",
+        "X-Actor-Roles": "seller_editor,can_view_context",
+    }
+    seller = await api_client.get("/v1/qualification/settings", headers=seller_headers)
+    assert seller.status_code == 200, seller.text
+    assert seller.json()["party"] == "SELLER"
+    assert seller.json()["persisted"] is False
+
+    database = _database_for(api_client)
+    async with database.transaction("org_consultco") as session:
+        heads = (
+            await session.scalars(
+                select(WorkspaceSettings).where(
+                    WorkspaceSettings.organization_id == "org_consultco"
+                )
+            )
+        ).all()
+        versions = (
+            await session.scalars(
+                select(WorkspaceSettingsVersion).where(
+                    WorkspaceSettingsVersion.organization_id == "org_consultco"
+                )
+            )
+        ).all()
+    assert len(heads) == len(versions) == 1
 
 
 @pytest.mark.asyncio

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
 
@@ -33,6 +33,8 @@ from .qualification_schemas import (
     QualificationMissionView,
     QualificationMutationView,
     QualificationSellerResponseCreate,
+    WorkspaceSettingsUpdate,
+    WorkspaceSettingsView,
 )
 from .qualification_service import QualificationService
 
@@ -57,6 +59,66 @@ def _require_buyer(context: RequestContext) -> None:
             status_code=403,
             next_action="use_authorized_buyer_identity",
         )
+
+
+def _require_verified_party(context: RequestContext) -> None:
+    if context.party not in {"BUYER", "SELLER"}:
+        raise ApiProblem(
+            code="VERIFIED_PARTY_REQUIRED",
+            message="This operation requires a verified buyer or seller identity.",
+            status_code=403,
+            next_action="authenticate_party_identity",
+        )
+
+
+@qualification_router.get(
+    "/v1/qualification/settings",
+    response_model=WorkspaceSettingsView,
+    tags=["workspace settings"],
+    name="qualification_get_workspace_settings",
+)
+async def get_workspace_settings(
+    response: Response,
+    context: ContextDependency,
+    service: ServiceDependency,
+) -> dict[str, object]:
+    _require_verified_party(context)
+    require_permission(context, "can_view_context")
+    payload = await service.workspace_settings(
+        context.organization_id,
+        party=cast(Literal["BUYER", "SELLER"], context.party),
+    )
+    response.headers["ETag"] = str(payload["etag"])
+    return payload
+
+
+@qualification_router.put(
+    "/v1/qualification/settings",
+    response_model=QualificationMutationView,
+    tags=["workspace settings"],
+    name="qualification_update_workspace_settings",
+)
+async def update_workspace_settings(
+    body: WorkspaceSettingsUpdate,
+    response: Response,
+    context: ContextDependency,
+    service: ServiceDependency,
+    idempotency_key: IdempotencyDependency,
+    if_match: IfMatchDependency,
+) -> dict[str, object]:
+    _require_verified_party(context)
+    require_human_identity(context)
+    require_permission(context, "can_view_context")
+    code, payload = await service.update_workspace_settings(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        party=cast(Literal["BUYER", "SELLER"], context.party),
+        if_match=if_match,
+        idempotency_key=idempotency_key,
+        body=body.model_dump(mode="json"),
+    )
+    response.status_code = code
+    return payload
 
 
 @qualification_router.get(

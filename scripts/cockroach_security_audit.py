@@ -36,6 +36,7 @@ IMMUTABLE_TABLES = frozenset(
         "qualification_product_bundle_members",
         "qualification_product_embeddings",
         "qualification_product_twin_versions",
+        "qualification_workspace_setting_versions",
     }
 )
 

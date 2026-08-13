@@ -93,6 +93,60 @@ class CompanyContextVersion(Base, TenantOwned, Timestamped):
     )
 
 
+class WorkspaceSettings(Base, TenantOwned, Timestamped):
+    """Mutable pointer to one party workspace's immutable settings history."""
+
+    __tablename__ = "qualification_workspace_settings"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    party: Mapped[str] = mapped_column(String(12), nullable=False)
+    current_version_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    current_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    current_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("party IN ('BUYER','SELLER')", name="ck_workspace_settings_party"),
+        CheckConstraint("current_version >= 1", name="ck_workspace_settings_version"),
+        UniqueConstraint("organization_id", "party", name="uq_workspace_settings_party"),
+        UniqueConstraint("organization_id", "id", name="uq_workspace_settings_tenant_id"),
+    )
+
+
+class WorkspaceSettingsVersion(Base, TenantOwned, Timestamped):
+    """Append-only notification and disclosure preference revision."""
+
+    __tablename__ = "qualification_workspace_setting_versions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    settings_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    changed_by_actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    change_reason: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("version >= 1", name="ck_workspace_settings_revision"),
+        ForeignKeyConstraint(
+            ["organization_id", "settings_id"],
+            [
+                "qualification_workspace_settings.organization_id",
+                "qualification_workspace_settings.id",
+            ],
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint(
+            "organization_id",
+            "settings_id",
+            "version",
+            name="uq_workspace_settings_revision",
+        ),
+        UniqueConstraint(
+            "organization_id", "id", "content_hash", name="uq_workspace_settings_binding"
+        ),
+    )
+
+
 class CompanyContextEmbedding(Base, TenantOwned, Timestamped):
     __tablename__ = "qualification_company_context_embeddings"
 

@@ -445,6 +445,12 @@ export interface DefaultComparisonCost {
   horizon_days: number;
 }
 
+export interface DisclosureDefaults {
+  allow_anonymized_requirement_preview?: boolean;
+  allow_outcome_follow_up?: boolean;
+  share_organization_name_after_consent?: boolean;
+}
+
 export type EngagementStatus = "NOT_STARTED" | "SELLER_REVIEWING" | "SELLER_PASSED" | "OFFER_AVAILABLE" | "BUYER_CONSENT_PENDING" | "SELLER_CONSENT_PENDING" | "INTRODUCTION_READY" | "DECLINED" | "EXPIRED";
 
 export interface EngagementView {
@@ -694,6 +700,11 @@ export interface MissionSummaryView {
 export interface MoneyViewV2 {
   amount: string;
   currency: "USD";
+}
+
+export interface NotificationChannels {
+  email?: boolean;
+  in_app?: boolean;
 }
 
 export type OperationStatus = "QUEUED" | "RUNNING" | "WAITING_FOR_HUMAN" | "RETRYABLE_ERROR" | "UNCERTAIN" | "COMPLETED" | "FAILED_FINAL";
@@ -991,6 +1002,13 @@ export interface QualificationSellerResponseCreate {
   cited_evidence_ids?: string[];
   message?: string | null;
   response: "FIT" | "ANTI_FIT" | "NEEDS_INFO";
+}
+
+export interface QuietHours {
+  enabled?: boolean;
+  end?: string;
+  start?: string;
+  timezone?: string;
 }
 
 export type RankStability = "STABLE" | "UNSTABLE" | "UNDETERMINED";
@@ -1633,6 +1651,27 @@ export interface WorkspaceMessage {
   tool_calls?: string[];
 }
 
+export interface WorkspaceSettingsUpdate {
+  change_reason: string;
+  disclosure_defaults: DisclosureDefaults;
+  notification_channels: NotificationChannels;
+  quiet_hours: QuietHours;
+}
+
+export interface WorkspaceSettingsView {
+  consent_boundary: "BILATERAL_EXACT_FIELD_MATCH_REQUIRED";
+  current_hash: string;
+  current_version: number;
+  disclosure_defaults: DisclosureDefaults;
+  etag: string;
+  id: string | null;
+  notification_channels: NotificationChannels;
+  party: "BUYER" | "SELLER";
+  persisted: boolean;
+  quiet_hours: QuietHours;
+  updated_at: string | null;
+}
+
 export interface Operations {
   accept_prava_browser_return_v2: { method: "GET"; path: "/v1/prava/browser-return"; pathParams: Record<never, never>; queryParams: { state: string; return_url: string; }; body: never; response: WorkflowAccepted; requiresIdempotency: false; };
   accept_rule_proposal: { method: "POST"; path: "/v1/decision-rules/{rules_id}/proposals/{proposal_id}/accept"; pathParams: { rules_id: string; proposal_id: string; }; queryParams: Record<never, never>; body: ProposalDecisionCreate; response: ProposalDecisionView; requiresIdempotency: true; };
@@ -1667,12 +1706,14 @@ export interface Operations {
   qualification_get_marketplace_product: { method: "GET"; path: "/v1/qualification/marketplace/products/{product_id}"; pathParams: { product_id: string; }; queryParams: Record<never, never>; body: never; response: PublicMarketplaceProductView; requiresIdempotency: false; };
   qualification_get_mission: { method: "GET"; path: "/v1/qualification/missions/{mission_id}"; pathParams: { mission_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationMissionView; requiresIdempotency: false; };
   qualification_get_mission_events: { method: "GET"; path: "/v1/qualification/missions/{mission_id}/events"; pathParams: { mission_id: string; }; queryParams: { after?: string | null; limit?: number; }; body: never; response: QualificationEventFeed; requiresIdempotency: false; };
+  qualification_get_workspace_settings: { method: "GET"; path: "/v1/qualification/settings"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: WorkspaceSettingsView; requiresIdempotency: false; };
   qualification_list_company_context: { method: "GET"; path: "/v1/qualification/company-context"; pathParams: Record<never, never>; queryParams: { include_retired?: boolean; }; body: never; response: CompanyContextList; requiresIdempotency: false; };
   qualification_record_consent: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/consents"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationConsentCreate; response: QualificationMutationView; requiresIdempotency: true; };
   qualification_record_seller_response: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/responses"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationSellerResponseCreate; response: QualificationMutationView; requiresIdempotency: true; };
   qualification_retire_company_context: { method: "POST"; path: "/v1/qualification/company-context/{item_id}/retire"; pathParams: { item_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationMutationView; requiresIdempotency: true; };
   qualification_search_marketplace: { method: "GET"; path: "/v1/qualification/marketplace/search"; pathParams: Record<never, never>; queryParams: { category: string; query: string; limit?: number; }; body: never; response: PublicMarketplaceSearchView; requiresIdempotency: false; };
   qualification_update_company_context: { method: "PUT"; path: "/v1/qualification/company-context/{item_id}"; pathParams: { item_id: string; }; queryParams: Record<never, never>; body: CompanyContextUpdate; response: QualificationMutationView; requiresIdempotency: true; };
+  qualification_update_workspace_settings: { method: "PUT"; path: "/v1/qualification/settings"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: WorkspaceSettingsUpdate; response: QualificationMutationView; requiresIdempotency: true; };
   ready: { method: "GET"; path: "/ready"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: HealthResponse; requiresIdempotency: false; };
   record_consent: { method: "POST"; path: "/v1/engagements/{engagement_id}/consent"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: ConsentCreate; response: EngagementView; requiresIdempotency: true; };
   record_purchase_outcome: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/outcome-checkpoints"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: OutcomeCheckpointCreate; response: OutcomeCheckpointView; requiresIdempotency: true; };
