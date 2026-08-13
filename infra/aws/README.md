@@ -18,6 +18,10 @@ evidence, attempts, decisions, consent, and introductions.
   acknowledges SQS.
 - A versioned Bedrock Guardrail blocks prompt attacks and authority-bypass
   instructions and anonymizes direct contact, credential, and payment identifiers.
+- The Guardrail also references an immutable Automated Reasoning policy for bilateral
+  introduction and human purchase-authority claims. Its findings are explanatory-only:
+  application policy, CockroachDB constraints and explicit human actions remain authority.
+  The runtime verifies non-zero Automated Reasoning usage and never persists raw review text.
 - A separate ARM64 AgentCore Runtime runs bounded labelled qualification experiments.
   It is stateless, IAM-invoked, has no CockroachDB credential and provisions no AgentCore
   Memory. The qualification worker persists validated, content-hashed results in CockroachDB.
@@ -96,3 +100,7 @@ Deployment is not proven until `/health` reports `database=\"configured\"`, an
 actual mission travels through SQS and Bedrock to a current Cockroach decision,
 the consumer receipt exists, the queue drains, and the integrity page verifies
 the same decision and pinned evidence hashes.
+
+The committed Automated Reasoning definition follows AWS's CloudFormation format, but must
+still be exercised against labelled valid, invalid, ambiguous and untranslated cases after
+deployment. A synthesized policy is not evidence that Bedrock translated those cases correctly.

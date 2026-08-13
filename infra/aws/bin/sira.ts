@@ -21,4 +21,5 @@ new SiraAwsStack(app, `Sira-${stage}`, {
     app.node.tryGetContext("githubRepository") ?? "sandip-pathe/sira-seil-cockroach-aws",
   ),
   githubBranch: String(app.node.tryGetContext("githubBranch") ?? "main"),
+  guardrailProfilePrefix: String(app.node.tryGetContext("guardrailProfilePrefix") ?? "us"),
 });

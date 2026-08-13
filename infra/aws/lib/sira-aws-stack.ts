@@ -52,6 +52,7 @@ export interface SiraAwsStackProps extends cdk.StackProps {
   workerOrganizationIds: string;
   githubRepository: string;
   githubBranch: string;
+  guardrailProfilePrefix: string;
 }
 
 export class SiraAwsStack extends cdk.Stack {
@@ -148,11 +149,104 @@ export class SiraAwsStack extends cdk.Stack {
       deadLetterQueue: { queue: deadLetterQueue, maxReceiveCount: 5 },
     });
 
+    const reasoningPolicy = new bedrock.CfnAutomatedReasoningPolicy(
+      this,
+      "AuthorityReasoningPolicy",
+      {
+        name: `${name}-authority-reasoning`,
+        description:
+          "Explains contradictions in claims about consent, introductions and purchase authority; never authorizes an effect.",
+        forceDelete: false,
+        policyDefinition: {
+          version: "1.0",
+          variables: [
+            {
+              name: "buyerConsented",
+              type: "BOOL",
+              description:
+                "True only when the buyer human explicitly consented to this exact introduction.",
+            },
+            {
+              name: "sellerConsented",
+              type: "BOOL",
+              description:
+                "True only when the seller human explicitly consented to this exact introduction.",
+            },
+            {
+              name: "introductionReleased",
+              type: "BOOL",
+              description:
+                "Whether direct contact or a qualified bilateral introduction was released.",
+            },
+            {
+              name: "humanApprovedPurchase",
+              type: "BOOL",
+              description:
+                "True only when the authorized buyer human explicitly approved the exact purchase terms.",
+            },
+            {
+              name: "purchaseExecuted",
+              type: "BOOL",
+              description:
+                "Whether a payment or purchase was represented as executed, completed or charged.",
+            },
+          ],
+          rules: [
+            {
+              id: "SIRAAUTH0001",
+              expression: "(=> introductionReleased (and buyerConsented sellerConsented))",
+              alternateExpression:
+                "If an introduction is released, both buyer and seller consent must be true.",
+            },
+            {
+              id: "SIRAAUTH0002",
+              expression:
+                "(=> (not (and buyerConsented sellerConsented)) (not introductionReleased))",
+              alternateExpression:
+                "Without bilateral consent, an introduction must not be represented as released.",
+            },
+            {
+              id: "SIRAAUTH0003",
+              expression: "(=> purchaseExecuted humanApprovedPurchase)",
+              alternateExpression:
+                "Any executed purchase or payment requires explicit human approval for those terms.",
+            },
+            {
+              id: "SIRAAUTH0004",
+              expression: "(=> (not humanApprovedPurchase) (not purchaseExecuted))",
+              alternateExpression:
+                "Without explicit human purchase approval, no purchase may be represented as executed.",
+            },
+          ],
+          types: [],
+        },
+      },
+    );
+    const reasoningPolicyVersion = new bedrock.CfnAutomatedReasoningPolicyVersion(
+      this,
+      "AuthorityReasoningPolicyVersion",
+      {
+        policyArn: reasoningPolicy.attrPolicyArn,
+        lastUpdatedDefinitionHash: reasoningPolicy.attrDefinitionHash,
+      },
+    );
+    const reasoningPolicyVersionArn = cdk.Fn.join(":", [
+      reasoningPolicy.attrPolicyArn,
+      reasoningPolicyVersion.attrVersion,
+    ]);
+
     const guardrail = new bedrock.CfnGuardrail(this, "AgentGuardrail", {
       name: `${name}-authority-boundary`,
       description: "Blocks prompt attacks, authority bypasses, and direct-contact disclosure.",
       blockedInputMessaging: "This request crosses the qualified marketplace authority boundary.",
       blockedOutputsMessaging: "The proposed model output crossed the authority boundary.",
+      automatedReasoningPolicyConfig: {
+        policies: [reasoningPolicyVersionArn],
+        confidenceThreshold: 0.8,
+      },
+      crossRegionConfig: {
+        guardrailProfileArn: `arn:${this.partition}:bedrock:${this.region}:${this.account}:guardrail-profile/${props.guardrailProfilePrefix}.guardrail.v1:0`,
+      },
       contentPolicyConfig: {
         filtersConfig: ["HATE", "INSULTS", "SEXUAL", "VIOLENCE", "PROMPT_ATTACK"].map((type) => ({
           type,
@@ -268,6 +362,12 @@ export class SiraAwsStack extends cdk.Stack {
       new iam.PolicyStatement({
         actions: ["bedrock:ApplyGuardrail"],
         resources: [guardrail.attrGuardrailArn],
+      }),
+    );
+    experimentRuntime.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeAutomatedReasoningPolicy"],
+        resources: [reasoningPolicyVersionArn],
       }),
     );
     experimentRuntime.addEndpoint("Default", {
@@ -486,6 +586,12 @@ export class SiraAwsStack extends cdk.Stack {
     );
     qualificationTask.taskRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
+        actions: ["bedrock:InvokeAutomatedReasoningPolicy"],
+        resources: [reasoningPolicyVersionArn],
+      }),
+    );
+    qualificationTask.taskRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
         actions: ["bedrock:ApplyGuardrail"],
         resources: [guardrail.attrGuardrailArn],
       }),
@@ -514,6 +620,10 @@ export class SiraAwsStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, "AgentCoreExperimentRuntimeArn", {
       value: experimentRuntime.agentRuntimeArn,
+    });
+    new cdk.CfnOutput(this, "AutomatedReasoningPolicyVersionArn", {
+      value: reasoningPolicyVersionArn,
+      description: "Explanatory-only authority policy; it cannot authorize an effect.",
     });
   }
 

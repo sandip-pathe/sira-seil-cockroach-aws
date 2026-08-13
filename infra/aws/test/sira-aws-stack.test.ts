@@ -16,6 +16,7 @@ function template(): Template {
     workerOrganizationIds: "org_test",
     githubRepository: "sandip-pathe/sira-seil-cockroach-aws",
     githubBranch: "main",
+    guardrailProfilePrefix: "us",
   });
   return Template.fromStack(stack);
 }
@@ -31,6 +32,8 @@ test("synthesizes isolated durable application topology", () => {
   rendered.resourceCountIs("AWS::CloudFront::VpcOrigin", 1);
   rendered.resourceCountIs("AWS::Bedrock::Guardrail", 1);
   rendered.resourceCountIs("AWS::Bedrock::GuardrailVersion", 1);
+  rendered.resourceCountIs("AWS::Bedrock::AutomatedReasoningPolicy", 1);
+  rendered.resourceCountIs("AWS::Bedrock::AutomatedReasoningPolicyVersion", 1);
   rendered.resourceCountIs("AWS::BedrockAgentCore::Runtime", 1);
   rendered.resourceCountIs("AWS::BedrockAgentCore::RuntimeEndpoint", 1);
   rendered.hasResourceProperties("AWS::ElasticLoadBalancingV2::LoadBalancer", {
@@ -60,6 +63,7 @@ test("synthesizes isolated durable application topology", () => {
   rendered.hasOutput("QualificationDlqUrl", {});
   rendered.hasOutput("GithubDeployRoleArn", {});
   rendered.hasOutput("AgentCoreExperimentRuntimeArn", {});
+  rendered.hasOutput("AutomatedReasoningPolicyVersionArn", {});
   rendered.hasResourceProperties("AWS::IAM::Role", {
     AssumeRolePolicyDocument: {
       Statement: Match.arrayWith([
@@ -76,6 +80,38 @@ test("synthesizes isolated durable application topology", () => {
       ]),
     },
   });
+});
+
+test("keeps Automated Reasoning explanatory and gives it an immutable policy version", () => {
+  const rendered = template();
+
+  rendered.hasResourceProperties("AWS::Bedrock::AutomatedReasoningPolicy", {
+    PolicyDefinition: Match.objectLike({
+      Version: "1.0",
+      Rules: Match.arrayWith([
+        Match.objectLike({
+          Id: "SIRAAUTH0001",
+          Expression: "(=> introductionReleased (and buyerConsented sellerConsented))",
+        }),
+        Match.objectLike({
+          Id: "SIRAAUTH0003",
+          Expression: "(=> purchaseExecuted humanApprovedPurchase)",
+        }),
+      ]),
+    }),
+  });
+  rendered.hasResourceProperties("AWS::Bedrock::Guardrail", {
+    AutomatedReasoningPolicyConfig: {
+      ConfidenceThreshold: 0.8,
+      Policies: Match.anyValue(),
+    },
+    CrossRegionConfig: {
+      GuardrailProfileArn: Match.anyValue(),
+    },
+  });
+  const serialized = JSON.stringify(rendered.toJSON());
+  assert.match(serialized, /guardrail-profile\/us\.guardrail\.v1:0/);
+  assert.match(serialized, /bedrock:InvokeAutomatedReasoningPolicy/);
 });
 
 test("runs a stateless bounded AgentCore evaluator without AgentCore Memory", () => {
