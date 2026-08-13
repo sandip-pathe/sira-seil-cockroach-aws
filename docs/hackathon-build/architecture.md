@@ -132,6 +132,6 @@ If the correctness kernel fails, shipping is blocked. Approach A is permitted on
 
 ## P1 and P2
 
-Implemented P1 includes editable versioned company context, product portfolio management, interactive S3 ingestion, durable buyer/seller inboxes, safe DLQ operations, a credential-safe `ccloud` doctor and GitHub OIDC. Remaining P1 is public DVI marketplace pages, persisted settings/disclosure controls, broader telemetry and a real restore drill.
+Implemented P1 includes editable versioned company context, product portfolio management, interactive S3 ingestion, public DVI marketplace/product pages, durable buyer/seller inboxes, safe DLQ operations, a credential-safe `ccloud` doctor and GitHub OIDC. Remaining P1 is persisted settings/disclosure controls, broader telemetry and a real restore drill.
 
 P2 adds PRAVA execution, Bedrock Automated Reasoning, AgentCore Runtime/evaluation experiments, measured changefeeds/multi-region, analytics, more categories and autonomous commercial operations only where authority and provider idempotency are proven.

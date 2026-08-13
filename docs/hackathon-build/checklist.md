@@ -90,7 +90,7 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 
 - [x] Buyer versioned company-context editing, history/retirement, mission pinning and durable decision inbox.
 - [x] Seller product portfolio, durable opportunity inbox and interactive versioned S3 ingestion.
-- [ ] Public marketplace/product pages backed by published Product Bundles and DVI.
+- [x] Public marketplace search/product pages backed by Bedrock embeddings, DVI and relational active Product Bundle gates.
 - [ ] Settings/disclosure management, restore drill and broader telemetry. Safe DLQ status/start/cancel controls are implemented.
 - [ ] `ccloud` provision/doctor/backup/restore evidence and GitHub Actions OIDC delivery. Credential-safe doctor and exact-repository OIDC workflow are implemented; Cloud authentication/deployment evidence remains open.
 
