@@ -146,7 +146,7 @@ export function ProfileSettingsModal({
   const router = useRouter();
   const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
   const [mobilePane, setMobilePane] = useState<"menu" | "detail">("menu");
-  const [draftSettings, setDraftSettings] = useState<WorkspaceSettingsUpdate>(DEFAULT_SETTINGS);
+  const [settingsOverride, setSettingsOverride] = useState<WorkspaceSettingsUpdate | null>(null);
   const queryClient = useQueryClient();
   const settingsHeaders =
     workspace === "sira" ? buyerDevelopmentHeaders : sellerEditorDevelopmentHeaders;
@@ -167,7 +167,10 @@ export function ProfileSettingsModal({
         body,
       });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workspace-settings", workspace] }),
+    onSuccess: () => {
+      setSettingsOverride(null);
+      return queryClient.invalidateQueries({ queryKey: ["workspace-settings", workspace] });
+    },
   });
   const guest = identity?.isAnonymous ?? false;
   const fallbackAccount = WORKSPACE_ACCOUNTS[workspace];
@@ -202,10 +205,19 @@ export function ProfileSettingsModal({
   const section = SECTION_COPY[activeSection];
   const noticeId = `${workspace}-settings-preview-notice`;
   const titleId = `${workspace}-settings-title`;
+  const draftSettings =
+    settingsOverride ??
+    (settingsQuery.data ? editableSettings(settingsQuery.data) : DEFAULT_SETTINGS);
 
-  useEffect(() => {
-    if (settingsQuery.data) setDraftSettings(editableSettings(settingsQuery.data));
-  }, [settingsQuery.data]);
+  function updateDraftSettings(
+    update: (current: WorkspaceSettingsUpdate) => WorkspaceSettingsUpdate,
+  ) {
+    setSettingsOverride((current) =>
+      update(
+        current ?? (settingsQuery.data ? editableSettings(settingsQuery.data) : DEFAULT_SETTINGS),
+      ),
+    );
+  }
 
   useEffect(() => {
     const overlay = overlayRef.current;
@@ -433,7 +445,7 @@ export function ProfileSettingsModal({
                     note="Send assignment summaries when an email provider is configured."
                     label="Email assignments"
                     onChange={(email) =>
-                      setDraftSettings((current) => ({
+                      updateDraftSettings((current) => ({
                         ...current,
                         notification_channels: { ...current.notification_channels, email },
                       }))
@@ -444,7 +456,7 @@ export function ProfileSettingsModal({
                     note={`${draftSettings.quiet_hours.start}–${draftSettings.quiet_hours.end} · ${draftSettings.quiet_hours.timezone}`}
                     label="Quiet hours"
                     onChange={(enabled) =>
-                      setDraftSettings((current) => ({
+                      updateDraftSettings((current) => ({
                         ...current,
                         quiet_hours: { ...current.quiet_hours, enabled },
                       }))
@@ -484,7 +496,7 @@ export function ProfileSettingsModal({
                       note="Let matched sellers see a minimum-disclosure requirement before identity exchange."
                       label="Anonymous requirement preview"
                       onChange={(value) =>
-                        setDraftSettings((current) => ({
+                        updateDraftSettings((current) => ({
                           ...current,
                           disclosure_defaults: {
                             ...current.disclosure_defaults,
@@ -501,7 +513,7 @@ export function ProfileSettingsModal({
                       note="Request organization-name sharing only after both parties approve the exact fields."
                       label="Organization name after consent"
                       onChange={(value) =>
-                        setDraftSettings((current) => ({
+                        updateDraftSettings((current) => ({
                           ...current,
                           disclosure_defaults: {
                             ...current.disclosure_defaults,
@@ -515,7 +527,7 @@ export function ProfileSettingsModal({
                       note="Allow a post-purchase outcome request without exposing contacts."
                       label="Outcome follow-up"
                       onChange={(value) =>
-                        setDraftSettings((current) => ({
+                        updateDraftSettings((current) => ({
                           ...current,
                           disclosure_defaults: {
                             ...current.disclosure_defaults,
