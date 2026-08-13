@@ -13,6 +13,7 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 
 - Official repository gate: `335 passed`, `12 skipped` only because the default gate intentionally omits live Cockroach URLs, coverage `75.22%`; Ruff, Mypy, OpenAPI drift, generated client, web lint/type checks, Prettier and current-tree credential scan pass.
 - Live local CockroachDB: `12 passed` covering readiness/FORCE RLS/pool reuse, successful and exhausted real `40001` retries, DVI/current-bundle gates, stale replacement, lease takeover/generation fencing, bilateral isolation, append-only workspace settings, tenant-safe analytics, outbox delivery and atomic introduction. The sanitized security audit passes across `85` tenant tables with zero grant/RLS/immutability violations.
+- Fresh disposable CockroachDB migration reaches `cdb0010` with `90` public tables and is removed after inspection; the local backup/restore verifier also passes matching bounded digests and cleanup.
 - AWS package: CDK build, two topology/IAM tests and synth pass; API/web production images and read-only container smokes pass.
 - AWS provider: live Nova Converse and Titan V2 smoke passes in `us-east-1` with a normalized 1,024-dimensional embedding; Guardrail intervention remains deployment-gated.
 - A disposable local Cockroach backup/restore drill passes with matching schema/count digests and verified temporary-database cleanup. Cockroach Cloud managed backup/restore remains a separate external gate.
