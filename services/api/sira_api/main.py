@@ -30,6 +30,8 @@ from .marketplace import (
     SellerPrincipalBinding,
     StaticSellerOrganizationDirectory,
 )
+from .qualification_routes import qualification_router
+from .qualification_service import QualificationService
 from .routes import public_router, router
 from .routes_v2 import router_v2
 from .schemas import ErrorEnvelope
@@ -177,6 +179,7 @@ def create_app(
         )
         application.state.workflow_service = workflow_service
         application.state.seller_evidence_service = seller_evidence_service
+        application.state.qualification_service = QualificationService(resolved_database)
         application.state.workspace_service = WorkspaceService(
             fixtures,
             api_key=resolved_settings.openai_api_key.get_secret_value(),
@@ -225,6 +228,7 @@ def create_app(
             {"name": "stackfile"},
             {"name": "workflows"},
             {"name": "workspace"},
+            {"name": "qualification marketplace"},
         ],
     )
 
@@ -421,7 +425,7 @@ def create_app(
             content={
                 "error": {
                     "code": "DATABASE_UNAVAILABLE",
-                    "message": "Canonical PostgreSQL state is temporarily unavailable.",
+                    "message": "Canonical CockroachDB state is temporarily unavailable.",
                     "request_id": request.state.request_id,
                     "retryable": True,
                     "next_action": "retry_later",
@@ -432,6 +436,7 @@ def create_app(
 
     application.include_router(public_router)
     application.include_router(seller_router)
+    application.include_router(qualification_router)
     application.include_router(router_v2)
     application.include_router(workspace_router)
     application.include_router(router)

@@ -59,12 +59,14 @@ def upgrade() -> None:
     )
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON marketplace_seller_responses")
     op.execute(
-        "CREATE POLICY bilateral_response_read ON marketplace_seller_responses "
+        "CREATE POLICY IF NOT EXISTS bilateral_response_read "
+        "ON marketplace_seller_responses "
         f"FOR SELECT TO sira_runtime USING ({_TENANT} IN "
         "(buyer_organization_id, seller_organization_id))"
     )
     op.execute(
-        "CREATE POLICY seller_response_insert ON marketplace_seller_responses "
+        "CREATE POLICY IF NOT EXISTS seller_response_insert "
+        "ON marketplace_seller_responses "
         f"FOR INSERT TO sira_runtime WITH CHECK ({_TENANT} = seller_organization_id "
         "AND organization_id = seller_organization_id)"
     )
@@ -74,7 +76,7 @@ def downgrade() -> None:
     op.execute("DROP POLICY IF EXISTS seller_response_insert ON marketplace_seller_responses")
     op.execute("DROP POLICY IF EXISTS bilateral_response_read ON marketplace_seller_responses")
     op.execute(
-        "CREATE POLICY tenant_isolation ON marketplace_seller_responses "
+        "CREATE POLICY IF NOT EXISTS tenant_isolation ON marketplace_seller_responses "
         f"FOR ALL TO sira_runtime USING (organization_id = {_TENANT}) "
         f"WITH CHECK (organization_id = {_TENANT})"
     )

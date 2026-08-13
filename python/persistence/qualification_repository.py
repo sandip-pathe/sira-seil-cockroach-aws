@@ -439,8 +439,9 @@ class QualificationRepository:
         engagement_id: str,
         decision_id: str,
         input_digest: str,
-        shared_fields_hash: str,
+        shared_fields: dict[str, Any],
     ) -> QualifiedIntroduction:
+        shared_fields_hash = content_hash(shared_fields)
         now = await self.session.scalar(select(func.now()))
         engagement = await self.session.scalar(
             select(MarketplaceEngagement).where(
@@ -458,8 +459,13 @@ class QualificationRepository:
             )
         )
         if existing is not None:
-            if existing.input_digest != input_digest:
-                raise PersistenceConflict("existing introduction binds another input digest")
+            if (
+                existing.input_digest != input_digest
+                or existing.shared_fields_hash != shared_fields_hash
+            ):
+                raise PersistenceConflict(
+                    "existing introduction binds another digest or shared field set"
+                )
             return existing
         decision = await self.session.scalar(
             select(QualificationDecision).where(
@@ -489,6 +495,11 @@ class QualificationRepository:
             raise PersistenceConflict("current buyer and seller consent are required")
         if by_party["BUYER"].actor_id == by_party["SELLER"].actor_id:
             raise PersistenceConflict("buyer and seller consent require distinct humans")
+        if any(
+            consent.approved_fields_hash != shared_fields_hash
+            for consent in by_party.values()
+        ):
+            raise PersistenceConflict("buyer and seller must approve the exact shared fields")
         receipt = {
             "engagement_id": engagement.id,
             "decision_id": decision.id,
@@ -496,6 +507,7 @@ class QualificationRepository:
             "buyer_consent_id": by_party["BUYER"].id,
             "seller_consent_id": by_party["SELLER"].id,
             "shared_fields_hash": shared_fields_hash,
+            "shared_fields": shared_fields,
         }
         introduction = QualifiedIntroduction(
             id=f"intro_{uuid4().hex}",

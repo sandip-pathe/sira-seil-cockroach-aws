@@ -12,6 +12,8 @@ from uuid import uuid4
 
 import pytest
 from sira_agents.bedrock_runtime import TitanEmbeddingClient
+from sira_api.errors import ApiProblem
+from sira_api.qualification_service import QualificationService
 from sira_worker.outbox_dispatcher import dispatch_batch
 from sira_worker.qualification import QualificationWorker
 from sqlalchemy import func, select, text
@@ -26,6 +28,7 @@ from persistence.qualification_catalog import (
 )
 from persistence.qualification_models import (
     CatalogProjectionVersion,
+    DecisionDependency,
     MarketplaceConsent,
     MarketplaceEngagement,
     ProductBundle,
@@ -379,7 +382,7 @@ async def test_generation_fence_and_atomic_introduction_are_idempotent() -> None
                         seller_organization_id="org_seller_a",
                         actor_id="human_buyer",
                         input_digest=digest,
-                        approved_fields_hash="sha256:" + "a" * 64,
+                        approved_fields_hash=content_hash({"email": "buyer@example.test"}),
                         state="GRANTED",
                         expires_at=now + timedelta(hours=1),
                     ),
@@ -391,7 +394,7 @@ async def test_generation_fence_and_atomic_introduction_are_idempotent() -> None
                         seller_organization_id="org_seller_a",
                         actor_id="human_seller",
                         input_digest=digest,
-                        approved_fields_hash="sha256:" + "b" * 64,
+                        approved_fields_hash=content_hash({"email": "buyer@example.test"}),
                         state="GRANTED",
                         expires_at=now + timedelta(hours=1),
                     ),
@@ -403,14 +406,14 @@ async def test_generation_fence_and_atomic_introduction_are_idempotent() -> None
                 engagement_id=engagement_id,
                 decision_id=decision_id,
                 input_digest=digest,
-                shared_fields_hash="sha256:" + "c" * 64,
+                shared_fields={"email": "buyer@example.test"},
             )
         async with database.transaction("org_buyer") as session:
             second = await QualificationRepository(session, "org_buyer").introduce(
                 engagement_id=engagement_id,
                 decision_id=decision_id,
                 input_digest=digest,
-                shared_fields_hash="sha256:" + "c" * 64,
+                shared_fields={"email": "buyer@example.test"},
             )
             assert first.id == second.id
             assert (
@@ -589,6 +592,199 @@ async def test_outbox_dispatch_marks_only_acknowledged_delivery() -> None:
     finally:
         await database.close()
         await admin.close()
+
+
+async def test_qualification_service_completes_bilateral_introduction() -> None:
+    database = Database(DatabaseSettings(database_url=_runtime_url()))
+    service = QualificationService(database)
+    suffix = uuid4().hex[:8]
+    product_id = f"product_lifecycle_{suffix}"
+    input_digest = content_hash({"attempt": suffix})
+    shared_fields = {
+        "buyer_email": "buyer@example.test",
+        "seller_email": "seller@example.test",
+    }
+    try:
+        await _ensure_organizations()
+        bundle_id, bundle_digest = await _seed_bundle(
+            database,
+            organization_id="org_seller_a",
+            product_id=product_id,
+            version=1,
+        )
+        create_status, created = await service.create_mission(
+            organization_id="org_buyer",
+            actor_id="human_buyer",
+            idempotency_key=f"create-{suffix}",
+            trace_id=f"trace_{suffix}",
+            body={
+                "buyer_context": {"company": "Buyer", "budget": "25000"},
+                "requirement_brief": {
+                    "category": f"lifecycle-{suffix}",
+                    "goal": "Select a qualified meeting intelligence product.",
+                    "seller_visible_requirements": {"hosting_region": "EU"},
+                    "criteria": [
+                        {
+                            "id": "hosting",
+                            "label": "EU hosting",
+                            "requirement": "Customer data remains in the EU.",
+                            "priority": "MUST",
+                        }
+                    ],
+                },
+                "procurement_policy": {"human_approval": True},
+            },
+        )
+        assert create_status == 201
+        mission_id = str(created["resource_id"])
+        attempt_id = f"attempt_lifecycle_{suffix}"
+        decision_id = f"decision_lifecycle_{suffix}"
+        decision_payload = {
+            "recommended_product_id": product_id,
+            "summary": "The current Product Bundle satisfies the requirement.",
+            "cited_dependency_ids": [product_id],
+            "criteria": [{"criterion": "hosting", "result": "PASS"}],
+            "confidence": "0.91",
+        }
+        decision_digest = content_hash(
+            {
+                "attempt_id": attempt_id,
+                "input_digest": input_digest,
+                "recommended_product_id": product_id,
+                "payload": decision_payload,
+            }
+        )
+        async with database.transaction("org_buyer") as session:
+            mission = await session.get(QualificationMission, mission_id)
+            assert mission is not None
+            mission.state = "AWAITING_APPROVAL"
+            session.add(
+                QualificationAttempt(
+                    id=attempt_id,
+                    mission_id=mission_id,
+                    root_attempt_id=attempt_id,
+                    predecessor_attempt_id=None,
+                    replacement_depth=0,
+                    state="COMPLETED",
+                    generation=1,
+                    input_digest=input_digest,
+                    organization_id="org_buyer",
+                )
+            )
+            await session.flush()
+            session.add(
+                QualificationMissionBundle(
+                    id=f"mission_bundle_{suffix}",
+                    mission_id=mission_id,
+                    attempt_id=attempt_id,
+                    product_id=product_id,
+                    seller_organization_id="org_seller_a",
+                    bundle_id=bundle_id,
+                    bundle_digest=bundle_digest,
+                    organization_id="org_buyer",
+                )
+            )
+            session.add(
+                QualificationDecision(
+                    id=decision_id,
+                    mission_id=mission_id,
+                    attempt_id=attempt_id,
+                    input_digest=input_digest,
+                    decision_digest=decision_digest,
+                    recommended_product_id=product_id,
+                    payload=decision_payload,
+                    approval_state="PENDING",
+                    current=True,
+                    organization_id="org_buyer",
+                )
+            )
+            await session.flush()
+            session.add(
+                DecisionDependency(
+                    id=f"decision_dependency_{suffix}",
+                    decision_id=decision_id,
+                    dependency_kind="PRODUCT_BUNDLE",
+                    dependency_organization_id="org_seller_a",
+                    dependency_id=product_id,
+                    dependency_version=bundle_id,
+                    dependency_hash=bundle_digest,
+                    cited=True,
+                    organization_id="org_buyer",
+                )
+            )
+
+        with pytest.raises(ApiProblem, match="PRECONDITION_FAILED"):
+            await service.decide_approval(
+                organization_id="org_buyer",
+                actor_id="human_buyer",
+                decision_id=decision_id,
+                if_match='"sha256:wrong"',
+                idempotency_key=f"wrong-etag-{suffix}",
+                action="APPROVE",
+                reason="This client has a stale decision view.",
+            )
+
+        approve_status, approved = await service.decide_approval(
+            organization_id="org_buyer",
+            actor_id="human_buyer",
+            decision_id=decision_id,
+            if_match=f'"{decision_digest}"',
+            idempotency_key=f"approve-{suffix}",
+            action="APPROVE",
+            reason="The evidence and policy checks are acceptable.",
+        )
+        assert approve_status == 200
+        engagement_id = str(approved["resource_id"])
+        seller_view = await service.engagement_view("org_seller_a", engagement_id)
+        assert seller_view["engagement"]["buyer_safe_requirement"] == {
+            "hosting_region": "EU"
+        }
+        assert "buyer_context" not in seller_view["engagement"]
+
+        response_status, seller_response = await service.respond(
+            organization_id="org_seller_a",
+            actor_id="human_seller",
+            engagement_id=engagement_id,
+            if_match=f'"{input_digest}"',
+            idempotency_key=f"respond-{suffix}",
+            body={"response": "FIT", "cited_evidence_ids": [], "message": "We fit."},
+        )
+        assert response_status == 201
+        assert seller_response["state"] == "FIT"
+
+        for party, organization_id, actor_id in (
+            ("BUYER", "org_buyer", "human_buyer"),
+            ("SELLER", "org_seller_a", "human_seller"),
+        ):
+            consent_status, consent = await service.consent(
+                organization_id=organization_id,
+                actor_id=actor_id,
+                party=party,
+                engagement_id=engagement_id,
+                if_match=f'"{input_digest}"',
+                idempotency_key=f"consent-{party.lower()}-{suffix}",
+                shared_fields=shared_fields,
+            )
+            assert consent_status == 201
+            assert consent["state"] == "GRANTED"
+
+        introduction_status, introduction = await service.introduce(
+            organization_id="org_buyer",
+            actor_id="human_buyer",
+            engagement_id=engagement_id,
+            if_match=f'"{input_digest}"',
+            idempotency_key=f"introduce-{suffix}",
+            shared_fields=shared_fields,
+        )
+        assert introduction_status == 201
+        assert introduction["state"] == "INTRODUCED"
+        final_view = await service.engagement_view("org_seller_a", engagement_id)
+        assert final_view["introduction"]["receipt"]["shared_fields"] == shared_fields
+        integrity = await service.integrity("org_buyer", mission_id)
+        assert integrity["verdict"] == "PASS"
+        assert {item["status"] for item in integrity["checks"]} == {"PASS"}
+    finally:
+        await database.close()
 
 
 async def test_dvi_retrieves_current_published_candidates_across_sellers() -> None:
