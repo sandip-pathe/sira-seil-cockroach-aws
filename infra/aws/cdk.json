@@ -4,6 +4,8 @@
     "stage": "hackathon",
     "chatModelId": "amazon.nova-micro-v1:0",
     "embeddingModelId": "amazon.titan-embed-text-v2:0",
-    "workerOrganizationIds": "org_consultco"
+    "workerOrganizationIds": "org_consultco",
+    "githubRepository": "sandip-pathe/sira-seil-cockroach-aws",
+    "githubBranch": "main"
   }
 }

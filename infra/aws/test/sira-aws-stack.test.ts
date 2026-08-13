@@ -14,6 +14,8 @@ function template(): Template {
     chatModelId: "amazon.nova-micro-v1:0",
     embeddingModelId: "amazon.titan-embed-text-v2:0",
     workerOrganizationIds: "org_test",
+    githubRepository: "sandip-pathe/sira-seil-cockroach-aws",
+    githubBranch: "main",
   });
   return Template.fromStack(stack);
 }
@@ -54,6 +56,23 @@ test("synthesizes isolated durable application topology", () => {
     RedrivePolicy: Match.objectLike({ maxReceiveCount: 5 }),
   });
   rendered.hasOutput("QualificationDlqUrl", {});
+  rendered.hasOutput("GithubDeployRoleArn", {});
+  rendered.hasResourceProperties("AWS::IAM::Role", {
+    AssumeRolePolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Action: "sts:AssumeRoleWithWebIdentity",
+          Condition: {
+            StringEquals: {
+              "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+              "token.actions.githubusercontent.com:sub":
+                "repo:sandip-pathe/sira-seil-cockroach-aws:ref:refs/heads/main",
+            },
+          },
+        }),
+      ]),
+    },
+  });
 });
 
 test("keeps tasks private and gives Bedrock only to the qualification role", () => {
@@ -71,10 +90,7 @@ test("keeps tasks private and gives Bedrock only to the qualification role", () 
     PolicyDocument: {
       Statement: Match.arrayWith([
         Match.objectLike({
-          Action: Match.arrayWith([
-            "bedrock:InvokeModel",
-            "bedrock:InvokeModelWithResponseStream",
-          ]),
+          Action: Match.arrayWith(["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]),
           Effect: "Allow",
           Resource: Match.anyValue(),
         }),

@@ -44,6 +44,8 @@ export interface SiraAwsStackProps extends cdk.StackProps {
   chatModelId: string;
   embeddingModelId: string;
   workerOrganizationIds: string;
+  githubRepository: string;
+  githubBranch: string;
 }
 
 export class SiraAwsStack extends cdk.Stack {
@@ -51,6 +53,29 @@ export class SiraAwsStack extends cdk.Stack {
     super(scope, id, props);
 
     const name = `sira-${props.stage}`;
+    const githubProvider = new iam.OpenIdConnectProvider(this, "GithubOidcProvider", {
+      url: "https://token.actions.githubusercontent.com",
+      clientIds: ["sts.amazonaws.com"],
+    });
+    const githubDeployRole = new iam.Role(this, "GithubDeployRole", {
+      roleName: `${name}-github-deploy`,
+      description: "Exact-repository OIDC entry role; CDK bootstrap roles perform deployment.",
+      assumedBy: new iam.WebIdentityPrincipal(githubProvider.openIdConnectProviderArn, {
+        StringEquals: {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+          "token.actions.githubusercontent.com:sub": `repo:${props.githubRepository}:ref:refs/heads/${props.githubBranch}`,
+        },
+      }),
+      maxSessionDuration: cdk.Duration.hours(1),
+    });
+    githubDeployRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["sts:AssumeRole"],
+        resources: [
+          `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-*-${this.account}-${this.region}`,
+        ],
+      }),
+    );
     const runtimeSecret = secretsmanager.Secret.fromSecretNameV2(
       this,
       "RuntimeSecret",
@@ -123,17 +148,15 @@ export class SiraAwsStack extends cdk.Stack {
       blockedInputMessaging: "This request crosses the qualified marketplace authority boundary.",
       blockedOutputsMessaging: "The proposed model output crossed the authority boundary.",
       contentPolicyConfig: {
-        filtersConfig: ["HATE", "INSULTS", "SEXUAL", "VIOLENCE", "PROMPT_ATTACK"].map(
-          (type) => ({
-            type,
-            inputStrength: "HIGH",
-            outputStrength: "HIGH",
-            inputAction: "BLOCK",
-            outputAction: "BLOCK",
-            inputEnabled: true,
-            outputEnabled: true,
-          }),
-        ),
+        filtersConfig: ["HATE", "INSULTS", "SEXUAL", "VIOLENCE", "PROMPT_ATTACK"].map((type) => ({
+          type,
+          inputStrength: "HIGH",
+          outputStrength: "HIGH",
+          inputAction: "BLOCK",
+          outputAction: "BLOCK",
+          inputEnabled: true,
+          outputEnabled: true,
+        })),
       },
       sensitiveInformationPolicyConfig: {
         piiEntitiesConfig: [
@@ -310,9 +333,7 @@ export class SiraAwsStack extends cdk.Stack {
     });
     const apiTargetGroup = listener.addTargets("ApiTargets", {
       priority: 10,
-      conditions: [
-        elbv2.ListenerCondition.pathPatterns(["/v1/*", "/health", "/ready"]),
-      ],
+      conditions: [elbv2.ListenerCondition.pathPatterns(["/v1/*", "/health", "/ready"])],
       port: 8000,
       protocol: elbv2.ApplicationProtocol.HTTP,
       targets: [apiService],
@@ -405,12 +426,7 @@ export class SiraAwsStack extends cdk.Stack {
     );
     this.service(cluster, "QualificationService", qualificationTask, 1);
 
-    this.observability(
-      name,
-      qualificationQueue,
-      deadLetterQueue,
-      apiTargetGroup,
-    );
+    this.observability(name, qualificationQueue, deadLetterQueue, apiTargetGroup);
 
     new cdk.CfnOutput(this, "ApplicationUrl", {
       value: applicationOrigin,
@@ -421,6 +437,9 @@ export class SiraAwsStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, "QualificationDlqUrl", {
       value: deadLetterQueue.queueUrl,
+    });
+    new cdk.CfnOutput(this, "GithubDeployRoleArn", {
+      value: githubDeployRole.roleArn,
     });
     new cdk.CfnOutput(this, "RuntimeSecretName", {
       value: `${name}/runtime`,

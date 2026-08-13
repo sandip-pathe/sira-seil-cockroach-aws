@@ -52,6 +52,20 @@ After deployment, use the `ApplicationUrl` stack output. A custom domain can be
 added later with a CloudFront ACM certificate in `us-east-1`; the default
 CloudFront domain is already HTTPS-capable.
 
+The first local deployment also creates `GithubDeployRoleArn`. Set these public
+repository variables before using the manual `Deploy AWS` workflow:
+
+```text
+AWS_ACCOUNT_ID=<account number>
+AWS_REGION=us-east-1
+AWS_DEPLOY_ROLE_ARN=<GithubDeployRoleArn output>
+```
+
+The role trusts only `sandip-pathe/sira-seil-cockroach-aws` on `main` and can
+only assume this account and region's standard CDK bootstrap roles. GitHub uses
+short-lived OIDC credentials; no AWS access key is stored in repository secrets.
+The workflow remains manual and verifies the infrastructure package before deploy.
+
 ## Verification
 
 ```powershell
