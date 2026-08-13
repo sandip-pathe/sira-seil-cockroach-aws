@@ -26,7 +26,7 @@ test("synthesizes isolated durable application topology", () => {
 
   rendered.resourceCountIs("AWS::ECS::Service", 4);
   rendered.resourceCountIs("AWS::ECS::TaskDefinition", 4);
-  rendered.resourceCountIs("AWS::SQS::Queue", 2);
+  rendered.resourceCountIs("AWS::SQS::Queue", 4);
   rendered.resourceCountIs("AWS::S3::Bucket", 1);
   rendered.resourceCountIs("AWS::CloudFront::Distribution", 1);
   rendered.resourceCountIs("AWS::CloudFront::VpcOrigin", 1);
@@ -68,6 +68,8 @@ test("synthesizes isolated durable application topology", () => {
   rendered.hasOutput("AutomatedReasoningPolicyVersionArn", {});
   rendered.hasOutput("ChangefeedWebhookUrl", {});
   rendered.hasOutput("ChangefeedWebhookTokenSecretName", {});
+  rendered.hasOutput("ChangefeedHintQueueUrl", {});
+  rendered.hasOutput("ChangefeedHintDlqUrl", {});
   rendered.hasResourceProperties("AWS::IAM::Role", {
     AssumeRolePolicyDocument: {
       Statement: Match.arrayWith([
@@ -101,6 +103,8 @@ test("bridges authenticated at-least-once changefeed hints through a bounded Lam
   const serialized = JSON.stringify(rendered.toJSON());
   assert.match(serialized, /sqs:SendMessage/);
   assert.match(serialized, /secretsmanager:GetSecretValue/);
+  assert.match(serialized, /changefeed-hint\.fifo/);
+  assert.match(serialized, /changefeed-hint-dlq\.fifo/);
 });
 
 test("keeps Automated Reasoning explanatory and gives it an immutable policy version", () => {

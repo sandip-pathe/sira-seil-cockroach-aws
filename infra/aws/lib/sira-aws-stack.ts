@@ -157,6 +157,24 @@ export class SiraAwsStack extends cdk.Stack {
       deadLetterQueue: { queue: deadLetterQueue, maxReceiveCount: 5 },
     });
 
+    const changefeedDeadLetterQueue = new sqs.Queue(this, "ChangefeedHintDlq", {
+      queueName: `${name}-changefeed-hint-dlq.fifo`,
+      fifo: true,
+      enforceSSL: true,
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      retentionPeriod: cdk.Duration.days(14),
+    });
+    const changefeedHintQueue = new sqs.Queue(this, "ChangefeedHintQueue", {
+      queueName: `${name}-changefeed-hint.fifo`,
+      fifo: true,
+      contentBasedDeduplication: false,
+      enforceSSL: true,
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      visibilityTimeout: cdk.Duration.minutes(5),
+      retentionPeriod: cdk.Duration.days(4),
+      deadLetterQueue: { queue: changefeedDeadLetterQueue, maxReceiveCount: 5 },
+    });
+
     const changefeedBridge = new lambda.Function(this, "ChangefeedBridge", {
       functionName: `${name}-changefeed-bridge`,
       description:
@@ -168,7 +186,7 @@ export class SiraAwsStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(10),
       memorySize: 256,
       environment: {
-        REEVALUATION_QUEUE_URL: qualificationQueue.queueUrl,
+        REEVALUATION_QUEUE_URL: changefeedHintQueue.queueUrl,
       },
       reservedConcurrentExecutions: 5,
     });
@@ -177,7 +195,7 @@ export class SiraAwsStack extends cdk.Stack {
       "CHANGEFEED_WEBHOOK_TOKEN_SECRET_ARN",
       changefeedToken.secretArn,
     );
-    qualificationQueue.grantSendMessages(changefeedBridge);
+    changefeedHintQueue.grantSendMessages(changefeedBridge);
     const changefeedApi = new apigateway.HttpApi(this, "ChangefeedApi", {
       apiName: `${name}-changefeed`,
       description: "Dedicated authenticated CockroachDB webhook ingress.",
@@ -675,6 +693,14 @@ export class SiraAwsStack extends cdk.Stack {
     new cdk.CfnOutput(this, "ChangefeedWebhookTokenSecretName", {
       value: changefeedToken.secretName,
       description: "Use this secret only as the Cockroach webhook authorization header.",
+    });
+    new cdk.CfnOutput(this, "ChangefeedHintQueueUrl", {
+      value: changefeedHintQueue.queueUrl,
+      description:
+        "Isolated hint queue; do not attach the qualification consumer. A consumer must re-read CockroachDB before scheduling work.",
+    });
+    new cdk.CfnOutput(this, "ChangefeedHintDlqUrl", {
+      value: changefeedDeadLetterQueue.queueUrl,
     });
   }
 

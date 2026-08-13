@@ -26,9 +26,10 @@ evidence, attempts, decisions, consent, and introductions.
   It is stateless, IAM-invoked, has no CockroachDB credential and provisions no AgentCore
   Memory. The qualification worker persists validated, content-hashed results in CockroachDB.
 - An optional dedicated HTTP API and ARM64 Lambda accept authenticated CockroachDB
-  changefeed webhooks and forward deterministic hints to SQS FIFO. The bridge assumes
-  at-least-once delivery and per-key ordering only; it drops source row data, and consumers
-  must re-read current CockroachDB state before scheduling reevaluation.
+  changefeed webhooks and forward deterministic hints to an isolated SQS FIFO queue and
+  DLQ. The bridge assumes at-least-once delivery and per-key ordering only; it drops source
+  row data. It is deliberately not connected to the qualification consumer: a future hint
+  consumer must re-read current CockroachDB state before scheduling reevaluation.
 - S3 stores versioned, checksum-addressed evidence bytes. CockroachDB stores the
   authoritative object identity and business relationship.
 - Secrets Manager injects separate API, worker, and catalog SQL identities. The
@@ -115,4 +116,6 @@ After the core hosted path is green, configure the optional changefeed with the
 `webhook_auth_header` option as `Basic <secret>`; never place it in repository files.
 Use JSON with `updated`, `topic_in_value`, and `key_in_value`. Delivery is not exactly once:
 the Lambda's stable source hash is a FIFO optimization, while durable correctness still comes
-from re-reading CockroachDB and the existing consumer/effect uniqueness constraints.
+from re-reading CockroachDB and consumer/effect uniqueness constraints. The committed stack
+retains these hints in `ChangefeedHintQueueUrl`; live state-reread consumption remains a measured
+P2 extension and cannot interfere with the qualification work queue.
