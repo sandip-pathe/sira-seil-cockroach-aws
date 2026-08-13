@@ -59,10 +59,10 @@ async def test_non_retryable_database_error_is_not_replayed() -> None:
 
 async def test_retry_exhaustion_is_visible_and_bounded() -> None:
     database = Database(DatabaseSettings(database_url="sqlite+aiosqlite:///:memory:"))
-    sessions: list[int] = []
+    sessions: list[object] = []
 
     async def work(session: object) -> None:
-        sessions.append(id(session))
+        sessions.append(session)
         raise DBAPIError("SELECT 1", {}, RetryError(), False)
 
     try:
@@ -77,7 +77,7 @@ async def test_retry_exhaustion_is_visible_and_bounded() -> None:
         await database.close()
 
     assert len(sessions) == 3
-    assert len(set(sessions)) == 3
+    assert len({id(session) for session in sessions}) == 3
 
 
 async def test_sqlite_transaction_does_not_require_session_variables() -> None:
