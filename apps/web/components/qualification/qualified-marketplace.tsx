@@ -492,6 +492,26 @@ export function MissionRoom({ missionId }: { missionId: string }) {
                 <p className={styles.kicker}><BadgeCheck size={14} /> Bedrock recommendation · advisory</p>
                 <h2>{text(decision.recommended_product_id)}</h2>
                 <p>{text(map(decision.payload).summary)}</p>
+                {Object.keys(map(map(decision.payload).automated_reasoning)).length ? (
+                  <div className={styles.reasoningReview}>
+                    <div>
+                      <ShieldCheck size={18} />
+                      <strong>Formal policy review</strong>
+                      <StateBadge
+                        value={text(map(map(decision.payload).automated_reasoning).outcome)}
+                      />
+                    </div>
+                    <p>
+                      Bedrock checked this explanation against bilateral-consent and purchase-
+                      authority rules. This is advisory evidence only; it cannot approve the
+                      decision, release contact details, or execute payment.
+                    </p>
+                    <span className={styles.mono}>
+                      {number(map(map(decision.payload).automated_reasoning).evaluated_units)} policy
+                      units · {shortHash(map(map(decision.payload).automated_reasoning).input_hash)}
+                    </span>
+                  </div>
+                ) : null}
                 <div className={styles.criteriaGrid}>
                   {array(map(decision.payload).criteria).map((criterion, index) => (
                     <div className={styles.criterion} key={`${text(criterion.criterion)}-${index}`}>

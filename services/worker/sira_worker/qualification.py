@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -19,6 +20,10 @@ from sira_agents.bedrock_runtime import (
 from sira_agents.runtime import AgentRole, AgentRunContext, AgentRunRequest, AuthorityMode
 from sqlalchemy import select
 
+from integrations.automated_reasoning import (
+    AutomatedReasoningReview,
+    BedrockAutomatedReasoningReviewer,
+)
 from persistence.database import Database
 from persistence.models import OutboxEvent
 from persistence.qualification_catalog import VectorCandidate, search_published_candidates
@@ -108,6 +113,12 @@ class QualificationRetrievalResult:
     candidates: tuple[VectorCandidate, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class QualificationEvaluation:
+    decision: QualificationAgentDecision
+    automated_reasoning: AutomatedReasoningReview | None
+
+
 async def retrieve_qualification_candidates(
     *,
     catalog_database: Database,
@@ -143,6 +154,7 @@ class QualificationWorker:
     model_id: str
     lease_owner: str
     guardrail: BedrockGuardrail | None = None
+    reasoning_reviewer: BedrockAutomatedReasoningReviewer | None = field(default=None, repr=False)
     candidate_limit: int = 10
     selected_candidates: int = 2
 
@@ -165,8 +177,8 @@ class QualificationWorker:
             attempt_id = await self._prepare_attempt(mission_input, selected)
             attempted.append(attempt_id)
             lease = await self._claim_and_snapshot(organization_id, attempt_id)
-            decision = await self._evaluate(mission_input, lease, selected)
-            result = await self._finalize(organization_id, lease, decision)
+            evaluation = await self._evaluate(mission_input, lease, selected)
+            result = await self._finalize(organization_id, lease, evaluation)
             if result.state == "COMPLETED":
                 return QualificationRunResult(
                     mission_id=mission_id,
@@ -296,7 +308,7 @@ class QualificationWorker:
         mission_input: MissionInput,
         lease: AttemptLease,
         candidates: Sequence[VectorCandidate],
-    ) -> QualificationAgentDecision:
+    ) -> QualificationEvaluation:
         allowed_products = frozenset(candidate.product_id for candidate in candidates)
         retrieved_products: set[str] = set()
         dependency_products: dict[str, str] = {}
@@ -379,7 +391,21 @@ class QualificationWorker:
             allowed_products=allowed_products,
             dependency_products=dependency_products,
         )
-        return result.output
+        reasoning_review = None
+        if self.reasoning_reviewer is not None:
+            reasoning_review = await self.reasoning_reviewer.review_safely(
+                query=json.dumps(
+                    {
+                        "requirement_brief": mission_input.brief,
+                        "procurement_policy": mission_input.policy,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    default=str,
+                ),
+                claim=result.output.model_dump_json(),
+            )
+        return QualificationEvaluation(result.output, reasoning_review)
 
     async def _evidence_for_product(
         self, organization_id: str, attempt_id: str, product_id: str
@@ -466,14 +492,18 @@ class QualificationWorker:
         self,
         organization_id: str,
         lease: AttemptLease,
-        decision: QualificationAgentDecision,
+        evaluation: QualificationEvaluation,
     ) -> FinalizationResult:
+        decision = evaluation.decision
+        payload = decision.model_dump(mode="json")
+        if evaluation.automated_reasoning is not None:
+            payload["automated_reasoning"] = evaluation.automated_reasoning.model_dump(mode="json")
         async with self.worker_database.transaction(organization_id) as session:
             repository = QualificationRepository(session, organization_id)
             result = await repository.finalize_attempt(
                 lease=lease,
                 recommended_product_id=decision.recommended_product_id,
-                payload=decision.model_dump(mode="json"),
+                payload=payload,
                 cited_dependency_ids=frozenset(decision.cited_dependency_ids),
             )
             if result.state == "COMPLETED":

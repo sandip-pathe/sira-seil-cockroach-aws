@@ -102,9 +102,11 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 - [ ] Bedrock Automated Reasoning as an explanatory policy check, never authority. A
   versioned formal bilateral-consent/purchase-authority policy, cross-Region Guardrail
   attachment, least-privilege invocation permission, and sanitized `ApplyGuardrail`
-  finding parser are implemented. Its typed result hard-codes `authoritative=false` and
-  `may_authorize=false`; non-zero policy usage and every finding class are tested. Live
-  labelled-policy evaluation and fidelity evidence remain open.
+  finding parser are implemented. The qualification worker runs the standalone review
+  after generation, outside its Cockroach transaction, stores only the sanitized result,
+  and exposes it beside the buyer decision. Its typed result hard-codes
+  `authoritative=false` and `may_authorize=false`; non-zero policy usage and every finding
+  class are tested. Live labelled-policy evaluation and fidelity evidence remain open.
 - [ ] AgentCore Runtime/evaluation experiment without AgentCore Memory. A stateless ARM64 HTTP runtime, IAM invocation adapter, committed labelled-corpus entrypoint, durable budgeted Cockroach lifecycle and sanitized failure path are implemented; CDK proves one Runtime/endpoint and zero Memory resources. Live deployment/invocation evidence remains open.
 - [ ] Measured Cockroach changefeed, multi-region and regional-survival experiments.
 - [ ] Additional categories and broader outcome-learning surfaces. Tenant-safe buyer/seller analytics backed by canonical records and transactional outbox events are implemented.

@@ -17,6 +17,7 @@ from sira_agents.bedrock_runtime import (
 )
 from sqlalchemy.engine import make_url
 
+from integrations.automated_reasoning import BedrockAutomatedReasoningReviewer
 from integrations.aws_services import SqsFifoPublisher, create_aws_client
 from persistence.database import Database, DatabaseSettings
 from sira_worker.outbox_dispatcher import dispatch_batch
@@ -135,6 +136,15 @@ async def _run_qualification_worker(settings: WorkerSettings) -> None:
         model_id=settings.chat_model_id,
         lease_owner=f"{socket.gethostname()}:{os.getpid()}",
         guardrail=guardrail,
+        reasoning_reviewer=(
+            BedrockAutomatedReasoningReviewer(
+                client=bedrock_client,
+                guardrail_identifier=settings.guardrail_id,
+                guardrail_version=settings.guardrail_version,
+            )
+            if guardrail is not None and settings.guardrail_version != "DRAFT"
+            else None
+        ),
     )
     consumer = QualificationQueueConsumer(
         client=cast(SqsConsumerClient, sqs_client),

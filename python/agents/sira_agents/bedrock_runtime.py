@@ -36,6 +36,8 @@ class BedrockClient(Protocol):
 
     def invoke_model(self, **kwargs: Any) -> Mapping[str, Any]: ...
 
+    def apply_guardrail(self, **kwargs: Any) -> Mapping[str, Any]: ...
+
 
 BedrockToolHandler = Callable[
     [Mapping[str, Any], AgentRunContext | None], Awaitable[Mapping[str, Any]]

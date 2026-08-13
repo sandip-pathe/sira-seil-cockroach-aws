@@ -687,6 +687,27 @@
   font-size: 11px;
 }
 
+.reasoningReview {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--sira) 35%, var(--border));
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--sira) 7%, var(--surface));
+}
+
+.reasoningReview > div {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.reasoningReview p,
+.reasoningReview span {
+  margin: 0;
+}
+
 @keyframes pulse {
   to { background-position: -200% 0; }
 }

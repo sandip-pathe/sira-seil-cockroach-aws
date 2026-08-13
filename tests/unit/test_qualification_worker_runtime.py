@@ -19,6 +19,7 @@ from sira_worker.qualification import (
     retrieve_qualification_candidates,
 )
 
+from integrations.automated_reasoning import AutomatedReasoningReview
 from persistence.database import Database
 from persistence.qualification_catalog import VectorCandidate
 from persistence.qualification_repository import AttemptLease, FinalizationResult
@@ -387,13 +388,107 @@ async def test_evaluate_requires_every_candidate_evidence_call(
         lease_owner="worker-test",
     )
     monkeypatch.setattr(QualificationWorker, "_evidence_for_product", evidence)
-    decision = await worker._evaluate(
+    evaluation = await worker._evaluate(
         _mission(),
         AttemptLease("attempt-1", 1, "worker-test", datetime.now(UTC)),
         candidates,
     )
-    assert decision.recommended_product_id == "product-a"
+    assert evaluation.decision.recommended_product_id == "product-a"
+    assert evaluation.automated_reasoning is None
     assert bedrock.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_evaluate_records_reasoning_review_without_granting_authority(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Reviewer:
+        async def review_safely(self, *, query: str, claim: str) -> AutomatedReasoningReview:
+            assert "procurement_policy" in query
+            assert "recommended_product_id" in claim
+            return AutomatedReasoningReview(
+                outcome="CONSISTENT",
+                findings=(),
+                evaluated_units=1,
+                input_hash="sha256:" + "a" * 64,
+            )
+
+    final = {
+        "recommended_product_id": "product-a",
+        "summary": "Product A fits.",
+        "cited_dependency_ids": ["dependency-a", "dependency-b"],
+        "criteria": [],
+        "confidence": 0.8,
+    }
+
+    class Bedrock:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def converse(self, **_kwargs: object) -> dict[str, Any]:
+            self.calls += 1
+            candidates = ["product-a", "product-b"]
+            if self.calls == 1:
+                return {
+                    "stopReason": "tool_use",
+                    "output": {
+                        "message": {
+                            "role": "assistant",
+                            "content": [
+                                {
+                                    "toolUse": {
+                                        "toolUseId": f"tool-{index}",
+                                        "name": "retrieve_product_evidence",
+                                        "input": {"product_id": product_id},
+                                    }
+                                }
+                                for index, product_id in enumerate(candidates)
+                            ],
+                        }
+                    },
+                    "usage": {},
+                }
+            return {
+                "stopReason": "end_turn",
+                "output": {
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"text": json.dumps(final)}],
+                    }
+                },
+                "usage": {},
+            }
+
+    async def evidence(
+        _self: QualificationWorker,
+        _organization_id: str,
+        _attempt_id: str,
+        product_id: str,
+    ) -> dict[str, object]:
+        return {
+            "product_id": product_id,
+            "catalog": [],
+            "evidence": [{"dependency_id": f"dependency-{product_id[-1]}", "facts": {}}],
+        }
+
+    database = cast(Database, FakeDatabase())
+    worker = QualificationWorker(
+        worker_database=database,
+        catalog_database=database,
+        embedding_client=cast(Any, FakeEmbedding()),
+        bedrock_client=cast(Any, Bedrock()),
+        model_id="amazon.nova-micro-v1:0",
+        lease_owner="worker-test",
+        reasoning_reviewer=cast(Any, Reviewer()),
+    )
+    monkeypatch.setattr(QualificationWorker, "_evidence_for_product", evidence)
+    evaluation = await worker._evaluate(
+        _mission(),
+        AttemptLease("attempt-1", 1, "worker-test", datetime.now(UTC)),
+        (_candidate("product-a"), _candidate("product-b")),
+    )
+    assert evaluation.automated_reasoning is not None
+    assert evaluation.automated_reasoning.authoritative is False
 
 
 def test_grounded_decision_validator_rejects_out_of_scope_model_claims() -> None:

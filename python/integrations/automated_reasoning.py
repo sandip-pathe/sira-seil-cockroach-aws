@@ -97,9 +97,10 @@ class BedrockAutomatedReasoningReviewer:
     async def review(self, *, query: str, claim: str) -> AutomatedReasoningReview:
         normalized_query = _bounded(query, "query")
         normalized_claim = _bounded(claim, "claim")
-        digest = "sha256:" + sha256(
-            (normalized_query + "\x00" + normalized_claim).encode("utf-8")
-        ).hexdigest()
+        digest = (
+            "sha256:"
+            + sha256((normalized_query + "\x00" + normalized_claim).encode("utf-8")).hexdigest()
+        )
         async with asyncio.timeout(self.timeout_seconds):
             response = await asyncio.to_thread(
                 self.client.apply_guardrail,
@@ -123,6 +124,25 @@ class BedrockAutomatedReasoningReviewer:
                 ],
             )
         return _parse_review(response, digest)
+
+    async def review_safely(self, *, query: str, claim: str) -> AutomatedReasoningReview:
+        """Return a visible non-authoritative error instead of blocking a decision."""
+
+        normalized_query = _bounded(query, "query")
+        normalized_claim = _bounded(claim, "claim")
+        digest = (
+            "sha256:"
+            + sha256((normalized_query + "\x00" + normalized_claim).encode("utf-8")).hexdigest()
+        )
+        try:
+            return await self.review(query=normalized_query, claim=normalized_claim)
+        except Exception:
+            return AutomatedReasoningReview(
+                outcome="ERROR",
+                findings=(),
+                evaluated_units=0,
+                input_hash=digest,
+            )
 
 
 def _parse_review(response: Mapping[str, Any], input_hash: str) -> AutomatedReasoningReview:
