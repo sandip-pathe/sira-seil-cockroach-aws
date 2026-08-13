@@ -22,6 +22,10 @@ evidence, attempts, decisions, consent, and introductions.
   authoritative object identity and business relationship.
 - Secrets Manager injects separate API, worker, and catalog SQL identities. The
   task definitions and CloudFormation template contain no database passwords.
+- The hackathon web image enables the API-issued guest-session mode at build time.
+  The API issues an HttpOnly, Secure, signed session cookie and derives an isolated
+  CockroachDB organization per browser. Firebase remains an optional account-upgrade
+  path rather than a hidden deployment prerequisite.
 
 The two-AZ VPC uses one NAT gateway to balance availability with hackathon cost.
 The ALB and tasks have no public address. CloudWatch includes retained logs, a

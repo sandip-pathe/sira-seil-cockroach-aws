@@ -39,6 +39,11 @@ const assetExcludes = [
   "tmp/**",
 ];
 
+export const webBuildArgs = Object.freeze({
+  NEXT_PUBLIC_WEB_DATA_MODE: "api",
+  NEXT_PUBLIC_GUEST_SESSION_ENABLED: "true",
+});
+
 export interface SiraAwsStackProps extends cdk.StackProps {
   stage: string;
   chatModelId: string;
@@ -217,7 +222,7 @@ export class SiraAwsStack extends cdk.Stack {
       directory: repositoryRoot,
       file: "Dockerfile.web",
       platform: assets.Platform.LINUX_AMD64,
-      buildArgs: { NEXT_PUBLIC_WEB_DATA_MODE: "api" },
+      buildArgs: webBuildArgs,
       exclude: assetExcludes,
       ignoreMode: cdk.IgnoreMode.GLOB,
     });

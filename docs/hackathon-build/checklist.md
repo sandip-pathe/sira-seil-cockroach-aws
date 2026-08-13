@@ -81,7 +81,7 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
   Build: minimal CDK/ECR/ALB/ECS/SQS/S3/IAM/Secrets/CloudWatch; separate web/API/worker images; production configuration omits the demo controller module/route/permission.
   Accept: public HTTPS flow works without local services; task roles are least-privilege; secrets remain server-only; deployment/rollback and health/readiness work.
   Verify: CDK synth/assertions, image scan, hosted smoke, task-role review and redacted traces.
-  Progress: CloudFront VPC origin, internal ALB, private ECS web/API/dispatcher/qualification services, SQS/DLQ, S3, Secrets, Guardrail, logs/alarms/dashboard and least-privilege roles synth and test successfully; images smoke locally. Cloud deployment and hosted smoke remain open.
+  Progress: CloudFront VPC origin, internal ALB, private ECS web/API/dispatcher/qualification services, SQS/DLQ, S3, Secrets, Guardrail, logs/alarms/dashboard and least-privilege roles synth and test successfully; images smoke locally. The web image now explicitly enables the API-issued signed guest-session mode used by the production API, closing the prior missing-Firebase build dead end without accepting development identity headers. Cloud deployment and hosted smoke remain open.
 
 - [ ] **11. Prove Managed MCP integrity and freeze evidence**
   Build: sanitized read-only views for current dependencies, attempts/fences/replacements, effect counts and DVI plan inputs; run MCP from a separate scoped identity.

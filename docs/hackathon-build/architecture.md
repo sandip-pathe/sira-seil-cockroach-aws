@@ -59,6 +59,7 @@ CloudWatch/OpenTelemetry: sanitized correlated events and P0 metrics.
 | Queue | Transactional CockroachDB outbox to SQS FIFO. SQS is delivery; CockroachDB remains authority and durable deduplication. |
 | Documents | Encrypted, versioned, checksum-addressed S3 objects with interactive seller ingestion. CockroachDB stores immutable object identity and claim bindings. |
 | Infrastructure | TypeScript CDK, per-task IAM roles, Secrets Manager and an exact-repository GitHub OIDC entry role. |
+| Demo identity | API-issued signed HttpOnly guest session with an isolated Cockroach tenant per browser; Firebase is an optional upgrade path. Production never accepts development identity headers. |
 | Payment | PRAVA is P2 after every P0 gate. Agents never hold payment credentials. |
 | Multi-region/AgentCore/changefeeds | P2 experiments only after measured need and a green core. AgentCore Memory remains excluded. |
 

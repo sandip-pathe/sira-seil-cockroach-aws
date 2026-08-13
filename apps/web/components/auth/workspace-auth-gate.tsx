@@ -12,16 +12,16 @@ export function WorkspaceAuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const developmentWorkspace = process.env.NODE_ENV === "development" && !configured;
+  const guestWorkspace = process.env.NEXT_PUBLIC_GUEST_SESSION_ENABLED === "true";
 
   useEffect(() => {
     if (!configured || loading || user) return;
-    const workspace = pathname.startsWith("/seil") || pathname.startsWith("/seller")
-      ? "seil"
-      : "sira";
+    const workspace =
+      pathname.startsWith("/seil") || pathname.startsWith("/seller") ? "seil" : "sira";
     router.replace(`/sign-in?workspace=${workspace}`);
   }, [configured, loading, pathname, router, user]);
 
-  if (developmentWorkspace || (configured && !loading && user)) return children;
+  if (developmentWorkspace || guestWorkspace || (configured && !loading && user)) return children;
 
   return (
     <main className={styles.gate}>

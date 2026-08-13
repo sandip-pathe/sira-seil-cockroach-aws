@@ -4,7 +4,7 @@ import test from "node:test";
 import * as cdk from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 
-import { SiraAwsStack } from "../lib/sira-aws-stack.js";
+import { SiraAwsStack, webBuildArgs } from "../lib/sira-aws-stack.js";
 
 function template(): Template {
   const app = new cdk.App();
@@ -100,4 +100,11 @@ test("keeps tasks private and gives Bedrock only to the qualification role", () 
   const serialized = JSON.stringify(rendered.toJSON());
   assert.match(serialized, /foundation-model\/amazon\.nova-micro/);
   assert.match(serialized, /foundation-model\/amazon\.titan-embed-text/);
+});
+
+test("builds the web for the API-issued production guest-session mode", () => {
+  assert.deepEqual(webBuildArgs, {
+    NEXT_PUBLIC_WEB_DATA_MODE: "api",
+    NEXT_PUBLIC_GUEST_SESSION_ENABLED: "true",
+  });
 });
