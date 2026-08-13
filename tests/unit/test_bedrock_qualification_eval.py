@@ -78,12 +78,8 @@ def _case() -> BedrockQualificationEvalCase:
             "policy": "EU hosting is mandatory.",
             "expected_product_id": "product-a",
             "evidence_by_product": {
-                "product-a": [
-                    {"dependency_id": "evidence-a", "claim": "EU hosting is available."}
-                ],
-                "product-b": [
-                    {"dependency_id": "evidence-b", "claim": "US hosting only."}
-                ],
+                "product-a": [{"dependency_id": "evidence-a", "claim": "EU hosting is available."}],
+                "product-b": [{"dependency_id": "evidence-b", "claim": "US hosting only."}],
             },
         }
     )

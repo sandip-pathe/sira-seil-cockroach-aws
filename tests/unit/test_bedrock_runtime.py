@@ -210,9 +210,7 @@ async def test_converse_discards_delimited_thinking_before_strict_json() -> None
 
 async def test_converse_rejects_content_after_json_document() -> None:
     runtime = BedrockConverseRuntime(
-        client=FakeBedrockClient(
-            responses=[_response({"text": '{"status":"ok"} trailing'})]
-        ),
+        client=FakeBedrockClient(responses=[_response({"text": '{"status":"ok"} trailing'})]),
         model_id="test-model",
     )
     with pytest.raises(BedrockRuntimeError, match="content after"):

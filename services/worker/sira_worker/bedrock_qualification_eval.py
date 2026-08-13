@@ -115,8 +115,7 @@ async def evaluate_bedrock_qualification(
             return {
                 "product_id": product_id,
                 "evidence": [
-                    evidence.model_dump(mode="json")
-                    for evidence in scoped_evidence[product_id]
+                    evidence.model_dump(mode="json") for evidence in scoped_evidence[product_id]
                 ],
             }
 
@@ -203,9 +202,7 @@ async def evaluate_bedrock_qualification(
                 structured_output_valid=structured,
                 inspected_every_candidate=inspected_every,
                 grounded=grounded,
-                expected_product_match=(
-                    grounded and actual_product_id == case.expected_product_id
-                ),
+                expected_product_match=(grounded and actual_product_id == case.expected_product_id),
                 output_sha256=output_hash,
                 input_sha256=input_hash,
                 failure_category=failure,
