@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -12,12 +13,17 @@ from sqlalchemy.exc import DBAPIError
 from domain import content_hash
 from integrations.aws_services import OutboxEnvelope, PublishedMessage
 from persistence.database import Database, DatabaseSettings
+from persistence.qualification_catalog import (
+    explain_published_candidate_search,
+    search_published_candidates,
+)
 from persistence.qualification_models import (
     CatalogProjectionVersion,
     MarketplaceConsent,
     MarketplaceEngagement,
     ProductBundle,
     ProductBundleMember,
+    ProductEmbedding,
     ProductTwinVersion,
     QualificationAttempt,
     QualificationDecision,
@@ -45,8 +51,17 @@ def _worker_url() -> str:
     return value
 
 
+def _catalog_url() -> str:
+    value = os.environ.get("SIRA_TEST_CATALOG_DATABASE_URL")
+    if not value:
+        pytest.skip("SIRA_TEST_CATALOG_DATABASE_URL is required")
+    return value
+
+
 async def _ensure_organizations() -> None:
-    admin = Database(DatabaseSettings(database_url=_runtime_url().replace("sira_app@", "root@")))
+    admin = Database(
+        DatabaseSettings(database_url=_runtime_url().replace("sira_app@", "root@"))
+    )
     try:
         async with admin.transaction("org_buyer") as session:
             await session.execute(
@@ -167,10 +182,14 @@ async def test_v2_activation_rejects_v1_finalization_and_creates_one_replacement
                     id=mission_id,
                     buyer_context_version_id="buyer-context-v1",
                     buyer_context_hash=content_hash({"buyer": suffix}),
+                    buyer_context_payload={"buyer": suffix},
                     requirement_brief_version_id="brief-v1",
                     requirement_brief_hash=content_hash({"brief": "EU required"}),
+                    requirement_brief_payload={"brief": "EU required"},
                     procurement_policy_version="policy-v1",
                     procurement_policy_hash=content_hash({"region": "EU"}),
+                    procurement_policy_payload={"region": "EU"},
+                    trace_id=f"trace_{suffix}",
                     state="RUNNING",
                     version=1,
                     organization_id="org_buyer",
@@ -260,10 +279,14 @@ async def test_generation_fence_and_atomic_introduction_are_idempotent() -> None
                     id=mission_id,
                     buyer_context_version_id="buyer-context-v1",
                     buyer_context_hash=digest,
+                    buyer_context_payload={"buyer": suffix},
                     requirement_brief_version_id="brief-v1",
                     requirement_brief_hash=digest,
+                    requirement_brief_payload={"brief": suffix},
                     procurement_policy_version="policy-v1",
                     procurement_policy_hash=digest,
+                    procurement_policy_payload={"policy": suffix},
+                    trace_id=f"trace_intro_{suffix}",
                     state="AWAITING_APPROVAL",
                     version=1,
                     organization_id="org_buyer",
@@ -510,4 +533,83 @@ async def test_outbox_dispatch_marks_only_acknowledged_delivery() -> None:
         assert publisher.envelopes[0].event_type == "PRODUCT_BUNDLE_ACTIVATED"
     finally:
         await database.close()
+        await admin.close()
+
+
+async def test_dvi_retrieves_current_published_candidates_across_sellers() -> None:
+    database = Database(DatabaseSettings(database_url=_runtime_url()))
+    catalog_database = Database(DatabaseSettings(database_url=_catalog_url()))
+    admin = Database(DatabaseSettings(database_url=_runtime_url().replace("sira_app@", "root@")))
+    suffix = uuid4().hex[:8]
+    category = f"meeting-{suffix}"
+    query_vector = (1.0,) + (0.0,) * 1023
+    try:
+        await _ensure_organizations()
+        for index in range(20):
+            organization_id = "org_seller_a" if index % 2 == 0 else "org_seller_b"
+            product_id = f"product_{index:02d}_{suffix}"
+            angle = index * 0.03
+            vector = (math.cos(angle), math.sin(angle)) + (0.0,) * 1022
+            bundle_id, _digest = await _seed_bundle(
+                database,
+                organization_id=organization_id,
+                product_id=product_id,
+                version=1,
+            )
+            vector_literal = "[" + ",".join(str(value) for value in vector) + "]"
+            async with database.transaction(organization_id) as session:
+                session.add(
+                    ProductEmbedding(
+                        id=f"embedding_{product_id}",
+                        bundle_id=bundle_id,
+                        product_id=product_id,
+                        category=category,
+                        visibility="BUYER_SAFE",
+                        content_hash=content_hash({"product_id": product_id}),
+                        model_id="amazon.titan-embed-text-v2:0",
+                        dimensions=1024,
+                        embedding=vector_literal,
+                        organization_id=organization_id,
+                    )
+                )
+
+        async with admin.transaction("org_buyer") as session:
+            await session.execute(text("ANALYZE qualification_product_embeddings"))
+
+        async with catalog_database.transaction("org_buyer") as session:
+            candidates = await search_published_candidates(
+                session,
+                category=category,
+                visibility="BUYER_SAFE",
+                query_vector=query_vector,
+                limit=5,
+            )
+            plan = await explain_published_candidate_search(
+                session,
+                category=category,
+                visibility="BUYER_SAFE",
+                query_vector=query_vector,
+                limit=5,
+            )
+        assert len(candidates) == 5
+        assert candidates[0].organization_id == "org_seller_a"
+        assert candidates[0].product_id == f"product_00_{suffix}"
+        assert any(candidate.organization_id == "org_seller_b" for candidate in candidates)
+        assert candidates[0].cosine_distance == pytest.approx(0.0)
+        assert "qualification_product_embedding_dvi" in "\n".join(plan)
+
+        async with database.transaction("org_buyer") as session:
+            assert (
+                await search_published_candidates(
+                    session,
+                    category=category,
+                    visibility="BUYER_SAFE",
+                    query_vector=query_vector,
+                    limit=5,
+                )
+                == ()
+            )
+    finally:
+        await database.close()
+        await catalog_database.close()
         await admin.close()

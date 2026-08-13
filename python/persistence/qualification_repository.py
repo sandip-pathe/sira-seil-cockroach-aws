@@ -209,6 +209,21 @@ class QualificationRepository:
         ).all()
         if len(bundles) < 1:
             raise PersistenceConflict("qualification mission has no product bundles")
+        bundle_members: dict[str, Sequence[ProductBundleMember]] = {}
+        for bundle in bundles:
+            bundle_members[bundle.bundle_id] = (
+                await self.session.scalars(
+                    select(ProductBundleMember)
+                    .where(
+                        ProductBundleMember.organization_id
+                        == bundle.seller_organization_id,
+                        ProductBundleMember.bundle_id == bundle.bundle_id,
+                    )
+                    .order_by(ProductBundleMember.ordinal)
+                )
+            ).all()
+            if not bundle_members[bundle.bundle_id]:
+                raise PersistenceConflict("qualification product bundle has no members")
         dependencies = (
             DependencySnapshot(
                 "BUYER_CONTEXT",
@@ -240,6 +255,17 @@ class QualificationRepository:
                     bundle.bundle_digest,
                 )
                 for bundle in bundles
+            ),
+            *(
+                DependencySnapshot(
+                    member.member_kind,
+                    bundle.seller_organization_id,
+                    member.member_id,
+                    bundle.bundle_id,
+                    member.member_hash,
+                )
+                for bundle in bundles
+                for member in bundle_members[bundle.bundle_id]
             ),
         )
         digest = content_hash(

@@ -250,10 +250,18 @@ class QualificationMission(Base, TenantOwned, Timestamped):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     buyer_context_version_id: Mapped[str] = mapped_column(String(64), nullable=False)
     buyer_context_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    buyer_context_payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
     requirement_brief_version_id: Mapped[str] = mapped_column(String(64), nullable=False)
     requirement_brief_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    requirement_brief_payload: Mapped[dict[str, Any]] = mapped_column(
+        JSON_DOCUMENT, nullable=False
+    )
     procurement_policy_version: Mapped[str] = mapped_column(String(80), nullable=False)
     procurement_policy_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    procurement_policy_payload: Mapped[dict[str, Any]] = mapped_column(
+        JSON_DOCUMENT, nullable=False
+    )
+    trace_id: Mapped[str] = mapped_column(String(64), nullable=False)
     state: Mapped[str] = mapped_column(String(24), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 

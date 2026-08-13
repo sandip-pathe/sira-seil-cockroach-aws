@@ -18,11 +18,11 @@ docker compose exec -T cockroach cockroach sql --insecure --host=localhost:26257
     --execute="SET CLUSTER SETTING feature.vector_index.enabled = true;"
 if ($Action -eq "reset") {
     docker compose exec -T cockroach cockroach sql --insecure --host=localhost:26257 `
-        --execute="DROP DATABASE IF EXISTS sira CASCADE; CREATE DATABASE sira; CREATE USER IF NOT EXISTS sira_app; CREATE USER IF NOT EXISTS sira_worker_app;"
+        --execute="DROP DATABASE IF EXISTS sira CASCADE; CREATE DATABASE sira; CREATE USER IF NOT EXISTS sira_app; CREATE USER IF NOT EXISTS sira_worker_app; CREATE USER IF NOT EXISTS sira_catalog_app;"
 }
 else {
     docker compose exec -T cockroach cockroach sql --insecure --host=localhost:26257 `
-        --execute="CREATE DATABASE IF NOT EXISTS sira; CREATE USER IF NOT EXISTS sira_app; CREATE USER IF NOT EXISTS sira_worker_app;"
+        --execute="CREATE DATABASE IF NOT EXISTS sira; CREATE USER IF NOT EXISTS sira_app; CREATE USER IF NOT EXISTS sira_worker_app; CREATE USER IF NOT EXISTS sira_catalog_app;"
 }
 
 $env:DATABASE_ADMIN_URL = "cockroachdb+psycopg://root@127.0.0.1:26257/sira?sslmode=disable"
@@ -34,7 +34,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 docker compose exec -T cockroach cockroach sql --insecure --host=localhost:26257 --database=sira `
-    --execute="GRANT CONNECT ON DATABASE sira TO sira_app, sira_worker_app; GRANT sira_runtime TO sira_app, sira_worker_app; GRANT sira_qualification_worker TO sira_worker_app;"
+    --execute="GRANT CONNECT ON DATABASE sira TO sira_app, sira_worker_app, sira_catalog_app; GRANT sira_runtime TO sira_app, sira_worker_app; GRANT sira_catalog_reader TO sira_catalog_app;"
 if ($LASTEXITCODE -ne 0) {
     throw "CockroachDB runtime role setup failed"
 }
