@@ -14,23 +14,26 @@ The P0 demo uses two meeting-intelligence products. The lower-cost product initi
 Browser
   |
   v
-ALB + ACM
-  +-- /* -------> Next.js web on ECS/Fargate
-  +-- /api/* ---> FastAPI on ECS/Fargate
+CloudFront (public HTTPS edge)
+  |
+  v
+private ALB through CloudFront VPC origin
+  +-- /* ----------------------> Next.js web on ECS/Fargate
+  +-- /v1/*, /health, /ready --> FastAPI on ECS/Fargate
                        |
                        v
              CockroachDB Cloud on AWS
              - authoritative business state
-             - private/shared operational memory
+             - private context and shared operational state
              - Distributed Vector Indexes
              - versions, leases, fences, decisions
              - transactional outbox and effects
                        |
                        v
-              outbox dispatcher -> SQS FIFO + DLQ
-                                      |
-                                      v
-                       role-configured ECS worker tasks
+              dedicated ECS outbox dispatcher -> SQS FIFO + DLQ
+                                                    |
+                                                    v
+                                      qualification ECS worker
                                       |
                          +------------+------------+
                          |            |            |
@@ -51,7 +54,7 @@ CloudWatch/OpenTelemetry: sanitized correlated events and P0 metrics.
 |---|---|
 | Database | One CockroachDB Cloud Standard cluster on AWS, v25.4+, co-located with the application region. |
 | Required CockroachDB tools | Distributed Vector Indexing for candidate retrieval; Cloud Managed MCP for independent integrity inspection. |
-| Web/API hosting | Separate Next.js 16 and FastAPI ECS/Fargate services behind one ALB. Amplify is excluded because current SSR support ends at Next.js 15. |
+| Web/API hosting | CloudFront is the only public HTTPS edge. A VPC origin reaches one internal ALB, which routes to separate Next.js 16 and FastAPI ECS/Fargate services. Amplify is excluded because current SSR support ends at Next.js 15. |
 | Agent runtime | Extend the existing typed SIRA/SEIL runtime with a Bedrock Converse adapter. Bedrock Agents Classic is excluded because it is closed to most new accounts. |
 | Queue | Transactional CockroachDB outbox to SQS FIFO. SQS is delivery; CockroachDB remains authority and durable deduplication. |
 | Documents | Preseeded, encrypted, versioned S3 objects in P0. Interactive ingestion is P1. |
@@ -67,7 +70,7 @@ CloudWatch/OpenTelemetry: sanitized correlated events and P0 metrics.
 - Buyer-private and seller-private records are structurally separated and use FORCE RLS. CockroachDB RLS derives the verified tenant from transaction-local `application_name`; principal/role capability remains server-validated. This is defense in depth against application mistakes, not protection after compromise of the runtime SQL credential: browser clients never receive that credential, the database is network-restricted, and the runtime identity is a non-owner without admin or `BYPASSRLS`. Shared embeddings contain only published buyer-safe projections.
 - Hosted mode has no fixture, model, identity or stale-vector fallback.
 
-## Operational memory
+## Context and durable state
 
 | Kind | CockroachDB records | Validity |
 |---|---|---|
@@ -129,6 +132,6 @@ If the correctness kernel fails, shipping is blocked. Approach A is permitted on
 
 ## P1 and P2
 
-P1 adds editable company memory, product portfolio management, interactive S3 ingestion, public marketplace/search pages, inboxes/settings, full DLQ operations, broader telemetry/restore drills, `ccloud` evidence and GitHub OIDC.
+P1 adds editable versioned company context, product portfolio management, interactive S3 ingestion, public marketplace/search pages, inboxes/settings, full DLQ operations, broader telemetry/restore drills, `ccloud` evidence and GitHub OIDC.
 
 P2 adds PRAVA execution, Bedrock Automated Reasoning, AgentCore Runtime/evaluation experiments, measured changefeeds/multi-region, analytics, more categories and autonomous commercial operations only where authority and provider idempotency are proven.

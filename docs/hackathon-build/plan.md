@@ -27,7 +27,7 @@ See `architecture.md` for the complete contract.
 - CockroachDB Cloud v25.4+ on AWS is the sole transactional/business-state authority.
 - DVI is candidate retrieval; relational current-version and eligibility gates decide use.
 - Managed MCP is a read-only judge/operator integrity plane, not application transport.
-- Next.js web, FastAPI API and role-configured worker tasks run on ECS/Fargate behind one ALB.
+- CloudFront is the public HTTPS edge; its VPC origin reaches an internal ALB routing to private Next.js and FastAPI ECS/Fargate services. Dispatcher and qualification workers are separate private ECS services.
 - A Cockroach transactional outbox publishes to SQS FIFO; database consumer/effect keys handle redelivery.
 - Existing agent/authority/guardrail code gains Bedrock Converse, Guardrails and Titan V2 adapters.
 - P0 S3 evidence is preseeded/versioned/checksum-verified. Interactive ingestion is P1.
@@ -79,7 +79,7 @@ See `architecture.md` for the complete contract.
 
 ### Phase 6: P1/P2 only after P0
 
-- P1: company memory, product management, interactive ingestion, public marketplace, inboxes/settings, full DLQ/restore operations, `ccloud`, GitHub OIDC and broader UI.
+- P1: versioned company context, product management, interactive ingestion, public marketplace, inboxes/settings, full DLQ/restore operations, `ccloud`, GitHub OIDC and broader UI.
 - P2: PRAVA, Automated Reasoning, AgentCore experiment, measured changefeed/multi-region, analytics and more categories.
 
 ## Cut lines
@@ -91,3 +91,18 @@ See `architecture.md` for the complete contract.
 ## Completion definition
 
 P0 is complete only when current-state evidence proves every checklist item. Targets, local fixture results, deleted side repositories and screenshots without matching database IDs do not count.
+
+## Current implementation evidence (2026-08-13)
+
+Implemented and locally verified:
+
+- Cockroach-aware engine, transaction-local tenant context, runtime-role/schema/RLS readiness, and whole-callback fresh-session `40001` retries;
+- migrations through `cdb0008`, Product Bundles, DVI-backed retrieval, attempts/leases/fences/snapshots/replacements, durable receipts/effects, bilateral consent and introductions;
+- typed Bedrock Converse and Titan adapters, S3 content-addressed evidence, SQS FIFO outbox/consumer boundaries, and role-separated worker entrypoints;
+- the six P0 product routes plus editable versioned company context;
+- CloudFront-to-internal-ALB ECS architecture, separate API/web/dispatcher/qualification services, S3/SQS/Secrets/Guardrail/CloudWatch resources, least-privilege task roles, and production images;
+- PRAVA and controlled-merchant payment/reconciliation boundaries remain human-authorized and credential-isolated.
+
+Evidence currently passing: the official repository gate (`313 passed`, coverage `75.07%`, OpenAPI/client/web/credential checks), all `10` live local Cockroach integration tests, CDK build/tests/synth, and API/web container smoke checks. These results prove local implementation, not hosted deployment.
+
+Still externally gated or incomplete: CockroachDB Cloud TLS/backup and Managed MCP evidence, live Bedrock provider smoke/evaluation report, AWS deployment/hosted rehearsals, interactive S3 ingestion, browser accessibility/E2E evidence, full DLQ/restore operations, and `ccloud`/GitHub OIDC evidence.
