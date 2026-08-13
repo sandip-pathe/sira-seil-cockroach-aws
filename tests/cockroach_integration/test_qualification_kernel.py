@@ -1013,7 +1013,14 @@ async def test_worker_replaces_stale_attempt_and_completes_against_v2() -> None:
                     "recommended_product_id": product_id,
                     "summary": "Current evidence satisfies the requirement.",
                     "cited_dependency_ids": citations,
-                    "criteria": [{"criterion": "hosting", "result": "PASS"}],
+                    "criteria": [
+                        {
+                            "criterion": "hosting",
+                            "result": "PASS",
+                            "rationale": "The current pinned evidence satisfies hosting.",
+                            "cited_dependency_ids": citations[1:],
+                        }
+                    ],
                     "confidence": 0.91,
                 }
                 return {
