@@ -1,0 +1,1 @@
+"""Optional CockroachDB changefeed bridge."""

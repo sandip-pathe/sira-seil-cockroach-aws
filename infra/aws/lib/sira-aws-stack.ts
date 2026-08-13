@@ -12,6 +12,9 @@ import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as apigateway from "aws-cdk-lib/aws-apigatewayv2";
+import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sqs from "aws-cdk-lib/aws-sqs";
@@ -88,6 +91,11 @@ export class SiraAwsStack extends cdk.Stack {
       "RuntimeSecret",
       `${name}/runtime`,
     );
+    const changefeedToken = new secretsmanager.Secret(this, "ChangefeedWebhookToken", {
+      secretName: `${name}/changefeed-webhook-token`,
+      description: "Bearer token used only by the CockroachDB changefeed webhook.",
+      generateSecretString: { passwordLength: 48, excludePunctuation: true },
+    });
 
     const vpc = new ec2.Vpc(this, "Vpc", {
       maxAzs: 2,
@@ -147,6 +155,41 @@ export class SiraAwsStack extends cdk.Stack {
       visibilityTimeout: cdk.Duration.minutes(15),
       retentionPeriod: cdk.Duration.days(4),
       deadLetterQueue: { queue: deadLetterQueue, maxReceiveCount: 5 },
+    });
+
+    const changefeedBridge = new lambda.Function(this, "ChangefeedBridge", {
+      functionName: `${name}-changefeed-bridge`,
+      description:
+        "Authenticates at-least-once CockroachDB changefeed hints and forwards deterministic FIFO messages.",
+      runtime: lambda.Runtime.PYTHON_3_13,
+      architecture: lambda.Architecture.ARM_64,
+      handler: "sira_changefeed.handler.lambda_handler",
+      code: lambda.Code.fromAsset(path.join(repositoryRoot, "services/changefeed")),
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      environment: {
+        REEVALUATION_QUEUE_URL: qualificationQueue.queueUrl,
+      },
+      reservedConcurrentExecutions: 5,
+    });
+    changefeedToken.grantRead(changefeedBridge);
+    changefeedBridge.addEnvironment(
+      "CHANGEFEED_WEBHOOK_TOKEN_SECRET_ARN",
+      changefeedToken.secretArn,
+    );
+    qualificationQueue.grantSendMessages(changefeedBridge);
+    const changefeedApi = new apigateway.HttpApi(this, "ChangefeedApi", {
+      apiName: `${name}-changefeed`,
+      description: "Dedicated authenticated CockroachDB webhook ingress.",
+      createDefaultStage: true,
+    });
+    changefeedApi.addRoutes({
+      path: "/cockroach/changefeed",
+      methods: [apigateway.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        "ChangefeedIntegration",
+        changefeedBridge,
+      ),
     });
 
     const reasoningPolicy = new bedrock.CfnAutomatedReasoningPolicy(
@@ -624,6 +667,14 @@ export class SiraAwsStack extends cdk.Stack {
     new cdk.CfnOutput(this, "AutomatedReasoningPolicyVersionArn", {
       value: reasoningPolicyVersionArn,
       description: "Explanatory-only authority policy; it cannot authorize an effect.",
+    });
+    new cdk.CfnOutput(this, "ChangefeedWebhookUrl", {
+      value: `${changefeedApi.apiEndpoint}/cockroach/changefeed`,
+      description: "HTTPS webhook sink for the optional at-least-once changefeed.",
+    });
+    new cdk.CfnOutput(this, "ChangefeedWebhookTokenSecretName", {
+      value: changefeedToken.secretName,
+      description: "Use this secret only as the Cockroach webhook authorization header.",
     });
   }
 

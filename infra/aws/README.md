@@ -25,6 +25,10 @@ evidence, attempts, decisions, consent, and introductions.
 - A separate ARM64 AgentCore Runtime runs bounded labelled qualification experiments.
   It is stateless, IAM-invoked, has no CockroachDB credential and provisions no AgentCore
   Memory. The qualification worker persists validated, content-hashed results in CockroachDB.
+- An optional dedicated HTTP API and ARM64 Lambda accept authenticated CockroachDB
+  changefeed webhooks and forward deterministic hints to SQS FIFO. The bridge assumes
+  at-least-once delivery and per-key ordering only; it drops source row data, and consumers
+  must re-read current CockroachDB state before scheduling reevaluation.
 - S3 stores versioned, checksum-addressed evidence bytes. CockroachDB stores the
   authoritative object identity and business relationship.
 - Secrets Manager injects separate API, worker, and catalog SQL identities. The
@@ -104,3 +108,11 @@ the same decision and pinned evidence hashes.
 The committed Automated Reasoning definition follows AWS's CloudFormation format, but must
 still be exercised against labelled valid, invalid, ambiguous and untranslated cases after
 deployment. A synthesized policy is not evidence that Bedrock translated those cases correctly.
+
+After the core hosted path is green, configure the optional changefeed with the
+`ChangefeedWebhookUrl` output and the generated secret referenced by
+`ChangefeedWebhookTokenSecretName`. Supply the value through CockroachDB's
+`webhook_auth_header` option as `Basic <secret>`; never place it in repository files.
+Use JSON with `updated`, `topic_in_value`, and `key_in_value`. Delivery is not exactly once:
+the Lambda's stable source hash is a FIFO optimization, while durable correctness still comes
+from re-reading CockroachDB and the existing consumer/effect uniqueness constraints.

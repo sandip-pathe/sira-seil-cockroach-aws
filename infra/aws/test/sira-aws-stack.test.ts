@@ -36,6 +36,8 @@ test("synthesizes isolated durable application topology", () => {
   rendered.resourceCountIs("AWS::Bedrock::AutomatedReasoningPolicyVersion", 1);
   rendered.resourceCountIs("AWS::BedrockAgentCore::Runtime", 1);
   rendered.resourceCountIs("AWS::BedrockAgentCore::RuntimeEndpoint", 1);
+  rendered.resourceCountIs("AWS::Lambda::Function", 3);
+  rendered.resourceCountIs("AWS::ApiGatewayV2::Api", 1);
   rendered.hasResourceProperties("AWS::ElasticLoadBalancingV2::LoadBalancer", {
     Scheme: "internal",
   });
@@ -64,6 +66,8 @@ test("synthesizes isolated durable application topology", () => {
   rendered.hasOutput("GithubDeployRoleArn", {});
   rendered.hasOutput("AgentCoreExperimentRuntimeArn", {});
   rendered.hasOutput("AutomatedReasoningPolicyVersionArn", {});
+  rendered.hasOutput("ChangefeedWebhookUrl", {});
+  rendered.hasOutput("ChangefeedWebhookTokenSecretName", {});
   rendered.hasResourceProperties("AWS::IAM::Role", {
     AssumeRolePolicyDocument: {
       Statement: Match.arrayWith([
@@ -80,6 +84,23 @@ test("synthesizes isolated durable application topology", () => {
       ]),
     },
   });
+});
+
+test("bridges authenticated at-least-once changefeed hints through a bounded Lambda", () => {
+  const rendered = template();
+  rendered.hasResourceProperties("AWS::Lambda::Function", {
+    Architectures: ["arm64"],
+    Handler: "sira_changefeed.handler.lambda_handler",
+    ReservedConcurrentExecutions: 5,
+    Runtime: "python3.13",
+    Timeout: 10,
+  });
+  rendered.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+    RouteKey: "POST /cockroach/changefeed",
+  });
+  const serialized = JSON.stringify(rendered.toJSON());
+  assert.match(serialized, /sqs:SendMessage/);
+  assert.match(serialized, /secretsmanager:GetSecretValue/);
 });
 
 test("keeps Automated Reasoning explanatory and gives it an immutable policy version", () => {

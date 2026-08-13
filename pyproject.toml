@@ -73,6 +73,7 @@ pythonpath = [
   "python/agents",
   "services/agentcore",
   "services/api",
+  "services/changefeed",
   "services/worker",
 ]
 testpaths = ["tests"]
@@ -104,7 +105,7 @@ python_version = "3.12"
 strict = true
 warn_unused_configs = true
 exclude = ["services/api/alembic/versions"]
-mypy_path = ["python", "python/agents", "services/api", "services/worker"]
+mypy_path = ["python", "python/agents", "services/api", "services/changefeed", "services/worker"]
 plugins = ["pydantic.mypy"]
 
 [tool.coverage.run]

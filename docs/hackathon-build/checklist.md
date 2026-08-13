@@ -108,5 +108,9 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
   `authoritative=false` and `may_authorize=false`; non-zero policy usage and every finding
   class are tested. Live labelled-policy evaluation and fidelity evidence remain open.
 - [ ] AgentCore Runtime/evaluation experiment without AgentCore Memory. A stateless ARM64 HTTP runtime, IAM invocation adapter, committed labelled-corpus entrypoint, durable budgeted Cockroach lifecycle and sanitized failure path are implemented; CDK proves one Runtime/endpoint and zero Memory resources. Live deployment/invocation evidence remains open.
-- [ ] Measured Cockroach changefeed, multi-region and regional-survival experiments.
+- [ ] Measured Cockroach changefeed, multi-region and regional-survival experiments. An
+  authenticated, bounded Cockroach webhook to ARM64 Lambda to SQS FIFO bridge is implemented
+  with stable per-event identity, explicit at-least-once/per-key-only semantics, resolved-watermark
+  handling, source-row minimization and fail-closed tests. Live changefeed delivery, current-row
+  re-read evidence and regional latency/survival measurements remain open.
 - [ ] Additional categories and broader outcome-learning surfaces. Tenant-safe buyer/seller analytics backed by canonical records and transactional outbox events are implemented.
