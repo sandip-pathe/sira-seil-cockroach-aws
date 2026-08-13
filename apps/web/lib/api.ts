@@ -29,6 +29,7 @@ function guestWorkspaceHeaders(mode: "sira" | "seil"): Readonly<Record<string, s
           "can_select_recommendation",
           "can_manage_procurement_gate",
           "can_approve_purchase",
+          "can_execute_purchase",
         ].join(","),
         "X-Step-Up-Verified": "true",
       }

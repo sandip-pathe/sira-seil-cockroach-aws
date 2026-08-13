@@ -49,6 +49,7 @@ import {
 } from "@/lib/api";
 
 import styles from "./decision-surfaces.module.css";
+import { PaymentReconciliation } from "./payment-reconciliation";
 
 const decisionFixture = rawDecisionFixture as unknown as DecisionView;
 
@@ -392,6 +393,7 @@ function ActionStage({ view, optionsHref, onNavigateOptions, onExecute, pending,
 function ResultStage({ view }: { view: DecisionView }) {
   return (
     <section className={styles.stageSection}>
+      {view.payment?.purchase_intent_id ? <PaymentReconciliation intentId={view.payment.purchase_intent_id} /> : null}
       <div className={styles.stageIntro}><p>05 · Result</p><h2>Verified outcome and artifacts</h2><span>Payment success, fulfillment, deployment, and outcome are never collapsed into one green state.</span></div>
       {view.result_artifacts.length ? <div className={styles.artifactGrid}>{view.result_artifacts.map((artifact) => <article key={artifact.id}><FileCheck2 aria-hidden="true" /><span><small>{artifact.type.replaceAll("_", " ")}</small><strong>{artifact.safe_label}</strong><p>{artifact.verification_state.replaceAll("_", " ").toLowerCase()} · owned by {artifact.owner_role.replaceAll("_", " ").toLowerCase()}</p></span></article>)}</div> : <div className={styles.emptyStage}><Clock3 aria-hidden="true" /><h3>No verified result yet</h3><p>The selected action has not produced the required action-specific artifacts. No completion is inferred from workflow status alone.</p></div>}
       <div className={styles.resultStates}><article><small>Payment</small><strong>{view.payment?.status ?? "Not required"}</strong><p>A receipt appears only when money moved.</p></article><article><small>Fulfillment</small><strong>{view.fulfillment?.status ?? "Not started"}</strong><p>Entitlement is verified separately from charge.</p></article><article><small>Company stack</small><strong>{view.stack_change?.status ?? "No change applied"}</strong><p>{view.stack_change?.summary ?? "The current Stack remains unchanged."}</p></article><article><small>Outcome</small><strong>Checkpoint not reached</strong><p>Adoption and business outcome need their own evidence.</p></article></div>
