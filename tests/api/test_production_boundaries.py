@@ -8,7 +8,7 @@ import pytest
 import pytest_asyncio
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 from sira_api.config import ApiSettings
 from sira_api.dependencies import (
     RequestContext,
@@ -93,6 +93,16 @@ def test_production_configuration_requires_cockroachdb() -> None:
             demo_reset_enabled=False,
         )
 
+    with pytest.raises(ValidationError, match="SIRA_CATALOG_DATABASE_URL"):
+        ApiSettings(
+            app_env="production",
+            database_url="cockroachdb+asyncpg://sira_app@db.example:26257/sira?ssl=verify-full",
+            catalog_database_url="postgresql+asyncpg://catalog@db.example:26257/sira?ssl=verify-full",
+            development_fixture_mode=False,
+            demo_reset_enabled=False,
+            browser_return_signing_key="production-test-browser-return-key",
+        )
+
 
 def test_production_configuration_requires_stable_browser_return_signing_key() -> None:
     with pytest.raises(ValidationError, match="32-byte BROWSER_RETURN_SIGNING_KEY"):
@@ -125,6 +135,26 @@ async def test_app_rejects_injected_non_cockroach_database_in_production() -> No
             create_app(settings=production_settings(), database=database)
     finally:
         await database.close()
+
+
+@pytest.mark.asyncio
+async def test_app_rejects_injected_non_cockroach_catalog_in_production() -> None:
+    primary = Database(
+        DatabaseSettings(
+            database_url="cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira?ssl=disable"
+        )
+    )
+    catalog = Database(DatabaseSettings(database_url="sqlite+aiosqlite:///:memory:"))
+    settings = production_settings()
+    settings.catalog_database_url = SecretStr(
+        "cockroachdb+asyncpg://catalog@127.0.0.1:26257/sira?ssl=disable"
+    )
+    try:
+        with pytest.raises(ValueError, match="CockroachDB catalog engine"):
+            create_app(settings=settings, database=primary, catalog_database=catalog)
+    finally:
+        await primary.close()
+        await catalog.close()
 
 
 @pytest_asyncio.fixture

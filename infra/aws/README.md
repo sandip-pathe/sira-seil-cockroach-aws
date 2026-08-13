@@ -59,7 +59,9 @@ only non-secret metadata.
 The deployment preflight then fails before CDK creates billable application resources unless the
 AWS caller/region is valid and the runtime secret contains five exact fields, three distinct SQL
 roles targeting one remote TLS-verified application database, and two distinct 32-byte signing
-keys. Its ignored report contains hashes and booleans only.
+keys. All three runtime URLs must use the CockroachDB SQLAlchemy scheme; neither the API catalog
+pool nor either worker mode can silently start against PostgreSQL in production. Its ignored report
+contains hashes and booleans only.
 
 After deployment, use the `ApplicationUrl` stack output. A custom domain can be
 added later with a CloudFront ACM certificate in `us-east-1`; the default

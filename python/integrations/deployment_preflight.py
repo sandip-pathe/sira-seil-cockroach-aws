@@ -40,8 +40,8 @@ def validate_database_url(raw: str) -> URL:
     """Require a remote TLS Cockroach URL without leaking it into reports."""
 
     parsed = make_url(raw.strip())
-    if parsed.get_backend_name() not in {"cockroachdb", "postgresql"}:
-        raise ValueError("database URL must use a Cockroach-compatible scheme")
+    if parsed.get_backend_name() != "cockroachdb":
+        raise ValueError("database URL must use the CockroachDB runtime scheme")
     if not parsed.database or parsed.database in {"defaultdb", "postgres", "system"}:
         raise ValueError("database URL must name the dedicated application database")
     host = (parsed.host or "").lower()

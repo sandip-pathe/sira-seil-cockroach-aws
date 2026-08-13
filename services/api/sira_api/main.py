@@ -91,6 +91,7 @@ def create_app(
     *,
     settings: ApiSettings | None = None,
     database: Database | None = None,
+    catalog_database: Database | None = None,
     identity_adapter: IdentityAdapter | None = None,
     seller_directory: SellerOrganizationDirectory | None = None,
     evidence_store: ContentAddressedEvidenceStore | None = None,
@@ -101,12 +102,20 @@ def create_app(
         DatabaseSettings(database_url=resolved_settings.database_url)
     )
     catalog_url = resolved_settings.catalog_database_url.get_secret_value().strip()
-    catalog_database = Database(DatabaseSettings(database_url=catalog_url)) if catalog_url else None
+    resolved_catalog_database = catalog_database or (
+        Database(DatabaseSettings(database_url=catalog_url)) if catalog_url else None
+    )
     if (
         not resolved_settings.is_development
         and resolved_database.engine.dialect.name != "cockroachdb"
     ):
         raise ValueError("production requires a CockroachDB database engine with RLS support")
+    if (
+        not resolved_settings.is_development
+        and resolved_catalog_database is not None
+        and resolved_catalog_database.engine.dialect.name != "cockroachdb"
+    ):
+        raise ValueError("production requires a CockroachDB catalog engine with RLS support")
     resolved_identity_adapter = identity_adapter
     if resolved_identity_adapter is None and resolved_settings.firebase_project_id:
         resolved_identity_adapter = FirebaseIdentityAdapter(
@@ -206,7 +215,7 @@ def create_app(
         application.state.seller_evidence_service = seller_evidence_service
         application.state.qualification_service = QualificationService(
             resolved_database,
-            catalog_database=catalog_database,
+            catalog_database=resolved_catalog_database,
             embedding_client=(
                 TitanEmbeddingClient(
                     client=create_bedrock_client(
@@ -215,7 +224,7 @@ def create_app(
                     ),
                     model_id=resolved_settings.bedrock_embedding_model_id,
                 )
-                if catalog_database is not None
+                if resolved_catalog_database is not None
                 else None
             ),
             allow_development_tenant_bootstrap=(
@@ -236,8 +245,8 @@ def create_app(
         if close_identity is not None:
             await close_identity()
         await resolved_database.close()
-        if catalog_database is not None:
-            await catalog_database.close()
+        if resolved_catalog_database is not None:
+            await resolved_catalog_database.close()
 
     application = FastAPI(
         title="SIRA + SEIL API",

@@ -15,6 +15,7 @@ from sira_agents.bedrock_runtime import (
     TitanEmbeddingClient,
     create_bedrock_client,
 )
+from sqlalchemy.engine import make_url
 
 from integrations.aws_services import SqsFifoPublisher, create_aws_client
 from persistence.database import Database, DatabaseSettings
@@ -53,6 +54,9 @@ class WorkerSettings(BaseSettings):
     guardrail_version: str = Field(default="DRAFT", validation_alias="BEDROCK_GUARDRAIL_VERSION")
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
     idle_delay_seconds: float = Field(default=2.0, ge=0.1, le=30)
+    app_env: Literal["development", "test", "production"] = Field(
+        default="development", validation_alias="APP_ENV"
+    )
 
     @field_validator("organization_ids", mode="before")
     @classmethod
@@ -65,6 +69,20 @@ class WorkerSettings(BaseSettings):
     @classmethod
     def empty_profile_is_default_chain(cls, value: object) -> object:
         return None if value is None or str(value).strip() == "" else value
+
+    def assert_safe_runtime(self) -> None:
+        if self.app_env != "production":
+            return
+        urls = {"SIRA_WORKER_DATABASE_URL": self.worker_database_url.get_secret_value()}
+        if self.worker_mode == "qualification":
+            urls["SIRA_CATALOG_DATABASE_URL"] = self.catalog_database_url.get_secret_value()
+        for name, value in urls.items():
+            try:
+                backend = make_url(value).get_backend_name()
+            except Exception:
+                backend = "invalid"
+            if backend != "cockroachdb":
+                raise ValueError(f"production requires a CockroachDB {name}")
 
 
 def _database(url: SecretStr) -> Database:
@@ -140,6 +158,7 @@ async def _run_qualification_worker(settings: WorkerSettings) -> None:
 
 async def run() -> None:
     settings = WorkerSettings()
+    settings.assert_safe_runtime()
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",

@@ -94,6 +94,23 @@ def test_worker_settings_normalize_profiles_and_organizations() -> None:
     assert "meeting-intelligence" in _mission().retrieval_text()
 
 
+def test_production_worker_requires_cockroach_for_every_database_role() -> None:
+    with pytest.raises(ValueError, match="SIRA_WORKER_DATABASE_URL"):
+        _settings(app_env="production").assert_safe_runtime()
+
+    with pytest.raises(ValueError, match="SIRA_CATALOG_DATABASE_URL"):
+        _settings(
+            app_env="production",
+            worker_database_url=SecretStr("cockroachdb+asyncpg://worker@db/sira"),
+        ).assert_safe_runtime()
+
+    _settings(
+        app_env="production",
+        worker_database_url=SecretStr("cockroachdb+asyncpg://worker@db/sira"),
+        catalog_database_url=SecretStr("cockroachdb+asyncpg://catalog@db/sira"),
+    ).assert_safe_runtime()
+
+
 @pytest.mark.asyncio
 async def test_marketplace_retrieval_reuses_embedding_and_dvi_contract(
     monkeypatch: pytest.MonkeyPatch,

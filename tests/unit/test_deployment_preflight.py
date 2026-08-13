@@ -44,6 +44,7 @@ def test_deployment_preflight_returns_only_sanitized_evidence() -> None:
         "cockroachdb+asyncpg://user:password@127.0.0.1:26257/sira?ssl=disable",
         "cockroachdb+asyncpg://user:password@cluster.example:26257/defaultdb?ssl=verify-full",
         "cockroachdb+asyncpg://user:password@cluster.example:26257/sira?ssl=require",
+        "postgresql+asyncpg://user:password@cluster.example:26257/sira?ssl=verify-full",
     ],
 )
 def test_deployment_preflight_rejects_local_system_or_unverified_database(url: str) -> None:

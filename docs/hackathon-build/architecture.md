@@ -65,6 +65,11 @@ CloudWatch/OpenTelemetry: sanitized correlated events and P0 metrics.
 
 ## Authority boundary
 
+The dependency direction is executable policy: domain imports no adapters or frameworks; agent
+contracts import neither persistence nor transport/worker layers; persistence imports neither
+integration nor transport/worker layers. `tests/unit/test_architecture_boundaries.py` parses every
+module AST so this separation cannot silently regress.
+
 - Humans authorize evidence publication, consent, decision approval, contact disclosure and payment.
 - Deterministic services validate, record and enforce authority.
 - Models retrieve, extract, reason, critique, rank and propose. They cannot write authoritative commerce state directly.
