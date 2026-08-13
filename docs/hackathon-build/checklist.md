@@ -14,7 +14,7 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 - Official repository gate: `372 passed`, `12 skipped` only because the default gate intentionally omits live Cockroach URLs, coverage `75.40%`; Ruff, Mypy, architecture boundaries, OpenAPI drift, deterministic agent evaluation, generated client, web lint/type checks, Prettier and current-tree credential scan pass.
 - Live local CockroachDB: `12 passed` covering readiness/FORCE RLS/pool reuse, successful and exhausted real `40001` retries, DVI/current-bundle gates, stale replacement, lease takeover/generation fencing, bilateral isolation, append-only workspace settings, tenant-safe analytics, outbox delivery and atomic introduction. The sanitized security audit passes across `85` tenant tables with zero grant/RLS/immutability violations.
 - Fresh disposable CockroachDB migration reaches `cdb0010` with `90` public tables and is removed after inspection; the local backup/restore verifier also passes matching bounded digests and cleanup.
-- AWS package: CDK build, four topology/IAM/AgentCore tests and synth pass; API/web production images and read-only container smokes passed before Docker Desktop became unresponsive. The new AgentCore ARM64 image contract is committed and synthesized but its local container build remains unverified.
+- AWS package: CDK build, six topology/IAM/AgentCore/Automated-Reasoning/changefeed tests and synth pass; API/web production images and read-only container smokes passed before Docker Desktop became unresponsive. The new AgentCore ARM64 image contract is committed and synthesized but its local container build remains unverified.
 - AWS provider: live Nova Converse and Titan V2 smoke passes in `us-east-1` with a normalized 1,024-dimensional embedding. A separate five-case live Nova qualification evaluation passes typed output, inspect-every-candidate, groundedness and expected-product gates at 100%; Guardrail intervention remains deployment-gated.
 - A disposable local Cockroach backup/restore drill passes with matching schema/count digests and verified temporary-database cleanup. Cockroach Cloud managed backup/restore remains a separate external gate.
 - Not yet evidence: CockroachDB Cloud TLS/Managed MCP/managed backup, deployed AWS URL, hosted rehearsals, a complete authenticated browser journey and live Guardrail intervention. A 14-case desktop/mobile WCAG A/AA and overflow smoke now passes for all six routes, including fail-closed setup/error states; related hosted gates remain open.
@@ -111,6 +111,8 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 - [ ] Measured Cockroach changefeed, multi-region and regional-survival experiments. An
   authenticated, bounded Cockroach webhook to ARM64 Lambda to SQS FIFO bridge is implemented
   with stable per-event identity, explicit at-least-once/per-key-only semantics, resolved-watermark
-  handling, source-row minimization and fail-closed tests. Live changefeed delivery, current-row
-  re-read evidence and regional latency/survival measurements remain open.
+  handling, source-row minimization and fail-closed tests. Its isolated private consumer discovers
+  durable tenants, re-reads the authoritative active pointer, invalidates stale decisions and
+  schedules one replacement through the ordinary outbox. Live changefeed delivery and regional
+  latency/survival measurements remain open.
 - [ ] Additional categories and broader outcome-learning surfaces. Tenant-safe buyer/seller analytics backed by canonical records and transactional outbox events are implemented.

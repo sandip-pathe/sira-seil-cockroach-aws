@@ -28,8 +28,9 @@ evidence, attempts, decisions, consent, and introductions.
 - An optional dedicated HTTP API and ARM64 Lambda accept authenticated CockroachDB
   changefeed webhooks and forward deterministic hints to an isolated SQS FIFO queue and
   DLQ. The bridge assumes at-least-once delivery and per-key ordering only; it drops source
-  row data. It is deliberately not connected to the qualification consumer: a future hint
-  consumer must re-read current CockroachDB state before scheduling reevaluation.
+  row data. A separate private worker re-reads every durable buyer tenant in CockroachDB,
+  invalidates current decisions pinned to the changed product, and schedules one replacement
+  through the ordinary outbox. It never sends hints to the qualification consumer directly.
 - S3 stores versioned, checksum-addressed evidence bytes. CockroachDB stores the
   authoritative object identity and business relationship.
 - Secrets Manager injects separate API, worker, and catalog SQL identities. The
@@ -117,7 +118,7 @@ After the core hosted path is green, configure the optional changefeed with the
 Use JSON with `updated`, `topic_in_value`, and `key_in_value`. Delivery is not exactly once:
 the Lambda's stable source hash is a FIFO optimization, while durable correctness still comes
 from re-reading CockroachDB and consumer/effect uniqueness constraints. The committed stack
-retains these hints in `ChangefeedHintQueueUrl`; live state-reread consumption remains a measured
-P2 extension and cannot interfere with the qualification work queue. Create the changefeed only
+retains these hints in `ChangefeedHintQueueUrl`; the state-reread consumer cannot interfere with
+the qualification work queue. Create the changefeed only
 for `qualification_active_product_bundles`: inserting an immutable candidate bundle is not a
 business-state change; advancing that active pointer is the authoritative activation event.
