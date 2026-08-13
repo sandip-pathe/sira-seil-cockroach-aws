@@ -18,7 +18,6 @@ from .dependencies import (
 from .schemas import (
     CalibrationRunCreate,
     CalibrationRunView,
-    PravaBrowserReturnCreate,
     ProposalDecisionCreate,
     ProposalDecisionView,
     WorkflowAccepted,
@@ -361,29 +360,4 @@ async def get_action_run(
     return await DecisionRoomSurface(service).get_action_run(
         organization_id=context.organization_id,
         action_run_id=action_run_id,
-    )
-
-
-@router_v2.get(
-    "/v1/prava/browser-return",
-    response_model=WorkflowAccepted,
-    status_code=status.HTTP_202_ACCEPTED,
-    tags=["commerce"],
-)
-async def accept_prava_browser_return_v2(
-    context: ContextDependency,
-    service: ServiceDependency,
-    state_value: Annotated[
-        str,
-        Query(alias="state", min_length=16, max_length=256, pattern=r"^[A-Za-z0-9._~-]+$"),
-    ],
-    return_url: Annotated[str, Query(min_length=8, max_length=2048)],
-) -> dict[str, object]:
-    require_human_identity(context)
-    require_permission(context, "can_execute_purchase")
-    body = PravaBrowserReturnCreate(state=state_value, return_url=return_url)
-    return await service.accept_prava_browser_return(
-        organization_id=context.organization_id,
-        actor_id=context.actor_id,
-        body=body.model_dump(mode="json"),
     )

@@ -3,7 +3,6 @@
 import type { OperationId, Operations } from "./types";
 
 const operations = {
-  accept_prava_browser_return_v2: { method: "GET", path: "/v1/prava/browser-return", bodyMediaType: null, responseMediaType: "application/json" },
   accept_rule_proposal: { method: "POST", path: "/v1/decision-rules/{rules_id}/proposals/{proposal_id}/accept", bodyMediaType: "application/json", responseMediaType: "application/json" },
   approve: { method: "POST", path: "/v1/approval-requests/{approval_id}/approve", bodyMediaType: "application/json", responseMediaType: "application/json" },
   create_approval_request: { method: "POST", path: "/v1/purchase-intents/{intent_id}/approval-requests", bodyMediaType: "application/json", responseMediaType: "application/json" },

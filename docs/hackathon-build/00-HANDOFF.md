@@ -12,7 +12,7 @@ Current implementation commit: `3b634bd` plus the active uncommitted implementat
 
 SIRA helps a company choose what software to buy. SEIL makes seller and public product evidence comparable. CockroachDB keeps their concurrent work correct, durable, and independently inspectable.
 
-Do not rename the product around memory. Do not build a separate proof/infrastructure product. Keep PRAVA optional and human-approved.
+Do not rename the product around memory. Do not build a separate proof/infrastructure product. Keep payment external and human-approved.
 
 ## Completed
 

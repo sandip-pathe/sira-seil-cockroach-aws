@@ -153,6 +153,56 @@ async def create_purchase_request(
     return payload
 
 
+@router.post(
+    "/v1/purchase-intents/{intent_id}/prava-sessions",
+    response_model=PravaSessionView,
+    status_code=status.HTTP_201_CREATED,
+    tags=["commerce"],
+    deprecated=True,
+)
+async def create_prava_session(
+    intent_id: str,
+    body: PravaSessionCreate,
+    context: ContextDependency,
+    service: ServiceDependency,
+    idempotency_key: IdempotencyDependency,
+    response: Response,
+) -> dict[str, object]:
+    require_human_identity(context)
+    require_permission(context, "can_execute_purchase", require_step_up=True)
+    response_status, payload = await service.create_prava_session(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        intent_id=intent_id,
+        idempotency_key=idempotency_key,
+        body=body.model_dump(mode="json"),
+    )
+    response.status_code = response_status
+    return payload
+
+
+@router.post(
+    "/v1/prava/browser-return",
+    response_model=WorkflowAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+    tags=["commerce"],
+    deprecated=True,
+    include_in_schema=False,
+)
+async def accept_prava_browser_return(
+    body: PravaBrowserReturnCreate,
+    context: ContextDependency,
+    service: ServiceDependency,
+) -> dict[str, object]:
+    require_human_identity(context)
+    require_permission(context, "can_execute_purchase")
+    return await service.accept_prava_browser_return(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        body=body.model_dump(mode="json"),
+    )
+
+
 @router.get(
     "/v1/purchase-requests/{request_id}",
     response_model=PurchaseRequestView,
@@ -575,54 +625,6 @@ async def revoke_approval(
     )
     response.status_code = response_status
     return payload
-
-
-@router.post(
-    "/v1/purchase-intents/{intent_id}/prava-sessions",
-    response_model=PravaSessionView,
-    status_code=status.HTTP_201_CREATED,
-    tags=["commerce"],
-)
-async def create_prava_session(
-    intent_id: str,
-    body: PravaSessionCreate,
-    context: ContextDependency,
-    service: ServiceDependency,
-    idempotency_key: IdempotencyDependency,
-    response: Response,
-) -> dict[str, object]:
-    require_human_identity(context)
-    require_permission(context, "can_execute_purchase", require_step_up=True)
-    response_status, payload = await service.create_prava_session(
-        organization_id=context.organization_id,
-        actor_id=context.actor_id,
-        intent_id=intent_id,
-        idempotency_key=idempotency_key,
-        body=body.model_dump(mode="json"),
-    )
-    response.status_code = response_status
-    return payload
-
-
-@router.post(
-    "/v1/prava/browser-return",
-    response_model=WorkflowAccepted,
-    status_code=status.HTTP_202_ACCEPTED,
-    tags=["commerce"],
-    include_in_schema=False,
-)
-async def accept_prava_browser_return(
-    body: PravaBrowserReturnCreate,
-    context: ContextDependency,
-    service: ServiceDependency,
-) -> dict[str, object]:
-    require_human_identity(context)
-    require_permission(context, "can_execute_purchase")
-    return await service.accept_prava_browser_return(
-        organization_id=context.organization_id,
-        actor_id=context.actor_id,
-        body=body.model_dump(mode="json"),
-    )
 
 
 @router.get(

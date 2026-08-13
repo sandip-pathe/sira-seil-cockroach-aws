@@ -6,7 +6,7 @@ Status: Approach B approved and implementation started on 2026-08-13.
 
 Build a qualified two-sided B2B agent marketplace. SIRA privately represents a buyer; SEIL privately represents sellers. CockroachDB prevents concurrent agents from creating stale, duplicate or lost buying outcomes. AWS hosts the product and provides model inference, embeddings, queueing, source-byte storage, secrets and telemetry.
 
-The P0 commercial effect is one human-approved qualified introduction. PRAVA, offers, trials and purchasing are P2.
+The P0 commercial effect is one human-approved qualified introduction. Offers, trials and purchasing are P2.
 
 ## Judge moment
 
@@ -80,7 +80,7 @@ See `architecture.md` for the complete contract.
 ### Phase 6: P1/P2 only after P0
 
 - P1: versioned company context, product management, interactive ingestion, public marketplace, inboxes/settings, full DLQ/restore operations, `ccloud`, GitHub OIDC and broader UI.
-- P2: PRAVA, Automated Reasoning, AgentCore experiment, measured changefeed/multi-region, analytics and more categories.
+- P2: provider-neutral payment handoff, Automated Reasoning, AgentCore experiment, measured changefeed/multi-region, analytics and more categories.
 
 ## Cut lines
 
@@ -101,8 +101,8 @@ Implemented and locally verified:
 - typed Bedrock Converse and Titan adapters, S3 content-addressed evidence, SQS FIFO outbox/consumer boundaries, and role-separated worker entrypoints;
 - the six P0 product routes plus editable versioned company context, durable buyer/seller inboxes, interactive S3 evidence ingestion, public DVI-backed marketplace/product pages, settings/disclosure controls and buyer/seller analytics;
 - CloudFront-to-internal-ALB ECS architecture, separate API/web/dispatcher/qualification services, S3/SQS/Secrets/Guardrail/CloudWatch resources, least-privilege task roles, and production images;
-- PRAVA and controlled-merchant payment/reconciliation boundaries remain human-authorized and credential-isolated.
+- Payment handoff remains human-authorized and credential-isolated; SIRA never infers payment success from opening the external workspace.
 
 Evidence currently passing: the official repository gate (`377 passed`, `12` default live-Cockroach skips, coverage `75.44%`, Ruff/Mypy/architecture/OpenAPI/agent/client/web/credential checks), all `12` previously run live local Cockroach integration tests, a fresh migration to `cdb0010`/`90` public tables, an `85`-table zero-violation RLS/grant/immutability audit, a sanitized local backup/restore/digest/cleanup drill, live Nova Converse/Titan V2 provider smoke, and six CDK topology/IAM/AgentCore/Automated-Reasoning/changefeed tests plus build and synth. The current production web build passes. API/web production images and smokes passed earlier; the newly added ARM64 AgentCore image cannot be locally built while Docker Desktop is unresponsive. These results prove local implementation and prior AWS model access, not hosted deployment.
 
-Still externally gated or incomplete: CockroachDB Cloud TLS/managed backup/restore and Managed MCP evidence, live Guardrail intervention, AWS deployment/hosted rehearsals, a complete authenticated browser journey, live PRAVA, live AgentCore invocation, and Automated Reasoning/changefeed/multi-region experiments. The Automated Reasoning formal authority policy, immutable-version Guardrail attachment and explanatory-only runtime parser are implemented and synthesize, but labelled live fidelity evidence remains open. The stateless AgentCore evaluation runtime and Cockroach-backed experiment lifecycle are implemented and synthesize with no AgentCore Memory; this does not substitute for deployed evidence. A five-case labelled live Nova qualification gate passes at 100%, and the disposable local restore drill passes, but neither substitutes for hosted evidence.
+Still externally gated or incomplete: CockroachDB Cloud TLS/managed backup/restore and Managed MCP evidence, live Guardrail intervention, AWS deployment/hosted rehearsals, a complete authenticated browser journey, a connected payment provider, live AgentCore invocation, and Automated Reasoning/changefeed/multi-region experiments. The Automated Reasoning formal authority policy, immutable-version Guardrail attachment and explanatory-only runtime parser are implemented and synthesize, but labelled live fidelity evidence remains open. The stateless AgentCore evaluation runtime and Cockroach-backed experiment lifecycle are implemented and synthesize with no AgentCore Memory; this does not substitute for deployed evidence. A five-case labelled live Nova qualification gate passes at 100%, and the disposable local restore drill passes, but neither substitutes for hosted evidence.
