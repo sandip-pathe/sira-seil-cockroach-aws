@@ -31,6 +31,8 @@ test("synthesizes isolated durable application topology", () => {
   rendered.resourceCountIs("AWS::CloudFront::VpcOrigin", 1);
   rendered.resourceCountIs("AWS::Bedrock::Guardrail", 1);
   rendered.resourceCountIs("AWS::Bedrock::GuardrailVersion", 1);
+  rendered.resourceCountIs("AWS::BedrockAgentCore::Runtime", 1);
+  rendered.resourceCountIs("AWS::BedrockAgentCore::RuntimeEndpoint", 1);
   rendered.hasResourceProperties("AWS::ElasticLoadBalancingV2::LoadBalancer", {
     Scheme: "internal",
   });
@@ -57,6 +59,7 @@ test("synthesizes isolated durable application topology", () => {
   });
   rendered.hasOutput("QualificationDlqUrl", {});
   rendered.hasOutput("GithubDeployRoleArn", {});
+  rendered.hasOutput("AgentCoreExperimentRuntimeArn", {});
   rendered.hasResourceProperties("AWS::IAM::Role", {
     AssumeRolePolicyDocument: {
       Statement: Match.arrayWith([
@@ -73,6 +76,22 @@ test("synthesizes isolated durable application topology", () => {
       ]),
     },
   });
+});
+
+test("runs a stateless bounded AgentCore evaluator without AgentCore Memory", () => {
+  const rendered = template();
+
+  rendered.hasResourceProperties("AWS::BedrockAgentCore::Runtime", {
+    ProtocolConfiguration: "HTTP",
+    NetworkConfiguration: { NetworkMode: "PUBLIC" },
+    LifecycleConfiguration: {
+      IdleRuntimeSessionTimeout: 300,
+      MaxLifetime: 3600,
+    },
+  });
+  rendered.resourceCountIs("AWS::BedrockAgentCore::Memory", 0);
+  const serialized = JSON.stringify(rendered.toJSON());
+  assert.match(serialized, /bedrock-agentcore:InvokeAgentRuntime/);
 });
 
 test("keeps tasks private and gives Bedrock only to the qualification role", () => {

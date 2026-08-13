@@ -33,6 +33,14 @@ the production-style inspect-every-candidate tool loop, typed output and groundi
 artifacts exclude credentials, raw prompts, raw evidence and raw model output. Guardrail
 intervention remains a separate deployment gate and is stated as such in the artifacts.
 
+The CDK stack also deploys the labelled evaluator as an IAM-authenticated AgentCore Runtime.
+It accepts `sira.product-experiment.v1`, loads only committed synthetic fixture IDs, runs the same
+typed/grounded Bedrock evaluation and returns bounded observations. The calling worker performs no
+network call inside its Cockroach transaction: it claims the experiment, invokes AgentCore, then
+persists the content-hashed result in a fresh retryable transaction. Verify the synthesized stack
+contains one `AWS::BedrockAgentCore::Runtime`, one endpoint and no
+`AWS::BedrockAgentCore::Memory`; after deployment, capture a sanitized live invocation artifact.
+
 ## Browser accessibility and responsive smoke
 
 Build and start the web application, then run the installed-Chrome suite:

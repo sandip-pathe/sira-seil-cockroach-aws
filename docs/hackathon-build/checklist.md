@@ -100,6 +100,6 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 
 - [ ] Human-approved PRAVA introduction-to-payment adapter with provider reconciliation. Credential-isolated adapter, uncertain-outcome reconciliation, refunds and tests are implemented; live provider and complete introduction-to-payment UX evidence remain open.
 - [ ] Bedrock Automated Reasoning as an explanatory policy check, never authority.
-- [ ] AgentCore Runtime/evaluation experiment without AgentCore Memory.
+- [ ] AgentCore Runtime/evaluation experiment without AgentCore Memory. A stateless ARM64 HTTP runtime, IAM invocation adapter, committed labelled-corpus entrypoint, durable budgeted Cockroach lifecycle and sanitized failure path are implemented; CDK proves one Runtime/endpoint and zero Memory resources. Live deployment/invocation evidence remains open.
 - [ ] Measured Cockroach changefeed, multi-region and regional-survival experiments.
 - [ ] Additional categories and broader outcome-learning surfaces. Tenant-safe buyer/seller analytics backed by canonical records and transactional outbox events are implemented.

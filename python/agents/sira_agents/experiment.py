@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ExperimentSignal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(min_length=1, max_length=120)
     measurement: str = Field(min_length=1, max_length=300)
     success_threshold: str = Field(min_length=1, max_length=200)
 
 
 class ExperimentSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     candidate_id: str = Field(min_length=1, max_length=100)
     fixture_id: str = Field(min_length=1, max_length=160)
     procedure: list[str] = Field(min_length=1, max_length=40)
@@ -36,14 +40,24 @@ class ExperimentSpec(BaseModel):
 
 
 class ExperimentObservation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     signal: str
     value: Any
     source: str
 
 
 class ExperimentResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     status: Literal["COMPLETED", "FAILED", "CANCELLED"]
     observations: list[ExperimentObservation] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     logs_reference: str | None = None
     artifact_hash: str
+
+
+class ExperimentRunner(Protocol):
+    """Executes one bounded experiment outside a database transaction."""
+
+    async def run(self, spec: ExperimentSpec) -> ExperimentResult: ...

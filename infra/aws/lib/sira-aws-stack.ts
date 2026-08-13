@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import * as cdk from "aws-cdk-lib";
 import * as bedrock from "aws-cdk-lib/aws-bedrock";
+import * as agentcore from "aws-cdk-lib/aws-bedrockagentcore";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
@@ -226,6 +227,52 @@ export class SiraAwsStack extends cdk.Stack {
       exclude: assetExcludes,
       ignoreMode: cdk.IgnoreMode.GLOB,
     });
+    const agentCoreImage = new assets.DockerImageAsset(this, "AgentCoreImage", {
+      directory: repositoryRoot,
+      file: "Dockerfile.agentcore",
+      platform: assets.Platform.LINUX_ARM64,
+      exclude: assetExcludes,
+      ignoreMode: cdk.IgnoreMode.GLOB,
+    });
+
+    const experimentRuntime = new agentcore.Runtime(this, "ExperimentRuntime", {
+      runtimeName: `Sira${props.stage.replace(/[^A-Za-z0-9]/g, "")}Evaluator`,
+      description:
+        "Stateless labelled qualification evaluator; CockroachDB remains the system of record.",
+      agentRuntimeArtifact: agentcore.AgentRuntimeArtifact.fromEcrRepository(
+        agentCoreImage.repository,
+        agentCoreImage.imageTag,
+      ),
+      protocolConfiguration: agentcore.ProtocolType.HTTP,
+      networkConfiguration: agentcore.RuntimeNetworkConfiguration.usingPublicNetwork(),
+      environmentVariables: {
+        BEDROCK_CHAT_MODEL_ID: props.chatModelId,
+        BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
+        BEDROCK_GUARDRAIL_VERSION: guardrailVersion.attrVersion,
+      },
+      lifecycleConfiguration: {
+        idleRuntimeSessionTimeout: cdk.Duration.minutes(5),
+        maxLifetime: cdk.Duration.hours(1),
+      },
+      tracingEnabled: true,
+    });
+    experimentRuntime.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+        resources: [
+          `arn:${this.partition}:bedrock:${this.region}::foundation-model/${props.chatModelId}`,
+        ],
+      }),
+    );
+    experimentRuntime.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:ApplyGuardrail"],
+        resources: [guardrail.attrGuardrailArn],
+      }),
+    );
+    experimentRuntime.addEndpoint("Default", {
+      description: "Stable endpoint for reproducible SIRA qualification experiments.",
+    });
 
     const apiLogs = this.logGroup(`${name}/api`);
     const webLogs = this.logGroup(`${name}/web`);
@@ -394,6 +441,7 @@ export class SiraAwsStack extends cdk.Stack {
       BEDROCK_EMBEDDING_MODEL_ID: props.embeddingModelId,
       BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
       BEDROCK_GUARDRAIL_VERSION: guardrailVersion.attrVersion,
+      AGENTCORE_EXPERIMENT_RUNTIME_ARN: experimentRuntime.agentRuntimeArn,
       WORKER_ORGANIZATION_IDS: props.workerOrganizationIds,
     };
     const workerDatabaseSecret = ecs.Secret.fromSecretsManager(
@@ -442,6 +490,7 @@ export class SiraAwsStack extends cdk.Stack {
         resources: [guardrail.attrGuardrailArn],
       }),
     );
+    experimentRuntime.grantInvokeRuntime(qualificationTask.taskRole);
     this.service(cluster, "QualificationService", qualificationTask, 1);
 
     this.observability(name, qualificationQueue, deadLetterQueue, apiTargetGroup);
@@ -462,6 +511,9 @@ export class SiraAwsStack extends cdk.Stack {
     new cdk.CfnOutput(this, "RuntimeSecretName", {
       value: `${name}/runtime`,
       description: "Create this JSON secret before starting ECS services.",
+    });
+    new cdk.CfnOutput(this, "AgentCoreExperimentRuntimeArn", {
+      value: experimentRuntime.agentRuntimeArn,
     });
   }
 

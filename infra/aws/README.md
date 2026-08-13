@@ -18,6 +18,9 @@ evidence, attempts, decisions, consent, and introductions.
   acknowledges SQS.
 - A versioned Bedrock Guardrail blocks prompt attacks and authority-bypass
   instructions and anonymizes direct contact, credential, and payment identifiers.
+- A separate ARM64 AgentCore Runtime runs bounded labelled qualification experiments.
+  It is stateless, IAM-invoked, has no CockroachDB credential and provisions no AgentCore
+  Memory. The qualification worker persists validated, content-hashed results in CockroachDB.
 - S3 stores versioned, checksum-addressed evidence bytes. CockroachDB stores the
   authoritative object identity and business relationship.
 - Secrets Manager injects separate API, worker, and catalog SQL identities. The
@@ -84,6 +87,7 @@ pnpm --filter @sira/aws-infra test
 pnpm --filter @sira/aws-infra synth
 docker build --file Dockerfile --tag sira-api:local .
 docker build --file Dockerfile.web --tag sira-web:local .
+docker buildx build --platform linux/arm64 --file Dockerfile.agentcore --tag sira-agentcore:local .
 ```
 
 Deployment is not proven until `/health` reports `database=\"configured\"`, an

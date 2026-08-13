@@ -61,7 +61,7 @@ CloudWatch/OpenTelemetry: sanitized correlated events and P0 metrics.
 | Infrastructure | TypeScript CDK, per-task IAM roles, Secrets Manager and an exact-repository GitHub OIDC entry role. |
 | Demo identity | API-issued signed HttpOnly guest session with an isolated Cockroach tenant per browser; Firebase is an optional upgrade path. Production never accepts development identity headers. |
 | Payment | PRAVA is P2 after every P0 gate. Agents never hold payment credentials. |
-| Multi-region/AgentCore/changefeeds | P2 experiments only after measured need and a green core. AgentCore Memory remains excluded. |
+| Multi-region/AgentCore/changefeeds | A stateless AgentCore Runtime is used only for bounded labelled evaluation; its validated result is committed through CockroachDB. AgentCore Memory remains excluded. Multi-region/changefeeds require measured need. |
 
 ## Authority boundary
 
@@ -135,4 +135,4 @@ If the correctness kernel fails, shipping is blocked. Approach A is permitted on
 
 Implemented P1 includes editable versioned company context, product portfolio management, interactive S3 ingestion, public DVI marketplace/product pages, durable buyer/seller inboxes, versioned settings/disclosure controls, safe DLQ operations, a credential-safe local restore verifier, a `ccloud` doctor and GitHub OIDC. Remaining P1 is hosted telemetry and Cockroach Cloud managed restore evidence.
 
-Implemented P2 includes tenant-safe buyer/seller operational analytics derived from canonical records and transactional outbox events, explicitly labelled observational rather than causal. Remaining P2 is live PRAVA execution, Bedrock Automated Reasoning, AgentCore Runtime/evaluation experiments, measured changefeeds/multi-region, more categories and autonomous commercial operations only where authority and provider idempotency are proven.
+Implemented P2 includes tenant-safe buyer/seller operational analytics derived from canonical records and transactional outbox events, explicitly labelled observational rather than causal. It also includes a replayable experiment contract, durable budgeted lifecycle and stateless ARM64 AgentCore Runtime for the committed labelled qualification corpus. Network/model work occurs outside Cockroach transactions; typed, hashed observations or sanitized failure categories are persisted afterward. AgentCore has no database credential or Memory resource and cannot authorize commercial effects. Remaining P2 is a live AgentCore invocation, live PRAVA execution, Bedrock Automated Reasoning, measured changefeeds/multi-region, more categories and autonomous commercial operations only where authority and provider idempotency are proven.

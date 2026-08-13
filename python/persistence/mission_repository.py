@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from sira_agents.experiment import ExperimentResult, ExperimentSpec
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -458,6 +459,157 @@ class MissionRepository:
         self.session.add(task)
         await self.session.flush()
         return task
+
+    async def plan_experiment(
+        self,
+        mission: AgentMission,
+        *,
+        spec: ExperimentSpec,
+        task_id: str | None = None,
+    ) -> AgentExperiment:
+        """Create an idempotent, replayable experiment plan."""
+
+        if mission.organization_id != self.organization_id:
+            raise PersistenceConflict("experiment tenant does not match transaction")
+        payload = spec.model_dump(mode="json")
+        experiment_hash = content_hash(payload)
+        existing = (
+            await self.session.execute(
+                select(AgentExperiment).where(
+                    AgentExperiment.organization_id == self.organization_id,
+                    AgentExperiment.mission_id == mission.id,
+                    AgentExperiment.content_hash == experiment_hash,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return existing
+        remaining = int(mission.budget.get("experiments_remaining", 0))
+        if remaining < 1:
+            raise PersistenceConflict("mission experiment budget is exhausted")
+        experiment = AgentExperiment(
+            id=new_id("mexp"),
+            organization_id=self.organization_id,
+            mission_id=mission.id,
+            task_id=task_id,
+            candidate_id=spec.candidate_id,
+            status="PLANNED",
+            procedure={"fixture_id": spec.fixture_id, "steps": spec.procedure},
+            environment=spec.environment,
+            success_signals=[item.model_dump(mode="json") for item in spec.success_signals],
+            observations=[],
+            limitations=[],
+            replay_spec={
+                "command": spec.replay_command,
+                "egress_hosts": spec.egress_hosts,
+                "timeout_seconds": spec.timeout_seconds,
+                "max_output_bytes": spec.max_output_bytes,
+            },
+            cost={},
+            result_artifact_id=None,
+            content_hash=experiment_hash,
+            started_at=None,
+            completed_at=None,
+        )
+        self.session.add(experiment)
+        mission.budget = {**mission.budget, "experiments_remaining": remaining - 1}
+        await self.session.flush()
+        await self.append_event(
+            mission,
+            event_type="experiment.planned",
+            event_key=f"experiment-planned:{experiment.id}",
+            actor_type="ROOT_AGENT",
+            actor_id="sira-root-agent",
+            payload={"experiment_id": experiment.id, "spec_hash": experiment_hash},
+        )
+        return experiment
+
+    async def get_experiment(
+        self, mission: AgentMission, experiment_id: str, *, lock: bool = False
+    ) -> AgentExperiment:
+        statement = select(AgentExperiment).where(
+            AgentExperiment.id == experiment_id,
+            AgentExperiment.organization_id == self.organization_id,
+            AgentExperiment.mission_id == mission.id,
+        )
+        if lock:
+            statement = statement.with_for_update()
+        experiment = (await self.session.execute(statement)).scalar_one_or_none()
+        if experiment is None:
+            raise RecordNotFound("Agent experiment was not found")
+        return experiment
+
+    async def start_experiment(
+        self, mission: AgentMission, experiment: AgentExperiment
+    ) -> AgentExperiment:
+        if experiment.status == "RUNNING":
+            return experiment
+        if experiment.status != "PLANNED":
+            raise PersistenceConflict("only a planned experiment can start")
+        experiment.status = "RUNNING"
+        experiment.started_at = datetime.now(UTC)
+        mission.state = "EXPERIMENTING"
+        await self.append_event(
+            mission,
+            event_type="experiment.started",
+            event_key=f"experiment-started:{experiment.id}",
+            actor_type="SYSTEM",
+            actor_id="experiment-coordinator",
+            payload={"experiment_id": experiment.id},
+        )
+        return experiment
+
+    async def finish_experiment(
+        self,
+        mission: AgentMission,
+        experiment: AgentExperiment,
+        *,
+        result: ExperimentResult,
+        cost: dict[str, Any] | None = None,
+    ) -> AgentExperiment:
+        if experiment.status in {"COMPLETED", "FAILED", "CANCELLED"}:
+            if experiment.status != result.status:
+                raise PersistenceConflict("experiment already has another terminal result")
+            return experiment
+        if experiment.status != "RUNNING":
+            raise PersistenceConflict("only a running experiment can finish")
+        experiment.status = result.status
+        experiment.observations = [item.model_dump(mode="json") for item in result.observations]
+        experiment.limitations = result.limitations
+        experiment.cost = cost or {}
+        experiment.completed_at = datetime.now(UTC)
+        artifact = await self.add_artifact(
+            mission,
+            kind="experiment_result",
+            title=f"Observed experiment for {experiment.candidate_id}",
+            authority="OBSERVED",
+            payload={
+                "experiment_id": experiment.id,
+                "status": result.status,
+                "observations": experiment.observations,
+                "limitations": result.limitations,
+                "logs_reference": result.logs_reference,
+                "artifact_hash": result.artifact_hash,
+            },
+            source_refs=[{"type": "experiment", "id": experiment.id}],
+            created_by="experiment-coordinator",
+            task_id=experiment.task_id,
+        )
+        experiment.result_artifact_id = artifact.id
+        await self.append_event(
+            mission,
+            event_type="experiment.finished",
+            event_key=f"experiment-finished:{experiment.id}:{result.artifact_hash}",
+            actor_type="SYSTEM",
+            actor_id="experiment-coordinator",
+            payload={
+                "experiment_id": experiment.id,
+                "status": result.status,
+                "result_artifact_id": artifact.id,
+                "result_hash": result.artifact_hash,
+            },
+        )
+        return experiment
 
     async def checkpoint(self, mission: AgentMission) -> AgentMissionCheckpoint:
         snapshot = await self.snapshot(mission)
