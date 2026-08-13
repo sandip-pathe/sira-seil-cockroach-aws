@@ -40,10 +40,7 @@ def _include_object(
         return not reflected and compare_to is None
     # Cockroach reflects partial unique indexes as constraints. The indexes are
     # maintained explicitly by migrations and verified by integration tests.
-    return not (
-        object_type == "unique_constraint"
-        and name in _PARTIAL_INDEX_NAMES
-    )
+    return not (object_type == "unique_constraint" and name in _PARTIAL_INDEX_NAMES)
 
 
 def _compare_cockroach_type(

@@ -64,11 +64,7 @@ async def test_converse_tool_loop_keeps_private_context_out_of_model_payload() -
                 stop_reason="tool_use",
             ),
             _response(
-                {
-                    "text": json.dumps(
-                        {"recommendation": "qualify", "evidence_ids": ["ev-1"]}
-                    )
-                }
+                {"text": json.dumps({"recommendation": "qualify", "evidence_ids": ["ev-1"]})}
             ),
         ]
     )
@@ -130,9 +126,9 @@ async def test_converse_tool_loop_keeps_private_context_out_of_model_payload() -
     assert "credential_handle" not in serialized
     assert client.converse_calls[0]["guardrailConfig"]["guardrailIdentifier"] == "guardrail-1"
     assert client.converse_calls[0]["requestMetadata"] == {"request_id": "request-1"}
-    assert client.converse_calls[1]["messages"][-1]["content"][0]["toolResult"][
-        "content"
-    ] == [{"json": {"evidence_id": "ev-1", "claim": "EU hosted"}}]
+    assert client.converse_calls[1]["messages"][-1]["content"][0]["toolResult"]["content"] == [
+        {"json": {"evidence_id": "ev-1", "claim": "EU hosted"}}
+    ]
 
 
 async def test_converse_rejects_guardrail_intervention_and_unlisted_tool() -> None:

@@ -387,12 +387,7 @@ def test_graph_models_and_engagement_binding_are_typed_and_tenant_owned() -> Non
 
 def test_graph_migration_forces_rls_for_every_new_tenant_table() -> None:
     migration = (
-        ROOT
-        / "services"
-        / "api"
-        / "alembic"
-        / "versions"
-        / "cdb0002_tenant_rls.py"
+        ROOT / "services" / "api" / "alembic" / "versions" / "cdb0002_tenant_rls.py"
     ).read_text(encoding="utf-8")
     assert "FORCE ROW LEVEL SECURITY" in migration
     assert "CREATE POLICY tenant_isolation" in migration

@@ -161,9 +161,7 @@ async def test_company_context_is_versioned_tenant_private_and_pinned() -> None:
 
 
 async def _ensure_organizations() -> None:
-    admin = Database(
-        DatabaseSettings(database_url=_runtime_url().replace("sira_app@", "root@"))
-    )
+    admin = Database(DatabaseSettings(database_url=_runtime_url().replace("sira_app@", "root@")))
     try:
         async with admin.transaction("org_buyer") as session:
             await session.execute(
@@ -577,11 +575,14 @@ async def test_runtime_roles_enforce_published_and_bilateral_boundaries() -> Non
                 )
             )
         async with database.transaction("org_seller_a") as session:
-            assert await session.scalar(
-                select(MarketplaceEngagement.id).where(
-                    MarketplaceEngagement.id == engagement_id
+            assert (
+                await session.scalar(
+                    select(MarketplaceEngagement.id).where(
+                        MarketplaceEngagement.id == engagement_id
+                    )
                 )
-            ) == engagement_id
+                == engagement_id
+            )
             session.add(
                 SellerResponse(
                     id=f"response_security_{suffix}",
@@ -597,11 +598,12 @@ async def test_runtime_roles_enforce_published_and_bilateral_boundaries() -> Non
                 )
             )
         async with database.transaction("org_buyer") as session:
-            assert await session.scalar(
-                select(SellerResponse.id).where(
-                    SellerResponse.engagement_id == engagement_id
+            assert (
+                await session.scalar(
+                    select(SellerResponse.id).where(SellerResponse.engagement_id == engagement_id)
                 )
-            ) == f"response_security_{suffix}"
+                == f"response_security_{suffix}"
+            )
         with pytest.raises(DBAPIError):
             async with database.transaction("org_buyer") as session:
                 session.add(
@@ -627,11 +629,12 @@ async def test_runtime_roles_enforce_published_and_bilateral_boundaries() -> Non
                 )
                 is None
             )
-            assert await session.scalar(
-                select(SellerResponse.id).where(
-                    SellerResponse.engagement_id == engagement_id
+            assert (
+                await session.scalar(
+                    select(SellerResponse.id).where(SellerResponse.engagement_id == engagement_id)
                 )
-            ) is None
+                is None
+            )
     finally:
         await database.close()
         await worker_database.close()
@@ -827,9 +830,7 @@ async def test_qualification_service_completes_bilateral_introduction() -> None:
         assert approve_status == 200
         engagement_id = str(approved["resource_id"])
         seller_view = await service.engagement_view("org_seller_a", engagement_id)
-        assert seller_view["engagement"]["buyer_safe_requirement"] == {
-            "hosting_region": "EU"
-        }
+        assert seller_view["engagement"]["buyer_safe_requirement"] == {"hosting_region": "EU"}
         assert "buyer_context" not in seller_view["engagement"]
 
         response_status, seller_response = await service.respond(
@@ -1004,9 +1005,7 @@ async def test_worker_replaces_stale_attempt_and_completes_against_v2() -> None:
             if any("toolResult" in block for block in last_content):
                 tool_results = [block["toolResult"] for block in last_content]
                 evidence = [result["content"][0]["json"] for result in tool_results]
-                selected = next(
-                    item for item in evidence if item["product_id"] == product_id
-                )
+                selected = next(item for item in evidence if item["product_id"] == product_id)
                 citations = [selected["product_id"]]
                 if selected["catalog"]:
                     citations.append(selected["catalog"][0]["dependency_id"])

@@ -207,8 +207,7 @@ class QualificationWorker:
             existing_bundles = (
                 await session.scalars(
                     select(QualificationMissionBundle).where(
-                        QualificationMissionBundle.organization_id
-                        == mission_input.organization_id,
+                        QualificationMissionBundle.organization_id == mission_input.organization_id,
                         QualificationMissionBundle.attempt_id == attempt.id,
                     )
                 )
@@ -243,9 +242,7 @@ class QualificationWorker:
                 )
             return attempt.id
 
-    async def _claim_and_snapshot(
-        self, organization_id: str, attempt_id: str
-    ) -> AttemptLease:
+    async def _claim_and_snapshot(self, organization_id: str, attempt_id: str) -> AttemptLease:
         async with self.worker_database.transaction(organization_id) as session:
             repository = QualificationRepository(session, organization_id)
             lease = await repository.claim_attempt(
@@ -285,9 +282,7 @@ class QualificationWorker:
             tools={
                 "retrieve_product_evidence": BedrockTool(
                     name="retrieve_product_evidence",
-                    description=(
-                        "Retrieve buyer-safe facts pinned to this qualification attempt."
-                    ),
+                    description=("Retrieve buyer-safe facts pinned to this qualification attempt."),
                     input_schema={
                         "type": "object",
                         "properties": {"product_id": {"type": "string"}},
@@ -368,8 +363,7 @@ class QualificationWorker:
             catalog_ids = [
                 member.member_id
                 for member in members
-                if member.member_kind == "CATALOG_PROJECTION"
-                and member.member_id in dependency_ids
+                if member.member_kind == "CATALOG_PROJECTION" and member.member_id in dependency_ids
             ]
             evidence_ids = [
                 member.member_id
@@ -379,8 +373,7 @@ class QualificationWorker:
             catalogs = (
                 await session.scalars(
                     select(CatalogProjectionVersion).where(
-                        CatalogProjectionVersion.organization_id
-                        == bundle.seller_organization_id,
+                        CatalogProjectionVersion.organization_id == bundle.seller_organization_id,
                         CatalogProjectionVersion.id.in_(catalog_ids),
                     )
                 )

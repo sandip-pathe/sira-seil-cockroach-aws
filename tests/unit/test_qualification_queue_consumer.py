@@ -29,9 +29,7 @@ class FakeWorker:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str]] = []
 
-    async def run_mission(
-        self, *, organization_id: str, mission_id: str
-    ) -> QualificationRunResult:
+    async def run_mission(self, *, organization_id: str, mission_id: str) -> QualificationRunResult:
         self.calls.append((organization_id, mission_id))
         return QualificationRunResult(mission_id, "COMPLETED", ("attempt-1",), "decision-1")
 
@@ -97,9 +95,7 @@ async def test_process_executes_once_and_records_receipt(monkeypatch: pytest.Mon
 
     assert result.result_ref == "decision-1"
     assert result.replayed is False
-    assert worker.calls == [
-        ("org_buyer", "qmission_0123456789abcdef0123456789abcdef")
-    ]
+    assert worker.calls == [("org_buyer", "qmission_0123456789abcdef0123456789abcdef")]
     assert recorded == [("outbox-1", "decision-1")]
 
 

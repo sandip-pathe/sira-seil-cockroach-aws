@@ -31,8 +31,12 @@ def upgrade() -> None:
         sa.Column("current_version", sa.Integer(), nullable=False),
         sa.Column("current_hash", sa.String(80), nullable=False),
         sa.Column("organization_id", sa.String(64), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.CheckConstraint(
             "kind IN ('REQUIREMENT','CONSTRAINT','STACK','POLICY','PREFERENCE','NOTE')",
             name="ck_qualification_context_kind",
@@ -40,9 +44,14 @@ def upgrade() -> None:
         sa.CheckConstraint("state IN ('ACTIVE','RETIRED')", name="ck_qualification_context_state"),
         sa.CheckConstraint("current_version >= 1", name="ck_qualification_context_version"),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="RESTRICT"),
-        sa.UniqueConstraint("organization_id", "id", name="uq_qualification_context_item_tenant_id"),
         sa.UniqueConstraint(
-            "organization_id", "id", "current_version_id", "current_hash",
+            "organization_id", "id", name="uq_qualification_context_item_tenant_id"
+        ),
+        sa.UniqueConstraint(
+            "organization_id",
+            "id",
+            "current_version_id",
+            "current_hash",
             name="uq_qualification_context_current_binding",
         ),
     )
@@ -61,17 +70,28 @@ def upgrade() -> None:
         sa.Column("changed_by_actor_id", sa.String(100), nullable=False),
         sa.Column("change_reason", sa.String(500), nullable=False),
         sa.Column("organization_id", sa.String(64), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.CheckConstraint("version >= 1", name="ck_qualification_context_revision"),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["organization_id", "item_id"],
-            ["qualification_company_context_items.organization_id", "qualification_company_context_items.id"],
+            [
+                "qualification_company_context_items.organization_id",
+                "qualification_company_context_items.id",
+            ],
             ondelete="RESTRICT",
         ),
-        sa.UniqueConstraint("organization_id", "item_id", "version", name="uq_qualification_context_revision"),
-        sa.UniqueConstraint("organization_id", "id", "content_hash", name="uq_qualification_context_binding"),
+        sa.UniqueConstraint(
+            "organization_id", "item_id", "version", name="uq_qualification_context_revision"
+        ),
+        sa.UniqueConstraint(
+            "organization_id", "id", "content_hash", name="uq_qualification_context_binding"
+        ),
     )
     op.create_index(
         op.f("ix_qualification_company_context_versions_organization_id"),
@@ -89,9 +109,15 @@ def upgrade() -> None:
         sa.Column("dimensions", sa.Integer(), nullable=False),
         sa.Column("embedding", Vector1024(), nullable=False),
         sa.Column("organization_id", sa.String(64), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.CheckConstraint("dimensions = 1024", name="ck_qualification_context_embedding_dimensions"),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.CheckConstraint(
+            "dimensions = 1024", name="ck_qualification_context_embedding_dimensions"
+        ),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["organization_id", "version_id", "content_hash"],
@@ -103,7 +129,10 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.UniqueConstraint(
-            "organization_id", "version_id", "content_hash", name="uq_qualification_context_embedding"
+            "organization_id",
+            "version_id",
+            "content_hash",
+            name="uq_qualification_context_embedding",
         ),
     )
     op.create_index(

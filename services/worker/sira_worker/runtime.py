@@ -75,9 +75,7 @@ async def _run_dispatcher(settings: WorkerSettings) -> None:
     if not settings.organization_ids:
         raise ValueError("dispatcher requires WORKER_ORGANIZATION_IDS")
     database = _database(settings.worker_database_url)
-    client = create_aws_client(
-        "sqs", region=settings.aws_region, profile=settings.aws_profile
-    )
+    client = create_aws_client("sqs", region=settings.aws_region, profile=settings.aws_profile)
     publisher = SqsFifoPublisher(client=cast(Any, client), queue_url=settings.queue_url)
     try:
         while True:
@@ -101,12 +99,8 @@ async def _run_qualification_worker(settings: WorkerSettings) -> None:
         raise ValueError("qualification worker requires SIRA_CATALOG_DATABASE_URL")
     worker_database = _database(settings.worker_database_url)
     catalog_database = _database(settings.catalog_database_url)
-    sqs_client = create_aws_client(
-        "sqs", region=settings.aws_region, profile=settings.aws_profile
-    )
-    bedrock_client = create_bedrock_client(
-        region=settings.aws_region, profile=settings.aws_profile
-    )
+    sqs_client = create_aws_client("sqs", region=settings.aws_region, profile=settings.aws_profile)
+    bedrock_client = create_bedrock_client(region=settings.aws_region, profile=settings.aws_profile)
     guardrail = (
         BedrockGuardrail(settings.guardrail_id, settings.guardrail_version)
         if settings.guardrail_id.strip()

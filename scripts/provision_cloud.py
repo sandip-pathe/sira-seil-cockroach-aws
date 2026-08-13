@@ -96,10 +96,7 @@ def provision_database(admin_url: URL) -> ProvisionedRuntime:
                 )
         with engine.begin() as connection:
             connection.execute(
-                text(
-                    "UPSERT INTO organizations (id, name, version) "
-                    "VALUES (:id, :name, 1)"
-                ),
+                text("UPSERT INTO organizations (id, name, version) VALUES (:id, :name, 1)"),
                 [{"id": organization_id, "name": name} for organization_id, name in _ORGANIZATIONS],
             )
     finally:

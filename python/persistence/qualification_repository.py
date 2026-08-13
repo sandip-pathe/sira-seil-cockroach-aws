@@ -215,8 +215,7 @@ class QualificationRepository:
                 await self.session.scalars(
                     select(ProductBundleMember)
                     .where(
-                        ProductBundleMember.organization_id
-                        == bundle.seller_organization_id,
+                        ProductBundleMember.organization_id == bundle.seller_organization_id,
                         ProductBundleMember.bundle_id == bundle.bundle_id,
                     )
                     .order_by(ProductBundleMember.ordinal)
@@ -495,10 +494,7 @@ class QualificationRepository:
             raise PersistenceConflict("current buyer and seller consent are required")
         if by_party["BUYER"].actor_id == by_party["SELLER"].actor_id:
             raise PersistenceConflict("buyer and seller consent require distinct humans")
-        if any(
-            consent.approved_fields_hash != shared_fields_hash
-            for consent in by_party.values()
-        ):
+        if any(consent.approved_fields_hash != shared_fields_hash for consent in by_party.values()):
             raise PersistenceConflict("buyer and seller must approve the exact shared fields")
         receipt = {
             "engagement_id": engagement.id,

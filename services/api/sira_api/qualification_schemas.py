@@ -16,15 +16,13 @@ def _validate_exact_json(value: Any, *, path: str = "payload") -> Any:
         raise ValueError(f"{path} must not contain binary floating-point values")
     if isinstance(value, list):
         return [
-            _validate_exact_json(item, path=f"{path}[{index}]")
-            for index, item in enumerate(value)
+            _validate_exact_json(item, path=f"{path}[{index}]") for index, item in enumerate(value)
         ]
     if isinstance(value, dict):
         if not all(isinstance(key, str) and key for key in value):
             raise ValueError(f"{path} keys must be non-empty strings")
         return {
-            key: _validate_exact_json(item, path=f"{path}.{key}")
-            for key, item in value.items()
+            key: _validate_exact_json(item, path=f"{path}.{key}") for key, item in value.items()
         }
     raise ValueError(f"{path} contains an unsupported value")
 

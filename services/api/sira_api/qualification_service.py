@@ -81,9 +81,7 @@ class QualificationService:
             ).all()
             return {"items": [await self._context_payload(session, item) for item in items]}
 
-    async def company_context_view(
-        self, organization_id: str, item_id: str
-    ) -> dict[str, Any]:
+    async def company_context_view(self, organization_id: str, item_id: str) -> dict[str, Any]:
         async with self.database.transaction(organization_id) as session:
             item = await self._company_context_item(session, organization_id, item_id)
             versions = (
@@ -613,9 +611,7 @@ class QualificationService:
                     )
                 ).all()
                 if not product_dependencies:
-                    raise PersistenceConflict(
-                        "qualification decision has no product dependencies"
-                    )
+                    raise PersistenceConflict("qualification decision has no product dependencies")
                 for dependency in product_dependencies:
                     active = await session.scalar(
                         select(ActiveProductBundle.product_id).where(
@@ -635,17 +631,14 @@ class QualificationService:
                     select(QualificationMissionBundle).where(
                         QualificationMissionBundle.organization_id == organization_id,
                         QualificationMissionBundle.attempt_id == decision.attempt_id,
-                        QualificationMissionBundle.product_id
-                        == decision.recommended_product_id,
+                        QualificationMissionBundle.product_id == decision.recommended_product_id,
                     )
                 )
                 if bundle is None:
                     raise PersistenceConflict("recommended product bundle is missing")
                 now = await self._database_now(session)
                 visible = dict(
-                    mission.requirement_brief_payload.get(
-                        "seller_visible_requirements", {}
-                    )
+                    mission.requirement_brief_payload.get("seller_visible_requirements", {})
                 )
                 engagement = MarketplaceEngagement(
                     id=new_id("meng"),
@@ -713,9 +706,7 @@ class QualificationService:
 
         return await self.database.run_retryable(organization_id, write)
 
-    async def engagement_view(
-        self, organization_id: str, engagement_id: str
-    ) -> dict[str, Any]:
+    async def engagement_view(self, organization_id: str, engagement_id: str) -> dict[str, Any]:
         async with self.database.transaction(organization_id) as session:
             engagement = await self._engagement(session, organization_id, engagement_id)
             response = await session.scalar(
@@ -742,9 +733,7 @@ class QualificationService:
                 ),
                 "consents": [self._consent_payload(item) for item in consents],
                 "introduction": (
-                    self._introduction_payload(introduction)
-                    if introduction is not None
-                    else None
+                    self._introduction_payload(introduction) if introduction is not None else None
                 ),
             }
 
@@ -973,9 +962,7 @@ class QualificationService:
             if engagement.buyer_organization_id != organization_id:
                 raise self._forbidden("Only the buyer may authorize the introduction.")
             _verify_match(if_match, engagement.input_digest)
-            introduction = await QualificationRepository(
-                session, organization_id
-            ).introduce(
+            introduction = await QualificationRepository(session, organization_id).introduce(
                 engagement_id=engagement.id,
                 decision_id=engagement.decision_id,
                 input_digest=engagement.input_digest,
@@ -1144,16 +1131,12 @@ class QualificationService:
         add(
             "mission_input_hashes",
             mission.buyer_context_hash == content_hash(mission.buyer_context_payload)
-            and mission.requirement_brief_hash
-            == content_hash(mission.requirement_brief_payload)
-            and mission.procurement_policy_hash
-            == content_hash(mission.procurement_policy_payload),
+            and mission.requirement_brief_hash == content_hash(mission.requirement_brief_payload)
+            and mission.procurement_policy_hash == content_hash(mission.procurement_policy_payload),
             "Stored mission hashes bind the exact buyer context, brief, and policy.",
         )
         direct_successors = [
-            item.predecessor_attempt_id
-            for item in attempts
-            if item.predecessor_attempt_id
+            item.predecessor_attempt_id for item in attempts if item.predecessor_attempt_id
         ]
         add(
             "single_direct_replacement",
@@ -1253,9 +1236,7 @@ class QualificationService:
             )
         )
         if mission is None:
-            raise QualificationService._not_found(
-                "QUALIFICATION_MISSION", "Mission was not found."
-            )
+            raise QualificationService._not_found("QUALIFICATION_MISSION", "Mission was not found.")
         return mission
 
     @staticmethod

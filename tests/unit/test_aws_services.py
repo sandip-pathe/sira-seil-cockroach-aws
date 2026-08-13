@@ -97,9 +97,7 @@ async def test_sqs_fifo_message_uses_tenant_ordering_and_stable_deduplication() 
 
     assert first.body_sha256 == second.body_sha256
     assert client.calls[0]["MessageGroupId"] == "org_buyer"
-    assert client.calls[0]["MessageDeduplicationId"] == client.calls[1][
-        "MessageDeduplicationId"
-    ]
+    assert client.calls[0]["MessageDeduplicationId"] == client.calls[1]["MessageDeduplicationId"]
     body = json.loads(client.calls[0]["MessageBody"])
     assert body["schema_version"] == 1
     assert body["message_id"] == "outbox-1"

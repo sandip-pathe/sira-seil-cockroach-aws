@@ -36,9 +36,7 @@ from .qualification_service import QualificationService
 qualification_router = APIRouter(dependencies=[Depends(enforce_api_security)])
 ContextDependency = Annotated[RequestContext, Depends(get_request_context)]
 IdempotencyDependency = Annotated[str, Depends(require_idempotency_key)]
-IfMatchDependency = Annotated[
-    str, Header(alias="If-Match", min_length=10, max_length=100)
-]
+IfMatchDependency = Annotated[str, Header(alias="If-Match", min_length=10, max_length=100)]
 
 
 def get_qualification_service(request: Request) -> QualificationService:

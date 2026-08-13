@@ -19,8 +19,7 @@ def upgrade() -> None:
     # CockroachDB DDL is non-transactional. IF NOT EXISTS lets a migration
     # safely resume after an interrupted schema-change job.
     op.execute(
-        "ALTER TABLE qualification_mission_bundles "
-        "ADD COLUMN IF NOT EXISTS attempt_id STRING"
+        "ALTER TABLE qualification_mission_bundles ADD COLUMN IF NOT EXISTS attempt_id STRING"
     )
     op.execute(
         "UPDATE qualification_mission_bundles AS b SET attempt_id = ("
@@ -45,12 +44,10 @@ def upgrade() -> None:
     )
 
     op.execute(
-        "ALTER TABLE marketplace_engagements "
-        "ADD COLUMN IF NOT EXISTS buyer_safe_requirement JSONB"
+        "ALTER TABLE marketplace_engagements ADD COLUMN IF NOT EXISTS buyer_safe_requirement JSONB"
     )
     op.execute(
-        "ALTER TABLE marketplace_engagements "
-        "ADD COLUMN IF NOT EXISTS buyer_safe_hash STRING(80)"
+        "ALTER TABLE marketplace_engagements ADD COLUMN IF NOT EXISTS buyer_safe_hash STRING(80)"
     )
     op.execute(
         "UPDATE marketplace_engagements SET "

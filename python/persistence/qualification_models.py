@@ -50,13 +50,9 @@ class CompanyContextItem(Base, TenantOwned, Timestamped):
             "kind IN ('REQUIREMENT','CONSTRAINT','STACK','POLICY','PREFERENCE','NOTE')",
             name="ck_qualification_context_kind",
         ),
-        CheckConstraint(
-            "state IN ('ACTIVE','RETIRED')", name="ck_qualification_context_state"
-        ),
+        CheckConstraint("state IN ('ACTIVE','RETIRED')", name="ck_qualification_context_state"),
         CheckConstraint("current_version >= 1", name="ck_qualification_context_version"),
-        UniqueConstraint(
-            "organization_id", "id", name="uq_qualification_context_item_tenant_id"
-        ),
+        UniqueConstraint("organization_id", "id", name="uq_qualification_context_item_tenant_id"),
         UniqueConstraint(
             "organization_id",
             "id",
@@ -354,9 +350,7 @@ class QualificationMission(Base, TenantOwned, Timestamped):
     buyer_context_payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
     requirement_brief_version_id: Mapped[str] = mapped_column(String(64), nullable=False)
     requirement_brief_hash: Mapped[str] = mapped_column(String(80), nullable=False)
-    requirement_brief_payload: Mapped[dict[str, Any]] = mapped_column(
-        JSON_DOCUMENT, nullable=False
-    )
+    requirement_brief_payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
     procurement_policy_version: Mapped[str] = mapped_column(String(80), nullable=False)
     procurement_policy_hash: Mapped[str] = mapped_column(String(80), nullable=False)
     procurement_policy_payload: Mapped[dict[str, Any]] = mapped_column(
@@ -596,9 +590,7 @@ class MarketplaceEngagement(Base, Timestamped):
     )
     product_id: Mapped[str] = mapped_column(String(64), nullable=False)
     input_digest: Mapped[str] = mapped_column(String(80), nullable=False)
-    buyer_safe_requirement: Mapped[dict[str, Any]] = mapped_column(
-        JSON_DOCUMENT, nullable=False
-    )
+    buyer_safe_requirement: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
     buyer_safe_hash: Mapped[str] = mapped_column(String(80), nullable=False)
     state: Mapped[str] = mapped_column(String(24), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

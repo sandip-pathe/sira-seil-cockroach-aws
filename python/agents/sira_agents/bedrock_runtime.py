@@ -168,9 +168,7 @@ class BedrockConverseRuntime:
                         "trace": "enabled",
                     }
                 if request.run_context and request.run_context.request_id:
-                    call["requestMetadata"] = {
-                        "request_id": request.run_context.request_id[:256]
-                    }
+                    call["requestMetadata"] = {"request_id": request.run_context.request_id[:256]}
 
                 response = await asyncio.to_thread(self.client.converse, **call)
                 stop_reason = str(response.get("stopReason", ""))

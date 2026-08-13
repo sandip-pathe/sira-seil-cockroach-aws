@@ -65,12 +65,10 @@ async def test_qualification_mission_contract_and_idempotency(
     assert integrity.json()["checks"][0]["name"] == "mission_input_hashes"
 
     openapi = (await api_client.get("/openapi.json")).json()
-    assert "/v1/qualification/engagements/{engagement_id}/introduction" in openapi[
-        "paths"
+    assert "/v1/qualification/engagements/{engagement_id}/introduction" in openapi["paths"]
+    parameters = openapi["paths"]["/v1/qualification/decisions/{decision_id}/approval"]["post"][
+        "parameters"
     ]
-    parameters = openapi["paths"][
-        "/v1/qualification/decisions/{decision_id}/approval"
-    ]["post"]["parameters"]
     assert any(
         parameter["name"] == "If-Match"
         and parameter["in"] == "header"
