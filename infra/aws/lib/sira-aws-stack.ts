@@ -311,13 +311,13 @@ export class SiraAwsStack extends cdk.Stack {
     const apiTargetGroup = listener.addTargets("ApiTargets", {
       priority: 10,
       conditions: [
-        elbv2.ListenerCondition.pathPatterns(["/v1/*", "/health"]),
+        elbv2.ListenerCondition.pathPatterns(["/v1/*", "/health", "/ready"]),
       ],
       port: 8000,
       protocol: elbv2.ApplicationProtocol.HTTP,
       targets: [apiService],
       deregistrationDelay: cdk.Duration.seconds(30),
-      healthCheck: { path: "/health", healthyHttpCodes: "200" },
+      healthCheck: { path: "/ready", healthyHttpCodes: "200" },
     });
 
     const distribution = new cloudfront.Distribution(this, "Distribution", {

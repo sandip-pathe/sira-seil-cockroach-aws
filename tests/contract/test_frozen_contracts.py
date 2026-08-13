@@ -360,6 +360,7 @@ def test_required_api_paths_are_frozen_in_openapi() -> None:
 
     required = {
         "/health": {"get"},
+        "/ready": {"get"},
         "/v1/demo/reset": {"post"},
         "/v1/decision-requests": {"get", "post"},
         "/v1/decision-requests/{request_id}": {"get"},

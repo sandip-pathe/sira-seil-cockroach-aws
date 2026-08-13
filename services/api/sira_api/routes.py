@@ -72,17 +72,32 @@ IdempotencyDependency = Annotated[str, Depends(require_idempotency_key)]
 @public_router.get(
     "/health",
     response_model=HealthResponse,
+    tags=["runtime"],
+)
+async def health(request: Request) -> HealthResponse:
+    """Process liveness only; dependency failures must not trigger restart loops."""
+
+    settings: ApiSettings = request.app.state.settings
+    return HealthResponse(
+        status="ok",
+        version="0.1.0",
+        database="not_checked",
+        fixture_mode=settings.development_fixture_mode,
+    )
+
+
+@public_router.get(
+    "/ready",
+    response_model=HealthResponse,
     responses={
         status.HTTP_503_SERVICE_UNAVAILABLE: {
             "model": HealthResponse,
-            "description": "Database readiness is degraded",
+            "description": "Required CockroachDB readiness checks failed",
         }
     },
     tags=["runtime"],
 )
-async def health(
-    request: Request, response: Response, service: ServiceDependency
-) -> HealthResponse:
+async def ready(request: Request, response: Response, service: ServiceDependency) -> HealthResponse:
     settings: ApiSettings = request.app.state.settings
     database = await service.health()
     if database != "configured":

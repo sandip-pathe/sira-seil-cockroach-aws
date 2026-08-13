@@ -39,6 +39,7 @@ const operations = {
   qualification_record_seller_response: { method: "POST", path: "/v1/qualification/engagements/{engagement_id}/responses", responseMediaType: "application/json" },
   qualification_retire_company_context: { method: "POST", path: "/v1/qualification/company-context/{item_id}/retire", responseMediaType: "application/json" },
   qualification_update_company_context: { method: "PUT", path: "/v1/qualification/company-context/{item_id}", responseMediaType: "application/json" },
+  ready: { method: "GET", path: "/ready", responseMediaType: "application/json" },
   record_consent: { method: "POST", path: "/v1/engagements/{engagement_id}/consent", responseMediaType: "application/json" },
   record_purchase_outcome: { method: "POST", path: "/v1/purchase-intents/{intent_id}/outcome-checkpoints", responseMediaType: "application/json" },
   record_solution_option_feedback: { method: "POST", path: "/v1/decision-requests/{request_id}/solution-options/{solution_plan_id}/actions", responseMediaType: "application/json" },

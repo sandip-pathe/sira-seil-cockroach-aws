@@ -32,9 +32,12 @@ async def test_health_and_frozen_demo_projection(api_client: httpx.AsyncClient) 
         "status": "ok",
         "service": "sira-api",
         "version": "0.1.0",
-        "database": "configured",
+        "database": "not_checked",
         "fixture_mode": True,
     }
+    ready = await api_client.get("/ready")
+    assert ready.status_code == 200
+    assert ready.json()["database"] == "configured"
 
     summary = await api_client.get("/v1/purchase-requests/req_demo")
     assert summary.status_code == 200
@@ -68,9 +71,12 @@ async def test_degraded_health_returns_typed_503(
 
     monkeypatch.setattr(database, "is_ready", unavailable)
     health = await api_client.get("/health")
+    ready = await api_client.get("/ready")
 
-    assert health.status_code == 503
-    assert health.json() == {
+    assert health.status_code == 200
+    assert health.json()["database"] == "not_checked"
+    assert ready.status_code == 503
+    assert ready.json() == {
         "status": "degraded",
         "service": "sira-api",
         "version": "0.1.0",
@@ -78,7 +84,7 @@ async def test_degraded_health_returns_typed_503(
         "fixture_mode": True,
     }
     openapi = (await api_client.get("/openapi.json")).json()
-    assert openapi["paths"]["/health"]["get"]["responses"]["503"]["content"]["application/json"][
+    assert openapi["paths"]["/ready"]["get"]["responses"]["503"]["content"]["application/json"][
         "schema"
     ] == {"$ref": "#/components/schemas/HealthResponse"}
 
