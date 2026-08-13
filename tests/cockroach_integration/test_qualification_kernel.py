@@ -5,10 +5,12 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from sira_worker.outbox_dispatcher import dispatch_batch
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import DBAPIError
 
 from domain import content_hash
+from integrations.aws_services import OutboxEnvelope, PublishedMessage
 from persistence.database import Database, DatabaseSettings
 from persistence.qualification_models import (
     CatalogProjectionVersion,
@@ -461,3 +463,51 @@ async def test_runtime_roles_enforce_published_and_bilateral_boundaries() -> Non
     finally:
         await database.close()
         await worker_database.close()
+
+
+async def test_outbox_dispatch_marks_only_acknowledged_delivery() -> None:
+    database = Database(DatabaseSettings(database_url=_runtime_url()))
+    suffix = uuid4().hex[:8]
+    organization_id = f"org_dispatch_{suffix}"
+
+    class Publisher:
+        def __init__(self) -> None:
+            self.envelopes: list[OutboxEnvelope] = []
+
+        async def publish(self, envelope: OutboxEnvelope) -> PublishedMessage:
+            self.envelopes.append(envelope)
+            return PublishedMessage("message-1", "1", "sha256:" + "a" * 64)
+
+    publisher = Publisher()
+    admin = Database(DatabaseSettings(database_url=_runtime_url().replace("sira_app@", "root@")))
+    try:
+        async with admin.transaction(organization_id) as session:
+            await session.execute(
+                text("INSERT INTO organizations (id, name, version) VALUES (:id, :name, 1)"),
+                {"id": organization_id, "name": "Dispatch test"},
+            )
+        await _seed_bundle(
+            database,
+            organization_id=organization_id,
+            product_id=f"product_dispatch_{suffix}",
+            version=1,
+        )
+
+        first = await dispatch_batch(
+            database,
+            publisher,
+            organization_id=organization_id,
+        )
+        second = await dispatch_batch(
+            database,
+            publisher,
+            organization_id=organization_id,
+        )
+
+        assert first.attempted == first.published == 1
+        assert second.attempted == second.published == 0
+        assert len(publisher.envelopes) == 1
+        assert publisher.envelopes[0].event_type == "PRODUCT_BUNDLE_ACTIVATED"
+    finally:
+        await database.close()
+        await admin.close()
