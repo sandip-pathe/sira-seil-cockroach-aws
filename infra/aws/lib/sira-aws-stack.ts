@@ -419,6 +419,9 @@ export class SiraAwsStack extends cdk.Stack {
     new cdk.CfnOutput(this, "QualificationQueueUrl", {
       value: qualificationQueue.queueUrl,
     });
+    new cdk.CfnOutput(this, "QualificationDlqUrl", {
+      value: deadLetterQueue.queueUrl,
+    });
     new cdk.CfnOutput(this, "RuntimeSecretName", {
       value: `${name}/runtime`,
       description: "Create this JSON secret before starting ECS services.",

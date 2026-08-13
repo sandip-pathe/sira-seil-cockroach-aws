@@ -53,6 +53,7 @@ test("synthesizes isolated durable application topology", () => {
     VisibilityTimeout: 900,
     RedrivePolicy: Match.objectLike({ maxReceiveCount: 5 }),
   });
+  rendered.hasOutput("QualificationDlqUrl", {});
 });
 
 test("keeps tasks private and gives Bedrock only to the qualification role", () => {

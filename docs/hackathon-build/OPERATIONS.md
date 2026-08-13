@@ -1,6 +1,6 @@
 # Operations and recovery contract
 
-Status: target operator path for the active repository; not implemented yet.
+Status: core runtime and safe DLQ controls are implemented; hosted drills remain pending.
 
 ## Normal commands
 
@@ -41,6 +41,19 @@ It never resets a shared database, another tenant, or a cloud cluster.
 ### Duplicate delivery
 
 Replay the same demo event ten times. The database returns the existing result or a safe no-op. One effect and one mission decision exist.
+
+### Qualification DLQ
+
+The operator command reads queue counts and native message-move-task state. It never receives message bodies. Mutating commands are dry-run unless `--execute` is present.
+
+```powershell
+uv run python scripts/qualification_dlq.py --region us-east-1 --profile sira-hackathon --dlq-url <QualificationDlqUrl> status
+uv run python scripts/qualification_dlq.py --region us-east-1 --profile sira-hackathon --dlq-url <QualificationDlqUrl> start --max-rate 10
+uv run python scripts/qualification_dlq.py --region us-east-1 --profile sira-hackathon --dlq-url <QualificationDlqUrl> start --max-rate 10 --execute
+uv run python scripts/qualification_dlq.py --region us-east-1 --profile sira-hackathon --dlq-url <QualificationDlqUrl> cancel --task-handle <handle> --execute
+```
+
+Before redrive, diagnose and fix the underlying failure, confirm the worker build and schema head, record the visible-message count, and begin at a bounded rate. Cockroach consumer receipts and effect keys remain the duplicate-delivery authority; SQS redrive is transport recovery, not business-state repair.
 
 ## Failure help
 
