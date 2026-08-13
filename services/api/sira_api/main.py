@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from sira_agents.bedrock_runtime import TitanEmbeddingClient, create_bedrock_client
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import Response
 
@@ -99,6 +100,8 @@ def create_app(
     resolved_database = database or Database(
         DatabaseSettings(database_url=resolved_settings.database_url)
     )
+    catalog_url = resolved_settings.catalog_database_url.get_secret_value().strip()
+    catalog_database = Database(DatabaseSettings(database_url=catalog_url)) if catalog_url else None
     if (
         not resolved_settings.is_development
         and resolved_database.engine.dialect.name != "cockroachdb"
@@ -203,6 +206,18 @@ def create_app(
         application.state.seller_evidence_service = seller_evidence_service
         application.state.qualification_service = QualificationService(
             resolved_database,
+            catalog_database=catalog_database,
+            embedding_client=(
+                TitanEmbeddingClient(
+                    client=create_bedrock_client(
+                        region=resolved_settings.aws_region,
+                        profile=resolved_settings.aws_profile.strip() or None,
+                    ),
+                    model_id=resolved_settings.bedrock_embedding_model_id,
+                )
+                if catalog_database is not None
+                else None
+            ),
             allow_development_tenant_bootstrap=(
                 resolved_settings.is_development or resolved_settings.guest_session_enabled
             ),
@@ -221,6 +236,8 @@ def create_app(
         if close_identity is not None:
             await close_identity()
         await resolved_database.close()
+        if catalog_database is not None:
+            await catalog_database.close()
 
     application = FastAPI(
         title="SIRA + SEIL API",

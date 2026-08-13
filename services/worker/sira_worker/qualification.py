@@ -101,6 +101,37 @@ class QualificationRunResult:
     decision_id: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class QualificationRetrievalResult:
+    category: str
+    query_model_id: str
+    candidates: tuple[VectorCandidate, ...]
+
+
+async def retrieve_qualification_candidates(
+    *,
+    catalog_database: Database,
+    embedding_client: TitanEmbeddingClient,
+    organization_id: str,
+    category: str,
+    query: str,
+    visibility: str = "BUYER_SAFE",
+    limit: int = 10,
+) -> QualificationRetrievalResult:
+    """Use the same Bedrock embedding and DVI/current-bundle path as the worker."""
+
+    embedding = await embedding_client.embed(query)
+    async with catalog_database.transaction(organization_id) as session:
+        candidates = await search_published_candidates(
+            session,
+            category=category,
+            visibility=visibility,
+            query_vector=embedding.vector,
+            limit=limit,
+        )
+    return QualificationRetrievalResult(category, embedding.model_id, candidates)
+
+
 @dataclass(slots=True)
 class QualificationWorker:
     """Execute model work outside transactions and finalize through a generation fence."""
@@ -119,17 +150,16 @@ class QualificationWorker:
         attempted: list[str] = []
         for _replacement in range(4):
             mission_input = await self._load_mission(organization_id, mission_id)
-            embedding = await self.embedding_client.embed(mission_input.retrieval_text())
             category = str(mission_input.brief.get("category", ""))
-            async with self.catalog_database.transaction(organization_id) as session:
-                candidates = await search_published_candidates(
-                    session,
-                    category=category,
-                    visibility="BUYER_SAFE",
-                    query_vector=embedding.vector,
-                    limit=self.candidate_limit,
-                )
-            selected = _unique_products(candidates, self.selected_candidates)
+            retrieval = await retrieve_qualification_candidates(
+                catalog_database=self.catalog_database,
+                embedding_client=self.embedding_client,
+                organization_id=organization_id,
+                category=category,
+                query=mission_input.retrieval_text(),
+                limit=self.candidate_limit,
+            )
+            selected = _unique_products(retrieval.candidates, self.selected_candidates)
             if len(selected) < self.selected_candidates:
                 raise PersistenceConflict("qualification mission has too few current candidates")
             attempt_id = await self._prepare_attempt(mission_input, selected)

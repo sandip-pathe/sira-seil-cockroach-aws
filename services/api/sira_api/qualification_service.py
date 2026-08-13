@@ -6,6 +6,8 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
+from sira_agents.bedrock_runtime import TitanEmbeddingClient
+from sira_worker.qualification import retrieve_qualification_candidates
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +19,7 @@ from persistence.qualification_models import (
     AttemptCheckpoint,
     AttemptDependency,
     BuyerEngagementProjection,
+    CatalogProjectionVersion,
     CompanyContextItem,
     CompanyContextVersion,
     DecisionDependency,
@@ -60,10 +63,129 @@ def _verify_match(provided: str, expected: str) -> None:
 
 class QualificationService:
     def __init__(
-        self, database: Database, *, allow_development_tenant_bootstrap: bool = False
+        self,
+        database: Database,
+        *,
+        catalog_database: Database | None = None,
+        embedding_client: TitanEmbeddingClient | None = None,
+        allow_development_tenant_bootstrap: bool = False,
     ) -> None:
         self.database = database
+        self.catalog_database = catalog_database
+        self.embedding_client = embedding_client
         self.allow_development_tenant_bootstrap = allow_development_tenant_bootstrap
+
+    async def search_marketplace(
+        self,
+        organization_id: str,
+        *,
+        category: str,
+        query: str,
+        limit: int,
+    ) -> dict[str, Any]:
+        if self.catalog_database is None or self.embedding_client is None:
+            raise ApiProblem(
+                code="MARKETPLACE_SEARCH_UNAVAILABLE",
+                message="Semantic marketplace search is not configured.",
+                status_code=503,
+                next_action="configure_catalog_and_bedrock",
+            )
+        retrieval = await retrieve_qualification_candidates(
+            catalog_database=self.catalog_database,
+            embedding_client=self.embedding_client,
+            organization_id=organization_id,
+            category=category,
+            query=query,
+            visibility="PUBLIC",
+            limit=limit,
+        )
+        results: list[dict[str, Any]] = []
+        async with self.catalog_database.transaction(organization_id) as session:
+            for candidate in retrieval.candidates:
+                catalog_member = await session.scalar(
+                    select(ProductBundleMember).where(
+                        ProductBundleMember.organization_id == candidate.organization_id,
+                        ProductBundleMember.bundle_id == candidate.bundle_id,
+                        ProductBundleMember.member_kind == "CATALOG_PROJECTION",
+                    )
+                )
+                projection = (
+                    await session.scalar(
+                        select(CatalogProjectionVersion).where(
+                            CatalogProjectionVersion.organization_id == candidate.organization_id,
+                            CatalogProjectionVersion.id == catalog_member.member_id,
+                        )
+                    )
+                    if catalog_member is not None
+                    else None
+                )
+                payload = dict(projection.buyer_safe_payload) if projection else {}
+                results.append(
+                    {
+                        "product_id": candidate.product_id,
+                        "bundle_id": candidate.bundle_id,
+                        "bundle_digest": candidate.bundle_digest,
+                        "name": payload.get("name") or candidate.product_id,
+                        "summary": payload.get("summary") or payload.get("public_summary"),
+                        "seller": payload.get("seller") or payload.get("seller_name"),
+                        "category": category,
+                        "cosine_distance": format(candidate.cosine_distance, ".8f"),
+                        "evidence_status": "PUBLISHED",
+                        "href": f"/marketplace/products/{candidate.product_id}",
+                    }
+                )
+        return {
+            "category": retrieval.category,
+            "query_model_id": retrieval.query_model_id,
+            "results": results,
+        }
+
+    async def marketplace_product(self, organization_id: str, product_id: str) -> dict[str, Any]:
+        if self.catalog_database is None:
+            raise ApiProblem(
+                code="MARKETPLACE_SEARCH_UNAVAILABLE",
+                message="Published marketplace access is not configured.",
+                status_code=503,
+                next_action="configure_catalog_database",
+            )
+        async with self.catalog_database.transaction(organization_id) as session:
+            active = await session.scalar(
+                select(ActiveProductBundle).where(ActiveProductBundle.product_id == product_id)
+            )
+            if active is None:
+                raise self._not_found("MARKETPLACE_PRODUCT", "Published product was not found.")
+            catalog_member = await session.scalar(
+                select(ProductBundleMember).where(
+                    ProductBundleMember.organization_id == active.organization_id,
+                    ProductBundleMember.bundle_id == active.bundle_id,
+                    ProductBundleMember.member_kind == "CATALOG_PROJECTION",
+                )
+            )
+            projection = (
+                await session.scalar(
+                    select(CatalogProjectionVersion).where(
+                        CatalogProjectionVersion.organization_id == active.organization_id,
+                        CatalogProjectionVersion.id == catalog_member.member_id,
+                    )
+                )
+                if catalog_member is not None
+                else None
+            )
+            if projection is None:
+                raise self._not_found(
+                    "MARKETPLACE_PRODUCT", "Published product projection was not found."
+                )
+            return {
+                "product": {
+                    "product_id": product_id,
+                    "bundle_id": active.bundle_id,
+                    "bundle_digest": active.bundle_digest,
+                    "generation": active.generation,
+                    "evidence_status": "PUBLISHED",
+                    "payload": projection.buyer_safe_payload,
+                    "projection_hash": projection.content_hash,
+                }
+            }
 
     async def inbox(
         self,

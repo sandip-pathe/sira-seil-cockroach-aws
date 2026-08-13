@@ -180,3 +180,13 @@ class QualificationInboxView(StrictModel):
     workspace: Literal["BUYER", "SELLER"]
     items: list[dict[str, Any]]
     next_cursor: str | None = None
+
+
+class PublicMarketplaceSearchView(StrictModel):
+    category: str
+    query_model_id: str
+    results: list[dict[str, Any]]
+
+
+class PublicMarketplaceProductView(StrictModel):
+    product: dict[str, Any]

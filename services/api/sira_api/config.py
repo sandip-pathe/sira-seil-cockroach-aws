@@ -37,6 +37,9 @@ class ApiSettings(BaseSettings):
         default="cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira?ssl=disable",
         validation_alias="DATABASE_URL",
     )
+    catalog_database_url: SecretStr = Field(
+        default=SecretStr(""), validation_alias="SIRA_CATALOG_DATABASE_URL"
+    )
     browser_return_signing_key: SecretStr = Field(
         default=SecretStr(""), validation_alias="BROWSER_RETURN_SIGNING_KEY"
     )
@@ -84,6 +87,10 @@ class ApiSettings(BaseSettings):
         validation_alias=AliasChoices("AWS_REGION", "AWS_DEFAULT_REGION"),
     )
     aws_profile: str = Field(default="", validation_alias="AWS_PROFILE")
+    bedrock_embedding_model_id: str = Field(
+        default="amazon.titan-embed-text-v2:0",
+        validation_alias="BEDROCK_EMBEDDING_MODEL_ID",
+    )
     s3_evidence_bucket: str = Field(default="", validation_alias="SIRA_S3_EVIDENCE_BUCKET")
     s3_evidence_kms_key_id: str = Field(default="", validation_alias="SIRA_S3_EVIDENCE_KMS_KEY_ID")
 

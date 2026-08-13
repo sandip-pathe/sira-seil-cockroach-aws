@@ -848,6 +848,16 @@ export interface ProposalDecisionView {
   status: "ACCEPTED" | "REJECTED";
 }
 
+export interface PublicMarketplaceProductView {
+  product: { [key: string]: unknown; };
+}
+
+export interface PublicMarketplaceSearchView {
+  category: string;
+  query_model_id: string;
+  results: { [key: string]: unknown; }[];
+}
+
 export interface PublisherAuthorityProjection {
   label: string;
   supporting_copy: string;
@@ -1654,12 +1664,14 @@ export interface Operations {
   qualification_get_engagement: { method: "GET"; path: "/v1/qualification/engagements/{engagement_id}"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationEngagementView; requiresIdempotency: false; };
   qualification_get_inbox: { method: "GET"; path: "/v1/qualification/inbox"; pathParams: Record<never, never>; queryParams: { limit?: number; }; body: never; response: QualificationInboxView; requiresIdempotency: false; };
   qualification_get_integrity: { method: "GET"; path: "/v1/qualification/missions/{mission_id}/integrity"; pathParams: { mission_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationIntegrityView; requiresIdempotency: false; };
+  qualification_get_marketplace_product: { method: "GET"; path: "/v1/qualification/marketplace/products/{product_id}"; pathParams: { product_id: string; }; queryParams: Record<never, never>; body: never; response: PublicMarketplaceProductView; requiresIdempotency: false; };
   qualification_get_mission: { method: "GET"; path: "/v1/qualification/missions/{mission_id}"; pathParams: { mission_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationMissionView; requiresIdempotency: false; };
   qualification_get_mission_events: { method: "GET"; path: "/v1/qualification/missions/{mission_id}/events"; pathParams: { mission_id: string; }; queryParams: { after?: string | null; limit?: number; }; body: never; response: QualificationEventFeed; requiresIdempotency: false; };
   qualification_list_company_context: { method: "GET"; path: "/v1/qualification/company-context"; pathParams: Record<never, never>; queryParams: { include_retired?: boolean; }; body: never; response: CompanyContextList; requiresIdempotency: false; };
   qualification_record_consent: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/consents"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationConsentCreate; response: QualificationMutationView; requiresIdempotency: true; };
   qualification_record_seller_response: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/responses"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationSellerResponseCreate; response: QualificationMutationView; requiresIdempotency: true; };
   qualification_retire_company_context: { method: "POST"; path: "/v1/qualification/company-context/{item_id}/retire"; pathParams: { item_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationMutationView; requiresIdempotency: true; };
+  qualification_search_marketplace: { method: "GET"; path: "/v1/qualification/marketplace/search"; pathParams: Record<never, never>; queryParams: { category: string; query: string; limit?: number; }; body: never; response: PublicMarketplaceSearchView; requiresIdempotency: false; };
   qualification_update_company_context: { method: "PUT"; path: "/v1/qualification/company-context/{item_id}"; pathParams: { item_id: string; }; queryParams: Record<never, never>; body: CompanyContextUpdate; response: QualificationMutationView; requiresIdempotency: true; };
   ready: { method: "GET"; path: "/ready"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: HealthResponse; requiresIdempotency: false; };
   record_consent: { method: "POST"; path: "/v1/engagements/{engagement_id}/consent"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: ConsentCreate; response: EngagementView; requiresIdempotency: true; };

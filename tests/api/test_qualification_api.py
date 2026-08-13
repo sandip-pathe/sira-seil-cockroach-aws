@@ -134,6 +134,22 @@ async def test_qualification_contract_rejects_float_and_seller_mission_access(
 
 
 @pytest.mark.asyncio
+async def test_public_marketplace_search_fails_closed_without_dvi_provider(
+    api_client: httpx.AsyncClient,
+) -> None:
+    response = await api_client.get(
+        "/v1/qualification/marketplace/search",
+        params={"category": "meeting-intelligence", "query": "EU hosted meeting notes"},
+    )
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "MARKETPLACE_SEARCH_UNAVAILABLE"
+
+    product = await api_client.get("/v1/qualification/marketplace/products/product-a")
+    assert product.status_code == 503
+    assert product.json()["error"]["code"] == "MARKETPLACE_SEARCH_UNAVAILABLE"
+
+
+@pytest.mark.asyncio
 async def test_company_context_versions_retire_and_pin_into_mission(
     api_client: httpx.AsyncClient,
 ) -> None:

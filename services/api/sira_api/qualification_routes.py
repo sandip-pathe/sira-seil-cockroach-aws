@@ -20,6 +20,8 @@ from .qualification_schemas import (
     CompanyContextList,
     CompanyContextUpdate,
     CompanyContextView,
+    PublicMarketplaceProductView,
+    PublicMarketplaceSearchView,
     QualificationApprovalCreate,
     QualificationConsentCreate,
     QualificationEngagementView,
@@ -81,6 +83,45 @@ async def get_qualification_inbox(
         party=context.party,
         limit=limit,
     )
+
+
+@qualification_router.get(
+    "/v1/qualification/marketplace/search",
+    response_model=PublicMarketplaceSearchView,
+    tags=["qualification marketplace"],
+    name="qualification_search_marketplace",
+)
+async def search_qualification_marketplace(
+    context: ContextDependency,
+    service: ServiceDependency,
+    category: Annotated[str, Query(min_length=3, max_length=80)],
+    query: Annotated[str, Query(min_length=3, max_length=1000)],
+    limit: Annotated[int, Query(ge=1, le=30)] = 10,
+) -> dict[str, object]:
+    _require_buyer(context)
+    require_permission(context, "can_view_context")
+    return await service.search_marketplace(
+        context.organization_id,
+        category=category,
+        query=query,
+        limit=limit,
+    )
+
+
+@qualification_router.get(
+    "/v1/qualification/marketplace/products/{product_id}",
+    response_model=PublicMarketplaceProductView,
+    tags=["qualification marketplace"],
+    name="qualification_get_marketplace_product",
+)
+async def get_qualification_marketplace_product(
+    product_id: str,
+    context: ContextDependency,
+    service: ServiceDependency,
+) -> dict[str, object]:
+    _require_buyer(context)
+    require_permission(context, "can_view_context")
+    return await service.marketplace_product(context.organization_id, product_id)
 
 
 @qualification_router.get(

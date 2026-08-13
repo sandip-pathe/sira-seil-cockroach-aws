@@ -16,6 +16,7 @@ from sira_worker.qualification import (
     QualificationCriterion,
     QualificationWorker,
     _validate_grounded_decision,
+    retrieve_qualification_candidates,
 )
 
 from persistence.database import Database
@@ -39,7 +40,10 @@ class FakeDatabase:
 class FakeEmbedding:
     async def embed(self, text: str) -> SimpleNamespace:
         assert text
-        return SimpleNamespace(vector=(1.0,) + (0.0,) * 1023)
+        return SimpleNamespace(
+            vector=(1.0,) + (0.0,) * 1023,
+            model_id="amazon.titan-embed-text-v2:0",
+        )
 
 
 def _settings(**overrides: object) -> worker_runtime.WorkerSettings:
@@ -88,6 +92,33 @@ def test_worker_settings_normalize_profiles_and_organizations() -> None:
     assert settings.organization_ids == ("org_a", "org_b")
     assert settings.aws_profile is None
     assert "meeting-intelligence" in _mission().retrieval_text()
+
+
+@pytest.mark.asyncio
+async def test_marketplace_retrieval_reuses_embedding_and_dvi_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = cast(Database, FakeDatabase())
+
+    async def search(_session: object, **kwargs: object) -> tuple[VectorCandidate, ...]:
+        assert kwargs["category"] == "meeting-intelligence"
+        assert kwargs["visibility"] == "PUBLIC"
+        assert kwargs["limit"] == 5
+        assert len(cast(tuple[float, ...], kwargs["query_vector"])) == 1024
+        return (_candidate("product-a"),)
+
+    monkeypatch.setattr("sira_worker.qualification.search_published_candidates", search)
+    result = await retrieve_qualification_candidates(
+        catalog_database=database,
+        embedding_client=cast(Any, FakeEmbedding()),
+        organization_id="org_buyer",
+        category="meeting-intelligence",
+        query="EU hosted meeting notes",
+        visibility="PUBLIC",
+        limit=5,
+    )
+    assert result.category == "meeting-intelligence"
+    assert result.candidates[0].product_id == "product-a"
 
 
 @pytest.mark.asyncio

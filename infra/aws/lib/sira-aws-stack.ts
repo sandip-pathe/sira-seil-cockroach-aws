@@ -243,11 +243,16 @@ export class SiraAwsStack extends cdk.Stack {
         DEMO_RESET_ENABLED: "false",
         GUEST_SESSION_ENABLED: "true",
         AWS_REGION: this.region,
+        BEDROCK_EMBEDDING_MODEL_ID: props.embeddingModelId,
         SIRA_SQS_QUEUE_URL: qualificationQueue.queueUrl,
         SIRA_S3_EVIDENCE_BUCKET: evidenceBucket.bucketName,
       },
       secrets: {
         DATABASE_URL: ecs.Secret.fromSecretsManager(runtimeSecret, "DATABASE_URL"),
+        SIRA_CATALOG_DATABASE_URL: ecs.Secret.fromSecretsManager(
+          runtimeSecret,
+          "SIRA_CATALOG_DATABASE_URL",
+        ),
         BROWSER_RETURN_SIGNING_KEY: ecs.Secret.fromSecretsManager(
           runtimeSecret,
           "BROWSER_RETURN_SIGNING_KEY",
@@ -276,6 +281,14 @@ export class SiraAwsStack extends cdk.Stack {
     });
     api.addPortMappings({ containerPort: 8000, protocol: ecs.Protocol.TCP });
     evidenceBucket.grantReadWrite(apiTask.taskRole);
+    apiTask.taskRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          `arn:${this.partition}:bedrock:${this.region}::foundation-model/${props.embeddingModelId}`,
+        ],
+      }),
+    );
 
     const webTask = new ecs.FargateTaskDefinition(this, "WebTask", {
       cpu: 512,
