@@ -1006,9 +1006,11 @@ async def test_worker_replaces_stale_attempt_and_completes_against_v2() -> None:
                 tool_results = [block["toolResult"] for block in last_content]
                 evidence = [result["content"][0]["json"] for result in tool_results]
                 selected = next(item for item in evidence if item["product_id"] == product_id)
-                citations = [selected["product_id"]]
-                if selected["catalog"]:
-                    citations.append(selected["catalog"][0]["dependency_id"])
+                citations = [
+                    row["dependency_id"]
+                    for collection in (selected["catalog"], selected["evidence"])
+                    for row in collection
+                ]
                 output = {
                     "recommended_product_id": product_id,
                     "summary": "Current evidence satisfies the requirement.",
@@ -1018,7 +1020,7 @@ async def test_worker_replaces_stale_attempt_and_completes_against_v2() -> None:
                             "criterion": "hosting",
                             "result": "PASS",
                             "rationale": "The current pinned evidence satisfies hosting.",
-                            "cited_dependency_ids": citations[1:],
+                            "cited_dependency_ids": citations,
                         }
                     ],
                     "confidence": 0.91,
