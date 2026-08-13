@@ -937,6 +937,12 @@ export interface QualificationEventFeed {
   next_cursor: string | null;
 }
 
+export interface QualificationInboxView {
+  items: { [key: string]: unknown; }[];
+  next_cursor?: string | null;
+  workspace: "BUYER" | "SELLER";
+}
+
 export interface QualificationIntegrityView {
   checked_at: string;
   checks: { [key: string]: unknown; }[];
@@ -1646,6 +1652,7 @@ export interface Operations {
   qualification_decide_approval: { method: "POST"; path: "/v1/qualification/decisions/{decision_id}/approval"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: QualificationApprovalCreate; response: QualificationMutationView; requiresIdempotency: true; };
   qualification_get_company_context: { method: "GET"; path: "/v1/qualification/company-context/{item_id}"; pathParams: { item_id: string; }; queryParams: Record<never, never>; body: never; response: CompanyContextView; requiresIdempotency: false; };
   qualification_get_engagement: { method: "GET"; path: "/v1/qualification/engagements/{engagement_id}"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationEngagementView; requiresIdempotency: false; };
+  qualification_get_inbox: { method: "GET"; path: "/v1/qualification/inbox"; pathParams: Record<never, never>; queryParams: { limit?: number; }; body: never; response: QualificationInboxView; requiresIdempotency: false; };
   qualification_get_integrity: { method: "GET"; path: "/v1/qualification/missions/{mission_id}/integrity"; pathParams: { mission_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationIntegrityView; requiresIdempotency: false; };
   qualification_get_mission: { method: "GET"; path: "/v1/qualification/missions/{mission_id}"; pathParams: { mission_id: string; }; queryParams: Record<never, never>; body: never; response: QualificationMissionView; requiresIdempotency: false; };
   qualification_get_mission_events: { method: "GET"; path: "/v1/qualification/missions/{mission_id}/events"; pathParams: { mission_id: string; }; queryParams: { after?: string | null; limit?: number; }; body: never; response: QualificationEventFeed; requiresIdempotency: false; };

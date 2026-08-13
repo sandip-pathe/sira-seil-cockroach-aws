@@ -98,6 +98,12 @@ async def test_qualification_mission_contract_and_idempotency(
         for parameter in parameters
     )
 
+    inbox = await api_client.get("/v1/qualification/inbox")
+    assert inbox.status_code == 200
+    assert inbox.json()["workspace"] == "BUYER"
+    assert inbox.json()["items"][0]["id"] == first.json()["resource_id"]
+    assert inbox.json()["items"][0]["kind"] == "BUYER_DECISION"
+
 
 @pytest.mark.asyncio
 async def test_qualification_contract_rejects_float_and_seller_mission_access(

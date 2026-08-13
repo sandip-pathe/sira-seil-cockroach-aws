@@ -65,6 +65,72 @@ class QualificationService:
         self.database = database
         self.allow_development_tenant_bootstrap = allow_development_tenant_bootstrap
 
+    async def inbox(
+        self,
+        organization_id: str,
+        *,
+        party: str,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        if party == "SELLER":
+            async with self.database.transaction(organization_id) as session:
+                projections = (
+                    await session.scalars(
+                        select(SellerEngagementProjection)
+                        .where(SellerEngagementProjection.organization_id == organization_id)
+                        .order_by(SellerEngagementProjection.created_at.desc())
+                        .limit(limit)
+                    )
+                ).all()
+                engagements = {
+                    item.id: item
+                    for item in (
+                        await session.scalars(
+                            select(MarketplaceEngagement).where(
+                                MarketplaceEngagement.id.in_(
+                                    [projection.engagement_id for projection in projections]
+                                )
+                            )
+                        )
+                    ).all()
+                }
+                return {
+                    "workspace": "SELLER",
+                    "items": [
+                        self._inbox_item(engagements[projection.engagement_id], projection.payload)
+                        for projection in projections
+                        if projection.engagement_id in engagements
+                    ],
+                    "next_cursor": None,
+                }
+        async with self.database.transaction(organization_id) as session:
+            missions = (
+                await session.scalars(
+                    select(QualificationMission)
+                    .where(QualificationMission.organization_id == organization_id)
+                    .order_by(QualificationMission.updated_at.desc())
+                    .limit(limit)
+                )
+            ).all()
+            decisions = (
+                await session.scalars(
+                    select(QualificationDecision).where(
+                        QualificationDecision.organization_id == organization_id,
+                        QualificationDecision.mission_id.in_([mission.id for mission in missions]),
+                        QualificationDecision.current.is_(True),
+                    )
+                )
+            ).all()
+            by_mission = {decision.mission_id: decision for decision in decisions}
+            return {
+                "workspace": "BUYER",
+                "items": [
+                    self._buyer_inbox_item(mission, by_mission.get(mission.id))
+                    for mission in missions
+                ],
+                "next_cursor": None,
+            }
+
     async def list_company_context(
         self, organization_id: str, *, include_retired: bool = False
     ) -> dict[str, Any]:
@@ -1289,6 +1355,56 @@ class QualificationService:
             "expires_at": _timestamp(engagement.expires_at),
             "created_at": _timestamp(engagement.created_at),
             "updated_at": _timestamp(engagement.updated_at),
+        }
+
+    @staticmethod
+    def _inbox_item(
+        engagement: MarketplaceEngagement, projection: dict[str, Any]
+    ) -> dict[str, Any]:
+        needs_action = engagement.state in {"OPEN", "RESPONDED", "CONSENT_PENDING"}
+        return {
+            "id": engagement.id,
+            "kind": "SELLER_OPPORTUNITY",
+            "state": engagement.state,
+            "title": str(projection.get("title") or "Qualified buyer opportunity"),
+            "summary": str(
+                projection.get("summary")
+                or projection.get("buyer_safe_summary")
+                or "Review the minimum-disclosure buyer requirement."
+            ),
+            "product_id": engagement.product_id,
+            "requires_action": needs_action,
+            "href": f"/seil/opportunities/{engagement.id}",
+            "expires_at": _timestamp(engagement.expires_at),
+            "updated_at": _timestamp(engagement.updated_at),
+        }
+
+    @staticmethod
+    def _buyer_inbox_item(
+        mission: QualificationMission, decision: QualificationDecision | None
+    ) -> dict[str, Any]:
+        if decision is not None and decision.approval_state == "PENDING":
+            title = "Review the current recommendation"
+            requires_action = True
+            href = f"/sira/missions/{mission.id}"
+        elif mission.state in {"FAILED", "CANCELLED"}:
+            title = "Qualification mission needs attention"
+            requires_action = True
+            href = f"/sira/missions/{mission.id}"
+        else:
+            title = "Qualification mission update"
+            requires_action = False
+            href = f"/sira/missions/{mission.id}"
+        goal = mission.requirement_brief_payload.get("goal")
+        return {
+            "id": mission.id,
+            "kind": "BUYER_DECISION",
+            "state": decision.approval_state if decision is not None else mission.state,
+            "title": title,
+            "summary": str(goal or "Evidence-backed qualification mission"),
+            "requires_action": requires_action,
+            "href": href,
+            "updated_at": _timestamp(mission.updated_at),
         }
 
     @staticmethod

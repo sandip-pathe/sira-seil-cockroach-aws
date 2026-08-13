@@ -174,3 +174,9 @@ class QualificationIntegrityView(StrictModel):
     verdict: Literal["PASS", "FAIL", "PENDING"]
     checks: list[dict[str, Any]]
     checked_at: str
+
+
+class QualificationInboxView(StrictModel):
+    workspace: Literal["BUYER", "SELLER"]
+    items: list[dict[str, Any]]
+    next_cursor: str | None = None

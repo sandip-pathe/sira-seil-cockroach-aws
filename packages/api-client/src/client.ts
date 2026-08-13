@@ -31,6 +31,7 @@ const operations = {
   qualification_decide_approval: { method: "POST", path: "/v1/qualification/decisions/{decision_id}/approval", bodyMediaType: "application/json", responseMediaType: "application/json" },
   qualification_get_company_context: { method: "GET", path: "/v1/qualification/company-context/{item_id}", bodyMediaType: null, responseMediaType: "application/json" },
   qualification_get_engagement: { method: "GET", path: "/v1/qualification/engagements/{engagement_id}", bodyMediaType: null, responseMediaType: "application/json" },
+  qualification_get_inbox: { method: "GET", path: "/v1/qualification/inbox", bodyMediaType: null, responseMediaType: "application/json" },
   qualification_get_integrity: { method: "GET", path: "/v1/qualification/missions/{mission_id}/integrity", bodyMediaType: null, responseMediaType: "application/json" },
   qualification_get_mission: { method: "GET", path: "/v1/qualification/missions/{mission_id}", bodyMediaType: null, responseMediaType: "application/json" },
   qualification_get_mission_events: { method: "GET", path: "/v1/qualification/missions/{mission_id}/events", bodyMediaType: null, responseMediaType: "application/json" },

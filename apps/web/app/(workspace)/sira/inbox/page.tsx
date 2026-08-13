@@ -1,5 +1,9 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+
+import { InboxPage } from "@/components/home/inbox-page";
+
+export const metadata: Metadata = { title: "SIRA inbox" };
 
 export default function SiraInboxPage() {
-  redirect("/sira");
+  return <InboxPage workspace="sira" />;
 }

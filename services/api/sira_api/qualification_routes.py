@@ -24,6 +24,7 @@ from .qualification_schemas import (
     QualificationConsentCreate,
     QualificationEngagementView,
     QualificationEventFeed,
+    QualificationInboxView,
     QualificationIntegrityView,
     QualificationIntroductionCreate,
     QualificationMissionCreate,
@@ -54,6 +55,32 @@ def _require_buyer(context: RequestContext) -> None:
             status_code=403,
             next_action="use_authorized_buyer_identity",
         )
+
+
+@qualification_router.get(
+    "/v1/qualification/inbox",
+    response_model=QualificationInboxView,
+    tags=["qualification marketplace"],
+    name="qualification_get_inbox",
+)
+async def get_qualification_inbox(
+    context: ContextDependency,
+    service: ServiceDependency,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> dict[str, object]:
+    require_permission(context, "can_view_context")
+    if context.party not in {"BUYER", "SELLER"}:
+        raise ApiProblem(
+            code="VERIFIED_PARTY_REQUIRED",
+            message="Inbox access requires a verified buyer or seller identity.",
+            status_code=403,
+            next_action="authenticate_party_identity",
+        )
+    return await service.inbox(
+        context.organization_id,
+        party=context.party,
+        limit=limit,
+    )
 
 
 @qualification_router.get(
