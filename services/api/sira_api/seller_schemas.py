@@ -214,6 +214,10 @@ class SellerEvidenceAttachmentView(StrictModel):
     draft_id: Identifier
     verification_state: Literal["UNVERIFIED", "PENDING", "VERIFIED", "REJECTED"]
     source_reference_hash: HashValue
+    object_checksum: HashValue | None = None
+    content_type: str | None = Field(default=None, min_length=1, max_length=120)
+    size_bytes: int | None = Field(default=None, ge=1)
+    version_bound: bool = False
 
 
 class SellerSubmitReviewCreate(StrictModel):

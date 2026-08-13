@@ -127,6 +127,13 @@ export interface BlockingTask {
   title: string;
 }
 
+export interface Body_seller_evidence_upload_evidence {
+  claim_fields_json: string;
+  evidence_file: string;
+  observed_at?: string | null;
+  source_class: string;
+}
+
 export interface BoundUnavailableView {
   reason_code: string;
   status?: "BOUND_UNAVAILABLE";
@@ -1210,10 +1217,14 @@ export interface SellerEvidenceAttachCreate {
 }
 
 export interface SellerEvidenceAttachmentView {
+  content_type?: string | null;
   draft_id: string;
   id: string;
+  object_checksum?: string | null;
+  size_bytes?: number | null;
   source_reference_hash: string;
   verification_state: "UNVERIFIED" | "PENDING" | "VERIFIED" | "REJECTED";
+  version_bound?: boolean;
 }
 
 export interface SellerEvidenceClaim {
@@ -1667,6 +1678,7 @@ export interface Operations {
   seller_evidence_search_products: { method: "GET"; path: "/v1/seller/products/search"; pathParams: Record<never, never>; queryParams: { q?: string | null; }; body: never; response: SellerProductSearchView; requiresIdempotency: false; };
   seller_evidence_submit_review: { method: "POST"; path: "/v1/seller/pack-drafts/{draft_id}/submit-review"; pathParams: { draft_id: string; }; queryParams: Record<never, never>; body: SellerSubmitReviewCreate; response: SellerPackDraftView; requiresIdempotency: true; };
   seller_evidence_suspend: { method: "POST"; path: "/v1/seller/pack-versions/{version_id}/suspend"; pathParams: { version_id: string; }; queryParams: Record<never, never>; body: SellerSuspendCreate; response: SellerPackVersionView; requiresIdempotency: true; };
+  seller_evidence_upload_evidence: { method: "POST"; path: "/v1/seller/pack-drafts/{draft_id}/evidence/upload"; pathParams: { draft_id: string; }; queryParams: Record<never, never>; body: FormData; response: SellerEvidenceAttachmentView; requiresIdempotency: true; };
   simulate_decision: { method: "POST"; path: "/v1/decisions/{decision_id}/simulations"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: DecisionSimulationCreate; response: DecisionSimulationView; requiresIdempotency: true; };
   start_action_run: { method: "POST"; path: "/v1/decisions/{decision_id}/action-runs"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: ActionRunCreate; response: ActionRunView; requiresIdempotency: true; };
   workspace_capabilities: { method: "GET"; path: "/v1/capabilities"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: CapabilityView[]; requiresIdempotency: false; };

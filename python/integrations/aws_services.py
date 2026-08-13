@@ -12,7 +12,7 @@ from hashlib import sha256
 from typing import Any, Protocol, cast
 
 _ORGANIZATION_ID = re.compile(r"[A-Za-z0-9_-]{1,48}\Z")
-_MAX_EVIDENCE_BYTES = 25 * 1024 * 1024
+MAX_EVIDENCE_BYTES = 25 * 1024 * 1024
 _MAX_QUEUE_BODY_BYTES = 256 * 1024
 
 
@@ -84,7 +84,7 @@ class ContentAddressedEvidenceStore:
         _validate_organization_id(organization_id)
         if not body:
             raise ValueError("evidence object must not be empty")
-        if len(body) > _MAX_EVIDENCE_BYTES:
+        if len(body) > MAX_EVIDENCE_BYTES:
             raise ValueError("evidence object exceeds the 25 MiB ingestion limit")
         if not content_type.strip() or len(content_type) > 120:
             raise ValueError("evidence content type is invalid")

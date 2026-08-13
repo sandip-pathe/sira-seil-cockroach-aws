@@ -1708,6 +1708,12 @@ class SellerEvidenceAttachment(Base, TenantOwned, Timestamped):
     attached_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     source_reference_hash: Mapped[str] = mapped_column(String(80), nullable=False)
     public_source_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    object_bucket: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    object_version_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    object_checksum: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    content_type: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     source_class: Mapped[str] = mapped_column(String(80), nullable=False)
     claim_fields: Mapped[list[str]] = mapped_column(JSON_DOCUMENT, nullable=False)
     observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -1721,6 +1727,14 @@ class SellerEvidenceAttachment(Base, TenantOwned, Timestamped):
         CheckConstraint(
             "verification_state IN ('UNVERIFIED','PENDING','VERIFIED','REJECTED')",
             name="ck_seller_evidence_verification",
+        ),
+        CheckConstraint(
+            "(object_bucket IS NULL AND object_key IS NULL AND object_version_id IS NULL "
+            "AND object_checksum IS NULL AND content_type IS NULL AND size_bytes IS NULL) OR "
+            "(object_bucket IS NOT NULL AND object_key IS NOT NULL "
+            "AND object_version_id IS NOT NULL AND object_checksum IS NOT NULL "
+            "AND content_type IS NOT NULL AND size_bytes > 0)",
+            name="ck_seller_evidence_object_identity",
         ),
         UniqueConstraint(
             "organization_id",

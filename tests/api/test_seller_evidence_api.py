@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from hashlib import sha256
+from typing import Any, cast
 
 import httpx
 import pytest
+from fastapi import FastAPI
+
+from integrations.aws_services import StoredEvidenceObject
 
 EDITOR = {
     "X-Actor-Id": "seller_fixture_d",
@@ -22,6 +27,215 @@ REVIEWER = {
 
 def _idem(value: str) -> dict[str, str]:
     return {"Idempotency-Key": value}
+
+
+@dataclass
+class FakeEvidenceStore:
+    calls: list[dict[str, Any]] = field(default_factory=list)
+    fail: bool = False
+
+    async def put(
+        self, *, organization_id: str, body: bytes, content_type: str
+    ) -> StoredEvidenceObject:
+        self.calls.append(
+            {
+                "organization_id": organization_id,
+                "body": body,
+                "content_type": content_type,
+            }
+        )
+        if not body:
+            raise ValueError("evidence object must not be empty")
+        if self.fail:
+            raise RuntimeError("simulated provider failure")
+        digest = "sha256:" + sha256(body).hexdigest()
+        return StoredEvidenceObject(
+            bucket="private-versioned-evidence",
+            key=f"organizations/{organization_id}/evidence/{digest.removeprefix('sha256:')}",
+            version_id="version-42",
+            sha256=digest,
+            size_bytes=len(body),
+            content_type=content_type,
+        )
+
+
+@pytest.mark.asyncio
+async def test_private_evidence_upload_is_version_bound_and_idempotent(
+    api_client: httpx.AsyncClient,
+    api_application: FastAPI,
+) -> None:
+    store = FakeEvidenceStore()
+    api_application.state.seller_evidence_service.evidence_store = store
+    content = b"signed retention policy\nretention_days=30\n"
+    headers = {**EDITOR, **_idem("seller-object-evidence-0001")}
+    files = {"evidence_file": ("retention.txt", content, "text/plain")}
+    data = {
+        "source_class": "VENDOR_DOCUMENTATION",
+        "claim_fields_json": '["data_retention_days", "public_summary"]',
+        "observed_at": datetime.now(UTC).isoformat(),
+    }
+
+    created = await api_client.post(
+        "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload",
+        headers=headers,
+        files=files,
+        data=data,
+    )
+    assert created.status_code == 201, created.text
+    payload = created.json()
+    assert payload["object_checksum"] == "sha256:" + sha256(content).hexdigest()
+    assert payload["content_type"] == "text/plain"
+    assert payload["size_bytes"] == len(content)
+    assert payload["version_bound"] is True
+    assert "private-versioned-evidence" not in created.text
+    assert "version-42" not in created.text
+    assert len(store.calls) == 1
+
+    replay = await api_client.post(
+        "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload",
+        headers=headers,
+        files=files,
+        data=data,
+    )
+    assert replay.status_code == 201
+    assert replay.json() == payload
+    assert len(store.calls) == 1
+
+    same_object = await api_client.post(
+        "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload",
+        headers={**EDITOR, **_idem("seller-object-evidence-0002")},
+        files=files,
+        data=data,
+    )
+    assert same_object.status_code == 200
+    assert same_object.json() == payload
+    assert len(store.calls) == 1
+
+    conflict = await api_client.post(
+        "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload",
+        headers={**EDITOR, **_idem("seller-object-evidence-0003")},
+        files=files,
+        data={**data, "claim_fields_json": '["public_summary"]'},
+    )
+    assert conflict.status_code == 409
+    assert conflict.json()["error"]["code"] == "SELLER_EVIDENCE_SOURCE_CONFLICT"
+    assert len(store.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_private_evidence_upload_fails_closed_at_input_and_provider_boundaries(
+    api_client: httpx.AsyncClient,
+    api_application: FastAPI,
+) -> None:
+    endpoint = "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload"
+    base_data = {
+        "source_class": "VENDOR_DOCUMENTATION",
+        "claim_fields_json": '["data_retention_days"]',
+    }
+    unavailable = await api_client.post(
+        endpoint,
+        headers={**EDITOR, **_idem("seller-object-unavailable-0001")},
+        files={"evidence_file": ("policy.txt", b"evidence", "text/plain")},
+        data=base_data,
+    )
+    assert unavailable.status_code == 503
+    assert unavailable.json()["error"]["code"] == "SELLER_EVIDENCE_STORE_UNAVAILABLE"
+
+    store = FakeEvidenceStore()
+    api_application.state.seller_evidence_service.evidence_store = store
+    invalid_fields = await api_client.post(
+        endpoint,
+        headers={**EDITOR, **_idem("seller-object-invalid-fields-0001")},
+        files={"evidence_file": ("policy.txt", b"evidence", "text/plain")},
+        data={**base_data, "claim_fields_json": "not-json"},
+    )
+    assert invalid_fields.status_code == 422
+    assert invalid_fields.json()["error"]["code"] == "SELLER_EVIDENCE_FIELDS_INVALID"
+    assert store.calls == []
+
+    empty = await api_client.post(
+        endpoint,
+        headers={**EDITOR, **_idem("seller-object-empty-0001")},
+        files={"evidence_file": ("empty.txt", b"", "text/plain")},
+        data=base_data,
+    )
+    assert empty.status_code == 400
+    assert empty.json()["error"]["code"] == "SELLER_EVIDENCE_OBJECT_INVALID"
+
+    store.fail = True
+    provider_failure = await api_client.post(
+        endpoint,
+        headers={**EDITOR, **_idem("seller-object-provider-fail-0001")},
+        files={"evidence_file": ("policy.txt", b"provider fails", "text/plain")},
+        data=base_data,
+    )
+    assert provider_failure.status_code == 502
+    assert provider_failure.json()["error"]["code"] == "SELLER_EVIDENCE_STORAGE_FAILED"
+
+
+@pytest.mark.asyncio
+async def test_private_evidence_upload_rejects_metadata_and_storage_integrity_mismatches(
+    api_client: httpx.AsyncClient,
+    api_application: FastAPI,
+) -> None:
+    endpoint = "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload"
+    store = FakeEvidenceStore()
+    api_application.state.seller_evidence_service.evidence_store = store
+
+    async def upload(key: str, source_class: str, fields: str) -> httpx.Response:
+        return await api_client.post(
+            endpoint,
+            headers={**EDITOR, **_idem(key)},
+            files={"evidence_file": ("policy.txt", b"evidence", "text/plain")},
+            data={"source_class": source_class, "claim_fields_json": fields},
+        )
+
+    invalid_source = await upload(
+        "seller-object-invalid-source-0001", "UNTRUSTED_UPLOAD", '["public_summary"]'
+    )
+    assert invalid_source.status_code == 400
+    assert invalid_source.json()["error"]["code"] == "SELLER_EVIDENCE_SOURCE_CLASS_INVALID"
+
+    duplicate_fields = await upload(
+        "seller-object-duplicate-fields-0001",
+        "VENDOR_DOCUMENTATION",
+        '["public_summary", "public_summary"]',
+    )
+    assert duplicate_fields.status_code == 400
+    assert duplicate_fields.json()["error"]["code"] == "SELLER_EVIDENCE_FIELDS_DUPLICATED"
+
+    forbidden_field = await upload(
+        "seller-object-forbidden-field-0001",
+        "VENDOR_DOCUMENTATION",
+        '["buyer_private_budget"]',
+    )
+    assert forbidden_field.status_code == 403
+    assert forbidden_field.json()["error"]["code"] == "SELLER_PUBLICATION_FIELD_FORBIDDEN"
+    assert store.calls == []
+
+    original_put = store.put
+
+    async def corrupt_put(
+        *, organization_id: str, body: bytes, content_type: str
+    ) -> StoredEvidenceObject:
+        stored = await original_put(
+            organization_id=organization_id, body=body, content_type=content_type
+        )
+        return StoredEvidenceObject(
+            bucket=stored.bucket,
+            key=stored.key,
+            version_id=stored.version_id,
+            sha256="sha256:" + "0" * 64,
+            size_bytes=stored.size_bytes,
+            content_type=stored.content_type,
+        )
+
+    store.put = corrupt_put  # type: ignore[method-assign]
+    corrupted = await upload(
+        "seller-object-corrupt-store-0001", "VENDOR_DOCUMENTATION", '["public_summary"]'
+    )
+    assert corrupted.status_code == 502
+    assert corrupted.json()["error"]["code"] == "SELLER_EVIDENCE_STORAGE_INTEGRITY_FAILED"
 
 
 async def _prepare_reviewable_draft(client: httpx.AsyncClient) -> dict[str, Any]:
@@ -79,7 +293,7 @@ async def _prepare_reviewable_draft(client: httpx.AsyncClient) -> dict[str, Any]
     )
     assert patched.status_code == 200, patched.text
     assert patched.json()["validation"] == {"status": "VALID", "gaps": []}
-    return patched.json()
+    return cast(dict[str, Any], patched.json())
 
 
 @pytest.mark.asyncio

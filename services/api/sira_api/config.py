@@ -79,6 +79,13 @@ class ApiSettings(BaseSettings):
         default=SecretStr(""), validation_alias="EXTRA_OPENAI_API_KEYS"
     )
     openai_model: str = Field(default="gpt-5-mini", validation_alias="OPENAI_MODEL")
+    aws_region: str = Field(
+        default="us-east-1",
+        validation_alias=AliasChoices("AWS_REGION", "AWS_DEFAULT_REGION"),
+    )
+    aws_profile: str = Field(default="", validation_alias="AWS_PROFILE")
+    s3_evidence_bucket: str = Field(default="", validation_alias="SIRA_S3_EVIDENCE_BUCKET")
+    s3_evidence_kms_key_id: str = Field(default="", validation_alias="SIRA_S3_EVIDENCE_KMS_KEY_ID")
 
     @property
     def is_development(self) -> bool:

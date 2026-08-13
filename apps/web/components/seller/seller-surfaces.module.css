@@ -985,6 +985,76 @@
   line-height: 1.55;
 }
 
+.evidenceUploadForm {
+  display: grid;
+  gap: 14px;
+  margin-top: 17px;
+}
+
+.evidenceUploadForm label {
+  display: grid;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.evidenceUploadForm input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+}
+
+.evidenceUploadForm input:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--seil) 24%, transparent);
+  outline-offset: 1px;
+  border-color: var(--seil);
+}
+
+.evidenceUploadForm small {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.evidenceUploadForm button {
+  justify-self: start;
+}
+
+.uploadSuccess,
+.uploadError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 11.5px;
+}
+
+.uploadSuccess {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.uploadError {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.uploadSuccess svg,
+.uploadError svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
 .quietEmpty {
   margin: 0;
   padding: 16px;

@@ -51,6 +51,7 @@ _SELLER_ROUTE_ALLOWLIST = frozenset(
         ("GET", "/v1/seller/pack-drafts/{draft_id}"),
         ("PATCH", "/v1/seller/pack-drafts/{draft_id}"),
         ("POST", "/v1/seller/pack-drafts/{draft_id}/evidence"),
+        ("POST", "/v1/seller/pack-drafts/{draft_id}/evidence/upload"),
         ("POST", "/v1/seller/pack-drafts/{draft_id}/submit-review"),
         ("POST", "/v1/seller/pack-drafts/{draft_id}/review-decisions"),
         ("POST", "/v1/seller/pack-drafts/{draft_id}/publish"),
@@ -230,7 +231,7 @@ def enforce_api_security(
         return
     raise ApiProblem(
         code="SELLER_ROUTE_FORBIDDEN",
-        message="Seller identities may only access the scoped engagement consent endpoint.",
+        message="Seller identities may only access explicitly reviewed seller-scoped endpoints.",
         status_code=403,
         next_action="use_authorized_buyer_identity",
     )

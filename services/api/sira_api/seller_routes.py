@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi import APIRouter, Depends, File, Form, Query, Request, Response, UploadFile, status
+
+from integrations.aws_services import MAX_EVIDENCE_BYTES
 
 from .dependencies import (
     RequestContext,
@@ -230,6 +234,65 @@ async def attach_seller_evidence(
         draft_id=draft_id,
         idempotency_key=idempotency_key,
         body=body.model_dump(mode="python"),
+    )
+    response.status_code = code
+    return payload
+
+
+@seller_router.post(
+    "/v1/seller/pack-drafts/{draft_id}/evidence/upload",
+    response_model=SellerEvidenceAttachmentView,
+    status_code=status.HTTP_201_CREATED,
+    tags=["seller product evidence"],
+    name="seller_evidence_upload_evidence",
+)
+async def upload_seller_evidence(
+    draft_id: str,
+    response: Response,
+    context: ContextDependency,
+    service: SellerServiceDependency,
+    idempotency_key: IdempotencyDependency,
+    evidence_file: Annotated[UploadFile, File(description="Private source evidence, max 25 MiB")],
+    source_class: Annotated[str, Form(min_length=2, max_length=80)],
+    claim_fields_json: Annotated[str, Form(min_length=4, max_length=2000)],
+    observed_at: Annotated[datetime | None, Form()] = None,
+) -> dict[str, object]:
+    _require_verified_seller(context)
+    try:
+        parsed_fields = json.loads(claim_fields_json)
+    except json.JSONDecodeError as exc:
+        raise ApiProblem(
+            code="SELLER_EVIDENCE_FIELDS_INVALID",
+            message="claim_fields_json must be a JSON array of field names.",
+            status_code=422,
+        ) from exc
+    if not isinstance(parsed_fields, list) or not all(
+        isinstance(item, str) and item for item in parsed_fields
+    ):
+        raise ApiProblem(
+            code="SELLER_EVIDENCE_FIELDS_INVALID",
+            message="claim_fields_json must be a JSON array of field names.",
+            status_code=422,
+        )
+    body = await evidence_file.read(MAX_EVIDENCE_BYTES + 1)
+    await evidence_file.close()
+    if len(body) > MAX_EVIDENCE_BYTES:
+        raise ApiProblem(
+            code="SELLER_EVIDENCE_OBJECT_INVALID",
+            message="Evidence object exceeds the 25 MiB ingestion limit.",
+            status_code=413,
+        )
+    code, payload = await service.upload_evidence(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        actor_role=_seller_role(context),
+        draft_id=draft_id,
+        idempotency_key=idempotency_key,
+        body=body,
+        content_type=evidence_file.content_type or "application/octet-stream",
+        source_class=source_class,
+        claim_fields=cast(list[str], parsed_fields),
+        observed_at=observed_at,
     )
     response.status_code = code
     return payload

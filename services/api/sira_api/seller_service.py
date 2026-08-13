@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from html import escape
 from typing import Any, Literal, cast
 from urllib.parse import urlsplit, urlunsplit
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain import content_hash
 from domain.enums import ActorRole, PackAuthority, SellerEvidenceState
+from integrations.aws_services import ContentAddressedEvidenceStore, StoredEvidenceObject
 from persistence.database import Database
 from persistence.models import (
     Organization,
@@ -163,9 +165,16 @@ def _authority_label(authority: str) -> str:
 class SellerEvidenceService:
     """Canonical seller workflow with no dependency on provider or agent runtimes."""
 
-    def __init__(self, database: Database, *, development_fixture_mode: bool) -> None:
+    def __init__(
+        self,
+        database: Database,
+        *,
+        development_fixture_mode: bool,
+        evidence_store: ContentAddressedEvidenceStore | None = None,
+    ) -> None:
         self.database = database
         self.development_fixture_mode = development_fixture_mode
+        self.evidence_store = evidence_store
 
     async def search_products(
         self,
@@ -610,6 +619,240 @@ class SellerEvidenceService:
                     "draft_id": draft.id,
                     "evidence_id": record.id,
                     "source_reference_hash": source_hash,
+                    "verification_state": record.verification_state,
+                },
+            )
+            await repository.complete_idempotency(
+                idem.record,
+                response_status=201,
+                response_payload=response,
+                response_reference=record.id,
+            )
+            return 201, response
+
+    async def upload_evidence(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        actor_role: SellerActorRole,
+        draft_id: str,
+        idempotency_key: str,
+        body: bytes,
+        content_type: str,
+        source_class: str,
+        claim_fields: list[str],
+        observed_at: datetime | None,
+    ) -> tuple[int, dict[str, Any]]:
+        """Persist bytes outside SQL, then bind the exact S3 version in CockroachDB."""
+
+        if actor_role not in {"SELLER_EDITOR", "PLATFORM_OPERATOR"}:
+            raise self._forbidden("SELLER_EVIDENCE_ROLE_REQUIRED")
+        if self.evidence_store is None:
+            raise self._problem(
+                "SELLER_EVIDENCE_STORE_UNAVAILABLE",
+                "Versioned evidence storage is not configured.",
+                status_code=503,
+            )
+        normalized_source_class = source_class.strip().upper()
+        if normalized_source_class not in _SOURCE_CLASSES:
+            raise self._problem(
+                "SELLER_EVIDENCE_SOURCE_CLASS_INVALID",
+                "The evidence source class is not supported.",
+            )
+        normalized_fields = sorted(set(claim_fields))
+        if not normalized_fields or len(normalized_fields) != len(claim_fields):
+            raise self._problem(
+                "SELLER_EVIDENCE_FIELDS_DUPLICATED",
+                "Evidence claim fields must be non-empty and unique.",
+            )
+        allowed = _ALLOWED_CLAIM_FIELDS | _ALLOWED_FIT_FIELDS | _ALLOWED_ANTI_FIT_FIELDS
+        if any(field not in allowed for field in normalized_fields):
+            raise self._problem(
+                "SELLER_PUBLICATION_FIELD_FORBIDDEN",
+                "Evidence may reference only approved Product Evidence fields.",
+                status_code=403,
+            )
+        object_checksum = "sha256:" + sha256(body).hexdigest()
+        request_hash = content_hash(
+            {
+                "draft_id": draft_id,
+                "object_checksum": object_checksum,
+                "content_type": content_type,
+                "source_class": normalized_source_class,
+                "claim_fields": normalized_fields,
+                "observed_at": observed_at,
+            }
+        )
+        operation = f"seller.pack_drafts.{draft_id}.evidence.upload"
+
+        # Reserve and validate before provider I/O. Committing the STARTED record means
+        # Cockroach transaction retries can never replay the S3 write.
+        async with self.database.transaction(organization_id) as session:
+            await self._ensure_demo(session, organization_id)
+            repository = WorkflowRepository(session, organization_id)
+            idem = await repository.claim_idempotency(
+                actor_id=actor_id,
+                operation=operation,
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+            )
+            if idem.replay:
+                return int(idem.record.response_status or 201), dict(
+                    idem.record.response_payload or {}
+                )
+            draft = await self._draft(session, organization_id, draft_id, lock=True)
+            product = await self._product(session, organization_id, draft.product_id)
+            self._require_product_access(product, actor_id, actor_role)
+            if draft.state not in _EDITABLE_STATES:
+                raise self._problem(
+                    "SELLER_DRAFT_FROZEN",
+                    "Evidence cannot be changed while this revision is frozen.",
+                    status_code=409,
+                )
+            existing = await self._evidence_by_source(
+                session, organization_id, draft.id, object_checksum
+            )
+            if existing is not None:
+                self._require_matching_evidence_metadata(
+                    existing, normalized_source_class, normalized_fields
+                )
+                response = self._evidence_view(existing)
+                await repository.complete_idempotency(
+                    idem.record,
+                    response_status=200,
+                    response_payload=response,
+                    response_reference=existing.id,
+                )
+                return 200, response
+
+        try:
+            stored = await self.evidence_store.put(
+                organization_id=organization_id,
+                body=body,
+                content_type=content_type,
+            )
+        except ValueError as exc:
+            raise self._problem("SELLER_EVIDENCE_OBJECT_INVALID", str(exc)) from exc
+        except Exception as exc:
+            raise self._problem(
+                "SELLER_EVIDENCE_STORAGE_FAILED",
+                "The evidence object could not be durably stored.",
+                status_code=502,
+            ) from exc
+        if (
+            stored.sha256 != object_checksum
+            or stored.size_bytes != len(body)
+            or stored.content_type != content_type
+            or not stored.bucket
+            or not stored.key
+            or not stored.version_id
+        ):
+            raise self._problem(
+                "SELLER_EVIDENCE_STORAGE_INTEGRITY_FAILED",
+                "The evidence store returned an invalid object identity.",
+                status_code=502,
+            )
+
+        return await self._finalize_uploaded_evidence(
+            organization_id=organization_id,
+            actor_id=actor_id,
+            actor_role=actor_role,
+            draft_id=draft_id,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            operation=operation,
+            source_class=normalized_source_class,
+            claim_fields=normalized_fields,
+            observed_at=observed_at,
+            stored=stored,
+        )
+
+    async def _finalize_uploaded_evidence(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        actor_role: SellerActorRole,
+        draft_id: str,
+        idempotency_key: str,
+        request_hash: str,
+        operation: str,
+        source_class: str,
+        claim_fields: list[str],
+        observed_at: datetime | None,
+        stored: StoredEvidenceObject,
+    ) -> tuple[int, dict[str, Any]]:
+        async with self.database.transaction(organization_id) as session:
+            repository = WorkflowRepository(session, organization_id)
+            idem = await repository.claim_idempotency(
+                actor_id=actor_id,
+                operation=operation,
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+            )
+            if idem.replay:
+                return int(idem.record.response_status or 201), dict(
+                    idem.record.response_payload or {}
+                )
+            draft = await self._draft(session, organization_id, draft_id, lock=True)
+            product = await self._product(session, organization_id, draft.product_id)
+            self._require_product_access(product, actor_id, actor_role)
+            if draft.state not in _EDITABLE_STATES:
+                raise self._problem(
+                    "SELLER_DRAFT_FROZEN",
+                    "Evidence cannot be changed while this revision is frozen.",
+                    status_code=409,
+                )
+            existing = await self._evidence_by_source(
+                session, organization_id, draft.id, stored.sha256
+            )
+            if existing is not None:
+                self._require_matching_evidence_metadata(existing, source_class, claim_fields)
+                response = self._evidence_view(existing)
+                await repository.complete_idempotency(
+                    idem.record,
+                    response_status=200,
+                    response_payload=response,
+                    response_reference=existing.id,
+                )
+                return 200, response
+            now = _now()
+            record = SellerEvidenceAttachment(
+                id=new_id("sevd"),
+                organization_id=organization_id,
+                draft_id=draft.id,
+                attached_revision=draft.current_revision,
+                source_reference_hash=stored.sha256,
+                public_source_url=None,
+                object_bucket=stored.bucket,
+                object_key=stored.key,
+                object_version_id=stored.version_id,
+                object_checksum=stored.sha256,
+                content_type=stored.content_type,
+                size_bytes=stored.size_bytes,
+                source_class=source_class,
+                claim_fields=claim_fields,
+                observed_at=observed_at,
+                verification_state="UNVERIFIED",
+                verification_actor_id=None,
+                verification_method=None,
+                added_by_actor_id=actor_id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(record)
+            response = self._evidence_view(record)
+            await repository.add_outbox(
+                aggregate_type="seller_pack_draft",
+                aggregate_id=draft.id,
+                event_type="seller_evidence.object_attached",
+                event_key=f"seller-evidence-object-attached:{record.id}",
+                payload={
+                    "draft_id": draft.id,
+                    "evidence_id": record.id,
+                    "object_checksum": stored.sha256,
+                    "object_version_id": stored.version_id,
                     "verification_state": record.verification_state,
                 },
             )
@@ -1433,6 +1676,36 @@ class SellerEvidenceService:
         ).scalars()
         return {record.id: record for record in records}
 
+    @staticmethod
+    async def _evidence_by_source(
+        session: AsyncSession,
+        organization_id: str,
+        draft_id: str,
+        source_reference_hash: str,
+    ) -> SellerEvidenceAttachment | None:
+        return (
+            await session.execute(
+                select(SellerEvidenceAttachment).where(
+                    SellerEvidenceAttachment.organization_id == organization_id,
+                    SellerEvidenceAttachment.draft_id == draft_id,
+                    SellerEvidenceAttachment.source_reference_hash == source_reference_hash,
+                )
+            )
+        ).scalar_one_or_none()
+
+    @staticmethod
+    def _require_matching_evidence_metadata(
+        existing: SellerEvidenceAttachment,
+        source_class: str,
+        claim_fields: list[str],
+    ) -> None:
+        if existing.source_class != source_class or existing.claim_fields != claim_fields:
+            raise ApiProblem(
+                code="SELLER_EVIDENCE_SOURCE_CONFLICT",
+                message="This evidence object is already attached with different metadata.",
+                status_code=409,
+            )
+
     def _validate_publication_fields(
         self,
         claims: list[dict[str, Any]],
@@ -1776,6 +2049,10 @@ class SellerEvidenceService:
             "draft_id": record.draft_id,
             "verification_state": record.verification_state,
             "source_reference_hash": record.source_reference_hash,
+            "object_checksum": record.object_checksum,
+            "content_type": record.content_type,
+            "size_bytes": record.size_bytes,
+            "version_bound": record.object_version_id is not None,
         }
 
     @staticmethod

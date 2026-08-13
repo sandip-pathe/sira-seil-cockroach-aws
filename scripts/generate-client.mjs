@@ -113,7 +113,13 @@ for (const [routePath, pathItem] of Object.entries(openapi.paths)) {
           )
           .join(" ")} }`
       : "Record<never, never>";
-    const bodySchema = operation.requestBody?.content?.["application/json"]?.schema;
+    const bodyContent = operation.requestBody?.content ?? {};
+    const bodyMediaType = Object.hasOwn(bodyContent, "application/json")
+      ? "application/json"
+      : Object.hasOwn(bodyContent, "multipart/form-data")
+        ? "multipart/form-data"
+        : null;
+    const bodySchema = bodyMediaType ? bodyContent[bodyMediaType]?.schema : undefined;
     const response = successResponse(operation);
     operations.push({
       id: operation.operationId,
@@ -121,7 +127,13 @@ for (const [routePath, pathItem] of Object.entries(openapi.paths)) {
       path: routePath,
       pathType,
       queryType,
-      bodyType: bodySchema ? typeFor(bodySchema) : "never",
+      bodyType:
+        bodyMediaType === "multipart/form-data"
+          ? "FormData"
+          : bodySchema
+            ? typeFor(bodySchema)
+            : "never",
+      bodyMediaType,
       responseType: responseTypeFor(response),
       responseMediaType: response.mediaType,
       idempotency: parameters.some(
@@ -147,7 +159,7 @@ const typesSource = `// Generated from contracts/openapi/openapi.json. Do not ed
 const operationRuntime = operations
   .map(
     (operation) =>
-      `  ${propertyName(operation.id)}: { method: ${JSON.stringify(operation.method)}, path: ${JSON.stringify(operation.path)}, responseMediaType: ${JSON.stringify(operation.responseMediaType)} },`,
+      `  ${propertyName(operation.id)}: { method: ${JSON.stringify(operation.method)}, path: ${JSON.stringify(operation.path)}, bodyMediaType: ${JSON.stringify(operation.bodyMediaType)}, responseMediaType: ${JSON.stringify(operation.responseMediaType)} },`,
   )
   .join("\n");
 
@@ -185,11 +197,27 @@ type BodyInput<K extends OperationId>`,
   )
   .replace("this.fetcher(new URL(route, this.baseUrl),", "this.fetcher.call(globalThis, url,");
 
+const mediaAwareClientSource = queryAwareClientSource
+  .replace(
+    '    if (body !== undefined) headers.set("Content-Type", "application/json");\n\n    const response',
+    `    if (body !== undefined && operation.bodyMediaType === "application/json") {
+      headers.set("Content-Type", "application/json");
+    }
+    const requestBody = operation.bodyMediaType === "multipart/form-data"
+      ? body as FormData
+      : body === undefined
+        ? undefined
+        : JSON.stringify(body);
+
+    const response`,
+  )
+  .replace("body: body === undefined ? undefined : JSON.stringify(body),", "body: requestBody,");
+
 const indexSource = `// Generated from contracts/openapi/openapi.json. Do not edit by hand.\nexport * from "./client";\nexport * from "./types";\nexport const contractVersion = ${JSON.stringify(openapi.info.version)} as const;\n`;
 
 const outputs = new Map([
   [path.join(outputDir, "types.ts"), typesSource],
-  [path.join(outputDir, "client.ts"), queryAwareClientSource],
+  [path.join(outputDir, "client.ts"), mediaAwareClientSource],
   [path.join(outputDir, "index.ts"), indexSource],
 ]);
 

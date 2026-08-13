@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 import httpx
 import pytest
 import pytest_asyncio
+from fastapi import FastAPI
 from sira_api.config import ApiSettings
 from sira_api.main import create_app
 
@@ -50,7 +51,7 @@ def isolate_provider_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest_asyncio.fixture
-async def api_client() -> AsyncIterator[httpx.AsyncClient]:
+async def api_application() -> AsyncIterator[FastAPI]:
     """Exercise the real repositories with an explicitly noncanonical SQLite test DB."""
 
     database_url = "sqlite+aiosqlite:///:memory:"
@@ -62,15 +63,20 @@ async def api_client() -> AsyncIterator[httpx.AsyncClient]:
         database=database,
     )
     async with application.router.lifespan_context(application):
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=application),
-            base_url="http://test",
-            headers={
-                "X-Actor-Roles": BUYER_TEST_AUTHORITIES,
-                "X-Actor-Party": "BUYER",
-                "X-Step-Up-Verified": "true",
-            },
-        ) as client:
-            reset = await client.post("/v1/demo/reset")
-            assert reset.status_code == 200, reset.text
-            yield client
+        yield application
+
+
+@pytest_asyncio.fixture
+async def api_client(api_application: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=api_application),
+        base_url="http://test",
+        headers={
+            "X-Actor-Roles": BUYER_TEST_AUTHORITIES,
+            "X-Actor-Party": "BUYER",
+            "X-Step-Up-Verified": "true",
+        },
+    ) as client:
+        reset = await client.post("/v1/demo/reset")
+        assert reset.status_code == 200, reset.text
+        yield client

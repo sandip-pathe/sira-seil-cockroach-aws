@@ -6,6 +6,7 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import cast
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -16,6 +17,11 @@ from fastapi.routing import APIRoute
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import Response
 
+from integrations.aws_services import (
+    ContentAddressedEvidenceStore,
+    S3Client,
+    create_aws_client,
+)
 from persistence.database import Database, DatabaseSettings
 from persistence.repositories import PersistenceConflict
 
@@ -86,6 +92,7 @@ def create_app(
     database: Database | None = None,
     identity_adapter: IdentityAdapter | None = None,
     seller_directory: SellerOrganizationDirectory | None = None,
+    evidence_store: ContentAddressedEvidenceStore | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     resolved_settings.assert_safe_runtime()
@@ -173,9 +180,24 @@ def create_app(
             seller_directory=resolved_seller_directory,
             quote_clock=fixture_quote_clock,
         )
+        resolved_evidence_store = evidence_store
+        if resolved_evidence_store is None and resolved_settings.s3_evidence_bucket.strip():
+            resolved_evidence_store = ContentAddressedEvidenceStore(
+                client=cast(
+                    S3Client,
+                    create_aws_client(
+                        "s3",
+                        region=resolved_settings.aws_region,
+                        profile=resolved_settings.aws_profile.strip() or None,
+                    ),
+                ),
+                bucket=resolved_settings.s3_evidence_bucket.strip(),
+                kms_key_id=resolved_settings.s3_evidence_kms_key_id.strip() or None,
+            )
         seller_evidence_service = SellerEvidenceService(
             resolved_database,
             development_fixture_mode=resolved_settings.development_fixture_mode,
+            evidence_store=resolved_evidence_store,
         )
         application.state.workflow_service = workflow_service
         application.state.seller_evidence_service = seller_evidence_service
