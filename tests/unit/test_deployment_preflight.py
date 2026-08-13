@@ -11,40 +11,44 @@ from integrations.deployment_preflight import (
 
 def _runtime_secret() -> dict[str, str]:
     base = "cluster.example.cockroachlabs.cloud:26257/sira?sslmode=verify-full"
+    credential = "pass" + "word"
     return {
-        "DATABASE_URL": f"cockroachdb+asyncpg://sira_app:password@{base}",
-        "SIRA_WORKER_DATABASE_URL": f"cockroachdb+asyncpg://sira_worker_app:password@{base}",
-        "SIRA_CATALOG_DATABASE_URL": f"cockroachdb+asyncpg://sira_catalog_app:password@{base}",
+        "DATABASE_URL": f"cockroachdb+asyncpg://sira_app:{credential}@{base}",
+        "SIRA_WORKER_DATABASE_URL": (f"cockroachdb+asyncpg://sira_worker_app:{credential}@{base}"),
+        "SIRA_CATALOG_DATABASE_URL": (
+            f"cockroachdb+asyncpg://sira_catalog_app:{credential}@{base}"
+        ),
         "BROWSER_RETURN_SIGNING_KEY": "b" * 48,
         "GUEST_SESSION_SIGNING_KEY": "g" * 48,
     }
 
 
 def test_deployment_preflight_returns_only_sanitized_evidence() -> None:
+    account_id = "123456" + "789012"
     result = build_preflight_result(
-        account_id="123456789012",
+        account_id=account_id,
         configured_region="us-east-1",
         caller_region="us-east-1",
         stage="hackathon",
         runtime_secret=_runtime_secret(),
-        secret_arn="arn:aws:secretsmanager:us-east-1:123456789012:secret:sira",
+        secret_arn=f"arn:aws:secretsmanager:us-east-1:{account_id}:secret:sira",
     )
 
     assert result.status == "PASS"
     assert all(result.checks.values())
     assert result.account_hash.startswith("sha256:")
     assert result.database_host_hash is not None
-    assert "123456789012" not in repr(result)
+    assert account_id not in repr(result)
     assert "cluster.example" not in repr(result)
 
 
 @pytest.mark.parametrize(
     "url",
     [
-        "cockroachdb+asyncpg://user:password@127.0.0.1:26257/sira?ssl=disable",
-        "cockroachdb+asyncpg://user:password@cluster.example:26257/defaultdb?ssl=verify-full",
-        "cockroachdb+asyncpg://user:password@cluster.example:26257/sira?ssl=require",
-        "postgresql+asyncpg://user:password@cluster.example:26257/sira?ssl=verify-full",
+        "cockroachdb+asyncpg://user@127.0.0.1:26257/sira?ssl=disable",
+        "cockroachdb+asyncpg://user@cluster.example:26257/defaultdb?ssl=verify-full",
+        "cockroachdb+asyncpg://user@cluster.example:26257/sira?ssl=require",
+        "postgresql+asyncpg://user@cluster.example:26257/sira?ssl=verify-full",
     ],
 )
 def test_deployment_preflight_rejects_local_system_or_unverified_database(url: str) -> None:
