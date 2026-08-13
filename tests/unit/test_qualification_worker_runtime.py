@@ -13,7 +13,9 @@ from sira_worker import runtime as worker_runtime
 from sira_worker.qualification import (
     MissionInput,
     QualificationAgentDecision,
+    QualificationCriterion,
     QualificationWorker,
+    _validate_grounded_decision,
 )
 
 from persistence.database import Database
@@ -261,7 +263,14 @@ async def test_evaluate_requires_every_candidate_evidence_call(
         "recommended_product_id": "product-a",
         "summary": "Product A best satisfies the current requirements.",
         "cited_dependency_ids": ["dependency-a", "dependency-b"],
-        "criteria": [{"criterion": "EU hosting", "result": "PASS"}],
+        "criteria": [
+            {
+                "criterion": "EU hosting",
+                "result": "PASS",
+                "rationale": "The pinned source says EU hosting is available.",
+                "cited_dependency_ids": ["dependency-a"],
+            }
+        ],
         "confidence": 0.92,
     }
 
@@ -308,7 +317,16 @@ async def test_evaluate_requires_every_candidate_evidence_call(
         _attempt_id: str,
         product_id: str,
     ) -> dict[str, object]:
-        return {"product_id": product_id, "evidence": [f"dependency-{product_id[-1]}"]}
+        return {
+            "product_id": product_id,
+            "catalog": [],
+            "evidence": [
+                {
+                    "dependency_id": f"dependency-{product_id[-1]}",
+                    "facts": {"eu_hosting": product_id == "product-a"},
+                }
+            ],
+        }
 
     database = cast(Database, FakeDatabase())
     bedrock = Bedrock()
@@ -328,3 +346,74 @@ async def test_evaluate_requires_every_candidate_evidence_call(
     )
     assert decision.recommended_product_id == "product-a"
     assert bedrock.calls == 2
+
+
+def test_grounded_decision_validator_rejects_out_of_scope_model_claims() -> None:
+    valid = QualificationAgentDecision(
+        recommended_product_id="product-a",
+        summary="Product A fits the pinned requirement.",
+        cited_dependency_ids=["evidence-a"],
+        criteria=[
+            QualificationCriterion(
+                criterion="EU hosting",
+                result="PASS",
+                rationale="Pinned evidence confirms EU hosting.",
+                cited_dependency_ids=["evidence-a"],
+            )
+        ],
+        confidence="0.9",
+    )
+    scope = frozenset({"product-a", "product-b"})
+    dependencies = {"evidence-a": "product-a", "evidence-b": "product-b"}
+    _validate_grounded_decision(valid, allowed_products=scope, dependency_products=dependencies)
+
+    cases = (
+        (
+            valid.model_copy(update={"recommended_product_id": "product-x"}),
+            "outside the candidate set",
+        ),
+        (
+            valid.model_copy(update={"cited_dependency_ids": ["invented"]}),
+            "outside the pinned dependency set",
+        ),
+        (
+            valid.model_copy(update={"cited_dependency_ids": ["evidence-b"]}),
+            "lacks product-specific evidence",
+        ),
+        (
+            valid.model_copy(
+                update={
+                    "criteria": [
+                        QualificationCriterion(
+                            criterion="Price",
+                            result="PASS",
+                            rationale="The source contains a price.",
+                            cited_dependency_ids=["evidence-b"],
+                        )
+                    ]
+                }
+            ),
+            "criterion citations",
+        ),
+    )
+    for decision, message in cases:
+        with pytest.raises(PersistenceConflict, match=message):
+            _validate_grounded_decision(
+                decision,
+                allowed_products=scope,
+                dependency_products=dependencies,
+            )
+
+
+def test_qualification_criteria_require_rationale_and_unique_citations() -> None:
+    with pytest.raises(ValueError, match="require rationale and citations"):
+        QualificationCriterion(criterion="EU hosting", result="PASS")
+    with pytest.raises(ValueError, match="must be unique"):
+        QualificationCriterion(
+            criterion="EU hosting",
+            result="PASS",
+            rationale="Two identical citations are invalid.",
+            cited_dependency_ids=["evidence-a", "evidence-a"],
+        )
+    unknown = QualificationCriterion(criterion="SOC 2", result="UNKNOWN")
+    assert unknown.cited_dependency_ids == []

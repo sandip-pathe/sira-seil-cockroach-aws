@@ -8,7 +8,7 @@ from decimal import Decimal
 from hashlib import sha256
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sira_agents.bedrock_runtime import (
     BedrockClient,
     BedrockConverseRuntime,
@@ -46,6 +46,14 @@ class QualificationCriterion(BaseModel):
     result: Literal["PASS", "PARTIAL", "FAIL", "UNKNOWN"]
     rationale: str | None = Field(default=None, max_length=1000)
     cited_dependency_ids: list[str] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def require_grounding_for_assertions(self) -> QualificationCriterion:
+        if self.result != "UNKNOWN" and (not self.rationale or not self.cited_dependency_ids):
+            raise ValueError("non-UNKNOWN criteria require rationale and citations")
+        if len(self.cited_dependency_ids) != len(set(self.cited_dependency_ids)):
+            raise ValueError("criterion citation IDs must be unique")
+        return self
 
 
 class QualificationAgentDecision(BaseModel):
@@ -261,6 +269,7 @@ class QualificationWorker:
     ) -> QualificationAgentDecision:
         allowed_products = frozenset(candidate.product_id for candidate in candidates)
         retrieved_products: set[str] = set()
+        dependency_products: dict[str, str] = {}
 
         async def retrieve(
             tool_input: Mapping[str, Any], _context: AgentRunContext | None
@@ -269,11 +278,20 @@ class QualificationWorker:
             if product_id not in allowed_products:
                 raise PersistenceConflict("model requested evidence outside candidate set")
             retrieved_products.add(product_id)
-            return await self._evidence_for_product(
+            result = await self._evidence_for_product(
                 mission_input.organization_id,
                 lease.attempt_id,
                 product_id,
             )
+            for collection in ("catalog", "evidence"):
+                rows = result.get(collection, [])
+                if isinstance(rows, list):
+                    for row in rows:
+                        if isinstance(row, Mapping):
+                            dependency_id = row.get("dependency_id")
+                            if isinstance(dependency_id, str) and dependency_id:
+                                dependency_products[dependency_id] = product_id
+            return result
 
         runtime = BedrockConverseRuntime(
             client=self.bedrock_client,
@@ -326,6 +344,11 @@ class QualificationWorker:
             or set(result.tool_calls) != {"retrieve_product_evidence"}
         ):
             raise PersistenceConflict("Bedrock did not inspect pinned product evidence")
+        _validate_grounded_decision(
+            result.output,
+            allowed_products=allowed_products,
+            dependency_products=dependency_products,
+        )
         return result.output
 
     async def _evidence_for_product(
@@ -447,6 +470,33 @@ def _unique_products(
         if len(selected) == limit:
             break
     return tuple(selected)
+
+
+def _validate_grounded_decision(
+    decision: QualificationAgentDecision,
+    *,
+    allowed_products: frozenset[str],
+    dependency_products: Mapping[str, str],
+) -> None:
+    """Fail closed when model conclusions exceed the pinned snapshot."""
+
+    if decision.recommended_product_id not in allowed_products:
+        raise PersistenceConflict("Bedrock recommended a product outside the candidate set")
+    cited = frozenset(decision.cited_dependency_ids)
+    available = frozenset(dependency_products)
+    if not cited.issubset(available):
+        raise PersistenceConflict("Bedrock cited evidence outside the pinned dependency set")
+    recommended_evidence = frozenset(
+        dependency_id
+        for dependency_id, product_id in dependency_products.items()
+        if product_id == decision.recommended_product_id
+    )
+    if cited.isdisjoint(recommended_evidence):
+        raise PersistenceConflict("Bedrock recommendation lacks product-specific evidence")
+    for criterion in decision.criteria:
+        criterion_citations = frozenset(criterion.cited_dependency_ids)
+        if not criterion_citations.issubset(cited):
+            raise PersistenceConflict("criterion citations must be included in decision citations")
 
 
 def _stable_id(prefix: str, value: str) -> str:

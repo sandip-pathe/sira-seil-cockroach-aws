@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "grounded-current-candidate",
+      "expected": "ACCEPT",
+      "allowed_products": ["privacy-safe", "lower-cost"],
+      "dependency_products": {
+        "catalog-privacy-v2": "privacy-safe",
+        "evidence-privacy-eu-v2": "privacy-safe",
+        "catalog-cheap-v2": "lower-cost",
+        "evidence-cheap-us-v2": "lower-cost"
+      },
+      "decision": {
+        "recommended_product_id": "privacy-safe",
+        "summary": "The privacy-safe product satisfies the EU hosting constraint.",
+        "cited_dependency_ids": ["catalog-privacy-v2", "evidence-privacy-eu-v2", "evidence-cheap-us-v2"],
+        "criteria": [
+          {
+            "criterion": "EU hosting",
+            "result": "PASS",
+            "rationale": "The pinned v2 evidence declares EU hosting.",
+            "cited_dependency_ids": ["evidence-privacy-eu-v2"]
+          }
+        ],
+        "confidence": "0.9500"
+      }
+    },
+    {
+      "id": "invented-product",
+      "expected": "REJECT",
+      "allowed_products": ["privacy-safe", "lower-cost"],
+      "dependency_products": {"evidence-privacy-eu-v2": "privacy-safe"},
+      "decision": {
+        "recommended_product_id": "unknown-vendor",
+        "summary": "An unscoped product should never be accepted.",
+        "cited_dependency_ids": ["evidence-privacy-eu-v2"],
+        "criteria": [],
+        "confidence": "0.9000"
+      }
+    },
+    {
+      "id": "invented-citation",
+      "expected": "REJECT",
+      "allowed_products": ["privacy-safe", "lower-cost"],
+      "dependency_products": {"evidence-privacy-eu-v2": "privacy-safe"},
+      "decision": {
+        "recommended_product_id": "privacy-safe",
+        "summary": "An invented source should never be accepted.",
+        "cited_dependency_ids": ["evidence-invented"],
+        "criteria": [],
+        "confidence": "0.9000"
+      }
+    },
+    {
+      "id": "wrong-product-grounding",
+      "expected": "REJECT",
+      "allowed_products": ["privacy-safe", "lower-cost"],
+      "dependency_products": {
+        "evidence-privacy-eu-v2": "privacy-safe",
+        "evidence-cheap-us-v2": "lower-cost"
+      },
+      "decision": {
+        "recommended_product_id": "privacy-safe",
+        "summary": "A recommendation must cite evidence for that product.",
+        "cited_dependency_ids": ["evidence-cheap-us-v2"],
+        "criteria": [],
+        "confidence": "0.9000"
+      }
+    },
+    {
+      "id": "criterion-citation-outside-decision",
+      "expected": "REJECT",
+      "allowed_products": ["privacy-safe", "lower-cost"],
+      "dependency_products": {
+        "evidence-privacy-eu-v2": "privacy-safe",
+        "catalog-privacy-v2": "privacy-safe"
+      },
+      "decision": {
+        "recommended_product_id": "privacy-safe",
+        "summary": "Criterion sources must be included in the decision citation set.",
+        "cited_dependency_ids": ["catalog-privacy-v2"],
+        "criteria": [
+          {
+            "criterion": "EU hosting",
+            "result": "PASS",
+            "rationale": "The evidence declares EU hosting.",
+            "cited_dependency_ids": ["evidence-privacy-eu-v2"]
+          }
+        ],
+        "confidence": "0.9000"
+      }
+    }
+  ]
+}

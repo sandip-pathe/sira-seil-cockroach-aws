@@ -24,6 +24,7 @@ Invoke-CheckedPython -Arguments @("-m", "ruff", "format", "--check", "python", "
 Invoke-CheckedPython -Arguments @("-m", "mypy", "python", "services")
 Invoke-CheckedPython -Arguments @("-m", "pytest", "--cov", "--cov-report=term-missing", "--cov-fail-under=75")
 Invoke-CheckedPython -Arguments @("scripts/generate_openapi.py", "--check")
+Invoke-CheckedPython -Arguments @("scripts/evaluate_qualification_agent.py", "--check")
 Invoke-Pnpm -Arguments @("check:web")
 Invoke-Pnpm -Arguments @("format:check")
 Invoke-CheckedPython -Arguments @("scripts/credential_scan.py", "--current-tree-only")
