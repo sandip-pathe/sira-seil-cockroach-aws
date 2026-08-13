@@ -143,9 +143,7 @@ async def test_workspace_settings_are_versioned_tenant_private_and_retry_safe() 
         async with database.transaction("org_other") as session:
             assert (
                 await session.scalar(
-                    select(WorkspaceSettings).where(
-                        WorkspaceSettings.id == created["resource_id"]
-                    )
+                    select(WorkspaceSettings).where(WorkspaceSettings.id == created["resource_id"])
                 )
             ) is None
     finally:
