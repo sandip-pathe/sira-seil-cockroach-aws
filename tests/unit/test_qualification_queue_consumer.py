@@ -9,7 +9,10 @@ import pytest
 from sira_worker.qualification import QualificationRunResult, QualificationWorker
 from sira_worker.queue_consumer import QualificationQueueConsumer
 
-from persistence.database import Database
+from domain import content_hash
+from persistence.database import Database, DatabaseSettings
+from persistence.models import Base
+from persistence.qualification_models import QualificationDecision, QualificationMission
 
 
 class FakeSqs:
@@ -150,3 +153,84 @@ async def test_process_rejects_tampered_body_hash() -> None:
 
     with pytest.raises(ValueError, match="body hash"):
         await consumer.process(message)
+
+
+@pytest.mark.asyncio
+async def test_completed_mission_is_receipted_and_replayed_without_worker() -> None:
+    database = Database(DatabaseSettings(database_url="sqlite+aiosqlite:///:memory:"))
+    async with database.engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    message = _message()
+    mission_id = "qmission_0123456789abcdef0123456789abcdef"
+    decision_id = "qdecision_completed"
+    digest = content_hash({"mission": mission_id})
+    async with database.transaction("org_buyer") as session:
+        session.add(
+            QualificationMission(
+                id=mission_id,
+                buyer_context_version_id="context-v1",
+                buyer_context_hash=digest,
+                buyer_context_payload={"company": "Buyer"},
+                requirement_brief_version_id="brief-v1",
+                requirement_brief_hash=digest,
+                requirement_brief_payload={"category": "meeting-intelligence"},
+                procurement_policy_version="policy-v1",
+                procurement_policy_hash=digest,
+                procurement_policy_payload={"human_approval": True},
+                trace_id="trace-1",
+                state="COMPLETED",
+                version=1,
+                organization_id="org_buyer",
+            )
+        )
+        session.add(
+            QualificationDecision(
+                id=decision_id,
+                mission_id=mission_id,
+                attempt_id="attempt-completed",
+                input_digest=digest,
+                decision_digest=content_hash({"decision": decision_id}),
+                recommended_product_id="product-completed",
+                payload={"summary": "complete"},
+                approval_state="APPROVED",
+                current=True,
+                organization_id="org_buyer",
+            )
+        )
+    worker = FakeWorker()
+    consumer = QualificationQueueConsumer(
+        client=FakeSqs(),
+        queue_url="https://sqs.example/qualification.fifo",
+        database=database,
+        worker=cast(QualificationWorker, worker),
+        wait_time_seconds=1,
+    )
+    try:
+        first = await consumer.process(message)
+        second = await consumer.process(message)
+        assert first.result_ref == second.result_ref == decision_id
+        assert first.replayed is False
+        assert second.replayed is True
+        assert worker.calls == []
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_poll_rejects_malformed_sqs_responses() -> None:
+    consumer = _consumer(FakeSqs(), FakeWorker())
+    consumer.client = cast(Any, SimpleNamespace(receive_message=lambda **_kwargs: {"Messages": {}}))
+    with pytest.raises(RuntimeError, match="message collection"):
+        await consumer.poll_once()
+
+    consumer.client = cast(
+        Any, SimpleNamespace(receive_message=lambda **_kwargs: {"Messages": ["invalid"]})
+    )
+    with pytest.raises(RuntimeError, match="invalid message"):
+        await consumer.poll_once()
+
+    consumer.client = cast(
+        Any, SimpleNamespace(receive_message=lambda **_kwargs: {"Messages": [{}]})
+    )
+    with pytest.raises(RuntimeError, match="receipt handle"):
+        await consumer.poll_once()

@@ -188,7 +188,7 @@ class QualificationRepository:
         return AttemptLease(attempt_id, int(generation), lease_owner, expires_at)
 
     async def snapshot_attempt(self, *, lease: AttemptLease) -> tuple[DependencySnapshot, ...]:
-        attempt = await self._fenced_attempt(lease, allowed_states={"RUNNING"})
+        attempt = await self._fenced_attempt(lease, allowed_states={"RUNNING", "SNAPSHOT_COMPLETE"})
         mission = await self.session.scalar(
             select(QualificationMission).where(
                 QualificationMission.organization_id == self.organization_id,
@@ -317,6 +317,10 @@ class QualificationRepository:
                 organization_id=self.organization_id,
             )
         )
+        # Sessions deliberately disable autoflush so model work never causes
+        # incidental writes. Make this method's committed snapshot visible to
+        # an immediate idempotent replay in the same caller-owned transaction.
+        await self.session.flush()
         return dependencies
 
     async def checkpoint_attempt(

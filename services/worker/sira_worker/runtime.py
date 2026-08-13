@@ -6,10 +6,10 @@ import asyncio
 import logging
 import os
 import socket
-from typing import Any, Literal, cast
+from typing import Annotated, Any, Literal, cast
 
 from pydantic import Field, SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from sira_agents.bedrock_runtime import (
     BedrockGuardrail,
     TitanEmbeddingClient,
@@ -36,7 +36,7 @@ class WorkerSettings(BaseSettings):
     catalog_database_url: SecretStr = Field(
         default=SecretStr(""), validation_alias="SIRA_CATALOG_DATABASE_URL"
     )
-    organization_ids: tuple[str, ...] = Field(
+    organization_ids: Annotated[tuple[str, ...], NoDecode] = Field(
         default=(), validation_alias="WORKER_ORGANIZATION_IDS"
     )
     aws_region: str = Field(default="us-east-1", validation_alias="AWS_REGION")
