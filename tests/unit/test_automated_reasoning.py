@@ -35,7 +35,10 @@ async def test_review_is_sanitized_explanatory_only_and_tags_query_and_claim() -
                                         "untranslatedClaims": [],
                                     },
                                     "contradictingRules": [
-                                        {"identifier": "A1B2C3D4E5F6", "policyVersionArn": "arn"}
+                                        {
+                                            "identifier": "RULE_POLICY1",
+                                            "policyVersionArn": "provider-policy-version",
+                                        }
                                     ],
                                 }
                             }
@@ -53,7 +56,7 @@ async def test_review_is_sanitized_explanatory_only_and_tags_query_and_claim() -
     assert result.authority == "EXPLANATORY_ONLY"
     assert result.authoritative is False
     assert result.may_authorize is False
-    assert result.findings[0].rule_ids == ("A1B2C3D4E5F6",)
+    assert result.findings[0].rule_ids == ("RULE_POLICY1",)
     assert result.findings[0].untranslated_premises == 1
     assert "must never" not in result.model_dump_json()
     assert client.calls[0]["source"] == "OUTPUT"
