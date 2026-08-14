@@ -66,6 +66,12 @@ class AgentRunResult:
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
 
+class AgentRuntime(Protocol):
+    """Provider-neutral boundary used by API and worker orchestration."""
+
+    async def run(self, request: AgentRunRequest) -> AgentRunResult: ...
+
+
 class _SdkFacade(Protocol):
     def create_agent(
         self,

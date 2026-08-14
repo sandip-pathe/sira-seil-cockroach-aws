@@ -14,7 +14,15 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from sira_agents.bedrock_runtime import TitanEmbeddingClient, create_bedrock_client
+from sira_agents.bedrock_runtime import (
+    BedrockConverseRuntime,
+    BedrockGuardrail,
+    TitanEmbeddingClient,
+    bedrock_tools_from_function_tools,
+    create_bedrock_client,
+)
+from sira_agents.commerce_tools import commerce_tool_registry
+from sira_agents.workspace_tools import workspace_tool_registry
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import Response
 
@@ -211,6 +219,35 @@ def create_app(
             development_fixture_mode=resolved_settings.development_fixture_mode,
             evidence_store=resolved_evidence_store,
         )
+        bedrock_client = (
+            create_bedrock_client(
+                region=resolved_settings.aws_region,
+                profile=resolved_settings.aws_profile.strip() or None,
+            )
+            if resolved_settings.agent_runtime_provider == "bedrock"
+            or resolved_catalog_database is not None
+            else None
+        )
+        workspace_runtime = None
+        if resolved_settings.agent_runtime_provider == "bedrock":
+            if bedrock_client is None:
+                raise RuntimeError("Bedrock runtime client was not initialized")
+            guardrail_id = resolved_settings.bedrock_guardrail_id.strip()
+            workspace_runtime = BedrockConverseRuntime(
+                client=bedrock_client,
+                model_id=resolved_settings.bedrock_chat_model_id,
+                tools=bedrock_tools_from_function_tools(
+                    {**workspace_tool_registry(), **commerce_tool_registry()}
+                ),
+                guardrail=(
+                    BedrockGuardrail(
+                        identifier=guardrail_id,
+                        version=resolved_settings.bedrock_guardrail_version,
+                    )
+                    if guardrail_id
+                    else None
+                ),
+            )
         application.state.workflow_service = workflow_service
         application.state.seller_evidence_service = seller_evidence_service
         application.state.qualification_service = QualificationService(
@@ -218,13 +255,10 @@ def create_app(
             catalog_database=resolved_catalog_database,
             embedding_client=(
                 TitanEmbeddingClient(
-                    client=create_bedrock_client(
-                        region=resolved_settings.aws_region,
-                        profile=resolved_settings.aws_profile.strip() or None,
-                    ),
+                    client=bedrock_client,
                     model_id=resolved_settings.bedrock_embedding_model_id,
                 )
-                if resolved_catalog_database is not None
+                if resolved_catalog_database is not None and bedrock_client is not None
                 else None
             ),
             allow_development_tenant_bootstrap=(
@@ -239,6 +273,8 @@ def create_app(
             workflow_service=workflow_service,
             seller_evidence_service=seller_evidence_service,
             database=resolved_database,
+            runtime=workspace_runtime,
+            runtime_provider=resolved_settings.agent_runtime_provider,
         )
         yield
         close_identity = getattr(resolved_identity_adapter, "aclose", None)

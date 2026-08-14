@@ -21,6 +21,7 @@ from sira_agents.runtime import (
     AgentRole,
     AgentRunContext,
     AgentRunRequest,
+    AgentRuntime,
     AuthorityMode,
     OpenAIAgentsRuntime,
 )
@@ -235,6 +236,8 @@ class WorkspaceService:
         seller_evidence_service: object | None = None,
         database: Database | None = None,
         seil_web_researcher: SeilWebResearcher | None = None,
+        runtime: AgentRuntime | None = None,
+        runtime_provider: str = "openai",
     ) -> None:
         self.fixtures = fixtures
         self.api_key = api_key
@@ -254,7 +257,11 @@ class WorkspaceService:
         self._discovered_catalog: dict[str, dict[str, Any]] = {}
         self._market_refresh_tasks: set[asyncio.Task[None]] = set()
         tools = {**workspace_tool_registry(), **commerce_tool_registry()}
-        self.runtime = OpenAIAgentsRuntime(model=model, tools=tools)
+        self.runtime = runtime or OpenAIAgentsRuntime(model=model, tools=tools)
+        self.runtime_provider = runtime_provider if runtime is not None else "openai"
+        self.runtime_ready = runtime is not None or bool(self.api_key)
+        runtime_tools = getattr(self.runtime, "tools", tools)
+        self.available_tool_names = frozenset(runtime_tools)
 
     def agent_services(self) -> dict[str, object]:
         services: dict[str, object] = {"workspace_catalog": self}
@@ -269,34 +276,16 @@ class WorkspaceService:
             {
                 "id": "sira-agent",
                 "label": "SIRA reasoning and tools",
-                "status": "ready" if self.api_key else "misconfigured",
-                "reason_code": "READY" if self.api_key else "SIRA_KEY_MISSING",
-                "remediation": None if self.api_key else "Configure SIRA_OPENAI_API_KEY",
+                "status": "ready" if self.runtime_ready else "misconfigured",
+                "reason_code": "READY" if self.runtime_ready else "AGENT_RUNTIME_MISSING",
+                "remediation": None if self.runtime_ready else "Configure the agent runtime",
             },
             {
                 "id": "seil-agent",
-                "label": "SEIL reasoning and public research",
-                "status": (
-                    "degraded"
-                    if self._seil_backup_active
-                    else "ready"
-                    if self.seil_api_key
-                    else "misconfigured"
-                ),
-                "reason_code": (
-                    "SEIL_BACKUP_KEY_ACTIVE"
-                    if self._seil_backup_active
-                    else "READY"
-                    if self.seil_api_key
-                    else "SEIL_KEY_MISSING"
-                ),
-                "remediation": (
-                    "Replace the expired SEIL primary key"
-                    if self._seil_backup_active
-                    else None
-                    if self.seil_api_key
-                    else "Configure SEIL_OPENAI_API_KEY"
-                ),
+                "label": "SEIL reasoning and seller evidence",
+                "status": "ready" if self.runtime_ready else "misconfigured",
+                "reason_code": "READY" if self.runtime_ready else "AGENT_RUNTIME_MISSING",
+                "remediation": None if self.runtime_ready else "Configure the agent runtime",
             },
             {
                 "id": "product-evidence",
@@ -365,14 +354,13 @@ class WorkspaceService:
     async def chat(
         self, body: WorkspaceChatCreate, *, run_context: AgentRunContext
     ) -> dict[str, Any]:
-        selected_api_key = self.api_key if body.mode == "sira" else self.seil_api_key
-        if not selected_api_key:
+        if not self.runtime_ready:
             raise ApiProblem(
                 code="AGENT_PROVIDER_NOT_CONFIGURED",
                 message="The workspace agent is not configured on the server.",
                 status_code=503,
                 retryable=False,
-                next_action="configure_openai_api_key",
+                next_action="configure_agent_runtime",
             )
         mission_id, model_context = await self._prepare_mission(
             body=body,
@@ -423,7 +411,7 @@ class WorkspaceService:
                     prompt=body.message,
                     model_context=model_context,
                     run_context=run_context,
-                    allowed_tools=SIRA_TOOL_NAMES if body.mode == "sira" else SEIL_TOOL_NAMES,
+                    allowed_tools=self._allowed_tools(body.mode),
                     output_type=MissionTurnOutput,
                     authority_mode=AuthorityMode.MISSION_OPERATOR,
                 ),
@@ -434,12 +422,12 @@ class WorkspaceService:
             raise ApiProblem(
                 code="AGENT_PROVIDER_AUTHENTICATION_FAILED",
                 message=(
-                    "The server's OpenAI API key is invalid. Replace "
-                    "SIRA_OPENAI_API_KEY and restart the API."
+                    "The configured agent provider rejected its credentials. "
+                    "Replace the provider credentials and restart the API."
                 ),
                 status_code=503,
                 retryable=False,
-                next_action="replace_openai_api_key",
+                next_action="replace_agent_provider_credentials",
             ) from error
         except RateLimitError as error:
             raise ApiProblem(
@@ -501,7 +489,7 @@ class WorkspaceService:
                             mission_id=mission_id, run_context=run_context
                         ),
                         run_context=run_context,
-                        allowed_tools=(SIRA_TOOL_NAMES if body.mode == "sira" else SEIL_TOOL_NAMES),
+                        allowed_tools=self._allowed_tools(body.mode),
                         output_type=MissionTurnOutput,
                         authority_mode=AuthorityMode.MISSION_OPERATOR,
                     ),
@@ -773,7 +761,13 @@ class WorkspaceService:
             enriched["requirement_coverage"] = f"0/{len(required)} stated integrations"
         return enriched
 
+    def _allowed_tools(self, mode: str) -> tuple[str, ...]:
+        configured = SIRA_TOOL_NAMES if mode == "sira" else SEIL_TOOL_NAMES
+        return tuple(name for name in configured if name in self.available_tool_names)
+
     async def _run_agent(self, request: AgentRunRequest, *, mode: str) -> Any:
+        if self.runtime_provider != "openai":
+            return await self.runtime.run(request)
         if mode != "seil":
             return await self.runtime.run(replace(request, api_key=self.api_key))
         selected = self.seil_backup_api_key if self._seil_backup_active else self.seil_api_key

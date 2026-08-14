@@ -76,6 +76,26 @@ async def test_chat_fails_clearly_when_provider_is_not_configured() -> None:
 
 
 @pytest.mark.asyncio
+async def test_injected_bedrock_runtime_does_not_require_an_openai_key() -> None:
+    runtime = _CaptureRuntime()
+    service = WorkspaceService(
+        DemoFixtureBundle.load(),
+        api_key="",
+        model="test",
+        runtime=runtime,
+        runtime_provider="bedrock",
+    )
+
+    result = await service.chat(
+        WorkspaceChatCreate(message="Help me understand my options"),
+        run_context=_run_context(service),
+    )
+
+    assert result["message"] == "ok"
+    assert runtime.request is not None
+
+
+@pytest.mark.asyncio
 async def test_greeting_is_short_and_does_not_start_commerce_agent() -> None:
     service = WorkspaceService(DemoFixtureBundle.load(), api_key="configured", model="test")
     service.runtime = _UnexpectedRuntime()  # type: ignore[assignment]

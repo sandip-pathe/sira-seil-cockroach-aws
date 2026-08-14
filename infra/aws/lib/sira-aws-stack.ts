@@ -457,7 +457,11 @@ export class SiraAwsStack extends cdk.Stack {
         DEMO_RESET_ENABLED: "false",
         GUEST_SESSION_ENABLED: "true",
         AWS_REGION: this.region,
+        AGENT_RUNTIME_PROVIDER: "bedrock",
+        BEDROCK_CHAT_MODEL_ID: props.chatModelId,
         BEDROCK_EMBEDDING_MODEL_ID: props.embeddingModelId,
+        BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
+        BEDROCK_GUARDRAIL_VERSION: guardrailVersion.attrVersion,
         SIRA_SQS_QUEUE_URL: qualificationQueue.queueUrl,
         SIRA_S3_EVIDENCE_BUCKET: evidenceBucket.bucketName,
       },
@@ -497,10 +501,17 @@ export class SiraAwsStack extends cdk.Stack {
     evidenceBucket.grantReadWrite(apiTask.taskRole);
     apiTask.taskRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
-        actions: ["bedrock:InvokeModel"],
+        actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
         resources: [
+          `arn:${this.partition}:bedrock:${this.region}::foundation-model/${props.chatModelId}`,
           `arn:${this.partition}:bedrock:${this.region}::foundation-model/${props.embeddingModelId}`,
         ],
+      }),
+    );
+    apiTask.taskRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:ApplyGuardrail"],
+        resources: [guardrail.attrGuardrailArn],
       }),
     );
 

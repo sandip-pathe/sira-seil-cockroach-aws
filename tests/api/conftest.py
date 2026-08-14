@@ -48,6 +48,11 @@ def isolate_provider_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
 
     for setting in PROVIDER_ENV_KEYS:
         monkeypatch.setenv(setting, "")
+    monkeypatch.setenv("AGENT_RUNTIME_PROVIDER", "openai")
+    monkeypatch.setenv("SIRA_CATALOG_DATABASE_URL", "")
+    monkeypatch.setenv("GUEST_SESSION_ENABLED", "false")
+    monkeypatch.setenv("DEVELOPMENT_FIXTURE_MODE", "true")
+    monkeypatch.setenv("DEMO_RESET_ENABLED", "true")
 
 
 @pytest_asyncio.fixture

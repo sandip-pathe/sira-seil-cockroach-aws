@@ -157,7 +157,7 @@ test("runs a stateless bounded AgentCore evaluator without AgentCore Memory", ()
   assert.match(serialized, /bedrock-agentcore:InvokeAgentRuntime/);
 });
 
-test("keeps tasks private and gives Bedrock only to the qualification role", () => {
+test("keeps tasks private and gives Bedrock only to agent-bearing roles", () => {
   const rendered = template();
 
   const services = rendered.findResources("AWS::ECS::Service");
@@ -178,6 +178,17 @@ test("keeps tasks private and gives Bedrock only to the qualification role", () 
         }),
       ]),
     },
+  });
+  rendered.hasResourceProperties("AWS::ECS::TaskDefinition", {
+    ContainerDefinitions: Match.arrayWith([
+      Match.objectLike({
+        Name: "api",
+        Environment: Match.arrayWith([
+          { Name: "AGENT_RUNTIME_PROVIDER", Value: "bedrock" },
+          { Name: "BEDROCK_CHAT_MODEL_ID", Value: "amazon.nova-micro-v1:0" },
+        ]),
+      }),
+    ]),
   });
   const serialized = JSON.stringify(rendered.toJSON());
   assert.match(serialized, /foundation-model\/amazon\.nova-micro/);

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -87,9 +87,20 @@ class ApiSettings(BaseSettings):
         validation_alias=AliasChoices("AWS_REGION", "AWS_DEFAULT_REGION"),
     )
     aws_profile: str = Field(default="", validation_alias="AWS_PROFILE")
+    agent_runtime_provider: Literal["bedrock", "openai"] = Field(
+        default="openai", validation_alias="AGENT_RUNTIME_PROVIDER"
+    )
+    bedrock_chat_model_id: str = Field(
+        default="amazon.nova-micro-v1:0",
+        validation_alias="BEDROCK_CHAT_MODEL_ID",
+    )
     bedrock_embedding_model_id: str = Field(
         default="amazon.titan-embed-text-v2:0",
         validation_alias="BEDROCK_EMBEDDING_MODEL_ID",
+    )
+    bedrock_guardrail_id: str = Field(default="", validation_alias="BEDROCK_GUARDRAIL_ID")
+    bedrock_guardrail_version: str = Field(
+        default="DRAFT", validation_alias="BEDROCK_GUARDRAIL_VERSION"
     )
     s3_evidence_bucket: str = Field(default="", validation_alias="SIRA_S3_EVIDENCE_BUCKET")
     s3_evidence_kms_key_id: str = Field(default="", validation_alias="SIRA_S3_EVIDENCE_KMS_KEY_ID")
@@ -124,6 +135,8 @@ class ApiSettings(BaseSettings):
         self.browser_return_signing_secret()
         if self.guest_session_enabled:
             self.guest_session_signing_secret()
+        if self.agent_runtime_provider != "bedrock":
+            raise ValueError("production requires AGENT_RUNTIME_PROVIDER=bedrock")
 
     def browser_return_signing_secret(self) -> str:
         value = self.browser_return_signing_key.get_secret_value()

@@ -102,6 +102,71 @@ def create_bedrock_client(*, region: str, profile: str | None = None) -> Bedrock
     )
 
 
+def bedrock_tools_from_function_tools(tools: Mapping[str, object]) -> dict[str, BedrockTool]:
+    """Adapt Agents SDK function tools to Bedrock without duplicating domain handlers."""
+
+    adapted: dict[str, BedrockTool] = {}
+    for registry_name, candidate in tools.items():
+        name = getattr(candidate, "name", None)
+        description = getattr(candidate, "description", None)
+        input_schema = getattr(candidate, "params_json_schema", None)
+        invoke = getattr(candidate, "on_invoke_tool", None)
+        if (
+            not isinstance(name, str)
+            or name != registry_name
+            or not isinstance(description, str)
+            or not isinstance(input_schema, Mapping)
+            or not callable(invoke)
+        ):
+            continue
+        tool_name = name
+        tool_description = description
+        tool_schema = cast(Mapping[str, Any], input_schema)
+        tool_invoke = cast(Callable[..., Awaitable[Any]], invoke)
+
+        async def handler(
+            tool_input: Mapping[str, Any],
+            context: AgentRunContext | None,
+            *,
+            _invoke: Callable[..., Awaitable[Any]] = tool_invoke,
+            _name: str = tool_name,
+        ) -> Mapping[str, Any]:
+            if context is None:
+                raise BedrockRuntimeError("Bedrock function tools require an agent run context")
+            from agents.tool_context import ToolContext
+
+            arguments = json.dumps(dict(tool_input), sort_keys=True, separators=(",", ":"))
+            tool_context = ToolContext(
+                context=context,
+                tool_name=_name,
+                tool_call_id=f"bedrock-{_name}",
+                tool_arguments=arguments,
+            )
+            result = _json_safe(await _invoke(tool_context, arguments))
+            return dict(result) if isinstance(result, Mapping) else {"result": result}
+
+        adapted[tool_name] = BedrockTool(
+            name=tool_name,
+            description=tool_description,
+            input_schema=dict(tool_schema),
+            handler=handler,
+        )
+    return adapted
+
+
+def _json_safe(value: Any) -> Any:
+    dump = getattr(value, "model_dump", None)
+    if callable(dump):
+        return _json_safe(dump(mode="json"))
+    if isinstance(value, Mapping):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
+
+
 @dataclass(slots=True)
 class BedrockConverseRuntime:
     """Provider runtime; tool results are proposals, never authoritative effects."""
@@ -146,6 +211,7 @@ class BedrockConverseRuntime:
         ]
         system_text = self._system_instructions(request)
         tool_calls: list[str] = []
+        proposals: list[Mapping[str, Any]] = []
         usage: dict[str, int] = {}
 
         async with asyncio.timeout(self.timeout_seconds):
@@ -198,6 +264,7 @@ class BedrockConverseRuntime:
                         result = await tool.handler(tool_input, request.run_context)
                         validate_agent_payload(result, seller_visible=seller_visible)
                         tool_calls.append(tool_name)
+                        proposals.extend(_proposals(result))
                         results.append(
                             {
                                 "toolResult": {
@@ -215,7 +282,7 @@ class BedrockConverseRuntime:
                 return AgentRunResult(
                     output=output,
                     tool_calls=tuple(tool_calls),
-                    proposals=_proposals(output),
+                    proposals=tuple([*proposals, *_proposals(output)]),
                     runtime="aws-bedrock-converse",
                     advisory_only=request.authority_mode is AuthorityMode.ADVISORY,
                     ranking_effect=False,

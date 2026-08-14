@@ -16,7 +16,9 @@ from sira_agents.bedrock_runtime import (
     BedrockRuntimeError,
     BedrockTool,
     TitanEmbeddingClient,
+    bedrock_tools_from_function_tools,
 )
+from sira_agents.commerce_tools import commerce_tool_registry
 from sira_agents.runtime import AgentRole, AgentRunContext, AgentRunRequest
 
 
@@ -129,6 +131,54 @@ async def test_converse_tool_loop_keeps_private_context_out_of_model_payload() -
     assert client.converse_calls[1]["messages"][-1]["content"][0]["toolResult"]["content"] == [
         {"json": {"evidence_id": "ev-1", "claim": "EU hosted"}}
     ]
+
+
+async def test_agents_sdk_function_tool_is_reused_by_bedrock_and_returns_proposal() -> None:
+    client = FakeBedrockClient(
+        responses=[
+            _response(
+                {
+                    "toolUse": {
+                        "toolUseId": "tool-1",
+                        "name": "propose_purchase_request",
+                        "input": {"intent": "Buy a support platform", "visibility": "SELECTIVE"},
+                    }
+                },
+                stop_reason="tool_use",
+            ),
+            _response(
+                {"text": json.dumps({"recommendation": "review", "evidence_ids": []})}
+            ),
+        ]
+    )
+    source_tool = commerce_tool_registry()["propose_purchase_request"]
+    runtime = BedrockConverseRuntime(
+        client=client,
+        model_id="amazon.nova-micro-v1:0",
+        tools=bedrock_tools_from_function_tools(
+            {"propose_purchase_request": source_tool}
+        ),
+    )
+    context = AgentRunContext(
+        organization_id="org_buyer",
+        actor_id="actor_buyer",
+        permissions=frozenset({"can_submit_request"}),
+    )
+
+    result = await runtime.run(
+        AgentRunRequest(
+            role=AgentRole.SIRA,
+            instructions="Prepare a reviewable proposal.",
+            prompt="Buy a support platform",
+            model_context={},
+            run_context=context,
+            allowed_tools=("propose_purchase_request",),
+            output_type=Answer,
+        )
+    )
+
+    assert result.proposals[0]["proposal_type"] == "PURCHASE_REQUEST"
+    assert result.proposals[0]["payload"]["organization_id"] == "org_buyer"
 
 
 async def test_converse_rejects_guardrail_intervention_and_unlisted_tool() -> None:

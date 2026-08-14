@@ -63,6 +63,7 @@ def production_settings() -> ApiSettings:
         database_url="cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira?ssl=disable",
         development_fixture_mode=False,
         demo_reset_enabled=False,
+        agent_runtime_provider="bedrock",
         browser_return_signing_key="production-test-browser-return-key",
     )
 
