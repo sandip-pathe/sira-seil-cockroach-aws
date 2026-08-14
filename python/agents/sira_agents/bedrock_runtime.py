@@ -21,6 +21,7 @@ from sira_agents.runtime import (
 
 _TOOL_NAME = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 _THINKING_BLOCK = re.compile(r"<thinking>.*?</thinking>", re.DOTALL | re.IGNORECASE)
+_FINAL_OUTPUT_TOOL = "submit_structured_output"
 
 
 class BedrockRuntimeError(RuntimeError):
@@ -213,6 +214,8 @@ class BedrockConverseRuntime:
         tool_calls: list[str] = []
         proposals: list[Mapping[str, Any]] = []
         usage: dict[str, int] = {}
+        output_tool = _structured_output_tool(request.output_type)
+        force_output_tool = False
 
         async with asyncio.timeout(self.timeout_seconds):
             for _turn in range(self.max_turns):
@@ -225,10 +228,17 @@ class BedrockConverseRuntime:
                         "temperature": 0,
                     },
                 }
-                if allowed:
+                if allowed or output_tool is not None:
+                    tool_specs = [tool.specification() for tool in allowed]
+                    if output_tool is not None:
+                        tool_specs.append(output_tool)
                     call["toolConfig"] = {
-                        "tools": [tool.specification() for tool in allowed],
-                        "toolChoice": {"auto": {}},
+                        "tools": tool_specs,
+                        "toolChoice": (
+                            {"tool": {"name": _FINAL_OUTPUT_TOOL}}
+                            if force_output_tool
+                            else {"auto": {}}
+                        ),
                     }
                 if self.guardrail is not None:
                     call["guardrailConfig"] = {
@@ -249,6 +259,33 @@ class BedrockConverseRuntime:
                 messages.append(message)
                 requested = [block["toolUse"] for block in blocks if "toolUse" in block]
                 if requested:
+                    final_outputs = [
+                        item for item in requested if item.get("name") == _FINAL_OUTPUT_TOOL
+                    ]
+                    if final_outputs:
+                        validator = _output_type_validator(request.output_type)
+                        if len(requested) != 1 or validator is None:
+                            raise BedrockRuntimeError(
+                                "model mixed the final output with domain tool calls"
+                            )
+                        final_input = final_outputs[0].get("input", {})
+                        if not isinstance(final_input, Mapping):
+                            raise BedrockRuntimeError("model supplied invalid final output")
+                        output = validator(final_input)
+                        return AgentRunResult(
+                            output=output,
+                            tool_calls=tuple(tool_calls),
+                            proposals=tuple([*proposals, *_proposals(output)]),
+                            runtime="aws-bedrock-converse",
+                            advisory_only=request.authority_mode is AuthorityMode.ADVISORY,
+                            ranking_effect=False,
+                            metadata={
+                                "model_id": self.model_id,
+                                "usage": usage,
+                                "guardrail_enabled": self.guardrail is not None,
+                                "structured_output": "tool",
+                            },
+                        )
                     results: list[dict[str, Any]] = []
                     for tool_use in requested:
                         tool_name = str(tool_use.get("name", ""))
@@ -278,7 +315,26 @@ class BedrockConverseRuntime:
                     continue
                 if stop_reason not in {"end_turn", "stop_sequence", "max_tokens"}:
                     raise BedrockRuntimeError(f"unsupported Bedrock stop reason: {stop_reason}")
-                output = _parse_output(blocks, request.output_type)
+                try:
+                    output = _parse_output(blocks, request.output_type)
+                except (BedrockRuntimeError, ValueError):
+                    if output_tool is None or force_output_tool:
+                        raise
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "text": (
+                                        "Submit the same final answer now by calling "
+                                        f"{_FINAL_OUTPUT_TOOL}."
+                                    )
+                                }
+                            ],
+                        }
+                    )
+                    force_output_tool = True
+                    continue
                 return AgentRunResult(
                     output=output,
                     tool_calls=tuple(tool_calls),
@@ -306,7 +362,8 @@ class BedrockConverseRuntime:
         if callable(schema_factory):
             schema = schema_factory()
             instructions.append(
-                "Return only JSON matching this schema: "
+                f"When the mission turn is complete, call {_FINAL_OUTPUT_TOOL} with an input "
+                "matching this schema: "
                 + json.dumps(schema, sort_keys=True, separators=(",", ":"))
             )
             instructions.append(
@@ -396,6 +453,24 @@ def _response_message(response: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(content, list):
         raise BedrockRuntimeError("Bedrock assistant message has invalid content")
     return {"role": "assistant", "content": content}
+
+
+def _output_type_validator(output_type: type[Any] | None) -> Callable[[Any], Any] | None:
+    validator = getattr(output_type, "model_validate", None)
+    return cast(Callable[[Any], Any], validator) if callable(validator) else None
+
+
+def _structured_output_tool(output_type: type[Any] | None) -> dict[str, Any] | None:
+    schema_factory = getattr(output_type, "model_json_schema", None)
+    if not callable(schema_factory):
+        return None
+    return {
+        "toolSpec": {
+            "name": _FINAL_OUTPUT_TOOL,
+            "description": "Submit the final validated SIRA or SEIL mission turn.",
+            "inputSchema": {"json": schema_factory()},
+        }
+    }
 
 
 def _parse_output(blocks: list[Any], output_type: type[Any] | None) -> object:

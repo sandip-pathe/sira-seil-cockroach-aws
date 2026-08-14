@@ -128,6 +128,9 @@ async def test_converse_tool_loop_keeps_private_context_out_of_model_payload() -
     assert "credential_handle" not in serialized
     assert client.converse_calls[0]["guardrailConfig"]["guardrailIdentifier"] == "guardrail-1"
     assert client.converse_calls[0]["requestMetadata"] == {"request_id": "request-1"}
+    output_tool = client.converse_calls[0]["toolConfig"]["tools"][-1]["toolSpec"]
+    assert output_tool["name"] == "submit_structured_output"
+    assert output_tool["inputSchema"]["json"]["title"] == "Answer"
     assert client.converse_calls[1]["messages"][-1]["content"][0]["toolResult"]["content"] == [
         {"json": {"evidence_id": "ev-1", "claim": "EU hosted"}}
     ]
@@ -179,6 +182,41 @@ async def test_agents_sdk_function_tool_is_reused_by_bedrock_and_returns_proposa
 
     assert result.proposals[0]["proposal_type"] == "PURCHASE_REQUEST"
     assert result.proposals[0]["payload"]["organization_id"] == "org_buyer"
+
+
+async def test_converse_repairs_prose_with_one_forced_structured_output_tool() -> None:
+    client = FakeBedrockClient(
+        responses=[
+            _response({"text": "Here is the answer: {\"recommendation\":\"review\"} trailing"}),
+            _response(
+                {
+                    "toolUse": {
+                        "toolUseId": "final-1",
+                        "name": "submit_structured_output",
+                        "input": {"recommendation": "review", "evidence_ids": []},
+                    }
+                },
+                stop_reason="tool_use",
+            ),
+        ]
+    )
+    runtime = BedrockConverseRuntime(client=client, model_id="amazon.nova-micro-v1:0")
+
+    result = await runtime.run(
+        AgentRunRequest(
+            role=AgentRole.SIRA,
+            instructions="Evaluate.",
+            prompt="Evaluate.",
+            model_context={},
+            output_type=Answer,
+        )
+    )
+
+    assert result.output == Answer(recommendation="review", evidence_ids=[])
+    assert client.converse_calls[1]["toolConfig"]["toolChoice"] == {
+        "tool": {"name": "submit_structured_output"}
+    }
+    assert result.metadata["structured_output"] == "tool"
 
 
 async def test_converse_rejects_guardrail_intervention_and_unlisted_tool() -> None:
