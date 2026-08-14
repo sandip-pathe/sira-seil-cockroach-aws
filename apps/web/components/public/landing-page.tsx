@@ -329,7 +329,7 @@ export function LandingPage() {
             </div>
             <ul className={styles.connectorList}>
               <li><strong>Evidence</strong><span>Scoped ingestion, citations, freshness, and source health.</span></li>
-              <li><strong>Prava hosted authorization</strong><span>Cardholder handoff and backend reconciliation; credentials never enter the browser.</span></li>
+              <li><strong>Hosted payment authorization</strong><span>Cardholder handoff and backend reconciliation; credentials never enter the browser.</span></li>
               <li><strong>Merchant and fulfillment</strong><span>Order, entitlement, provisioning, cancellation, and refund as separate states.</span></li>
               <li><strong>Company discovery</strong><span>Identity, contracts, inventory, usage, and security sources with a manual path.</span></li>
               <li><strong>Slack and Teams</strong><span>Safe summaries and authenticated deep links, never hidden context.</span></li>

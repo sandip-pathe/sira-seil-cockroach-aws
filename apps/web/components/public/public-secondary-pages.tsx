@@ -511,7 +511,7 @@ export function SecurityPage() {
           <div>
             <ShieldCheck aria-hidden="true" />
             <p>Credential isolation</p>
-            <h2 id="credential-title" data-pretext>Prava credentials stay inside one hosted checkout operation.</h2>
+            <h2 id="credential-title" data-pretext>Payment credentials stay inside one hosted checkout operation.</h2>
           </div>
           <p data-pretext>
             They do not enter product models, browser payloads, persistence, logs,

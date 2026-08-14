@@ -8,7 +8,6 @@ import type {
   DecisionStage,
   DecisionView,
   OptionFeedbackAction,
-  PravaSessionView,
   PurchaseIntentView,
   SolutionOption,
 } from "@sira/api-client";
@@ -49,7 +48,6 @@ import {
 } from "@/lib/api";
 
 import styles from "./decision-surfaces.module.css";
-import { PaymentReconciliation } from "./payment-reconciliation";
 
 const decisionFixture = rawDecisionFixture as unknown as DecisionView;
 
@@ -375,7 +373,7 @@ function OptionsStage({
   );
 }
 
-function ActionStage({ view, optionsHref, onNavigateOptions, onExecute, pending, purchaseIntent, approval, pravaSession, onPrepareAuthority, onApprove, onCreatePrava, authorityPending }: { view: DecisionView; optionsHref: string; onNavigateOptions?: () => void; onExecute: (action: ActionDescriptor) => void; pending: boolean; purchaseIntent: PurchaseIntentView | null; approval: ApprovalRequestView | null; pravaSession: PravaSessionView | null; onPrepareAuthority: () => void; onApprove: (role: string) => void; onCreatePrava: () => void; authorityPending: boolean }) {
+function ActionStage({ view, optionsHref, onNavigateOptions, onExecute, pending, purchaseIntent, approval, onPrepareAuthority, onApprove, authorityPending }: { view: DecisionView; optionsHref: string; onNavigateOptions?: () => void; onExecute: (action: ActionDescriptor) => void; pending: boolean; purchaseIntent: PurchaseIntentView | null; approval: ApprovalRequestView | null; onPrepareAuthority: () => void; onApprove: (role: string) => void; authorityPending: boolean }) {
   const plan = view.selected_action_plan;
   const steps = plan?.execution_steps ?? [];
   const persistedIntentId = view.payment?.purchase_intent_id;
@@ -385,7 +383,7 @@ function ActionStage({ view, optionsHref, onNavigateOptions, onExecute, pending,
     <section className={styles.stageSection}>
       <div className={styles.stageIntro}><p>04 · Action</p><h2>{plan ? "Execute the selected action safely" : "Select an action plan first"}</h2><span>Review, required authority, execution or assignment, and verification remain separate.</span></div>
       {!plan ? <div className={styles.emptyStage}><FileCheck2 aria-hidden="true" /><h3>No plan is selected in this version</h3><p>Return to Options and select the exact plan/version/hash. A fixture preview never creates approval or payment authority.</p>{onNavigateOptions ? <button className={styles.primaryButton} type="button" onClick={onNavigateOptions}>Review options</button> : <Link className={styles.primaryButton} href={optionsHref}>Review options</Link>}</div> : <div className={styles.executionGrid}><ol className={styles.executionTimeline}>{steps.map((step, index) => <li key={step.id} data-status={step.status.toLowerCase()}><span>{step.status === "COMPLETED" ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{step.type.replaceAll("_", " ").toLowerCase()}</strong><small>{step.owner_role.replaceAll("_", " ")} · {step.status.replaceAll("_", " ")}</small>{step.blocker ? <p>{step.blocker}</p> : null}</div>{step.available_action ? <button type="button" disabled={pending || WEB_DATA_MODE === "fixture" || !step.available_action.href.includes("/action-runs")} onClick={() => onExecute(step.available_action!)}>{pending ? "Starting…" : step.available_action.label}</button> : null}</li>)}</ol><aside className={styles.authorityPanel}><p>Authority</p><dl><div><dt>Plan selection</dt><dd>{plan.selected_by_role.replaceAll("_", " ")}</dd></div><div><dt>Approval</dt><dd>{view.approval?.status ?? "Not requested"}</dd></div><div><dt>Payment</dt><dd>{view.payment?.status ?? "Not required"}</dd></div><div><dt>Fulfillment</dt><dd>{view.fulfillment?.status ?? "Not started"}</dd></div></dl></aside></div>}
-      {plan && WEB_DATA_MODE === "api" ? <section className={styles.commerceAuthority}><div><small>Exact offer authority</small><h3>{hasIntent ? `${purchaseIntent?.currency ?? view.payment?.currency} ${purchaseIntent?.landed_total ?? view.payment?.landed_total}` : "Lock the selected offer"}</h3><p>{purchaseIntent ? `Offer ${purchaseIntent.offer_id} · decision v${purchaseIntent.decision_version}` : hasIntent ? `Locked intent ${persistedIntentId}` : "This freezes the decision hash, offer, merchant, amount, fee, and approval policy."}</p></div>{!hasIntent ? <button type="button" disabled={authorityPending} onClick={onPrepareAuthority}>Lock offer and request approval</button> : approvalStatus !== "APPROVED" ? approval ? <div className={styles.approvalRoles}>{approval.required_roles.map((role) => <button type="button" disabled={authorityPending || approval.approved_roles.includes(role)} onClick={() => onApprove(role)} key={role}>{approval.approved_roles.includes(role) ? <Check aria-hidden="true" /> : null}{role.replaceAll("_", " ")}</button>)}</div> : <p>Approval is in progress. Continue from the assigned inbox item.</p> : !pravaSession ? <button type="button" disabled={authorityPending} onClick={onCreatePrava}>Prepare Prava approval</button> : pravaSession.hosted_url ? <div className={styles.pravaApproval}><div><strong>Ready for your approval</strong><span>Prava will use your enrolled card and ask only for passkey confirmation. SIRA never receives your card details.</span></div><button type="button" onClick={() => window.location.assign(pravaSession.hosted_url!)}>Approve with Prava</button></div> : pravaSession.missing_configuration?.includes("PRAVA_CARD_ENROLLMENT_REQUIRED") ? <div className={styles.pravaApproval}><div><strong>Connect a payment card once</strong><span>Add a card in your Prava owner account. Future purchases return here for confirmation only.</span></div><a href="https://pay.prava.space" target="_blank" rel="noreferrer">Open Prava settings</a></div> : <p>Prava setup blocked: {pravaSession.missing_configuration?.join(", ") || "provider unavailable"}</p>}</section> : null}
+      {plan && WEB_DATA_MODE === "api" ? <section className={styles.commerceAuthority}><div><small>Exact offer authority</small><h3>{hasIntent ? `${purchaseIntent?.currency ?? view.payment?.currency} ${purchaseIntent?.landed_total ?? view.payment?.landed_total}` : "Lock the selected offer"}</h3><p>{purchaseIntent ? `Offer ${purchaseIntent.offer_id} · decision v${purchaseIntent.decision_version}` : hasIntent ? `Locked intent ${persistedIntentId}` : "This freezes the decision hash, offer, merchant, amount, fee, and approval policy."}</p></div>{!hasIntent ? <button type="button" disabled={authorityPending} onClick={onPrepareAuthority}>Lock offer and request approval</button> : approvalStatus !== "APPROVED" ? approval ? <div className={styles.approvalRoles}>{approval.required_roles.map((role) => <button type="button" disabled={authorityPending || approval.approved_roles.includes(role)} onClick={() => onApprove(role)} key={role}>{approval.approved_roles.includes(role) ? <Check aria-hidden="true" /> : null}{role.replaceAll("_", " ")}</button>)}</div> : <p>Approval is in progress. Continue from the assigned inbox item.</p> : <p>Approved. Payment remains a separate provider handoff.</p>}</section> : null}
     </section>
   );
 }
@@ -393,7 +391,6 @@ function ActionStage({ view, optionsHref, onNavigateOptions, onExecute, pending,
 function ResultStage({ view }: { view: DecisionView }) {
   return (
     <section className={styles.stageSection}>
-      {view.payment?.purchase_intent_id ? <PaymentReconciliation intentId={view.payment.purchase_intent_id} /> : null}
       <div className={styles.stageIntro}><p>05 · Result</p><h2>Verified outcome and artifacts</h2><span>Payment success, fulfillment, deployment, and outcome are never collapsed into one green state.</span></div>
       {view.result_artifacts.length ? <div className={styles.artifactGrid}>{view.result_artifacts.map((artifact) => <article key={artifact.id}><FileCheck2 aria-hidden="true" /><span><small>{artifact.type.replaceAll("_", " ")}</small><strong>{artifact.safe_label}</strong><p>{artifact.verification_state.replaceAll("_", " ").toLowerCase()} · owned by {artifact.owner_role.replaceAll("_", " ").toLowerCase()}</p></span></article>)}</div> : <div className={styles.emptyStage}><Clock3 aria-hidden="true" /><h3>No verified result yet</h3><p>The selected action has not produced the required action-specific artifacts. No completion is inferred from workflow status alone.</p></div>}
       <div className={styles.resultStates}><article><small>Payment</small><strong>{view.payment?.status ?? "Not required"}</strong><p>A receipt appears only when money moved.</p></article><article><small>Fulfillment</small><strong>{view.fulfillment?.status ?? "Not started"}</strong><p>Entitlement is verified separately from charge.</p></article><article><small>Company stack</small><strong>{view.stack_change?.status ?? "No change applied"}</strong><p>{view.stack_change?.summary ?? "The current Stack remains unchanged."}</p></article><article><small>Outcome</small><strong>Checkpoint not reached</strong><p>Adoption and business outcome need their own evidence.</p></article></div>
@@ -413,16 +410,14 @@ function StageCanvas(props: {
   pendingExecution: boolean;
   purchaseIntent: PurchaseIntentView | null;
   approval: ApprovalRequestView | null;
-  pravaSession: PravaSessionView | null;
   onPrepareAuthority: () => void;
   onApprove: (role: string) => void;
-  onCreatePrava: () => void;
   authorityPending: boolean;
   onNavigateOptions?: () => void;
 }) {
   if (props.stage === "need") return <NeedStage view={props.view} />;
   if (props.stage === "company-fit") return <CompanyFitStage view={props.view} />;
-  if (props.stage === "action") return <ActionStage view={props.view} optionsHref={props.optionsHref} onNavigateOptions={props.onNavigateOptions} onExecute={props.onExecute} pending={props.pendingExecution} purchaseIntent={props.purchaseIntent} approval={props.approval} pravaSession={props.pravaSession} onPrepareAuthority={props.onPrepareAuthority} onApprove={props.onApprove} onCreatePrava={props.onCreatePrava} authorityPending={props.authorityPending} />;
+  if (props.stage === "action") return <ActionStage view={props.view} optionsHref={props.optionsHref} onNavigateOptions={props.onNavigateOptions} onExecute={props.onExecute} pending={props.pendingExecution} purchaseIntent={props.purchaseIntent} approval={props.approval} onPrepareAuthority={props.onPrepareAuthority} onApprove={props.onApprove} authorityPending={props.authorityPending} />;
   if (props.stage === "result") return <ResultStage view={props.view} />;
   return <OptionsStage view={props.view} onLedger={props.onLedger} onSelect={props.onSelect} onFeedback={props.onFeedback} pendingFeedback={props.pendingFeedback} />;
 }
@@ -472,7 +467,6 @@ export function DecisionWorkspacePanel({
   const [selectedOption, setSelectedOption] = useState<SolutionOption | null>(null);
   const [purchaseIntent, setPurchaseIntent] = useState<PurchaseIntentView | null>(null);
   const [approval, setApproval] = useState<ApprovalRequestView | null>(null);
-  const [pravaSession, setPravaSession] = useState<PravaSessionView | null>(null);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
@@ -593,38 +587,6 @@ export function DecisionWorkspacePanel({
     onError: () => setToast("Approval was not recorded."),
   });
 
-  const pravaMutation = useMutation({
-    mutationFn: async () => {
-      const intentId = purchaseIntent?.purchase_intent_id ?? view?.payment?.purchase_intent_id;
-      const approvalStatus = approval?.status ?? view?.approval?.status;
-      if (!intentId || approvalStatus !== "APPROVED") throw new Error("Approval incomplete");
-      const returnUrl = `${window.location.origin}/sira?decision=${encodeURIComponent(requestId)}&version=${activeVersion}&stage=result`;
-      return getBrowserApiClient().request("create_prava_session", {
-        pathParams: { intent_id: intentId },
-        body: { return_url: returnUrl },
-        idempotencyKey: `prava-${intentId}`,
-        headers: buyerDevelopmentHeaders,
-      });
-    },
-    onSuccess: (result) => {
-      setPravaSession(result);
-      setToast(result.setup_blocked ? "Prava reported missing setup." : "Prava approval is ready.");
-    },
-    onError: (error) => {
-      const payload = error instanceof ApiClientError ? error.payload : null;
-      const problem = payload && typeof payload === "object" && "error" in payload
-        ? (payload as { error?: { code?: string; details?: { missing_configuration?: string[] } } }).error
-        : undefined;
-      if (problem?.code === "PROVIDER_SETUP_BLOCKED" || problem?.code === "PRAVA_CARD_ENROLLMENT_REQUIRED") {
-        const missing = problem.code === "PRAVA_CARD_ENROLLMENT_REQUIRED" ? [problem.code] : problem.details?.missing_configuration ?? [];
-        setPravaSession({ id: "pays_setup_blocked", purchase_intent_id: purchaseIntent?.purchase_intent_id ?? view?.payment?.purchase_intent_id ?? "pi_unavailable", status: "NOT_STARTED", hosted_url: null, expires_at: null, production_provider: "PRAVA", production_verified: false, setup_blocked: true, missing_configuration: missing });
-        setToast(problem.code === "PRAVA_CARD_ENROLLMENT_REQUIRED" ? "Add a card to Prava once, then retry." : "Prava needs provider configuration; no payment was attempted.");
-        return;
-      }
-      setToast("Prava checkout could not be created; no payment was attempted.");
-    },
-  });
-
   const normalizedStage = stages.some((item) => item.slug === activeStage) ? activeStage : "options";
   return (
     <div className={styles.embeddedShell}>
@@ -638,7 +600,7 @@ export function DecisionWorkspacePanel({
       {view ? <DecisionPath view={view} requestId={requestId} version={String(activeVersion)} currentSlug={normalizedStage} onNavigate={setActiveStage} /> : <div className={styles.pathSkeleton} />}
       <div className={styles.embeddedCanvas}>
         {query.isPending && WEB_DATA_MODE === "api" ? <div className={styles.canvasLoading}><i /><i /><i /></div> : null}
-        {view ? <StageCanvas stage={normalizedStage} optionsHref="" view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} onExecute={(action) => executionMutation.mutate(action)} pendingExecution={executionMutation.isPending} purchaseIntent={purchaseIntent} approval={approval} pravaSession={pravaSession} onPrepareAuthority={() => authorityMutation.mutate()} onApprove={(role) => approveMutation.mutate(role)} onCreatePrava={() => pravaMutation.mutate()} authorityPending={authorityMutation.isPending || approveMutation.isPending || pravaMutation.isPending} onNavigateOptions={() => setActiveStage("options")} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>This decision has not been evaluated yet. Return to chat and let SIRA finish the work.</p></div> : null}
+        {view ? <StageCanvas stage={normalizedStage} optionsHref="" view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} onExecute={(action) => executionMutation.mutate(action)} pendingExecution={executionMutation.isPending} purchaseIntent={purchaseIntent} approval={approval} onPrepareAuthority={() => authorityMutation.mutate()} onApprove={(role) => approveMutation.mutate(role)} authorityPending={authorityMutation.isPending || approveMutation.isPending} onNavigateOptions={() => setActiveStage("options")} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>This decision has not been evaluated yet. Return to chat and let SIRA finish the work.</p></div> : null}
       </div>
       <div className={toast ? styles.toastVisible : styles.toast} role="status">{toast}</div>
     </div>
@@ -654,7 +616,6 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
   const [selectedOption, setSelectedOption] = useState<SolutionOption | null>(null);
   const [purchaseIntent, setPurchaseIntent] = useState<PurchaseIntentView | null>(null);
   const [approval, setApproval] = useState<ApprovalRequestView | null>(null);
-  const [pravaSession, setPravaSession] = useState<PravaSessionView | null>(null);
   const [toast, setToast] = useState("");
   const mobileChatRef = useRef<HTMLDialogElement>(null);
 
@@ -785,49 +746,6 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
       setToast("A verified buyer account is required to record purchase approval."),
   });
 
-  const pravaMutation = useMutation({
-    mutationFn: async () => {
-      const intentId = purchaseIntent?.purchase_intent_id ?? view?.payment?.purchase_intent_id;
-      const approvalStatus = approval?.status ?? view?.approval?.status;
-      if (!intentId || approvalStatus !== "APPROVED") throw new Error("Approval incomplete");
-      const configuredReturnUrl = process.env.NEXT_PUBLIC_PRAVA_RETURN_URL;
-      const returnUrl = configuredReturnUrl ?? `${window.location.origin}/decisions/${requestId}/versions/${version}/result`;
-      return getBrowserApiClient().request("create_prava_session", {
-        pathParams: { intent_id: intentId },
-        body: { return_url: returnUrl },
-        idempotencyKey: createIdempotencyKey(`prava-${intentId}-${returnUrl}`),
-        headers: buyerDevelopmentHeaders,
-      });
-    },
-    onSuccess: (result) => {
-      setPravaSession(result);
-      setToast(result.setup_blocked ? "Prava reported missing setup." : "Bounded Prava authority created.");
-    },
-    onError: (error) => {
-      const payload = error instanceof ApiClientError ? error.payload : null;
-      const problem = payload && typeof payload === "object" && "error" in payload
-        ? (payload as { error?: { code?: string; details?: { missing_configuration?: string[] } } }).error
-        : undefined;
-      if (problem?.code === "PROVIDER_SETUP_BLOCKED" || problem?.code === "PRAVA_CARD_ENROLLMENT_REQUIRED") {
-        const missing = problem.code === "PRAVA_CARD_ENROLLMENT_REQUIRED" ? [problem.code] : problem.details?.missing_configuration ?? [];
-        setPravaSession({
-          id: "pays_setup_blocked",
-          purchase_intent_id: purchaseIntent?.purchase_intent_id ?? view?.payment?.purchase_intent_id ?? "pi_unavailable",
-          status: "NOT_STARTED",
-          hosted_url: null,
-          expires_at: null,
-          production_provider: "PRAVA",
-          production_verified: false,
-          setup_blocked: true,
-          missing_configuration: missing,
-        });
-        setToast(problem.code === "PRAVA_CARD_ENROLLMENT_REQUIRED" ? "Add a card to Prava once, then retry." : "Prava needs provider configuration; no payment was attempted.");
-        return;
-      }
-      setToast("Prava authority was not created; no payment was attempted.");
-    },
-  });
-
   const activeStage = stages.some((item) => item.slug === stage) ? stage : "options";
   const title = view?.request.intent ?? "Decision Room";
 
@@ -853,7 +771,7 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
           <ConversationPanel onReviewSources={() => setLedgerOpen(true)} />
           <div className={styles.structuredCanvas} id="main-content">
             {query.isPending && WEB_DATA_MODE === "api" ? <div className={styles.canvasLoading}><i /><i /><i /></div> : null}
-            {view ? <StageCanvas stage={activeStage} optionsHref={`/decisions/${requestId}/versions/${version}/options`} view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} onExecute={(action) => executionMutation.mutate(action)} pendingExecution={executionMutation.isPending} purchaseIntent={purchaseIntent} approval={approval} pravaSession={pravaSession} onPrepareAuthority={() => authorityMutation.mutate()} onApprove={(role) => approveMutation.mutate(role)} onCreatePrava={() => pravaMutation.mutate()} authorityPending={authorityMutation.isPending || approveMutation.isPending || pravaMutation.isPending} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>The last verified state cannot be loaded. Retry after the local API is available.</p></div> : versionMismatch || fixtureRequestMissing ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Nothing was substituted</h2><p>The requested immutable decision record is not available in this data mode.</p></div> : null}
+            {view ? <StageCanvas stage={activeStage} optionsHref={`/decisions/${requestId}/versions/${version}/options`} view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} onExecute={(action) => executionMutation.mutate(action)} pendingExecution={executionMutation.isPending} purchaseIntent={purchaseIntent} approval={approval} onPrepareAuthority={() => authorityMutation.mutate()} onApprove={(role) => approveMutation.mutate(role)} authorityPending={authorityMutation.isPending || approveMutation.isPending} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>The last verified state cannot be loaded. Retry after the local API is available.</p></div> : versionMismatch || fixtureRequestMissing ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Nothing was substituted</h2><p>The requested immutable decision record is not available in this data mode.</p></div> : null}
           </div>
         </div>
       </main>

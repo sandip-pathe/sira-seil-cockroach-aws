@@ -18,7 +18,6 @@ import {
   Download,
   FileCheck2,
   FileSearch,
-  FileUp,
   FlaskConical,
   Home,
   Inbox,
@@ -32,7 +31,11 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 
 import {
   WEB_DATA_MODE,
@@ -56,7 +59,8 @@ const FIXTURE_SEARCH: SellerProductSearchView = {
       href: "/seil/product-evidence/product_fixture_d",
       id: "product_fixture_d",
       name: "Northstar Meeting Notes",
-      public_summary: "Meeting capture and searchable decision records for client-service teams.",
+      public_summary:
+        "Meeting capture and searchable decision records for client-service teams.",
       publisher_authority: "PLATFORM_COMPILED",
       state: "SELLER_DRAFT",
     },
@@ -65,7 +69,8 @@ const FIXTURE_SEARCH: SellerProductSearchView = {
       href: "/seil/product-evidence/product_fixture_c",
       id: "product_fixture_c",
       name: "CurrentCall Workspace",
-      public_summary: "Collaborative meeting records with workspace administration and exports.",
+      public_summary:
+        "Collaborative meeting records with workspace administration and exports.",
       publisher_authority: "SELLER_SEALED",
       state: "PUBLISHED",
     },
@@ -74,7 +79,8 @@ const FIXTURE_SEARCH: SellerProductSearchView = {
       href: "/seil/product-evidence/product_fixture_b",
       id: "product_fixture_b",
       name: "Briefly Capture",
-      public_summary: "Externally discovered product information awaiting an authorized publisher.",
+      public_summary:
+        "Externally discovered product information awaiting an authorized publisher.",
       publisher_authority: "EXTERNAL_UNSEALED",
       state: "UNCLAIMED",
     },
@@ -122,7 +128,8 @@ const FIXTURE_DRAFT: SellerPackDraftView = {
   product_id: "product_fixture_d",
   publisher_authority: "PLATFORM_COMPILED",
   revision: 3,
-  revision_hash: "sha256:6ef651573cb6807db070606022072f95ac693698f7a671cdbcf569a163284f3d",
+  revision_hash:
+    "sha256:6ef651573cb6807db070606022072f95ac693698f7a671cdbcf569a163284f3d",
   state: "SELLER_DRAFT",
   updated_at: "2026-08-02T08:42:00Z",
   validation: {
@@ -131,7 +138,8 @@ const FIXTURE_DRAFT: SellerPackDraftView = {
         field: "data_retention_days",
         href: "/seil/product-evidence/product_fixture_d?field=data_retention_days",
         id: "gap_retention",
-        safe_message: "Confirm the current retention value with non-expired supporting evidence.",
+        safe_message:
+          "Confirm the current retention value with non-expired supporting evidence.",
       },
     ],
     status: "HAS_GAPS",
@@ -162,7 +170,8 @@ const STATE_GUIDANCE: Record<
   },
   SELLER_DRAFT: {
     heading: "Draft in progress",
-    message: "Resolve validation gaps and stale evidence before freezing this revision for review.",
+    message:
+      "Resolve validation gaps and stale evidence before freezing this revision for review.",
     tone: "warning",
   },
   VALIDATION_CONFLICT: {
@@ -310,7 +319,9 @@ function fixtureViewFor(productId: string): SellerEvidenceView {
     },
     reusable_answers: {
       formats: isPublished ? ["JSON", "HTML", "REUSABLE_ANSWER"] : [],
-      href: isPublished ? `/v1/seller/pack-versions/pack_${searchItem.id}_v4/exports` : null,
+      href: isPublished
+        ? `/v1/seller/pack-versions/pack_${searchItem.id}_v4/exports`
+        : null,
       published_answer_count: isPublished ? 18 : 0,
       published_version: isPublished ? 4 : null,
     },
@@ -323,7 +334,8 @@ function fixtureViewFor(productId: string): SellerEvidenceView {
               field: "data_retention_days",
               href: `/seil/product-evidence/${searchItem.id}?field=data_retention_days`,
               id: "gap_retention",
-              safe_message: "Add a current retention value and supporting evidence.",
+              safe_message:
+                "Add a current retention value and supporting evidence.",
             },
           ],
           status: "HAS_GAPS",
@@ -390,7 +402,9 @@ function useSellerProduct(productId: string) {
 function parseSubmitReviewDraftId(href: string): string | null {
   try {
     const path = new URL(href, "https://seller.local").pathname;
-    const match = path.match(/^\/v1\/seller\/pack-drafts\/([^/]+)\/submit-review$/);
+    const match = path.match(
+      /^\/v1\/seller\/pack-drafts\/([^/]+)\/submit-review$/,
+    );
     return match?.[1] ? decodeURIComponent(match[1]) : null;
   } catch {
     return null;
@@ -461,7 +475,10 @@ function SellerShell({
         </div>
 
         <nav className={styles.nav} aria-label="Seller">
-          <Link className={active === "home" ? styles.navActive : styles.navItem} href="/seil">
+          <Link
+            className={active === "home" ? styles.navActive : styles.navItem}
+            href="/seil"
+          >
             <Home aria-hidden="true" />
             Overview
           </Link>
@@ -513,8 +530,8 @@ function FixtureBanner() {
       <FlaskConical aria-hidden="true" />
       <strong>Development fixture</strong>
       <span>
-        Local deterministic data only. No production seller, evidence provider, publication, or
-        marketplace integration is connected.
+        Local deterministic data only. No production seller, evidence provider,
+        publication, or marketplace integration is connected.
       </span>
     </div>
   );
@@ -544,7 +561,11 @@ function PageHeader({
 }
 
 function StatusPill({ children, tone }: { children: ReactNode; tone: Tone }) {
-  return <span className={`${styles.statusPill} ${toneClass(tone)}`}>{children}</span>;
+  return (
+    <span className={`${styles.statusPill} ${toneClass(tone)}`}>
+      {children}
+    </span>
+  );
 }
 
 function SafeError({ retry }: { retry: () => void }) {
@@ -554,8 +575,8 @@ function SafeError({ retry }: { retry: () => void }) {
       <div>
         <h2>Seller data could not be loaded</h2>
         <p>
-          No fixture data was substituted. The last confirmed server state, if any, remains
-          unchanged.
+          No fixture data was substituted. The last confirmed server state, if
+          any, remains unchanged.
         </p>
         <div className={styles.safeErrorActions}>
           <button type="button" onClick={retry}>
@@ -641,8 +662,8 @@ export function SellerHome() {
               <p className={styles.sectionKicker}>Current queue</p>
               <h2 id="attention-title">Products needing attention</h2>
               <p>
-                This list uses public-safe search state. Private draft details load only inside an
-                authorized product workspace.
+                This list uses public-safe search state. Private draft details
+                load only inside an authorized product workspace.
               </p>
             </div>
             <div className={styles.attentionCount}>
@@ -719,7 +740,12 @@ export function SellerProductSearch() {
 function HealthPanel({ view }: { view: SellerEvidenceView }) {
   const health = view.pack_health;
   const percent = health.required_claim_count
-    ? Math.min(100, Math.round((health.complete_claim_count / health.required_claim_count) * 100))
+    ? Math.min(
+        100,
+        Math.round(
+          (health.complete_claim_count / health.required_claim_count) * 100,
+        ),
+      )
     : 100;
 
   return (
@@ -764,13 +790,7 @@ function HealthPanel({ view }: { view: SellerEvidenceView }) {
   );
 }
 
-function ValidationPanel({
-  view,
-  highlightField,
-}: {
-  view: SellerEvidenceView;
-  highlightField?: string;
-}) {
+function ValidationPanel({ view, highlightField }: { view: SellerEvidenceView; highlightField?: string }) {
   const validation = view.validation;
   return (
     <section className={styles.recordPanel} aria-labelledby="validation-heading">
@@ -797,11 +817,7 @@ function ValidationPanel({
       {validation.gaps.length ? (
         <ul className={styles.gapList}>
           {validation.gaps.map((gap) => (
-            <li
-              id={`field-${gap.field}`}
-              data-highlighted={highlightField === gap.field || undefined}
-              key={gap.id}
-            >
+            <li id={`field-${gap.field}`} data-highlighted={highlightField === gap.field || undefined} key={gap.id}>
               <AlertTriangle aria-hidden="true" />
               <div>
                 <code>{gap.field}</code>
@@ -821,7 +837,13 @@ function ValidationPanel({
   );
 }
 
-function ClaimRows({ claims, empty }: { claims: SellerEvidenceClaim[]; empty: string }) {
+function ClaimRows({
+  claims,
+  empty,
+}: {
+  claims: SellerEvidenceClaim[];
+  empty: string;
+}) {
   if (!claims.length) return <p className={styles.quietEmpty}>{empty}</p>;
   return (
     <dl className={styles.claimRows}>
@@ -853,7 +875,9 @@ function PackTab({ view, highlightField }: { view: SellerEvidenceView; highlight
           </div>
           <ShieldCheck aria-hidden="true" />
         </div>
-        <p className={styles.authorityCopy}>{view.publisher_authority.supporting_copy}</p>
+        <p className={styles.authorityCopy}>
+          {view.publisher_authority.supporting_copy}
+        </p>
         <dl className={styles.factList}>
           <div>
             <dt>Product Evidence version</dt>
@@ -861,9 +885,7 @@ function PackTab({ view, highlightField }: { view: SellerEvidenceView; highlight
           </div>
           <div>
             <dt>Authority code</dt>
-            <dd>
-              <code>{view.publisher_authority.value}</code>
-            </dd>
+            <dd><code>{view.publisher_authority.value}</code></dd>
           </div>
           <div>
             <dt>Current role</dt>
@@ -876,114 +898,10 @@ function PackTab({ view, highlightField }: { view: SellerEvidenceView; highlight
   );
 }
 
-function EvidenceUploader({ draftId }: { draftId: string }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [claimFields, setClaimFields] = useState("data_retention_days");
-  const [inputKey, setInputKey] = useState(0);
-  const upload = useMutation({
-    mutationFn: async () => {
-      if (!file) throw new Error("Choose an evidence file first");
-      if (IS_FIXTURE_MODE) {
-        return {
-          content_type: file.type || "application/octet-stream",
-          size_bytes: file.size,
-          version_bound: false,
-        };
-      }
-      const normalizedFields = claimFields
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean);
-      const body = new FormData();
-      body.append("evidence_file", file);
-      body.append("source_class", "VENDOR_DOCUMENTATION");
-      body.append("claim_fields_json", JSON.stringify(normalizedFields));
-      body.append("observed_at", new Date().toISOString());
-      return getBrowserApiClient().request("seller_evidence_upload_evidence", {
-        body,
-        headers: sellerRequestHeaders(),
-        idempotencyKey: createIdempotencyKey("seller-evidence-upload"),
-        pathParams: { draft_id: draftId },
-      });
-    },
-    onSuccess: () => {
-      setFile(null);
-      setInputKey((value) => value + 1);
-    },
-  });
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    upload.mutate();
-  }
-
-  return (
-    <section className={styles.recordPanel} aria-labelledby="evidence-upload-heading">
-      <div className={styles.panelHeading}>
-        <div>
-          <p className={styles.sectionKicker}>Private source ingestion</p>
-          <h2 id="evidence-upload-heading">Attach versioned evidence</h2>
-        </div>
-        <FileUp aria-hidden="true" />
-      </div>
-      <form className={styles.evidenceUploadForm} onSubmit={submit}>
-        <label>
-          <span>Source file</span>
-          <input
-            key={inputKey}
-            type="file"
-            required
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-          />
-          <small>PDF, text, or structured source · maximum 25 MiB</small>
-        </label>
-        <label>
-          <span>Supported fields</span>
-          <input
-            type="text"
-            required
-            value={claimFields}
-            onChange={(event) => setClaimFields(event.target.value)}
-            placeholder="data_retention_days, public_summary"
-          />
-          <small>Comma-separated Product Evidence field names</small>
-        </label>
-        <button className={styles.primaryButton} type="submit" disabled={!file || upload.isPending}>
-          {upload.isPending ? (
-            <RefreshCw className={styles.spin} aria-hidden="true" />
-          ) : (
-            <FileUp aria-hidden="true" />
-          )}
-          {upload.isPending ? "Storing source" : "Store and bind source"}
-        </button>
-      </form>
-      {upload.isSuccess ? (
-        <p className={styles.uploadSuccess} role="status">
-          <CheckCircle2 aria-hidden="true" />
-          {upload.data.version_bound
-            ? `Bound ${upload.data.size_bytes ?? 0} bytes to an immutable S3 object version.`
-            : "Fixture preview complete; no production object was stored."}
-        </p>
-      ) : null}
-      {upload.isError ? (
-        <p className={styles.uploadError} role="alert">
-          <AlertTriangle aria-hidden="true" />
-          Upload failed closed. The draft was not linked to an unconfirmed object.
-        </p>
-      ) : null}
-      <p className={styles.panelNote}>
-        The private bucket path and object version never enter the buyer-facing contract.
-        CockroachDB stores their exact identity with the checksum for later verification.
-      </p>
-    </section>
-  );
-}
-
-function EvidenceTab({ view, draftId }: { view: SellerEvidenceView; draftId: string | null }) {
+function EvidenceTab({ view }: { view: SellerEvidenceView }) {
   return (
     <div className={styles.twoColumn}>
       <ValidationPanel view={view} />
-      {draftId ? <EvidenceUploader draftId={draftId} /> : null}
       <section className={styles.recordPanel} aria-labelledby="freshness-heading">
         <div className={styles.panelHeading}>
           <div>
@@ -1007,8 +925,8 @@ function EvidenceTab({ view, draftId }: { view: SellerEvidenceView; draftId: str
           </div>
         </dl>
         <p className={styles.panelNote}>
-          Retrieved evidence is not automatically verified. Source, scope, verifier, freshness, and
-          claim state remain separate fields.
+          Retrieved evidence is not automatically verified. Source, scope,
+          verifier, freshness, and claim state remain separate fields.
         </p>
       </section>
     </div>
@@ -1034,8 +952,8 @@ function FitTab({
         <ShieldCheck aria-hidden="true" />
         <h2>No editable fit draft was supplied</h2>
         <p>
-          Fit and anti-fit controls remain absent until the server provides an authorized draft
-          action.
+          Fit and anti-fit controls remain absent until the server provides an
+          authorized draft action.
         </p>
       </section>
     );
@@ -1069,8 +987,8 @@ function FitTab({
           empty="No anti-fit rules are present in this draft revision."
         />
         <p className={styles.panelNote}>
-          Published anti-fit rules remain executable without a live seller and cannot be suppressed
-          to improve conversion.
+          Published anti-fit rules remain executable without a live seller and
+          cannot be suppressed to improve conversion.
         </p>
       </section>
     </div>
@@ -1108,9 +1026,7 @@ function ReviewPanel({ view }: { view: SellerEvidenceView }) {
           </div>
           <div className={styles.fullFact}>
             <dt>Revision hash</dt>
-            <dd>
-              <code>{review.revision_hash}</code>
-            </dd>
+            <dd><code>{review.revision_hash}</code></dd>
           </div>
           {review.reason ? (
             <div className={styles.fullFact}>
@@ -1156,13 +1072,11 @@ function ExportsPanel({ view }: { view: SellerEvidenceView }) {
             ))}
           </div>
           {view.reusable_answers.href ? (
-            <p className={styles.panelNote}>
-              Hash-bound export review becomes available here after the authenticated browser export
-              route is connected.
-            </p>
+            <p className={styles.panelNote}>Hash-bound export review becomes available here after the authenticated browser export route is connected.</p>
           ) : null}
           <p className={styles.panelNote}>
-            Exports contain published fields only. Generated reusable answers cannot add claims.
+            Exports contain published fields only. Generated reusable answers
+            cannot add claims.
           </p>
         </>
       ) : (
@@ -1201,9 +1115,7 @@ function PublishTab({
         <div>
           <p className={styles.sectionKicker}>Server-authorized next action</p>
           <h2 id="next-action-heading">
-            {canSubmit
-              ? "Submit this revision for review"
-              : (lifecycleLabel ?? "No supported mutation available")}
+            {canSubmit ? "Submit this revision for review" : lifecycleLabel ?? "No supported mutation available"}
           </h2>
           <p>
             {canSubmit
@@ -1212,7 +1124,9 @@ function PublishTab({
                 ? "This action uses the exact frozen revision and is checked again by the server."
                 : "No action is available for the current role and workflow state."}
           </p>
-          {draft ? <code className={styles.hashLine}>{draft.revision_hash}</code> : null}
+          {draft ? (
+            <code className={styles.hashLine}>{draft.revision_hash}</code>
+          ) : null}
         </div>
         {canSubmit ? (
           <button
@@ -1225,12 +1139,7 @@ function PublishTab({
             Submit for review
           </button>
         ) : lifecycleAction && lifecycleLabel ? (
-          <button
-            className={styles.primaryButton}
-            type="button"
-            onClick={lifecycleAction}
-            disabled={lifecyclePending || !draft}
-          >
+          <button className={styles.primaryButton} type="button" onClick={lifecycleAction} disabled={lifecyclePending || !draft}>
             <FileCheck2 aria-hidden="true" />
             {lifecyclePending ? "Working" : lifecycleLabel}
           </button>
@@ -1280,12 +1189,13 @@ function ActivityTab({ view }: { view: SellerEvidenceView }) {
           <Info aria-hidden="true" />
         </div>
         <p className={styles.authorityCopy}>
-          A published-answer render counts at most once per tenant, session, and question
-          fingerprint within 24 hours. It counts as observed self-service only when no seller
-          handoff follows in that session.
+          A published-answer render counts at most once per tenant, session, and
+          question fingerprint within 24 hours. It counts as observed
+          self-service only when no seller handoff follows in that session.
         </p>
         <p className={styles.panelNote}>
-          This is not proven question deflection, labor savings, or an outcome claim.
+          This is not proven question deflection, labor savings, or an outcome
+          claim.
         </p>
       </section>
     </div>
@@ -1336,8 +1246,8 @@ function SubmitReviewDialog({
           </button>
         </div>
         <p id="submit-review-description">
-          This freezes the exact revision for reviewer approval. It does not publish the Pack and it
-          does not verify unsupported claims.
+          This freezes the exact revision for reviewer approval. It does not
+          publish the Pack and it does not verify unsupported claims.
         </p>
         <code className={styles.dialogHash}>{draft.revision_hash}</code>
         <div className={styles.dialogActions}>
@@ -1356,11 +1266,7 @@ function SubmitReviewDialog({
             disabled={pending}
             autoFocus
           >
-            {pending ? (
-              <RefreshCw className={styles.spin} aria-hidden="true" />
-            ) : (
-              <Send aria-hidden="true" />
-            )}
+            {pending ? <RefreshCw className={styles.spin} aria-hidden="true" /> : <Send aria-hidden="true" />}
             {pending ? "Submitting" : "Submit exact revision"}
           </button>
         </div>
@@ -1369,13 +1275,7 @@ function SubmitReviewDialog({
   );
 }
 
-export function SellerProductWorkspace({
-  productId,
-  initialField,
-}: {
-  productId: string;
-  initialField?: string;
-}) {
+export function SellerProductWorkspace({ productId, initialField }: { productId: string; initialField?: string }) {
   const [activeTab, setActiveTab] = useState<ProductTab>("pack");
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [submitAcknowledged, setSubmitAcknowledged] = useState(false);
@@ -1426,7 +1326,10 @@ export function SellerProductWorkspace({
     onSuccess: (nextDraft) => {
       setConfirmSubmit(false);
       setSubmitAcknowledged(true);
-      queryClient.setQueryData(["seller", "draft", draftId, WEB_DATA_MODE], nextDraft);
+      queryClient.setQueryData(
+        ["seller", "draft", draftId, WEB_DATA_MODE],
+        nextDraft,
+      );
       if (IS_FIXTURE_MODE) {
         queryClient.setQueryData<SellerEvidenceView>(
           ["seller", "product", productId, WEB_DATA_MODE],
@@ -1463,11 +1366,7 @@ export function SellerProductWorkspace({
       if (!draftId || !draft.data) throw new Error("No frozen draft is available");
       if (action === "APPROVE") {
         return getBrowserApiClient().request("seller_evidence_review_decision", {
-          body: {
-            decision: "APPROVE",
-            reason: "Evidence reviewed for the demo publication path.",
-            revision_hash: draft.data.revision_hash,
-          },
+          body: { decision: "APPROVE", reason: "Evidence reviewed for the demo publication path.", revision_hash: draft.data.revision_hash },
           headers: sellerReviewerDevelopmentHeaders,
           idempotencyKey: createIdempotencyKey("seller-approve-review"),
           pathParams: { draft_id: draftId },
@@ -1482,9 +1381,7 @@ export function SellerProductWorkspace({
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["seller", "draft", draftId, WEB_DATA_MODE] });
-      void queryClient.invalidateQueries({
-        queryKey: ["seller", "product", productId, WEB_DATA_MODE],
-      });
+      void queryClient.invalidateQueries({ queryKey: ["seller", "product", productId, WEB_DATA_MODE] });
     },
   });
 
@@ -1515,7 +1412,9 @@ export function SellerProductWorkspace({
         title={view.product.name}
         description="Role-filtered product truth, validation, review, exports, and artifact activity."
         action={
-          <StatusPill tone={guidance.tone}>{formatState(view.product.seller_state)}</StatusPill>
+          <StatusPill tone={guidance.tone}>
+            {formatState(view.product.seller_state)}
+          </StatusPill>
         }
       />
 
@@ -1552,8 +1451,8 @@ export function SellerProductWorkspace({
           <div>
             <h2>Review submission did not complete</h2>
             <p>
-              The draft remains at its last confirmed revision. Reopen the confirmation only after
-              checking the current server state.
+              The draft remains at its last confirmed revision. Reopen the
+              confirmation only after checking the current server state.
             </p>
           </div>
         </section>
@@ -1596,7 +1495,7 @@ export function SellerProductWorkspace({
         tabIndex={0}
       >
         {activeTab === "pack" ? <PackTab view={view} highlightField={initialField} /> : null}
-        {activeTab === "evidence" ? <EvidenceTab view={view} draftId={draftId} /> : null}
+        {activeTab === "evidence" ? <EvidenceTab view={view} /> : null}
         {activeTab === "fit" ? (
           <FitTab
             draft={draft.data}
@@ -1612,20 +1511,8 @@ export function SellerProductWorkspace({
             draftPending={draft.isPending && Boolean(draftId)}
             canSubmit={canSubmit}
             openConfirmation={() => setConfirmSubmit(true)}
-            lifecycleAction={
-              draft.data?.state === "IN_REVIEW"
-                ? () => lifecycle.mutate("APPROVE")
-                : draft.data?.state === "PUBLISH_READY"
-                  ? () => lifecycle.mutate("PUBLISH")
-                  : undefined
-            }
-            lifecycleLabel={
-              draft.data?.state === "IN_REVIEW"
-                ? "Approve reviewed revision"
-                : draft.data?.state === "PUBLISH_READY"
-                  ? "Publish Product Evidence"
-                  : undefined
-            }
+            lifecycleAction={draft.data?.state === "IN_REVIEW" ? () => lifecycle.mutate("APPROVE") : draft.data?.state === "PUBLISH_READY" ? () => lifecycle.mutate("PUBLISH") : undefined}
+            lifecycleLabel={draft.data?.state === "IN_REVIEW" ? "Approve reviewed revision" : draft.data?.state === "PUBLISH_READY" ? "Publish Product Evidence" : undefined}
             lifecyclePending={lifecycle.isPending}
           />
         ) : null}

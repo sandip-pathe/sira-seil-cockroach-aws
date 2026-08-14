@@ -571,9 +571,9 @@ function responseFor(mode: CommerceWorkspaceMode, prompt: string) {
   if (mode === "sira") {
     if (
       normalized.includes("connector") ||
-      normalized.includes("prava")
+      normalized.includes("payment")
     ) {
-      return "## Connector status is open\n\nI moved the work panel to **Connectors**. Prava still needs production setup before a live charged purchase can run.\n\nNo purchase or company record was changed.";
+      return "## Connector status is open\n\nI moved the work panel to **Connectors**. A hosted payment provider still needs production setup before a live charged purchase can run.\n\nNo purchase or company record was changed.";
     }
     if (
       normalized.includes("product") ||
