@@ -2059,10 +2059,11 @@ export function CommerceWorkspace({
 }) {
   const firebaseAuth = useFirebaseAuth();
   const firebaseUser = firebaseAuth.user;
-  const accountName = firebaseUser?.isAnonymous
+  const guestAccount = !firebaseUser || firebaseUser.isAnonymous;
+  const accountName = guestAccount
     ? "Private guest"
-    : firebaseUser?.displayName || firebaseUser?.email || "Verified account";
-  const accountInitials = firebaseUser?.isAnonymous
+    : firebaseUser.displayName || firebaseUser.email || "Verified account";
+  const accountInitials = guestAccount
     ? "G"
     : accountName.trim().slice(0, 1).toUpperCase() || "U";
   const [mode, setMode] = useState<CommerceWorkspaceMode>(initialMode);
@@ -2376,7 +2377,7 @@ export function CommerceWorkspace({
             ? {
                 ...message,
                 content: payload.message ?? "I need a little more context.",
-                meta: products.length ? "Matches ready" : "Mission updated",
+                meta: products.length ? "Matches ready" : MODE_COPY[targetMode].name,
                 products,
                 toolCalls: payload.tool_calls ?? [],
                 proposals: payload.proposals ?? [],
@@ -2398,7 +2399,7 @@ export function CommerceWorkspace({
         setContextTab("artifact");
         setContextOpen(true);
       }
-    } catch (error) {
+    } catch {
       if (!controller.signal.aborted) {
         updateConversation(targetMode, activeConversationId, (conversation) => ({
           ...conversation,
@@ -2406,8 +2407,7 @@ export function CommerceWorkspace({
             message.id === assistantId
               ? {
                   ...message,
-                  content:
-                    error instanceof Error ? error.message : "SIRA is temporarily unavailable.",
+                  content: `${MODE_COPY[targetMode].name} couldn't complete that. Please try again.`,
                   meta: "Could not complete",
                   retryText: value,
                 }
@@ -2610,7 +2610,7 @@ export function CommerceWorkspace({
           account={{
             initials: accountInitials,
             name: accountName,
-            detail: firebaseUser?.isAnonymous ? "Isolated workspace" : "Firebase account",
+            detail: guestAccount ? "Isolated workspace" : "Verified account",
           }}
         />
       ) : null}
@@ -2982,8 +2982,12 @@ export function CommerceWorkspace({
             email: firebaseUser?.email ?? null,
             isAnonymous: firebaseUser?.isAnonymous ?? true,
           }}
-          onSignOut={firebaseAuth.signOut}
-          onUpgradeGuest={firebaseAuth.upgradeGuestWithGoogle}
+          onSignOut={firebaseUser ? firebaseAuth.signOut : undefined}
+          onUpgradeGuest={
+            firebaseAuth.configured && firebaseUser?.isAnonymous
+              ? firebaseAuth.upgradeGuestWithGoogle
+              : undefined
+          }
         />
       ) : null}
 

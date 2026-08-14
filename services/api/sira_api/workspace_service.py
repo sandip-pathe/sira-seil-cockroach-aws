@@ -63,6 +63,10 @@ _GREETING_PATTERN = re.compile(
 )
 _THANKS_PATTERN = re.compile(r"^(?:thanks|thank\s+you|thx)[\s!,.?]*$", re.IGNORECASE)
 _GOODBYE_PATTERN = re.compile(r"^(?:bye|goodbye|see\s+you|later)[\s!,.?]*$", re.IGNORECASE)
+_CAPABILITY_PATTERN = re.compile(
+    r"\b(?:what\s+(?:can|do)\s+you\s+do|how\s+can\s+you\s+help|what\s+do\s+you\s+need)\b",
+    re.IGNORECASE,
+)
 
 
 def _compile_research_only_packet(
@@ -800,11 +804,28 @@ class WorkspaceService:
     @staticmethod
     def _lightweight_reply(message: str, mode: str) -> str | None:
         normalized = " ".join(message.strip().split())
-        if _GREETING_PATTERN.fullmatch(normalized):
+        addressed = re.sub(r"[\s,]+(?:sira|seil)[\s!,.?]*$", "", normalized, flags=re.I)
+        if _GREETING_PATTERN.fullmatch(addressed):
             return (
                 "Hi! What would you like help buying?"
                 if mode == "sira"
-                else "Hi! What product work can I help with?"
+                else (
+                    "Hi! I help sellers turn product information into buyer-ready evidence. "
+                    "Which product would you like to work on?"
+                )
+            )
+        if _CAPABILITY_PATTERN.search(normalized):
+            if mode == "seil":
+                return (
+                    "I help sellers create and improve buyer-ready product evidence, find gaps "
+                    "in claims, prepare listings for review, and respond to qualified buyer "
+                    "needs. To begin, tell me which product you're working on and whether you "
+                    "want to create a listing, strengthen its evidence, or review buyer interest."
+                )
+            return (
+                "I help buyers define what they need, compare products using current evidence, "
+                "identify risks, and prepare reviewable purchase decisions. To begin, tell me "
+                "what you are considering and the outcome you need."
             )
         if _THANKS_PATTERN.fullmatch(normalized):
             return "You're welcome."
@@ -829,7 +850,10 @@ class WorkspaceService:
             "artifact by itself; place it inside artifacts[]. You may draft "
             "protected actions, but you cannot grant yourself capabilities, approve, charge, send, "
             "publish, sign, or activate. Those effects require a server-issued grant and exact "
-            "human authority. Do not expose secrets or raw private evidence."
+            "human authority. Do not expose secrets or raw private evidence. In the user-facing "
+            "message, never mention internal tool or function names, database or authentication "
+            "implementation details, raw status codes, or hidden reasoning. State the useful "
+            "result, missing business information, and next step in plain language."
         )
         if mode == "sira":
             return (

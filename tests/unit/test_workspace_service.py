@@ -112,6 +112,53 @@ async def test_greeting_is_short_and_does_not_start_commerce_agent() -> None:
 
 
 @pytest.mark.asyncio
+async def test_addressed_seil_greeting_is_plain_and_does_not_start_tools() -> None:
+    service = WorkspaceService(DemoFixtureBundle.load(), api_key="configured", model="test")
+    service.runtime = _UnexpectedRuntime()  # type: ignore[assignment]
+
+    result = await service.chat(
+        WorkspaceChatCreate(message="hey seil", mode="seil"),
+        run_context=AgentRunContext(
+            organization_id="org_seller_a",
+            actor_id="seller_fixture_d",
+            actor_roles=frozenset({"seller_editor"}),
+            permissions=frozenset({"can_view_context"}),
+            party="SELLER",
+            services=service.agent_services(),
+        ),
+    )
+
+    assert result["message"].startswith("Hi! I help sellers")
+    assert result["tool_calls"] == []
+
+
+@pytest.mark.asyncio
+async def test_seil_capability_question_uses_product_language_without_internal_terms() -> None:
+    service = WorkspaceService(DemoFixtureBundle.load(), api_key="configured", model="test")
+    service.runtime = _UnexpectedRuntime()  # type: ignore[assignment]
+
+    result = await service.chat(
+        WorkspaceChatCreate(
+            message="Can I know what do you do and what do you need to proceed?",
+            mode="seil",
+        ),
+        run_context=AgentRunContext(
+            organization_id="org_seller_a",
+            actor_id="seller_fixture_d",
+            actor_roles=frozenset({"seller_editor"}),
+            permissions=frozenset({"can_view_context"}),
+            party="SELLER",
+            services=service.agent_services(),
+        ),
+    )
+
+    assert "buyer-ready product evidence" in result["message"]
+    assert "tool" not in result["message"].casefold()
+    assert "authenticated" not in result["message"].casefold()
+    assert result["tool_calls"] == []
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("mode", "expected_tools"),
     [("sira", SIRA_TOOL_NAMES), ("seil", SEIL_TOOL_NAMES)],

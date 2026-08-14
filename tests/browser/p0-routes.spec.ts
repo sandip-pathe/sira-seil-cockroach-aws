@@ -56,3 +56,26 @@ test("authentication setup state is keyboard reachable", async ({ page }) => {
   await controls.first().focus();
   await expect(controls.first()).toBeFocused();
 });
+
+test("Firebase-disabled workspace presents a safe private guest account", async ({ page }) => {
+  const browserErrors: string[] = [];
+  page.on("pageerror", (error) => browserErrors.push(error.message));
+  await page.goto("/seil", { waitUntil: "domcontentloaded" });
+  await expect(page.getByLabel("Loading current marketplace state")).toHaveCount(0, {
+    timeout: 15_000,
+  });
+  await page.waitForTimeout(250);
+
+  const profile = page.getByRole("button", { name: "Open SEIL profile settings" });
+  if ((await profile.count()) === 0) {
+    await page.getByRole("button", { name: "Open sidebar" }).click();
+  }
+  await expect(profile).toContainText("Private guest");
+  await expect(profile).toContainText("Isolated workspace");
+  await profile.click();
+
+  await expect(page.getByRole("dialog", { name: "SEIL settings" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Leave guest workspace" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save this workspace with Google" })).toHaveCount(0);
+  expect(browserErrors).toEqual([]);
+});
