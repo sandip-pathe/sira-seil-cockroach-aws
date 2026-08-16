@@ -60,6 +60,19 @@ class ApprovalStatus(StringEnum):
     SUPERSEDED = "SUPERSEDED"
 
 
+class PaymentHandoffStatus(StringEnum):
+    """Lifecycle of an external, human-operated payment handoff.
+
+    These states deliberately stop at opening the approved destination. They
+    do not represent authorization, settlement, fulfillment, or refund state.
+    """
+
+    READY = "READY"
+    OPENED = "OPENED"
+    EXPIRED = "EXPIRED"
+    CANCELLED = "CANCELLED"
+
+
 class PaymentStatus(StringEnum):
     """Persisted first-build payment states.
 

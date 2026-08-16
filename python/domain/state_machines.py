@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from datetime import datetime
 from typing import ClassVar
 
 from .enums import (
     ApprovalStatus,
     FulfillmentStatus,
+    PaymentHandoffStatus,
     PaymentStatus,
     PurchaseState,
     ReversalStatus,
 )
 from .errors import DomainValidationError, InvalidTransitionError
-from .models import ApprovalBinding, require_hash
+from .models import ApprovalBinding, PaymentHandoff, require_aware, require_hash
 
 
 class ApprovalTransitionService:
@@ -71,6 +74,42 @@ class ApprovalTransitionService:
                 status=ApprovalStatus.SUPERSEDED,
             )
         return binding
+
+
+class PaymentHandoffTransitionService:
+    """Transitions the handoff only; external payment state is out of scope."""
+
+    _allowed: ClassVar[dict[PaymentHandoffStatus, frozenset[PaymentHandoffStatus]]] = {
+        PaymentHandoffStatus.READY: frozenset(
+            {
+                PaymentHandoffStatus.OPENED,
+                PaymentHandoffStatus.EXPIRED,
+                PaymentHandoffStatus.CANCELLED,
+            }
+        ),
+        PaymentHandoffStatus.OPENED: frozenset(),
+        PaymentHandoffStatus.EXPIRED: frozenset(),
+        PaymentHandoffStatus.CANCELLED: frozenset(),
+    }
+
+    @classmethod
+    def transition(
+        cls,
+        handoff: PaymentHandoff,
+        target: PaymentHandoffStatus,
+        *,
+        at: datetime,
+    ) -> PaymentHandoff:
+        require_aware(at, "at")
+        if target not in cls._allowed[handoff.status]:
+            raise InvalidTransitionError(
+                f"payment handoff cannot transition {handoff.status} -> {target}"
+            )
+        if target is PaymentHandoffStatus.OPENED:
+            if at >= handoff.expires_at:
+                raise InvalidTransitionError("expired payment handoff cannot be opened")
+            return replace(handoff, status=target, opened_at=at)
+        return replace(handoff, status=target)
 
 
 class PaymentTransitionService:

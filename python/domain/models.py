@@ -8,8 +8,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Any
+from urllib.parse import urlsplit
 
-from .enums import ApprovalStatus
+from .enums import ApprovalStatus, PaymentHandoffStatus
 from .errors import DomainValidationError
 from .hashing import content_hash
 from .money import Money
@@ -307,3 +308,102 @@ class ApprovalBinding:
     def __post_init__(self) -> None:
         require_id(self.approval_request_id, "approval_request_id")
         require_hash(self.intent_hash, "intent_hash")
+
+
+@dataclass(frozen=True, slots=True)
+class PaymentHandoff:
+    """Exact, approved context for a human-operated external payment step.
+
+    A handoff proves what may be opened and why. It intentionally stores no
+    card credential, provider token, payment result, refund, or entitlement.
+    """
+
+    schema_version: str
+    handoff_id: str
+    organization_id: str
+    purchase_intent_id: str
+    approval_request_id: str
+    intent_hash: str
+    destination_url: str
+    recipient: str
+    amount: Money
+    reference: str
+    created_at: datetime
+    expires_at: datetime
+    status: PaymentHandoffStatus = PaymentHandoffStatus.READY
+    opened_at: datetime | None = None
+    handoff_hash: str = field(default="", compare=True)
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "handoff_id",
+            "organization_id",
+            "purchase_intent_id",
+            "approval_request_id",
+        ):
+            require_id(getattr(self, field_name), field_name)
+        require_hash(self.intent_hash, "intent_hash")
+        if not self.schema_version:
+            raise DomainValidationError("schema_version is required")
+        if (
+            not isinstance(self.recipient, str)
+            or not self.recipient.strip()
+            or not isinstance(self.reference, str)
+            or not self.reference.strip()
+        ):
+            raise DomainValidationError("payment handoff recipient and reference are required")
+
+        destination = (
+            urlsplit(self.destination_url) if isinstance(self.destination_url, str) else None
+        )
+        if (
+            destination is None
+            or destination.scheme != "https"
+            or not destination.hostname
+            or destination.username is not None
+            or destination.password is not None
+            or destination.fragment
+        ):
+            raise DomainValidationError(
+                "payment handoff destination must be an HTTPS URL without credentials or fragment"
+            )
+
+        require_aware(self.created_at, "created_at")
+        require_aware(self.expires_at, "expires_at")
+        if self.expires_at <= self.created_at:
+            raise DomainValidationError("payment handoff must expire after it is created")
+        if self.opened_at is not None:
+            require_aware(self.opened_at, "opened_at")
+        if self.status is PaymentHandoffStatus.OPENED:
+            if self.opened_at is None:
+                raise DomainValidationError("opened payment handoff requires opened_at")
+            if self.opened_at >= self.expires_at:
+                raise DomainValidationError("expired payment handoff cannot be opened")
+        elif self.opened_at is not None:
+            raise DomainValidationError("only an opened payment handoff may have opened_at")
+
+        computed = content_hash(self.to_hash_payload())
+        if self.handoff_hash:
+            require_hash(self.handoff_hash, "handoff_hash")
+            if self.handoff_hash != computed:
+                raise DomainValidationError("handoff_hash does not match the canonical payload")
+        else:
+            object.__setattr__(self, "handoff_hash", computed)
+
+    def to_hash_payload(self) -> dict[str, Any]:
+        """Return immutable authorization data; lifecycle fields are excluded."""
+
+        return {
+            "schema_version": self.schema_version,
+            "handoff_id": self.handoff_id,
+            "organization_id": self.organization_id,
+            "purchase_intent_id": self.purchase_intent_id,
+            "approval_request_id": self.approval_request_id,
+            "intent_hash": self.intent_hash,
+            "destination_url": self.destination_url,
+            "recipient": self.recipient,
+            "amount": self.amount,
+            "reference": self.reference,
+            "created_at": self.created_at,
+            "expires_at": self.expires_at,
+        }
