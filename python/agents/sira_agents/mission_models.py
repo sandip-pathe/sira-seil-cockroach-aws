@@ -114,7 +114,7 @@ class MissionTurnOutput(BaseModel):
                     "Research packet created with source-linked public evidence. "
                     "Review and verify it before publication."
                 ),
-                "mission_state": "EVALUATING",
+                "mission_state": "SYNTHESIZING",
                 "artifacts": [value],
                 "continue_autonomously": False,
                 "stop_reason": "RESEARCH_PACKET_READY",
