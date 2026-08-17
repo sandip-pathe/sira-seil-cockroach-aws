@@ -14,8 +14,8 @@ hardening remains. Current as of 2026-08-18.
 
 - Official local gate: Ruff, format, Mypy over 120 source files, architecture boundaries,
   OpenAPI/client drift, web lint/type checks, CDK build/test/synth, and current-tree credential
-  scan pass. The non-provider suite passes `424` tests with `13` live-Cockroach cases selected
-  separately.
+  scan pass. The non-provider suite passes `436` tests. The live-Cockroach suite contains `112`
+  executions across `13` integration categories and runs separately.
 - Live local CockroachDB v26.2.3: fresh migration reaches `cdb0018`; DVI is present; `13`
   integration categories cover readiness/FORCE RLS/pool reuse, real `40001`, DVI/current bundles,
   stale replacement, lease/fencing, bilateral isolation and simultaneous offer races. The
