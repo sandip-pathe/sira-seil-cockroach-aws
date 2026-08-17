@@ -5,7 +5,14 @@ from collections.abc import Mapping
 from typing import Any, cast
 
 from sira_agents.cognitive_runtime import DeterministicCognitiveRuntime
-from sira_agents.kernel_models import Party, Principal, ToolManifest, ToolRisk, TurnBudget
+from sira_agents.kernel_models import (
+    ContextManifest,
+    Party,
+    Principal,
+    ToolManifest,
+    ToolRisk,
+    TurnBudget,
+)
 from sira_agents.run_engine import RunEngine, RuntimeDatabase, TurnCommand
 from sira_agents.tool_broker import ToolBroker
 
@@ -68,7 +75,9 @@ async def test_engine_captures_executes_checkpoints_and_composes() -> None:
     database = await _database()
     observed: list[Mapping[str, Any]] = []
 
-    async def read_evidence(arguments: Mapping[str, Any]) -> dict[str, Any]:
+    async def read_evidence(
+        arguments: Mapping[str, Any], _manifest: ContextManifest
+    ) -> dict[str, Any]:
         observed.append(arguments)
         return {"claim": "Recordings can remain in the EU."}
 

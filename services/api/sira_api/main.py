@@ -27,9 +27,10 @@ from sira_agents.cognitive_runtime import (
     CognitiveRuntime,
     DeterministicCognitiveRuntime,
 )
-from sira_agents.commerce_tools import SEIL_TOOL_NAMES, SIRA_TOOL_NAMES, commerce_tool_registry
+from sira_agents.commerce_tools import commerce_tool_registry
 from sira_agents.context_assembler import default_context_assembler
 from sira_agents.kernel_models import Principal
+from sira_agents.kernel_tools import build_kernel_tool_set
 from sira_agents.run_engine import RunEngine
 from sira_agents.runtime_ticket import RuntimeTicketCodec
 from sira_agents.tool_broker import ToolBroker
@@ -264,6 +265,26 @@ def create_app(
                     else None
                 ),
             )
+        qualification_service = QualificationService(
+            resolved_database,
+            catalog_database=resolved_catalog_database,
+            embedding_client=(
+                TitanEmbeddingClient(
+                    client=bedrock_client,
+                    model_id=resolved_settings.bedrock_embedding_model_id,
+                )
+                if resolved_catalog_database is not None and bedrock_client is not None
+                else None
+            ),
+            allow_development_tenant_bootstrap=(
+                resolved_settings.is_development or resolved_settings.guest_session_enabled
+            ),
+        )
+        kernel_tools = build_kernel_tool_set(
+            workflow=workflow_service,
+            seller=seller_evidence_service,
+            qualification=qualification_service,
+        )
         cognitive_engine = None
         if resolved_settings.cognitive_kernel_enabled:
             cognitive_runtime: CognitiveRuntime
@@ -288,12 +309,12 @@ def create_app(
             cognitive_engine = RunEngine(
                 database=resolved_database,
                 runtime=cognitive_runtime,
-                broker=ToolBroker({}),
-                handlers={},
+                broker=ToolBroker(kernel_tools.catalog),
+                handlers=kernel_tools.handlers,
                 assembler=(
                     default_context_assembler(
-                        sira_tools=frozenset(SIRA_TOOL_NAMES),
-                        seil_tools=frozenset(SEIL_TOOL_NAMES),
+                        sira_tools=kernel_tools.names(Principal.SIRA),
+                        seil_tools=kernel_tools.names(Principal.SEIL),
                     )
                     if resolved_settings.principal_isolation_enabled
                     else None
@@ -301,21 +322,7 @@ def create_app(
             )
         application.state.workflow_service = workflow_service
         application.state.seller_evidence_service = seller_evidence_service
-        application.state.qualification_service = QualificationService(
-            resolved_database,
-            catalog_database=resolved_catalog_database,
-            embedding_client=(
-                TitanEmbeddingClient(
-                    client=bedrock_client,
-                    model_id=resolved_settings.bedrock_embedding_model_id,
-                )
-                if resolved_catalog_database is not None and bedrock_client is not None
-                else None
-            ),
-            allow_development_tenant_bootstrap=(
-                resolved_settings.is_development or resolved_settings.guest_session_enabled
-            ),
-        )
+        application.state.qualification_service = qualification_service
         application.state.workspace_service = WorkspaceService(
             fixtures,
             api_key=resolved_settings.openai_api_key.get_secret_value(),  # pragma: allowlist secret

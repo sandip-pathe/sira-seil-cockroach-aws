@@ -64,6 +64,8 @@ class ContextManifest(KernelModel):
     party: Party
     organization_id: str = Field(min_length=1, max_length=100)
     actor_id: str = Field(min_length=1, max_length=100)
+    actor_roles: tuple[str, ...] = Field(default=(), max_length=32)
+    permissions: tuple[str, ...] = Field(default=(), max_length=64)
     purpose: str = Field(min_length=1, max_length=100)
     conversation_id: str = Field(min_length=1, max_length=128)
     turn_id: str = Field(min_length=1, max_length=128)

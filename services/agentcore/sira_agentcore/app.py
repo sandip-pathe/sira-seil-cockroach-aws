@@ -140,6 +140,8 @@ async def _cognitive_turn(request: AgentCoreInvocationRequest) -> TurnDecisionEn
     manifest = request.manifest
     if manifest.principal is not principal or manifest.party is not party:
         raise HTTPException(status_code=403, detail="manifest targets another runtime principal")
+    if claims.actor_id != manifest.actor_id:
+        raise HTTPException(status_code=403, detail="manifest actor does not match runtime ticket")
     if set(manifest.available_tools).difference(claims.allowed_tools):
         raise HTTPException(status_code=403, detail="manifest exceeds ticket tool scope")
     runtime = BedrockCognitiveRuntime(

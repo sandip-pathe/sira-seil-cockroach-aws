@@ -560,6 +560,8 @@ class WorkspaceService:
             TurnCommand(
                 organization_id=run_context.organization_id,
                 actor_id=run_context.actor_id,
+                actor_roles=tuple(sorted(run_context.actor_roles)),
+                permissions=tuple(sorted(run_context.permissions)),
                 principal=Principal.SIRA if body.mode == "sira" else Principal.SEIL,
                 party=Party.BUYER if body.mode == "sira" else Party.SELLER,
                 purpose="software_selection" if body.mode == "sira" else "seller_evidence",
@@ -567,6 +569,7 @@ class WorkspaceService:
                 turn_id=request_key,
                 idempotency_key=request_key,
                 message=body.message,
+                available_tools=self._allowed_tools(body.mode),
                 recent_messages=tuple(
                     {"role": item.role, "content": item.content} for item in body.history[-20:]
                 ),

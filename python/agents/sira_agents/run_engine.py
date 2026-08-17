@@ -31,7 +31,7 @@ from sira_agents.kernel_models import (
 from sira_agents.response_composer import ComposedResponse, ResponseComposer
 from sira_agents.tool_broker import ToolBroker, ToolDenied
 
-ToolHandler = Callable[[Mapping[str, Any]], Awaitable[dict[str, Any]]]
+ToolHandler = Callable[[Mapping[str, Any], ContextManifest], Awaitable[dict[str, Any]]]
 ResultT = TypeVar("ResultT")
 
 
@@ -57,6 +57,8 @@ class TurnCommand:
     turn_id: str
     idempotency_key: str
     message: str
+    actor_roles: tuple[str, ...] = ()
+    permissions: tuple[str, ...] = ()
     available_tools: tuple[str, ...] = ()
     recent_messages: tuple[dict[str, Any], ...] = ()
     private_context: dict[str, Any] = field(default_factory=dict)
@@ -92,6 +94,8 @@ class RunEngine:
                 party=command.party,
                 organization_id=command.organization_id,
                 actor_id=command.actor_id,
+                actor_roles=command.actor_roles,
+                permissions=command.permissions,
                 purpose=command.purpose,
                 conversation_id=command.conversation_id,
                 turn_id=command.turn_id,
@@ -107,6 +111,8 @@ class RunEngine:
                 party=command.party,
                 organization_id=command.organization_id,
                 actor_id=command.actor_id,
+                actor_roles=command.actor_roles,
+                permissions=command.permissions,
                 purpose=command.purpose,
                 conversation_id=command.conversation_id,
                 turn_id=command.turn_id,
@@ -163,6 +169,7 @@ class RunEngine:
 
             tool_results = []
             for call in decision.calls:
+                invocation_id: str | None = None
                 try:
                     tool = self.broker.authorize(
                         call,
@@ -173,7 +180,7 @@ class RunEngine:
                     invocation_id = await self._authorize_tool(
                         command.organization_id, run.id, call, tool
                     )
-                    output = await self._execute(tool, call.arguments)
+                    output = await self._execute(tool, call.arguments, decision_manifest)
                     await self._complete_tool(
                         command.organization_id, run.id, invocation_id, tool, output
                     )
@@ -188,6 +195,10 @@ class RunEngine:
                     if tool.risk.value == "mutation":
                         mutations_used += 1
                 except ToolDenied:
+                    if invocation_id is not None:
+                        await self._fail_tool(
+                            command.organization_id, run.id, invocation_id, "TOOL_DENIED"
+                        )
                     return await self._fail(
                         command.organization_id,
                         run.id,
@@ -198,11 +209,30 @@ class RunEngine:
                         ),
                     )
                 except TimeoutError:
+                    if invocation_id is not None:
+                        await self._fail_tool(
+                            command.organization_id, run.id, invocation_id, "TOOL_TIMEOUT"
+                        )
                     return await self._fail(
                         command.organization_id,
                         run.id,
                         FailureCode.TOOL_TIMEOUT,
                         "That action didn't respond in time. Your confirmed work is saved.",
+                        retryable=True,
+                    )
+                except Exception:
+                    if invocation_id is not None:
+                        await self._fail_tool(
+                            command.organization_id,
+                            run.id,
+                            invocation_id,
+                            "TOOL_EXECUTION_FAILED",
+                        )
+                    return await self._fail(
+                        command.organization_id,
+                        run.id,
+                        FailureCode.PROVIDER_UNAVAILABLE,
+                        "I couldn't retrieve that safely. Your confirmed work is saved.",
                         retryable=True,
                     )
 
@@ -301,12 +331,17 @@ class RunEngine:
 
         return await self.database.run_retryable(organization_id, work)
 
-    async def _execute(self, tool: ToolManifest, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    async def _execute(
+        self,
+        tool: ToolManifest,
+        arguments: Mapping[str, Any],
+        manifest: ContextManifest,
+    ) -> dict[str, Any]:
         handler = self.handlers.get(tool.name)
         if handler is None:
             raise ToolDenied("TOOL_HANDLER_MISSING")
         async with asyncio.timeout(tool.timeout_seconds):
-            output = await handler(arguments)
+            output = await handler(arguments, manifest)
         self.broker.validate_output(tool, output)
         return output
 
@@ -331,6 +366,22 @@ class RunEngine:
                 payload={"tool_name": tool.name, "output_hash": invocation.output_hash},
             )
             await repository.checkpoint(run, projection={"completed_tool": tool.name})
+
+        await self.database.run_retryable(organization_id, work)
+
+    async def _fail_tool(
+        self,
+        organization_id: str,
+        run_id: str,
+        invocation_id: str,
+        safe_error_code: str,
+    ) -> None:
+        async def work(session: AsyncSession) -> None:
+            repository = CognitiveRepository(session, organization_id)
+            run = await repository.get(run_id, lock=True)
+            snapshot = await repository.snapshot(run)
+            invocation = next(item for item in snapshot.tools if item.id == invocation_id)
+            await repository.fail_tool(invocation, safe_error_code=safe_error_code)
 
         await self.database.run_retryable(organization_id, work)
 

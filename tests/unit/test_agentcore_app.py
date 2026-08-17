@@ -143,3 +143,21 @@ async def test_agentcore_cognitive_turn_is_principal_locked_and_replay_safe(
     assert response.decision.kind == "respond"
     with pytest.raises(HTTPException, match="RUNTIME_TICKET_REPLAYED"):
         await agentcore_app.invoke(request)
+
+    wrong_actor_ticket = RuntimeTicketCodec(key.encode()).issue(
+        principal=Principal.SIRA,
+        party=Party.BUYER,
+        organization_id="org-buyer",
+        actor_id="another-buyer",
+        purpose="workspace_turn",
+        audience="agentcore://sira",
+        allowed_tools=("search_products",),
+    )
+    with pytest.raises(HTTPException, match="manifest actor"):
+        await agentcore_app.invoke(
+            agentcore_app.AgentCoreInvocationRequest(
+                contract="sira.cognitive-turn.v1",
+                ticket=wrong_actor_ticket,
+                manifest=manifest,
+            )
+        )
