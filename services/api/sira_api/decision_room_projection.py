@@ -189,6 +189,7 @@ def _product_option(candidate: dict[str, Any]) -> dict[str, Any]:
             {
                 "id": "merchant_fixture_d",
                 "offer_id": "offer_fixture_d_monthly",
+                "candidate_id": candidate_id,
             }
             if candidate_id == "fixture_selected_fit"
             else None
@@ -415,7 +416,11 @@ def _ledger_solution_option(
         "evidence_frontier": [],
         "components": projected_components,
         "merchant": (
-            {"id": "merchant_fixture_d", "offer_id": "offer_fixture_d_monthly"}
+            {
+                "id": "merchant_fixture_d",
+                "offer_id": "offer_fixture_d_monthly",
+                "candidate_id": "fixture_selected_fit",
+            }
             if component_result is not None
             and component_result.get("pack_id") == "fixture_selected_fit"
             else None
@@ -613,8 +618,10 @@ def _company_context(fixtures: DemoFixtureBundle, capabilities: list[str]) -> di
     }
 
 
-def _disclosure_preview(fixtures: DemoFixtureBundle) -> dict[str, Any]:
-    brief = fixtures.requirement_brief
+def _disclosure_preview(
+    fixtures: DemoFixtureBundle, requirement_brief: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    brief = requirement_brief or fixtures.requirement_brief
     expires_at = datetime.fromisoformat(str(brief["expires_at"]).replace("Z", "+00:00"))
     source_hash = str(brief["content_hash"])
     return {
@@ -665,6 +672,7 @@ def project_decision_room(
     approval: ApprovalRequest | None,
     handoff: PaymentHandoff | None,
     superseded_by: DecisionRecord | None,
+    requirement_brief: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     ledger = deepcopy(decision.payload["ledger"])
     options = solution_options(ledger)
@@ -809,7 +817,7 @@ def project_decision_room(
             "engine_version": frozen_versions.get("engine", "engine_v1"),
         },
         "company_context": _company_context(fixtures, capabilities),
-        "disclosure_preview": _disclosure_preview(fixtures),
+        "disclosure_preview": _disclosure_preview(fixtures, requirement_brief),
         "coverage": {
             "raw_record_count": evaluated_universe.get("raw_record_count", 4),
             "product_evidence_option_count": evaluated_universe.get(

@@ -56,7 +56,7 @@ async def create_exchange_case(
         party=context.party,
         idempotency_key=idempotency_key,
         purchase_request_id=body.purchase_request_id,
-        seller_organization_id=body.seller_organization_id,
+        candidate_id=body.candidate_id,
     )
 
 
@@ -104,7 +104,6 @@ async def publish_exchange_evidence(
         route_capability=route_capability,
         idempotency_key=idempotency_key,
         expected_version=body.expected_version,
-        evidence_hash=body.evidence_hash,
         summary=body.summary,
         published_span_ids=body.published_span_ids,
     )

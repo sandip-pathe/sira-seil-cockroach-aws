@@ -269,6 +269,7 @@ class ProductEvidenceComponent(StrictModel):
 class MerchantProjection(StrictModel):
     id: Identifier
     offer_id: Identifier
+    candidate_id: Identifier
 
 
 class EvidenceSummary(StrictModel):

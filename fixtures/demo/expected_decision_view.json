@@ -301,7 +301,8 @@
       ],
       "merchant": {
         "id": "merchant_fixture_d",
-        "offer_id": "offer_fixture_d_monthly"
+        "offer_id": "offer_fixture_d_monthly",
+        "candidate_id": "fixture_selected_fit"
       },
       "evidence": [
         {

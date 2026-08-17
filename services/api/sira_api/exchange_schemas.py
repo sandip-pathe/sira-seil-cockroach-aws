@@ -13,7 +13,7 @@ from .schemas import Identifier, StrictModel
 
 class ExchangeCaseCreate(StrictModel):
     purchase_request_id: Identifier
-    seller_organization_id: Identifier
+    candidate_id: Identifier
 
 
 class ExchangeProjectionView(StrictModel):
@@ -44,9 +44,8 @@ class ExchangeCaseCreated(StrictModel):
 
 class ExchangeEvidencePublish(StrictModel):
     expected_version: int = Field(ge=1)
-    evidence_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     summary: str = Field(min_length=1, max_length=500)
-    published_span_ids: list[Identifier] = Field(min_length=1, max_length=64)
+    published_span_ids: list[Identifier] = Field(default_factory=list, max_length=64)
 
 
 class ExchangeOfferLineInput(StrictModel):

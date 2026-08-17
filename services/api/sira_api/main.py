@@ -201,6 +201,7 @@ def create_app(
                 tuple(
                     SellerPrincipalBinding(
                         candidate_id=candidate_id,
+                        product_id=str(pack["product_id"]),
                         seller_actor_id=str(pack["seller_id"]),
                         seller_organization_id=f"org_{pack['seller_id']}",
                     )
@@ -222,6 +223,10 @@ def create_app(
         application.state.exchange_service = ExchangeService(
             resolved_database,
             ExchangeRouteCodec(route_secret),
+            seller_directory=resolved_seller_directory,
+            allow_development_tenant_bootstrap=(
+                resolved_settings.is_development or resolved_settings.guest_session_enabled
+            ),
         )
         resolved_evidence_store = evidence_store
         if resolved_evidence_store is None and resolved_settings.s3_evidence_bucket.strip():

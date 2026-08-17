@@ -24,11 +24,14 @@ from persistence.models import (
     BilateralOfferVersion,
     BilateralReleaseManifest,
     BilateralTransition,
+    Organization,
     RequirementBriefVersion,
 )
+from persistence.qualification_models import EvidenceSpan
 from persistence.repositories import PersistenceConflict, RecordNotFound
 
 from .errors import ApiProblem
+from .marketplace import SellerOrganizationDirectory
 
 _SELLER_SAFE_FIELDS = (
     "category_id",
@@ -65,10 +68,14 @@ class ExchangeService:
         database: Database,
         route_codec: ExchangeRouteCodec,
         *,
+        seller_directory: SellerOrganizationDirectory | None = None,
+        allow_development_tenant_bootstrap: bool = False,
         clock: Any | None = None,
     ) -> None:
         self.database = database
         self.route_codec = route_codec
+        self.seller_directory = seller_directory
+        self.allow_development_tenant_bootstrap = allow_development_tenant_bootstrap
         self._clock = clock or (lambda: datetime.now(UTC))
 
     def _decode_route(
@@ -166,7 +173,7 @@ class ExchangeService:
         party: str | None,
         idempotency_key: str,
         purchase_request_id: str,
-        seller_organization_id: str,
+        candidate_id: str,
     ) -> dict[str, Any]:
         if party != "BUYER":
             raise ApiProblem(
@@ -174,6 +181,18 @@ class ExchangeService:
                 message="Only the buyer may release a Requirement Brief.",
                 status_code=403,
             )
+        binding = (
+            self.seller_directory.resolve(candidate_id)
+            if self.seller_directory is not None
+            else None
+        )
+        if binding is None:
+            raise ApiProblem(
+                code="SELLER_ORGANIZATION_BINDING_REQUIRED",
+                message="The selected product has no verified seller organization.",
+                status_code=409,
+            )
+        seller_organization_id = binding.seller_organization_id
         if seller_organization_id == organization_id:
             raise ApiProblem(
                 code="DISTINCT_SELLER_REQUIRED",
@@ -186,6 +205,22 @@ class ExchangeService:
         )
         compiled: Any | None = None
         async with self.database.transaction(organization_id) as session:
+            seller = await session.get(Organization, seller_organization_id)
+            if seller is None:
+                if not self.allow_development_tenant_bootstrap:
+                    raise ApiProblem(
+                        code="SELLER_ORGANIZATION_BINDING_REQUIRED",
+                        message="The verified seller organization is unavailable.",
+                        status_code=409,
+                    )
+                session.add(
+                    Organization(
+                        id=seller_organization_id,
+                        name=f"{binding.seller_actor_id} (fictional fixture)",
+                        version=1,
+                    )
+                )
+                await session.flush()
             repository = BilateralRepository(session, organization_id)
             existing = await repository.create_case(
                 case_id=case_id,
@@ -326,6 +361,8 @@ class ExchangeService:
                 )
         route = ExchangeRoute(
             case_id=case_id,
+            candidate_id=candidate_id,
+            product_id=binding.product_id,
             buyer_organization_id=organization_id,
             seller_organization_id=seller_organization_id,
             expires_at=expires_at,
@@ -367,7 +404,6 @@ class ExchangeService:
         route_capability: str,
         idempotency_key: str,
         expected_version: int,
-        evidence_hash: str,
         summary: str,
         published_span_ids: list[str],
     ) -> dict[str, Any]:
@@ -383,6 +419,37 @@ class ExchangeService:
                 message="Only the seller may publish evidence into this exchange.",
                 status_code=403,
             )
+        span_query = select(EvidenceSpan).where(
+            EvidenceSpan.organization_id == route.seller_organization_id,
+            EvidenceSpan.product_id == route.product_id,
+            EvidenceSpan.visibility.in_(("BUYER_SAFE", "PUBLIC")),
+        )
+        if published_span_ids:
+            span_query = span_query.where(EvidenceSpan.id.in_(published_span_ids))
+        span_query = span_query.order_by(
+            EvidenceSpan.source_version_id, EvidenceSpan.sequence
+        ).limit(64)
+        async with self.database.transaction(route.seller_organization_id) as session:
+            spans = tuple((await session.execute(span_query)).scalars().all())
+        if not spans or (
+            published_span_ids and len(spans) != len(set(published_span_ids))
+        ):
+            raise ApiProblem(
+                code="PUBLISHED_EVIDENCE_REQUIRED",
+                message="Every cited span must be published and buyer-safe.",
+                status_code=409,
+                next_action="publish_evidence",
+            )
+        evidence_hash = content_hash(
+            [
+                {
+                    "span_id": span.id,
+                    "source_version_id": span.source_version_id,
+                    "content_hash": span.content_hash,
+                }
+                for span in sorted(spans, key=lambda item: item.id)
+            ]
+        )
         command = PartyCommand(
             id=_stable_id("command", case_id, idempotency_key),
             case_id=case_id,
@@ -404,8 +471,10 @@ class ExchangeService:
         )
         if replayed is not None:
             return replayed
-        async with self.database.transaction(organization_id) as session:
-            await BilateralRepository(session, organization_id).append_command(command)
+        async with self.database.transaction(route.seller_organization_id) as session:
+            await BilateralRepository(
+                session, route.seller_organization_id
+            ).append_command(command)
         try:
             async with self.database.transaction(route.buyer_organization_id) as session:
                 repository = BilateralRepository(session, route.buyer_organization_id)

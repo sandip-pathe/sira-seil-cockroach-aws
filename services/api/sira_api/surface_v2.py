@@ -19,6 +19,7 @@ from persistence.models import (
     PurchaseBriefVersion,
     PurchaseIntent,
     PurchaseRequest,
+    RequirementBriefVersion,
 )
 from persistence.repositories import WorkflowRepository, new_id
 
@@ -199,6 +200,17 @@ class DecisionRoomSurface:
             ).scalar_one_or_none()
             approval = None
             handoff = None
+            requirement_brief = (
+                await session.execute(
+                    select(RequirementBriefVersion)
+                    .where(
+                        RequirementBriefVersion.organization_id == organization_id,
+                        RequirementBriefVersion.purchase_request_id == request_id,
+                    )
+                    .order_by(RequirementBriefVersion.version.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
             if intent is not None:
                 approval = (
                     await session.execute(
@@ -232,6 +244,11 @@ class DecisionRoomSurface:
                 approval=approval,
                 handoff=handoff,
                 superseded_by=superseded_by,
+                requirement_brief=(
+                    deepcopy(requirement_brief.payload)
+                    if requirement_brief is not None
+                    else None
+                ),
             )
 
     async def decision_rules(self, *, organization_id: str, request_id: str) -> dict[str, Any]:

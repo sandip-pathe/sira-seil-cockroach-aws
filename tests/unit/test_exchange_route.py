@@ -13,6 +13,8 @@ def test_route_is_opaque_and_scoped_to_both_participants() -> None:
     token = codec.encode(
         ExchangeRoute(
             case_id="case-1",
+            candidate_id="candidate-1",
+            product_id="product-1",
             buyer_organization_id="org-buyer",
             seller_organization_id="org-seller",
             expires_at=now + timedelta(hours=1),
@@ -32,6 +34,8 @@ def test_route_rejects_expiry_and_tampering() -> None:
     token = codec.encode(
         ExchangeRoute(
             case_id="case-1",
+            candidate_id="candidate-1",
+            product_id="product-1",
             buyer_organization_id="org-buyer",
             seller_organization_id="org-seller",
             expires_at=now,

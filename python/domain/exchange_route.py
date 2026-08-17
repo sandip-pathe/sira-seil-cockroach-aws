@@ -19,6 +19,8 @@ class ExchangeRoute(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     case_id: str = Field(min_length=1, max_length=64)
+    candidate_id: str = Field(min_length=1, max_length=128)
+    product_id: str = Field(min_length=1, max_length=128)
     buyer_organization_id: str = Field(min_length=1, max_length=64)
     seller_organization_id: str = Field(min_length=1, max_length=64)
     expires_at: datetime

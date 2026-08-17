@@ -384,10 +384,11 @@
     "MerchantOption": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "offer_id"],
+      "required": ["id", "offer_id", "candidate_id"],
       "properties": {
         "id": { "$ref": "common.schema.json#/$defs/Identifier" },
-        "offer_id": { "$ref": "common.schema.json#/$defs/Identifier" }
+        "offer_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "candidate_id": { "$ref": "common.schema.json#/$defs/Identifier" }
       }
     },
     "EvidenceSummary": {

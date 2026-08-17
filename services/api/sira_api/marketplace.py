@@ -12,6 +12,7 @@ _IDENTIFIER = re.compile(r"^[A-Za-z0-9_-]{3,128}$")
 @dataclass(frozen=True, slots=True)
 class SellerPrincipalBinding:
     candidate_id: str
+    product_id: str
     seller_actor_id: str
     seller_organization_id: str
 
@@ -20,6 +21,7 @@ class SellerPrincipalBinding:
             _IDENTIFIER.fullmatch(value)
             for value in (
                 self.candidate_id,
+                self.product_id,
                 self.seller_actor_id,
                 self.seller_organization_id,
             )

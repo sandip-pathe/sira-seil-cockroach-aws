@@ -4,10 +4,13 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from sira_api.exchange_service import ExchangeService
+from sira_api.marketplace import SellerPrincipalBinding, StaticSellerOrganizationDirectory
 
 from domain import content_hash
+from domain.evidence_pipeline import parse_evidence
 from domain.exchange_route import ExchangeRouteCodec
 from persistence.database import Database, DatabaseSettings
+from persistence.evidence_repository import EvidenceRepository
 from persistence.models import (
     Base,
     Organization,
@@ -82,15 +85,41 @@ async def test_buyer_release_creates_distinct_safe_party_projections() -> None:
         service = ExchangeService(
             database,
             ExchangeRouteCodec("route-secret-material" * 2),
+            seller_directory=StaticSellerOrganizationDirectory(
+                (
+                    SellerPrincipalBinding(
+                        candidate_id="candidate-1",
+                        product_id="product-1",
+                        seller_actor_id="seller-1",
+                        seller_organization_id="org-seller",
+                    ),
+                )
+            ),
             clock=lambda: now,
         )
+        parsed = parse_evidence(
+            source_version_id="source-version-1",
+            body=b"The ten-seat workspace supports source-linked answers and Slack.",
+            content_type="text/plain",
+        )
+        async with database.transaction("org-seller") as session:
+            evidence_repository = EvidenceRepository(session, "org-seller")
+            source = await evidence_repository.store_parsed(
+                product_id="product-1",
+                object_bucket="test",
+                object_key="evidence.txt",
+                object_version_id="version-1",
+                size_bytes=64,
+                parsed=parsed,
+            )
+            await evidence_repository.publish(source)
         created = await service.create_case(
             organization_id="org-buyer",
             actor_id="buyer-1",
             party="BUYER",
             idempotency_key="release-request-1",
             purchase_request_id="request-1",
-            seller_organization_id="org-seller",
+            candidate_id="candidate-1",
         )
         token = str(created["route_capability"])
         case_id = str(created["case_id"])
@@ -124,9 +153,8 @@ async def test_buyer_release_creates_distinct_safe_party_projections() -> None:
             route_capability=token,
             idempotency_key="publish-evidence-1",
             expected_version=2,
-            evidence_hash=content_hash({"published": ["span-1"]}),
             summary="Published evidence supports the requirement.",
-            published_span_ids=["span-1"],
+            published_span_ids=[parsed.spans[0].id],
         )
         assert evidence["state"] == "EVIDENCE_RELEASED"
 

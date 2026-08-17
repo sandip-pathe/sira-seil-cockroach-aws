@@ -581,8 +581,8 @@ export interface ExactScoreView {
 }
 
 export interface ExchangeCaseCreate {
+  candidate_id: string;
   purchase_request_id: string;
-  seller_organization_id: string;
 }
 
 export interface ExchangeCaseCreated {
@@ -593,9 +593,8 @@ export interface ExchangeCaseCreated {
 }
 
 export interface ExchangeEvidencePublish {
-  evidence_hash: string;
   expected_version: number;
-  published_span_ids: string[];
+  published_span_ids?: string[];
   summary: string;
 }
 
@@ -697,6 +696,7 @@ export interface IdentityMergeView {
 }
 
 export interface MerchantProjection {
+  candidate_id: string;
   id: string;
   offer_id: string;
 }
