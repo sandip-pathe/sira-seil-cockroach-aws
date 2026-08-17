@@ -1,6 +1,18 @@
 # SIRA + SEIL Flagship Platform — Final Architecture and Implementation Plan
 
-Status: **reviewed and ready for staged implementation; no implementation was performed in this planning pass.**
+Status: **R1 local core implemented and under final verification; R2 cloud definitions are
+implemented but live deployment evidence is blocked on cloud credentials/resources; R3 remains
+portfolio hardening.** Last verified locally: 2026-08-18.
+
+The interface is frozen. No visual change is authorized by this plan. The exact boundary and the
+approval package required for any future pixel change are recorded in
+[`ui-preservation-review.md`](ui-preservation-review.md).
+
+| Release | Current result | Evidence / remaining gate |
+|---|---|---|
+| R1 local core | Implemented | Fresh Cockroach migrations through `cdb0018`, DVI index, 13 real-Cockroach integration cases, evidence-race scenario, typed SIRA/SEIL kernel, bilateral offer/handoff protocol, and local web/API health passed. Two-browser exchange rehearsal remains a release check, not a UI task. |
+| R2 hosted proof | Code and CDK ready; not deployed | Two isolated AgentCore runtimes, ECS web/API/workers, SQS, S3, Secrets, Guardrails, changefeed bridge, alarms, and deployment preflight synth/test. Requires renewed AWS login, Cockroach Cloud URLs, deployment, provider eval, MCP proof, and trace. |
+| R3 hardening | Partial | Static quality, credential scan, 419 non-provider tests, web checks, and architecture boundaries passed. Load, chaos, managed restore, five hosted rehearsals, and measured cost/latency remain evidence gates. |
 
 This replaces the earlier platform-wide P0–P9 roadmap. The final scope is one deep, production-shaped bilateral journey through the restored SIRA and SEIL interface. It starts from the code already present instead of treating the repository as greenfield.
 
@@ -35,7 +47,8 @@ This replaces the earlier platform-wide P0–P9 roadmap. The final scope is one 
 - CockroachDB migrations through `cdb0011`, forced RLS, transaction-local tenant context, bounded `40001` retry support, vector indexes, and hosted tenant roles.
 - Versioned buyer, decision, approval, seller-evidence, marketplace, mission, checkpoint, capability, effect, outbox, qualification, fencing, and changefeed concepts.
 - Deterministic gates, bounds, counterfactuals, rank stability, decision graphs, and concurrency/replacement tests.
-- Bedrock Converse and embedding adapters, qualification evaluations, S3/SQS/CDK infrastructure, ECS web/API/worker services, and one AgentCore experiment runtime.
+- Bedrock Converse and embedding adapters, qualification evaluations, S3/SQS/CDK infrastructure,
+  ECS web/API/worker services, and separate principal-locked SIRA and SEIL AgentCore runtimes.
 - The restored SIRA and SEIL UI, decision and seller-evidence routes, Firebase integration, and generated API contracts.
 - Seventy Python test files across unit, property, contract, integration, API, and Cockroach suites.
 
@@ -43,18 +56,17 @@ This replaces the earlier platform-wide P0–P9 roadmap. The final scope is one 
 
 | Severity | Current evidence | Required correction |
 |---|---|---|
-| P0 | `MissionTurnOutput` can directly author mission state, plan, and claims | Replace it with a discriminated proposal validated by code-owned transitions |
-| P0 | Its fallback emits `EVALUATING`, absent from `MissionState` | Freeze one state contract and test every producer/consumer |
-| P0 | Interactive writes use ordinary transactions and continuation errors can be swallowed | Use retryable database-only closures and durable typed failures |
-| P0 | `authority.py` accepts undeclared extra fields and is not an enforced boundary | Bind exact schemas, versions, hashes, capability scope, use count, and expiry |
-| P0 | Legacy checkout execution remains active in settings, services, workers, persistence, schemas, tests, and docs | Remove it; retain only a provider-neutral `PaymentHandoff` |
-| P1 | The active general runtime is OpenAI Agents SDK | Migrate behind `CognitiveRuntime`; fake first, Bedrock second |
-| P1 | AgentCore hosts a stateless experiment, not isolated production SIRA/SEIL | Deploy two role runtimes only after parity passes |
-| P1 | Tool access is mainly a name allowlist plus in-tool checks | Prefilter by principal, purpose, state, data class, risk, and authority |
-| P1 | Bilateral roles do not consistently enforce party ownership and command shape | Use append-only party commands, coordinator state, and separate projections/roles |
-| P1 | UI exposes mission/runtime/tool/checkpoint vocabulary | Preserve visuals; project user-safe states and a redacted “What happened” view |
-| P1 | Compose starts only Cockroach; planned CLIs are absent; only deploy CI exists | Build one truthful local command surface and application PR checks |
-| P2 | Large service/UI files are parallel-work bottlenecks | Add new behavior behind narrow modules and façades; do not extend monoliths |
+| Status | Review finding | Resolution |
+|---|---|---|
+| Closed | Model-authored mission state and invalid fallback state | `TurnDecision` is a strict discriminated proposal; `RunEngine` owns durable transitions. |
+| Closed | Ordinary interactive writes and swallowed continuation failures | Cognitive writes use bounded retryable closures and persist typed safe failures. |
+| Closed | Weak authority/tool boundary | Strict tool schemas, principal/party/purpose/stage filtering, budgets, and payload-bound capabilities are implemented. |
+| Closed | Legacy checkout execution | Removed; only immutable provider-neutral handoffs remain. |
+| Closed | OpenAI runtime as active architecture | `CognitiveRuntime` now selects deterministic local, Bedrock, or AgentCore providers. |
+| Closed | One experiment-only AgentCore runtime | CDK defines separate principal-locked SIRA and SEIL runtimes with signed tickets and no database credential. |
+| Closed | Bilateral party ownership | Append-only commands, deterministic coordinator, opaque scoped route, and separate tenant projections are implemented. |
+| Closed | Missing local command surface | `sira-dev` and `sira-scenario` cover lifecycle and deterministic verification, including WSL2 Cockroach fallback. |
+| Open R3 | Large legacy service/UI modules | New backend behavior is isolated behind modules/facades. UI refactoring is prohibited without founder approval. |
 
 This is a control-plane, trust-boundary, and integration refactor—not another database migration and not a UI rebuild.
 

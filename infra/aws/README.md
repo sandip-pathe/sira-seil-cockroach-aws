@@ -22,9 +22,13 @@ evidence, attempts, decisions, consent, and introductions.
   introduction and human purchase-authority claims. Its findings are explanatory-only:
   application policy, CockroachDB constraints and explicit human actions remain authority.
   The runtime verifies non-zero Automated Reasoning usage and never persists raw review text.
-- A separate ARM64 AgentCore Runtime runs bounded labelled qualification experiments.
-  It is stateless, IAM-invoked, has no CockroachDB credential and provisions no AgentCore
-  Memory. The qualification worker persists validated, content-hashed results in CockroachDB.
+- Separate ARM64 AgentCore Runtimes execute SIRA and SEIL typed cognitive decisions under
+  distinct principal locks, runtime audiences, IAM identities, prompt/tool bundles, and budgets.
+  They are stateless, IAM-invoked, have no CockroachDB credential, and provision no AgentCore
+  Memory. Every invocation requires a short-lived signed ticket bound to organization, actor,
+  principal, party, purpose, audience, tools, and expiry. The trusted API persists validated,
+  content-hashed results in CockroachDB. SIRA also retains the bounded synthetic experiment
+  contract; SEIL cannot invoke it.
 - An optional dedicated HTTP API and ARM64 Lambda accept authenticated CockroachDB
   changefeed webhooks and forward deterministic hints to an isolated SQS FIFO queue and
   DLQ. The bridge assumes at-least-once delivery and per-key ordering only; it drops source
@@ -103,7 +107,7 @@ docker buildx build --platform linux/arm64 --file Dockerfile.agentcore --tag sir
 ```
 
 Deployment is not proven until `/health` reports `database=\"configured\"`, an
-actual mission travels through SQS and Bedrock to a current Cockroach decision,
+actual conversation/mission travels through SQS or the signed runtime boundary and Bedrock to a current Cockroach decision,
 the consumer receipt exists, the queue drains, and the integrity page verifies
 the same decision and pinned evidence hashes.
 

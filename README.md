@@ -10,10 +10,16 @@ The key correctness claim is narrow: concurrent buyer, seller, and worker activi
 
 - The existing SIRA and SEIL product surfaces are retained.
 - Previous sponsor-specific infrastructure has been removed from the active tree.
-- CockroachDB schema, vector retrieval, serializable retries, fenced worker recovery, Bedrock embeddings, and ECS deployment are under active implementation.
+- CockroachDB schema, vector retrieval, serializable retries, fenced worker recovery,
+  the typed cognitive kernel, and two isolated AgentCore runtime definitions are implemented.
+- The complete deterministic path is verified locally against CockroachDB v26.2.3. Live
+  Bedrock, AgentCore, Cockroach Cloud, Managed MCP, and AWS deployment evidence still requires
+  valid cloud sessions and provisioned resources.
 - Approved purchases can produce an immutable external payment handoff; SIRA never handles card data or claims payment success.
 
-Do not treat planned CockroachDB or AWS work as implemented until its checklist verification passes. See [docs/hackathon-build/00-HANDOFF.md](docs/hackathon-build/00-HANDOFF.md) and [docs/hackathon-build/checklist.md](docs/hackathon-build/checklist.md).
+Implementation status and evidence are tracked in
+[docs/flagship-platform-plan.md](docs/flagship-platform-plan.md). The current interface is a
+frozen product boundary; see [docs/ui-preservation-review.md](docs/ui-preservation-review.md).
 
 ## Product boundaries
 
@@ -25,7 +31,8 @@ Do not treat planned CockroachDB or AWS work as implemented until its checklist 
 
 ## Local development
 
-Requirements: Python 3.12+, `uv`, Node.js 22+, pnpm 11, and Docker Desktop.
+Requirements: Python 3.12+, `uv`, Node.js 22+, and pnpm 11. On Windows, the local
+launcher can use either Docker Desktop or WSL2 for CockroachDB.
 
 ```powershell
 uv sync --all-extras

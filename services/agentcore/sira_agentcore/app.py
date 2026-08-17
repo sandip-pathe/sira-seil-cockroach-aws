@@ -55,7 +55,7 @@ class AgentCoreInvocationRequest(BaseModel):
 AgentCoreExperimentRequest = AgentCoreInvocationRequest
 
 
-app = FastAPI(title="SIRA AgentCore Evaluator", docs_url=None, redoc_url=None)
+app = FastAPI(title="SIRA + SEIL AgentCore Runtime", docs_url=None, redoc_url=None)
 _replay_guard = InMemoryReplayGuard()
 
 
