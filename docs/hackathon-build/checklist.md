@@ -14,13 +14,15 @@ hardening remains. Current as of 2026-08-18.
 
 - Official local gate: Ruff, format, Mypy over 117 source files, architecture boundaries,
   OpenAPI/client drift, web lint/type checks, CDK build/test/synth, and current-tree credential
-  scan pass. The non-provider suite passes `419` tests. The live-Cockroach suite contains `112`
-  executions across `13` integration categories and runs separately.
+  scan pass. The non-provider suite passes `422` tests. The live-Cockroach suite contains `113`
+  executions across `14` integration categories and runs separately.
 - Live local CockroachDB v26.2.3: fresh migration reaches `cdb0018`; DVI is present; `13`
   integration categories cover readiness/FORCE RLS/pool reuse, real `40001`, DVI/current bundles,
   stale replacement, lease/fencing, bilateral isolation and simultaneous offer races. The
   evidence-version race is permanently parameterized for `100` real-Cockroach executions and
-  passes with zero stale decisions and exactly one direct replacement per execution. The
+  passes with zero stale decisions and exactly one direct replacement per execution. Durable
+  agent memory ignores browser-authored history, and duplicate request IDs preserve the original
+  mission version and events without another model call. The
   `evidence-race` reset/run/verify scenario passes against CockroachDB, not SQLite.
 - The same-browser guest path now receives a globally unique isolated fixture tenant and can open
   the buyer and seller projections of one opaque capability-scoped exchange. Production identities

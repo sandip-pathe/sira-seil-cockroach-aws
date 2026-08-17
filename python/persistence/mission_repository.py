@@ -377,6 +377,16 @@ class MissionRepository:
         await self.session.flush()
         return event
 
+    async def has_event_key(self, event_key: str) -> bool:
+        return (
+            await self.session.scalar(
+                select(AgentMissionEvent.id).where(
+                    AgentMissionEvent.organization_id == self.organization_id,
+                    AgentMissionEvent.event_key == event_key,
+                )
+            )
+        ) is not None
+
     async def add_artifact(
         self,
         mission: AgentMission,

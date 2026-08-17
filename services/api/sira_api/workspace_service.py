@@ -247,13 +247,14 @@ class WorkspaceService:
                 retryable=False,
                 next_action="configure_agent_runtime",
             )
-        mission_id, _model_context = await self._prepare_mission(
+        mission_id, model_context = await self._prepare_mission(
             body=body,
             run_context=run_context,
         )
         return await self._chat_with_cognitive_kernel(
             body=body,
             mission_id=mission_id,
+            model_context=model_context,
             run_context=run_context,
         )
 
@@ -262,11 +263,16 @@ class WorkspaceService:
         *,
         body: WorkspaceChatCreate,
         mission_id: str,
+        model_context: dict[str, Any],
         run_context: AgentRunContext,
     ) -> dict[str, Any]:
         if self.cognitive_engine is None:
             raise RuntimeError("cognitive engine is not configured")
         request_key = run_context.request_id or uuid4().hex
+        recent_messages, summary, unresolved, private_context = self._kernel_context(
+            body=body,
+            model_context=model_context,
+        )
         result = await self.cognitive_engine.process(
             TurnCommand(
                 organization_id=run_context.organization_id,
@@ -281,9 +287,10 @@ class WorkspaceService:
                 idempotency_key=request_key,
                 message=body.message,
                 available_tools=self._allowed_tools(body.mode),
-                recent_messages=tuple(
-                    {"role": item.role, "content": item.content} for item in body.history[-20:]
-                ),
+                recent_messages=recent_messages,
+                summary=summary,
+                unresolved_questions=unresolved,
+                private_context=private_context,
             )
         )
         snapshot = await self._persist_kernel_projection(
@@ -307,6 +314,83 @@ class WorkspaceService:
             "attention": None,
             "advisory_only": False,
         }
+
+    def _kernel_context(
+        self,
+        *,
+        body: WorkspaceChatCreate,
+        model_context: dict[str, Any],
+    ) -> tuple[tuple[dict[str, Any], ...], str | None, tuple[str, ...], dict[str, Any]]:
+        if self.database is None:
+            return (
+                tuple({"role": item.role, "content": item.content} for item in body.history[-20:]),
+                None,
+                (),
+                {},
+            )
+
+        durable_messages: list[dict[str, Any]] = []
+        for event in model_context.get("recent_events", ()):
+            if not isinstance(event, dict):
+                continue
+            event_type = event.get("type")
+            if event_type not in {"user.message", "assistant.message"}:
+                continue
+            payload = event.get("payload")
+            if not isinstance(payload, dict) or not isinstance(payload.get("message"), str):
+                continue
+            durable_messages.append(
+                {
+                    "role": "user" if event_type == "user.message" else "assistant",
+                    "content": payload["message"],
+                }
+            )
+        if (
+            durable_messages
+            and durable_messages[-1]["role"] == "user"
+            and durable_messages[-1]["content"] == body.message
+        ):
+            durable_messages.pop()
+
+        mission = model_context.get("mission")
+        mission = mission if isinstance(mission, dict) else {}
+        goal = str(mission.get("goal") or "").strip()
+        state = str(mission.get("state") or "").strip()
+        summary = (
+            " ".join(
+                part
+                for part in (
+                    f"Mission goal: {goal}" if goal else "",
+                    f"State: {state}" if state else "",
+                )
+                if part
+            )[:8_000]
+            or None
+        )
+        world_model = mission.get("world_model")
+        world_model = world_model if isinstance(world_model, dict) else {}
+        unknowns = world_model.get("unknowns")
+        unresolved = tuple(
+            str(item)[:800]
+            for item in (unknowns if isinstance(unknowns, list) else ())
+            if str(item).strip()
+        )[:8]
+        private_context = {
+            "mission": {
+                key: mission.get(key)
+                for key in ("id", "goal", "state", "version", "plan", "world_model", "stop_reason")
+            },
+            "open_tasks": model_context.get("open_tasks", [])[:20],
+            "artifact_index": [
+                {
+                    key: artifact.get(key)
+                    for key in ("id", "kind", "title", "status", "authority", "content_hash")
+                }
+                for artifact in model_context.get("artifacts", [])[-20:]
+                if isinstance(artifact, dict)
+            ],
+        }
+        return tuple(durable_messages[-20:]), summary, unresolved, private_context
 
     async def _persist_kernel_projection(
         self,
@@ -334,6 +418,8 @@ class WorkspaceService:
         async def work(session: AsyncSession) -> dict[str, Any]:
             repository = MissionRepository(session, run_context.organization_id)
             mission = await repository.get_for_actor(mission_id, run_context.actor_id, lock=True)
+            if result.duplicate:
+                return self._snapshot_view(await repository.snapshot(mission))
             mission.state = "PAUSED" if result.status == "WAITING" else result.status
             mission.version += 1
             await repository.append_event(
@@ -453,11 +539,14 @@ class WorkspaceService:
                     )
                 if mission.mode != body.mode.upper():
                     raise PermissionError("mission mode does not match this workspace")
+            user_event_key = f"user-message:{mission.id}:{turn_key}"
+            if await repository.has_event_key(user_event_key):
+                return mission.id, (await repository.snapshot(mission)).model_context()
             mission.state = "ORIENTING"
             await repository.append_event(
                 mission,
                 event_type="user.message",
-                event_key=f"user-message:{mission.id}:{turn_key}",
+                event_key=user_event_key,
                 actor_type="USER",
                 actor_id=run_context.actor_id,
                 payload={"message": body.message},

@@ -61,6 +61,8 @@ class TurnCommand:
     permissions: tuple[str, ...] = ()
     available_tools: tuple[str, ...] = ()
     recent_messages: tuple[dict[str, Any], ...] = ()
+    summary: str | None = None
+    unresolved_questions: tuple[str, ...] = ()
     private_context: dict[str, Any] = field(default_factory=dict)
     exchange_projection: dict[str, Any] = field(default_factory=dict)
     budget: TurnBudget = field(default_factory=TurnBudget)
@@ -102,6 +104,8 @@ class RunEngine:
                 turn_id=command.turn_id,
                 current_message=command.message,
                 recent_messages=command.recent_messages,
+                summary=command.summary,
+                unresolved_questions=command.unresolved_questions,
                 private_context=command.private_context,
                 exchange_projection=command.exchange_projection,
                 requested_tools=command.available_tools,
@@ -119,7 +123,12 @@ class RunEngine:
                 turn_id=command.turn_id,
                 current_message=command.message,
                 recent_messages=command.recent_messages,
-                exchange_projection=command.exchange_projection,
+                summary=command.summary,
+                unresolved_questions=command.unresolved_questions,
+                exchange_projection={
+                    "private": command.private_context,
+                    "released": command.exchange_projection,
+                },
                 available_tools=command.available_tools,
                 budget=command.budget,
             ).sealed()

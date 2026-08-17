@@ -63,6 +63,7 @@ This replaces the earlier platform-wide P0–P9 roadmap. The final scope is one 
 | Closed | Weak authority/tool boundary | Strict tool schemas, principal/party/purpose/stage filtering, budgets, and payload-bound capabilities are implemented. |
 | Closed | Legacy checkout execution | Removed; only immutable provider-neutral handoffs remain. |
 | Closed | OpenAI runtime as active architecture | `CognitiveRuntime` now selects deterministic local, Bedrock, or AgentCore providers. |
+| Closed | Browser-authored conversational memory | Each turn is assembled from the actor-scoped Cockroach mission snapshot; browser history is ignored when durable state exists, and duplicate request IDs return the original projection without another model call or checkpoint. |
 | Closed | One experiment-only AgentCore runtime | CDK defines separate principal-locked SIRA and SEIL runtimes with signed tickets and no database credential. |
 | Closed | Bilateral party ownership | Append-only commands, deterministic coordinator, opaque scoped route, and separate tenant projections are implemented. |
 | Closed | Missing local command surface | `sira-dev` and `sira-scenario` cover lifecycle and deterministic verification, including WSL2 Cockroach fallback. |

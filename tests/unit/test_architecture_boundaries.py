@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -53,6 +54,17 @@ def test_agents_do_not_depend_on_transport_or_worker_layers() -> None:
         "python/agents",
         {"fastapi", "persistence", "sira_agentcore", "sira_api", "sira_worker", "sqlalchemy"},
     )
+
+
+def test_active_agent_runtime_has_no_duplicate_openai_sdk() -> None:
+    _assert_no_imports("python/agents", {"agents", "openai"})
+    _assert_no_imports("services/api", {"agents", "openai"})
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    declared = [
+        *project["project"]["dependencies"],
+        *project["project"]["optional-dependencies"]["dev"],
+    ]
+    assert not any(str(item).startswith(("openai", "openai-agents")) for item in declared)
 
 
 def test_persistence_does_not_depend_on_transport_or_worker_layers() -> None:
