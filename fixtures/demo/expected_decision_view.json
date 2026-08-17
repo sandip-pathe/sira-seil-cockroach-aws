@@ -150,6 +150,41 @@
     "company_profile_version": 1,
     "company_stack_snapshot": 1
   },
+  "disclosure_preview": {
+    "source_id": "reqbrief_f1dd736e28bc4099",
+    "source_version": 1,
+    "source_hash": "sha256:f1dd736e28bc40991a75225ae62c0a9b6caec6d5c8a2d51a8f910b66adff8840",
+    "recipient": "SELLER",
+    "purpose": "Let eligible sellers assess fit and answer the buyer's stated requirements.",
+    "exact_fields": [
+      "category_id",
+      "intent",
+      "desired_outcome",
+      "team.seat_count",
+      "team.team_type",
+      "team.billing_region",
+      "team.comparison_horizon_days",
+      "data_profile",
+      "hard_requirements",
+      "preferences",
+      "allowed_stack_context",
+      "seller_questions"
+    ],
+    "transformations": [
+      "Organization identity removed",
+      "Internal product names generalized",
+      "Budget and competing offers withheld"
+    ],
+    "omitted_categories": [
+      "organization_identity",
+      "employee_identity",
+      "hidden_budget",
+      "competing_offers",
+      "unrestricted_stack_data"
+    ],
+    "expires_at": "2026-08-03T00:20:00Z",
+    "status": "EXPIRED"
+  },
   "coverage": {
     "raw_record_count": 4,
     "product_evidence_option_count": 4,

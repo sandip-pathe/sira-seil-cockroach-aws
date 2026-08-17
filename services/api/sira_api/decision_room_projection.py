@@ -613,6 +613,47 @@ def _company_context(fixtures: DemoFixtureBundle, capabilities: list[str]) -> di
     }
 
 
+def _disclosure_preview(fixtures: DemoFixtureBundle) -> dict[str, Any]:
+    brief = fixtures.requirement_brief
+    expires_at = datetime.fromisoformat(str(brief["expires_at"]).replace("Z", "+00:00"))
+    source_hash = str(brief["content_hash"])
+    return {
+        "source_id": f"reqbrief_{source_hash.removeprefix('sha256:')[:16]}",
+        "source_version": int(brief["version"]),
+        "source_hash": source_hash,
+        "recipient": "SELLER",
+        "purpose": "Let eligible sellers assess fit and answer the buyer's stated requirements.",
+        "exact_fields": [
+            "category_id",
+            "intent",
+            "desired_outcome",
+            "team.seat_count",
+            "team.team_type",
+            "team.billing_region",
+            "team.comparison_horizon_days",
+            "data_profile",
+            "hard_requirements",
+            "preferences",
+            "allowed_stack_context",
+            "seller_questions",
+        ],
+        "transformations": [
+            "Organization identity removed",
+            "Internal product names generalized",
+            "Budget and competing offers withheld",
+        ],
+        "omitted_categories": [
+            "organization_identity",
+            "employee_identity",
+            "hidden_budget",
+            "competing_offers",
+            "unrestricted_stack_data",
+        ],
+        "expires_at": expires_at.isoformat(),
+        "status": "ACTIVE" if expires_at > datetime.now(UTC) else "EXPIRED",
+    }
+
+
 def project_decision_room(
     *,
     request: PurchaseRequest,
@@ -768,6 +809,7 @@ def project_decision_room(
             "engine_version": frozen_versions.get("engine", "engine_v1"),
         },
         "company_context": _company_context(fixtures, capabilities),
+        "disclosure_preview": _disclosure_preview(fixtures),
         "coverage": {
             "raw_record_count": evaluated_universe.get("raw_record_count", 4),
             "product_evidence_option_count": evaluated_universe.get(

@@ -328,6 +328,7 @@ function NeedStage({ view }: { view: DecisionView }) {
 }
 
 function CompanyFitStage({ view }: { view: DecisionView }) {
+  const disclosure = view.disclosure_preview;
   return (
     <section className={styles.stageSection}>
       <div className={styles.stageIntro}><p>02 · Company fit</p><h2>Company facts and Decision rules</h2><span>Private company context stays separate from the sanitized Requirement Brief.</span></div>
@@ -337,7 +338,7 @@ function CompanyFitStage({ view }: { view: DecisionView }) {
           <ul className={styles.companyFacts}>{view.company_context.facts_used.map((fact) => <li key={fact.fact_id}><span className={styles.factIcon}><Check aria-hidden="true" /></span><span><strong>{fact.display_name.replaceAll(".", " · ")}</strong><small>{fact.provenance_label} · {fact.sensitivity}</small></span><b>{fact.display_value}</b></li>)}</ul>
         </div>
         <aside className={styles.sideStack}>
-          <div className={styles.boundaryCard}><LockKeyhole aria-hidden="true" /><p>Disclosure preview</p><h3>Only the minimum Requirement Brief crosses sides</h3><span>Company identity, hidden budget, employee names, competing offers, and unrestricted Stack data remain absent.</span><button type="button" disabled title="Disclosure preview needs its server contract">Preview unavailable in this build</button></div>
+          <div className={styles.boundaryCard}><LockKeyhole aria-hidden="true" /><p>Disclosure preview</p><h3>Only the minimum Requirement Brief crosses sides</h3><span>Company identity, hidden budget, employee names, competing offers, and unrestricted Stack data remain absent.</span><details className={styles.disclosureDetails}><summary>Review exact disclosure</summary><div><small data-status={disclosure.status.toLowerCase()}>{disclosure.status === "ACTIVE" ? "Active" : "Expired — sharing blocked"}</small><p>{disclosure.purpose}</p><dl><div><dt>Recipient</dt><dd>Eligible seller</dd></div><div><dt>Source</dt><dd>{disclosure.source_id} · v{disclosure.source_version}</dd></div><div><dt>Expires</dt><dd>{new Date(disclosure.expires_at).toLocaleString()}</dd></div></dl><strong>Fields crossing the boundary</strong><ul>{disclosure.exact_fields.map((field) => <li key={field}>{field}</li>)}</ul><strong>Explicitly omitted</strong><p>{disclosure.omitted_categories.join(" · ")}</p></div></details></div>
           <div className={styles.calibrationCard}><p>Calibration check</p><h3>Known examples behave as expected</h3><ul><li><Check aria-hidden="true" /> Known failure is blocked</li><li><Check aria-hidden="true" /> Incumbent remains eligible</li><li><Check aria-hidden="true" /> Expected qualifier passes</li></ul><button type="button" disabled>Run requires API contract</button></div>
         </aside>
       </div>

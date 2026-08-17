@@ -419,6 +419,7 @@ export interface DecisionView {
   company_context: CompanyContextProjection;
   coverage: CoverageProjection;
   decision_outcome: DecisionOutcome;
+  disclosure_preview: DisclosurePreview;
   evaluation: EvaluationSummary;
   payment_handoff?: PaymentHandoffProjection | null;
   rank_stability: RankStabilityProjection;
@@ -446,6 +447,19 @@ export interface DisclosureDefaults {
   allow_anonymized_requirement_preview?: boolean;
   allow_outcome_follow_up?: boolean;
   share_organization_name_after_consent?: boolean;
+}
+
+export interface DisclosurePreview {
+  exact_fields: string[];
+  expires_at: string;
+  omitted_categories: string[];
+  purpose: string;
+  recipient: "SELLER";
+  source_hash: string;
+  source_id: string;
+  source_version: number;
+  status: "ACTIVE" | "EXPIRED";
+  transformations: string[];
 }
 
 export type EngagementStatus = "NOT_STARTED" | "SELLER_REVIEWING" | "SELLER_PASSED" | "OFFER_AVAILABLE" | "BUYER_CONSENT_PENDING" | "SELLER_CONSENT_PENDING" | "INTRODUCTION_READY" | "DECLINED" | "EXPIRED";

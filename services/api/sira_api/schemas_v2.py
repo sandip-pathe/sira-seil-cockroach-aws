@@ -167,6 +167,19 @@ class CompanyContextProjection(StrictModel):
     company_stack_snapshot: int = Field(ge=1)
 
 
+class DisclosurePreview(StrictModel):
+    source_id: Identifier
+    source_version: int = Field(ge=1)
+    source_hash: HashValue
+    recipient: Literal["SELLER"]
+    purpose: str = Field(min_length=1, max_length=240)
+    exact_fields: list[str] = Field(min_length=1, max_length=32)
+    transformations: list[str] = Field(max_length=16)
+    omitted_categories: list[str] = Field(min_length=1, max_length=16)
+    expires_at: datetime
+    status: Literal["ACTIVE", "EXPIRED"]
+
+
 class CoverageProjection(StrictModel):
     raw_record_count: int = Field(ge=0)
     product_evidence_option_count: int = Field(ge=0)
@@ -404,6 +417,7 @@ class DecisionView(StrictModel):
     workflow: WorkflowProjection
     evaluation: EvaluationSummary
     company_context: CompanyContextProjection
+    disclosure_preview: DisclosurePreview
     coverage: CoverageProjection
     decision_outcome: DecisionOutcome
     rank_stability: RankStabilityProjection

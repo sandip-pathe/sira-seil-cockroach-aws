@@ -2676,6 +2676,9 @@
           "decision_outcome": {
             "$ref": "#/components/schemas/DecisionOutcome"
           },
+          "disclosure_preview": {
+            "$ref": "#/components/schemas/DisclosurePreview"
+          },
           "evaluation": {
             "$ref": "#/components/schemas/EvaluationSummary"
           },
@@ -2738,6 +2741,7 @@
           "workflow",
           "evaluation",
           "company_context",
+          "disclosure_preview",
           "coverage",
           "decision_outcome",
           "rank_stability",
@@ -2821,6 +2825,92 @@
           }
         },
         "title": "DisclosureDefaults",
+        "type": "object"
+      },
+      "DisclosurePreview": {
+        "additionalProperties": false,
+        "properties": {
+          "exact_fields": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Exact Fields",
+            "type": "array"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "omitted_categories": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Omitted Categories",
+            "type": "array"
+          },
+          "purpose": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "recipient": {
+            "const": "SELLER",
+            "title": "Recipient",
+            "type": "string"
+          },
+          "source_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Source Hash",
+            "type": "string"
+          },
+          "source_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_version": {
+            "minimum": 1.0,
+            "title": "Source Version",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "EXPIRED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "transformations": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Transformations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_id",
+          "source_version",
+          "source_hash",
+          "recipient",
+          "purpose",
+          "exact_fields",
+          "transformations",
+          "omitted_categories",
+          "expires_at",
+          "status"
+        ],
+        "title": "DisclosurePreview",
         "type": "object"
       },
       "EngagementStatus": {
