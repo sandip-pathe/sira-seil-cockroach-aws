@@ -10,7 +10,7 @@ approval package required for any future pixel change are recorded in
 
 | Release | Current result | Evidence / remaining gate |
 |---|---|---|
-| R1 local core | Implemented | Fresh Cockroach migrations through `cdb0018`, DVI index, 13 real-Cockroach integration cases, evidence-race scenario, typed SIRA/SEIL kernel, bilateral offer/handoff protocol, and local web/API health passed. Two-browser exchange rehearsal remains a release check, not a UI task. |
+| R1 local core | Implemented | Fresh Cockroach migrations through `cdb0018`, DVI index, real-Cockroach integration suite including 100 evidence-version races, evidence-race scenario, typed SIRA/SEIL kernel, bilateral offer/handoff protocol, isolated same-browser buyer/seller projections, and local web/API health passed. |
 | R2 hosted proof | Code and CDK ready; not deployed | Two isolated AgentCore runtimes, ECS web/API/workers, SQS, S3, Secrets, Guardrails, changefeed bridge, alarms, and deployment preflight synth/test. Requires renewed AWS login, Cockroach Cloud URLs, deployment, provider eval, MCP proof, and trace. |
 | R3 hardening | Partial | Static quality, credential scan, 424 non-provider tests, web checks, and architecture boundaries passed. Load, chaos, managed restore, five hosted rehearsals, and measured cost/latency remain evidence gates. |
 

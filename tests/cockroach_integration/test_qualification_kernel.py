@@ -359,7 +359,10 @@ async def _seed_bundle(
     return bundle_id, digest
 
 
-async def test_v2_activation_rejects_v1_finalization_and_creates_one_replacement() -> None:
+@pytest.mark.parametrize("_race_iteration", range(100))
+async def test_v2_activation_rejects_v1_finalization_and_creates_one_replacement(
+    _race_iteration: int,
+) -> None:
     database = Database(DatabaseSettings(database_url=_runtime_url()))
     worker_database = Database(DatabaseSettings(database_url=_worker_url()))
     suffix = uuid4().hex[:8]

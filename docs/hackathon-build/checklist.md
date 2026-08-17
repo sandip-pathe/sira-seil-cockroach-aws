@@ -17,8 +17,10 @@ hardening remains. Current as of 2026-08-18.
   scan pass. The non-provider suite passes `424` tests with `13` live-Cockroach cases selected
   separately.
 - Live local CockroachDB v26.2.3: fresh migration reaches `cdb0018`; DVI is present; `13`
-  integration cases cover readiness/FORCE RLS/pool reuse, real `40001`, DVI/current bundles,
+  integration categories cover readiness/FORCE RLS/pool reuse, real `40001`, DVI/current bundles,
   stale replacement, lease/fencing, bilateral isolation and simultaneous offer races. The
+  evidence-version race is permanently parameterized for `100` real-Cockroach executions and
+  passes with zero stale decisions and exactly one direct replacement per execution. The
   `evidence-race` reset/run/verify scenario passes against CockroachDB, not SQLite.
 - The same-browser guest path now receives a globally unique isolated fixture tenant and can open
   the buyer and seller projections of one opaque capability-scoped exchange. Production identities
