@@ -502,8 +502,8 @@ class WorkflowService:
 
             brief = deepcopy(fixtures.purchase_brief)
             requirement = deepcopy(fixtures.requirement_brief)
-            requirement["expires_at"] = (self._now() + timedelta(days=7)).isoformat().replace(
-                "+00:00", "Z"
+            requirement["expires_at"] = (
+                (self._now() + timedelta(days=7)).isoformat().replace("+00:00", "Z")
             )
             requirement["content_hash"] = content_hash(
                 {key: value for key, value in requirement.items() if key != "content_hash"}
@@ -3556,8 +3556,8 @@ class WorkflowService:
         requirement["purchase_brief_id"] = brief_id
         requirement["intent"] = request.intent
         requirement["desired_outcome"] = brief["desired_outcome"]["statement"]
-        requirement["expires_at"] = (self._now() + timedelta(days=7)).isoformat().replace(
-            "+00:00", "Z"
+        requirement["expires_at"] = (
+            (self._now() + timedelta(days=7)).isoformat().replace("+00:00", "Z")
         )
         requirement["content_hash"] = content_hash(
             {key: value for key, value in requirement.items() if key != "content_hash"}

@@ -54,7 +54,10 @@ def upgrade() -> None:
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("manifest_hash", sa.String(length=80), nullable=False),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         _tenant_column(),
         sa.CheckConstraint(
@@ -91,7 +94,10 @@ def upgrade() -> None:
         sa.Column("payload_hash", sa.String(length=80), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         _tenant_column(),
         sa.CheckConstraint(
@@ -102,7 +108,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
-            "organization_id", "case_id", "sender_party", "sequence",
+            "organization_id",
+            "case_id",
+            "sender_party",
+            "sequence",
             name="uq_exchange_envelope_sequence",
         ),
         sa.UniqueConstraint("organization_id", "payload_hash", name="uq_exchange_envelope_hash"),
@@ -156,7 +165,10 @@ def upgrade() -> None:
         sa.Column("approval_status", sa.String(length=20), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         _tenant_column(),
         sa.CheckConstraint(
@@ -206,7 +218,10 @@ def upgrade() -> None:
         ["organization_id"],
     )
 
-    coordinator = {"sira_runtime": "SELECT, INSERT, UPDATE, DELETE", "sira_coordinator": "SELECT, INSERT, UPDATE"}
+    coordinator = {
+        "sira_runtime": "SELECT, INSERT, UPDATE, DELETE",
+        "sira_coordinator": "SELECT, INSERT, UPDATE",
+    }
     _secure("bilateral_release_manifests", coordinator)
     _secure("bilateral_exchange_envelopes", coordinator)
     _secure("bilateral_exchange_receipts", coordinator)

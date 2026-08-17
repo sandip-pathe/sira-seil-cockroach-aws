@@ -133,8 +133,7 @@ class AgentCoreCognitiveRuntime:
         if set(self.runtime_arns) != {Principal.SIRA, Principal.SEIL}:
             raise ValueError("both principal-specific AgentCore runtime ARNs are required")
         if any(
-            not arn.startswith("arn:aws:bedrock-agentcore:")
-            for arn in self.runtime_arns.values()
+            not arn.startswith("arn:aws:bedrock-agentcore:") for arn in self.runtime_arns.values()
         ):
             raise ValueError("valid Bedrock AgentCore Runtime ARNs are required")
 
@@ -159,10 +158,7 @@ class AgentCoreCognitiveRuntime:
         }
         validate_agent_payload(request, seller_visible=principal is Principal.SEIL)
         encoded = json.dumps(request, sort_keys=True, separators=(",", ":")).encode()
-        session_id = (
-            f"{principal.value.casefold()}-turn-"
-            f"{sha256(encoded).hexdigest()[:32]}"
-        )
+        session_id = f"{principal.value.casefold()}-turn-{sha256(encoded).hexdigest()[:32]}"
 
         def invoke() -> Mapping[str, Any]:
             return self.client.invoke_agent_runtime(

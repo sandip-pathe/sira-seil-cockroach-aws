@@ -245,9 +245,7 @@ class DecisionRoomSurface:
                 handoff=handoff,
                 superseded_by=superseded_by,
                 requirement_brief=(
-                    deepcopy(requirement_brief.payload)
-                    if requirement_brief is not None
-                    else None
+                    deepcopy(requirement_brief.payload) if requirement_brief is not None else None
                 ),
             )
 

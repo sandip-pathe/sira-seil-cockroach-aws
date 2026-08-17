@@ -102,9 +102,7 @@ def test_release_manifest_rejects_changed_expired_revoked_and_private_contracts(
     with pytest.raises(ContractViolation, match="expired"):
         _release(expires_at=NOW).release({"goal": "x", "seats": 1}, now=NOW)
     with pytest.raises(ContractViolation, match="revoked"):
-        _release(status=ReleaseStatus.REVOKED).release(
-            {"goal": "x", "seats": 1}, now=NOW
-        )
+        _release(status=ReleaseStatus.REVOKED).release({"goal": "x", "seats": 1}, now=NOW)
 
 
 def test_envelope_hash_rejects_changed_terms_and_private_values() -> None:

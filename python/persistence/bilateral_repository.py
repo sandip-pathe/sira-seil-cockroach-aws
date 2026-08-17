@@ -217,9 +217,7 @@ class BilateralRepository:
             raise RecordNotFound("party projection was not found")
         return record
 
-    async def store_release_manifest(
-        self, manifest: ReleaseManifest
-    ) -> BilateralReleaseManifest:
+    async def store_release_manifest(self, manifest: ReleaseManifest) -> BilateralReleaseManifest:
         existing = await self.session.get(BilateralReleaseManifest, manifest.manifest_id)
         if existing is not None:
             if (
@@ -292,9 +290,7 @@ class BilateralRepository:
         await self.session.flush()
         return record
 
-    async def acknowledge_envelope(
-        self, receipt: ExchangeReceipt
-    ) -> BilateralExchangeReceipt:
+    async def acknowledge_envelope(self, receipt: ExchangeReceipt) -> BilateralExchangeReceipt:
         existing = await self.session.scalar(
             select(BilateralExchangeReceipt).where(
                 BilateralExchangeReceipt.organization_id == self.organization_id,
@@ -420,9 +416,7 @@ class BilateralRepository:
         await self.session.flush()
         return record
 
-    async def store_handoff(
-        self, handoff: ExchangePaymentHandoff
-    ) -> BilateralExchangeHandoff:
+    async def store_handoff(self, handoff: ExchangePaymentHandoff) -> BilateralExchangeHandoff:
         existing = await self.session.scalar(
             select(BilateralExchangeHandoff).where(
                 BilateralExchangeHandoff.organization_id == self.organization_id,

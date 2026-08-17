@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 from sira_agents.cognitive_runtime import DeterministicCognitiveRuntime
-from sira_agents.run_engine import RunEngine
 from sira_agents.runtime import AgentRunContext
 from sira_agents.tool_broker import ToolBroker
+from sira_api.cognitive_engine import RunEngine
 from sira_api.fixtures import DemoFixtureBundle
 from sira_api.workspace_schemas import WorkspaceChatCreate
 from sira_api.workspace_service import WorkspaceService

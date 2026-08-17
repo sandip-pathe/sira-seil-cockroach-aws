@@ -35,10 +35,16 @@ def upgrade() -> None:
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("opened_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column("organization_id", sa.String(length=64), nullable=False),
         sa.CheckConstraint(
@@ -50,9 +56,7 @@ def upgrade() -> None:
         sa.UniqueConstraint(
             "organization_id", "case_id", "offer_hash", name="uq_bilateral_handoff_offer"
         ),
-        sa.UniqueConstraint(
-            "organization_id", "handoff_hash", name="uq_bilateral_handoff_hash"
-        ),
+        sa.UniqueConstraint("organization_id", "handoff_hash", name="uq_bilateral_handoff_hash"),
     )
     op.create_index(
         "ix_bilateral_handoff_case",
@@ -69,9 +73,7 @@ def upgrade() -> None:
         "sira_api_runtime": "SELECT, INSERT, UPDATE",
         "sira_coordinator": "SELECT, INSERT, UPDATE",
     }.items():
-        op.execute(
-            f'GRANT {privileges} ON TABLE "bilateral_exchange_handoffs" TO {role}'
-        )
+        op.execute(f'GRANT {privileges} ON TABLE "bilateral_exchange_handoffs" TO {role}')
     op.execute('ALTER TABLE "bilateral_exchange_handoffs" ENABLE ROW LEVEL SECURITY')
     op.execute('ALTER TABLE "bilateral_exchange_handoffs" FORCE ROW LEVEL SECURITY')
     for role in ("sira_runtime", "sira_api_runtime", "sira_coordinator"):

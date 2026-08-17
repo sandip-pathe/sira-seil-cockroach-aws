@@ -63,9 +63,7 @@ class FakeQualification:
     async def search_marketplace(self, organization_id: str, **kwargs: Any) -> dict[str, Any]:
         return {"organization_id": organization_id, **kwargs}
 
-    async def marketplace_product(
-        self, organization_id: str, product_id: str
-    ) -> dict[str, Any]:
+    async def marketplace_product(self, organization_id: str, product_id: str) -> dict[str, Any]:
         return {"organization_id": organization_id, "product_id": product_id}
 
 
@@ -109,6 +107,4 @@ async def test_kernel_tools_reject_a_seller_without_a_bound_role() -> None:
         workflow=FakeWorkflow(), seller=FakeSeller(), qualification=FakeQualification()
     )
     with pytest.raises(PermissionError, match="seller role"):
-        await tools.handlers["search_seller_products"](
-            {"query": "Luma"}, _manifest(Principal.SEIL)
-        )
+        await tools.handlers["search_seller_products"]({"query": "Luma"}, _manifest(Principal.SEIL))

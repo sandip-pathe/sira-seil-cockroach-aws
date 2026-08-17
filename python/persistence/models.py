@@ -2113,7 +2113,10 @@ class BilateralExchangeEnvelope(Base, TenantOwned):
             name="ck_exchange_envelope_parties",
         ),
         UniqueConstraint(
-            "organization_id", "case_id", "sender_party", "sequence",
+            "organization_id",
+            "case_id",
+            "sender_party",
+            "sequence",
             name="uq_exchange_envelope_sequence",
         ),
         UniqueConstraint("organization_id", "payload_hash", name="uq_exchange_envelope_hash"),
@@ -2134,9 +2137,7 @@ class BilateralExchangeReceipt(Base, TenantOwned):
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
-        CheckConstraint(
-            "recipient_party IN ('BUYER','SELLER')", name="ck_exchange_receipt_party"
-        ),
+        CheckConstraint("recipient_party IN ('BUYER','SELLER')", name="ck_exchange_receipt_party"),
         UniqueConstraint("organization_id", "envelope_id", name="uq_exchange_receipt_envelope"),
     )
 
@@ -2223,9 +2224,7 @@ class BilateralExchangeHandoff(Base, TenantOwned, Timestamped):
         UniqueConstraint(
             "organization_id", "case_id", "offer_hash", name="uq_bilateral_handoff_offer"
         ),
-        UniqueConstraint(
-            "organization_id", "handoff_hash", name="uq_bilateral_handoff_hash"
-        ),
+        UniqueConstraint("organization_id", "handoff_hash", name="uq_bilateral_handoff_hash"),
         Index("ix_bilateral_handoff_case", "organization_id", "case_id", "created_at"),
     )
 

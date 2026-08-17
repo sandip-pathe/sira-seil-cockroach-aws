@@ -20,7 +20,9 @@ ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / ".artifacts" / "local"
 PROCESS_FILE = ARTIFACTS / "processes.json"
 COCKROACH_VERSION = "26.2.3"
-COCKROACH_BINARY_SHA256 = "97a8836b3e816745ba698f47616ff5038ba55f5e252a2959924e9e2d41014d7f"
+COCKROACH_BINARY_SHA256 = (
+    "97a8836b3e816745ba698f47616ff5038ba55f5e252a2959924e9e2d41014d7f"  # pragma: allowlist secret
+)
 LOCAL_URLS = {
     "api": "http://127.0.0.1:8000/health",
     "ready": "http://127.0.0.1:8000/ready",
@@ -454,6 +456,9 @@ def down(_profile: str) -> int:
 
 
 def check(_profile: str) -> int:
+    pnpm = shutil.which("pnpm")
+    if not pnpm:
+        raise RuntimeError("pnpm is required to check the web application")
     commands = [
         [sys.executable, "-m", "ruff", "check", "python", "services", "tests", "scripts"],
         [
@@ -470,7 +475,7 @@ def check(_profile: str) -> int:
         [sys.executable, "-m", "mypy", "python", "services"],
         [sys.executable, "-m", "pytest", "-m", "not cockroach and not provider"],
         [sys.executable, "scripts/generate_openapi.py", "--check"],
-        ["pnpm", "check:web"],
+        [pnpm, "check:web"],
         [sys.executable, "scripts/credential_scan.py", "--current-tree-only"],
     ]
     for command in commands:

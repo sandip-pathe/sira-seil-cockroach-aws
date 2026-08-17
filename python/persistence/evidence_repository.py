@@ -109,7 +109,7 @@ class EvidenceRepository:
                     EvidenceSourceVersion.organization_id == self.organization_id,
                     EvidenceSourceVersion.object_checksum == object_checksum,
                 )
-            )
+            ),
         )
 
     async def publish(self, source: EvidenceSourceVersion) -> None:

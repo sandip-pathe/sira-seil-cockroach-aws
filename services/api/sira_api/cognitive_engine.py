@@ -8,11 +8,6 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol, TypeVar
 
 from pydantic import ValidationError
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from persistence.cognitive_repository import CognitiveRepository, CognitiveRunSnapshot
-from persistence.models import CognitiveRun
 from sira_agents.cognitive_runtime import CognitiveRuntime
 from sira_agents.context_assembler import ContextAssembler
 from sira_agents.kernel_models import (
@@ -30,6 +25,11 @@ from sira_agents.kernel_models import (
 )
 from sira_agents.response_composer import ComposedResponse, ResponseComposer
 from sira_agents.tool_broker import ToolBroker, ToolDenied
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from persistence.cognitive_repository import CognitiveRepository, CognitiveRunSnapshot
+from persistence.models import CognitiveRun
 
 ToolHandler = Callable[[Mapping[str, Any], ContextManifest], Awaitable[dict[str, Any]]]
 ResultT = TypeVar("ResultT")

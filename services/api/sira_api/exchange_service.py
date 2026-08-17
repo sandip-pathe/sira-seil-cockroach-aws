@@ -130,9 +130,7 @@ class ExchangeService:
                 message="This exchange link belongs to another case.",
                 status_code=403,
             )
-        expected = (
-            route.buyer_organization_id if party == "BUYER" else route.seller_organization_id
-        )
+        expected = route.buyer_organization_id if party == "BUYER" else route.seller_organization_id
         if organization_id != expected:
             raise ApiProblem(
                 code="EXCHANGE_PARTY_MISMATCH",
@@ -143,9 +141,9 @@ class ExchangeService:
 
     async def _publish_compiled(self, route: ExchangeRoute, compiled: Any) -> None:
         async with self.database.transaction(route.seller_organization_id) as session:
-            await BilateralRepository(
-                session, route.seller_organization_id
-            ).publish_projection(compiled.seller_projection)
+            await BilateralRepository(session, route.seller_organization_id).publish_projection(
+                compiled.seller_projection
+            )
 
     async def _replayed_projection(
         self,
@@ -166,9 +164,7 @@ class ExchangeService:
             return None
         return await self.view_case(
             organization_id=(
-                route.buyer_organization_id
-                if party == "BUYER"
-                else route.seller_organization_id
+                route.buyer_organization_id if party == "BUYER" else route.seller_organization_id
             ),
             party=party,
             case_id=route.case_id,
@@ -310,9 +306,7 @@ class ExchangeService:
                         message="The Requirement Brief is missing seller-safe decision fields.",
                         status_code=409,
                     )
-                public_source = (
-                    f"reqbrief_{requirement.content_hash.removeprefix('sha256:')[:16]}"
-                )
+                public_source = f"reqbrief_{requirement.content_hash.removeprefix('sha256:')[:16]}"
                 approval_payload = {
                     "case_id": case_id,
                     "owner": ExchangeParty.BUYER,
@@ -370,9 +364,7 @@ class ExchangeService:
                     command,
                     command_organization_id=organization_id,
                 )
-                buyer_projection = await repository.publish_projection(
-                    compiled.buyer_projection
-                )
+                buyer_projection = await repository.publish_projection(compiled.buyer_projection)
 
         if compiled is not None:
             async with self.database.transaction(seller_organization_id) as session:
@@ -411,9 +403,9 @@ class ExchangeService:
             route_capability=route_capability,
         )
         async with self.database.transaction(organization_id) as session:
-            projection = await BilateralRepository(
-                session, organization_id
-            ).latest_projection(case_id, party=cast(str, party))
+            projection = await BilateralRepository(session, organization_id).latest_projection(
+                case_id, party=cast(str, party)
+            )
         return _projection(projection)
 
     async def publish_evidence(
@@ -453,9 +445,7 @@ class ExchangeService:
         ).limit(64)
         async with self.database.transaction(route.seller_organization_id) as session:
             spans = tuple((await session.execute(span_query)).scalars().all())
-        if not spans or (
-            published_span_ids and len(spans) != len(set(published_span_ids))
-        ):
+        if not spans or (published_span_ids and len(spans) != len(set(published_span_ids))):
             raise ApiProblem(
                 code="PUBLISHED_EVIDENCE_REQUIRED",
                 message="Every cited span must be published and buyer-safe.",
@@ -494,9 +484,7 @@ class ExchangeService:
         if replayed is not None:
             return replayed
         async with self.database.transaction(route.seller_organization_id) as session:
-            await BilateralRepository(
-                session, route.seller_organization_id
-            ).append_command(command)
+            await BilateralRepository(session, route.seller_organization_id).append_command(command)
         try:
             async with self.database.transaction(route.buyer_organization_id) as session:
                 repository = BilateralRepository(session, route.buyer_organization_id)
@@ -552,8 +540,7 @@ class ExchangeService:
                 latest_record = await session.scalar(
                     select(BilateralOfferVersion)
                     .where(
-                        BilateralOfferVersion.organization_id
-                        == route.buyer_organization_id,
+                        BilateralOfferVersion.organization_id == route.buyer_organization_id,
                         BilateralOfferVersion.case_id == case_id,
                     )
                     .order_by(BilateralOfferVersion.version.desc())
@@ -652,8 +639,7 @@ class ExchangeService:
                 latest_record = await session.scalar(
                     select(BilateralOfferVersion)
                     .where(
-                        BilateralOfferVersion.organization_id
-                        == route.buyer_organization_id,
+                        BilateralOfferVersion.organization_id == route.buyer_organization_id,
                         BilateralOfferVersion.case_id == case_id,
                     )
                     .order_by(BilateralOfferVersion.version.desc())
@@ -795,8 +781,7 @@ class ExchangeService:
                 offer_record = await session.scalar(
                     select(BilateralOfferVersion)
                     .where(
-                        BilateralOfferVersion.organization_id
-                        == route.buyer_organization_id,
+                        BilateralOfferVersion.organization_id == route.buyer_organization_id,
                         BilateralOfferVersion.case_id == case_id,
                         BilateralOfferVersion.offer_hash == offer_hash,
                     )
@@ -804,8 +789,7 @@ class ExchangeService:
                 )
                 approval_record = await session.scalar(
                     select(BilateralOfferApproval).where(
-                        BilateralOfferApproval.organization_id
-                        == route.buyer_organization_id,
+                        BilateralOfferApproval.organization_id == route.buyer_organization_id,
                         BilateralOfferApproval.case_id == case_id,
                         BilateralOfferApproval.offer_hash == offer_hash,
                     )

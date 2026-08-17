@@ -101,9 +101,7 @@ async def test_private_evidence_upload_is_version_bound_and_idempotent(
         )
         assert source is not None
         span_count = await session.scalar(
-            select(func.count(EvidenceSpan.id)).where(
-                EvidenceSpan.source_version_id == source.id
-            )
+            select(func.count(EvidenceSpan.id)).where(EvidenceSpan.source_version_id == source.id)
         )
     assert span_count == 1
 

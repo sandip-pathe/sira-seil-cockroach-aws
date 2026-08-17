@@ -31,7 +31,6 @@ from sira_agents.commerce_tools import commerce_tool_registry
 from sira_agents.context_assembler import default_context_assembler
 from sira_agents.kernel_models import Principal
 from sira_agents.kernel_tools import build_kernel_tool_set
-from sira_agents.run_engine import RunEngine
 from sira_agents.runtime_ticket import RuntimeTicketCodec
 from sira_agents.tool_broker import ToolBroker
 from sira_agents.workspace_tools import workspace_tool_registry
@@ -52,6 +51,7 @@ from integrations.aws_services import (
 )
 from persistence.database import Database, DatabaseSettings
 from persistence.repositories import PersistenceConflict
+from sira_api.cognitive_engine import RunEngine
 
 from .config import ApiSettings, get_settings
 from .errors import ApiProblem

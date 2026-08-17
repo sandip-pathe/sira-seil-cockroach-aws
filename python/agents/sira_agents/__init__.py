@@ -9,7 +9,6 @@ from sira_agents.guardrails import AgentBoundaryViolation
 from sira_agents.harness import SiraSeilHarness
 from sira_agents.kernel_models import ContextManifest, TurnDecisionEnvelope
 from sira_agents.response_composer import ResponseComposer
-from sira_agents.run_engine import RunEngine, TurnCommand, TurnResult
 from sira_agents.runtime import (
     AgentRole,
     AgentRunContext,
@@ -30,9 +29,6 @@ __all__ = [
     "DeterministicCognitiveRuntime",
     "OpenAIAgentsRuntime",
     "ResponseComposer",
-    "RunEngine",
     "SiraSeilHarness",
-    "TurnCommand",
     "TurnDecisionEnvelope",
-    "TurnResult",
 ]

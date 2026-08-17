@@ -18,7 +18,6 @@ from pydantic import ValidationError
 from sira_agents.commerce_tools import SEIL_TOOL_NAMES, SIRA_TOOL_NAMES, commerce_tool_registry
 from sira_agents.kernel_models import Party, Principal
 from sira_agents.mission_models import MissionTurnOutput
-from sira_agents.run_engine import RunEngine, TurnCommand, TurnResult
 from sira_agents.runtime import (
     AgentRole,
     AgentRunContext,
@@ -35,6 +34,7 @@ from persistence.database import Database
 from persistence.mission_repository import MissionRepository, MissionSnapshot
 from persistence.models import Organization, PurchaseRequest, WorkflowRun
 from persistence.repositories import RecordNotFound
+from sira_api.cognitive_engine import RunEngine, TurnCommand, TurnResult
 
 from .errors import ApiProblem
 from .fixtures import DemoFixtureBundle
