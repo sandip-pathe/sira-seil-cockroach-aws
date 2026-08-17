@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "documents": [
+    {"source_version_id": "granola-v1", "text": "Granola supports shared meeting notes and exports, with vendor documentation for workspace collaboration."},
+    {"source_version_id": "fathom-v1", "text": "Fathom supports Zoom, Microsoft Teams, and Google Meet recording workflows."},
+    {"source_version_id": "tldv-v1", "text": "tl;dv documents EU hosting options and a 30 day recording retention policy for this evaluated plan."},
+    {"source_version_id": "fireflies-v1", "text": "Fireflies provides CRM integrations including HubSpot and Salesforce synchronization."},
+    {"source_version_id": "decoy-v1", "text": "A generic meeting assistant with no verified residency, retention, or CRM evidence."}
+  ],
+  "queries": [
+    {"query": "Which option has documented EU hosting?", "expected_source_version_ids": ["tldv-v1"]},
+    {"query": "We need HubSpot CRM synchronization", "expected_source_version_ids": ["fireflies-v1"]},
+    {"query": "Support Zoom Teams and Google Meet", "expected_source_version_ids": ["fathom-v1"]},
+    {"query": "Shared collaborative meeting notes", "expected_source_version_ids": ["granola-v1"]},
+    {"query": "What evidence says recordings are retained for 30 days?", "expected_source_version_ids": ["tldv-v1"]}
+  ]
+}
