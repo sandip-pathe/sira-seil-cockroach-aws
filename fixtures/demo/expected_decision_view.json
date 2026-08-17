@@ -1163,8 +1163,6 @@
   "selected_action_plan": null,
   "stack_change": null,
   "approval": null,
-  "payment": null,
-  "fulfillment": null,
-  "result_artifacts": [],
-  "receipt": null
+  "payment_handoff": null,
+  "result_artifacts": []
 }

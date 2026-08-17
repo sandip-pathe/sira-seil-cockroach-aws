@@ -51,6 +51,28 @@ import styles from "./decision-surfaces.module.css";
 
 const decisionFixture = rawDecisionFixture as unknown as DecisionView;
 
+async function prepareAndOpenPaymentHandoff(
+  view: DecisionView,
+  purchaseIntent: PurchaseIntentView | null,
+) {
+  const existing = view.payment_handoff;
+  if (existing?.status === "OPENED") return existing;
+
+  const intentId = purchaseIntent?.purchase_intent_id ?? existing?.purchase_intent_id;
+  if (!intentId) throw new Error("Approved purchase intent is unavailable");
+  const client = getBrowserApiClient();
+  const handoff = existing ?? await client.request("create_payment_handoff", {
+    pathParams: { intent_id: intentId },
+    idempotencyKey: `payment-handoff-${intentId}`,
+    headers: buyerDevelopmentHeaders,
+  });
+  return client.request("open_payment_handoff", {
+    pathParams: { handoff_id: handoff.id },
+    idempotencyKey: `open-payment-handoff-${handoff.id}`,
+    headers: buyerDevelopmentHeaders,
+  });
+}
+
 const fixtureIndex: DecisionIndexView = {
   active: [
     {
@@ -298,7 +320,7 @@ function NeedStage({ view }: { view: DecisionView }) {
         <article><span>Desired outcome</span><strong>Private, source-linked meeting intelligence with low administration effort</strong><small>Confirmed in Purchase Brief v1</small></article>
         <article><span>Current approach</span><strong>Cairn Notes · 10 consultant seats</strong><small>Contract and Company stack</small></article>
         <article><span>Decision by</span><strong>19 Aug 2026</strong><small>Before cancellation deadline</small></article>
-        <article><span>Owners</span><strong>Operations · Budget owner · Cardholder</strong><small>Separate decision, approval, and payment authority</small></article>
+        <article><span>Owners</span><strong>Operations · Budget owner · Procurement</strong><small>Separate decision, approval, and external payment authority</small></article>
       </div>
       <div className={styles.questionCard}><BookOpenText aria-hidden="true" /><div><p>Material clarification</p><h3>No unanswered question blocks evaluation</h3><span>If the user count, client-data treatment, or deadline changes, create a new Purchase Brief version before reevaluating.</span></div><button type="button" disabled>All material inputs present</button></div>
     </section>
@@ -373,17 +395,17 @@ function OptionsStage({
   );
 }
 
-function ActionStage({ view, optionsHref, onNavigateOptions, onExecute, pending, purchaseIntent, approval, onPrepareAuthority, onApprove, authorityPending }: { view: DecisionView; optionsHref: string; onNavigateOptions?: () => void; onExecute: (action: ActionDescriptor) => void; pending: boolean; purchaseIntent: PurchaseIntentView | null; approval: ApprovalRequestView | null; onPrepareAuthority: () => void; onApprove: (role: string) => void; authorityPending: boolean }) {
+function ActionStage({ view, optionsHref, onNavigateOptions, onExecute, pending, purchaseIntent, approval, onPrepareAuthority, onApprove, onOpenHandoff, authorityPending, handoffPending }: { view: DecisionView; optionsHref: string; onNavigateOptions?: () => void; onExecute: (action: ActionDescriptor) => void; pending: boolean; purchaseIntent: PurchaseIntentView | null; approval: ApprovalRequestView | null; onPrepareAuthority: () => void; onApprove: (role: string) => void; onOpenHandoff: () => void; authorityPending: boolean; handoffPending: boolean }) {
   const plan = view.selected_action_plan;
   const steps = plan?.execution_steps ?? [];
-  const persistedIntentId = view.payment?.purchase_intent_id;
+  const persistedIntentId = view.payment_handoff?.purchase_intent_id;
   const hasIntent = Boolean(purchaseIntent || persistedIntentId);
   const approvalStatus = approval?.status ?? view.approval?.status;
   return (
     <section className={styles.stageSection}>
       <div className={styles.stageIntro}><p>04 · Action</p><h2>{plan ? "Execute the selected action safely" : "Select an action plan first"}</h2><span>Review, required authority, execution or assignment, and verification remain separate.</span></div>
-      {!plan ? <div className={styles.emptyStage}><FileCheck2 aria-hidden="true" /><h3>No plan is selected in this version</h3><p>Return to Options and select the exact plan/version/hash. A fixture preview never creates approval or payment authority.</p>{onNavigateOptions ? <button className={styles.primaryButton} type="button" onClick={onNavigateOptions}>Review options</button> : <Link className={styles.primaryButton} href={optionsHref}>Review options</Link>}</div> : <div className={styles.executionGrid}><ol className={styles.executionTimeline}>{steps.map((step, index) => <li key={step.id} data-status={step.status.toLowerCase()}><span>{step.status === "COMPLETED" ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{step.type.replaceAll("_", " ").toLowerCase()}</strong><small>{step.owner_role.replaceAll("_", " ")} · {step.status.replaceAll("_", " ")}</small>{step.blocker ? <p>{step.blocker}</p> : null}</div>{step.available_action ? <button type="button" disabled={pending || WEB_DATA_MODE === "fixture" || !step.available_action.href.includes("/action-runs")} onClick={() => onExecute(step.available_action!)}>{pending ? "Starting…" : step.available_action.label}</button> : null}</li>)}</ol><aside className={styles.authorityPanel}><p>Authority</p><dl><div><dt>Plan selection</dt><dd>{plan.selected_by_role.replaceAll("_", " ")}</dd></div><div><dt>Approval</dt><dd>{view.approval?.status ?? "Not requested"}</dd></div><div><dt>Payment</dt><dd>{view.payment?.status ?? "Not required"}</dd></div><div><dt>Fulfillment</dt><dd>{view.fulfillment?.status ?? "Not started"}</dd></div></dl></aside></div>}
-      {plan && WEB_DATA_MODE === "api" ? <section className={styles.commerceAuthority}><div><small>Exact offer authority</small><h3>{hasIntent ? `${purchaseIntent?.currency ?? view.payment?.currency} ${purchaseIntent?.landed_total ?? view.payment?.landed_total}` : "Lock the selected offer"}</h3><p>{purchaseIntent ? `Offer ${purchaseIntent.offer_id} · decision v${purchaseIntent.decision_version}` : hasIntent ? `Locked intent ${persistedIntentId}` : "This freezes the decision hash, offer, merchant, amount, fee, and approval policy."}</p></div>{!hasIntent ? <button type="button" disabled={authorityPending} onClick={onPrepareAuthority}>Lock offer and request approval</button> : approvalStatus !== "APPROVED" ? approval ? <div className={styles.approvalRoles}>{approval.required_roles.map((role) => <button type="button" disabled={authorityPending || approval.approved_roles.includes(role)} onClick={() => onApprove(role)} key={role}>{approval.approved_roles.includes(role) ? <Check aria-hidden="true" /> : null}{role.replaceAll("_", " ")}</button>)}</div> : <p>Approval is in progress. Continue from the assigned inbox item.</p> : <p>Approved. Payment remains a separate provider handoff.</p>}</section> : null}
+      {!plan ? <div className={styles.emptyStage}><FileCheck2 aria-hidden="true" /><h3>No plan is selected in this version</h3><p>Return to Options and select the exact plan/version/hash. A fixture preview never creates approval or payment authority.</p>{onNavigateOptions ? <button className={styles.primaryButton} type="button" onClick={onNavigateOptions}>Review options</button> : <Link className={styles.primaryButton} href={optionsHref}>Review options</Link>}</div> : <div className={styles.executionGrid}><ol className={styles.executionTimeline}>{steps.map((step, index) => <li key={step.id} data-status={step.status.toLowerCase()}><span>{step.status === "COMPLETED" ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{step.type.replaceAll("_", " ").toLowerCase()}</strong><small>{step.owner_role.replaceAll("_", " ")} · {step.status.replaceAll("_", " ")}</small>{step.blocker ? <p>{step.blocker}</p> : null}</div>{step.available_action ? <button type="button" disabled={pending || WEB_DATA_MODE === "fixture" || !step.available_action.href.includes("/action-runs")} onClick={() => onExecute(step.available_action!)}>{pending ? "Starting…" : step.available_action.label}</button> : null}</li>)}</ol><aside className={styles.authorityPanel}><p>Authority</p><dl><div><dt>Plan selection</dt><dd>{plan.selected_by_role.replaceAll("_", " ")}</dd></div><div><dt>Approval</dt><dd>{view.approval?.status ?? "Not requested"}</dd></div><div><dt>External handoff</dt><dd>{view.payment_handoff?.status ?? "Not prepared"}</dd></div><div><dt>Outcome</dt><dd>{view.result_artifacts.length ? "Evidence recorded" : "Not recorded"}</dd></div></dl></aside></div>}
+      {plan && WEB_DATA_MODE === "api" ? <section className={styles.commerceAuthority}><div><small>Exact offer authority</small><h3>{hasIntent ? `${purchaseIntent?.currency ?? view.payment_handoff?.currency} ${purchaseIntent?.landed_total ?? view.payment_handoff?.amount}` : "Lock the selected offer"}</h3><p>{purchaseIntent ? `Offer ${purchaseIntent.offer_id} · decision v${purchaseIntent.decision_version}` : hasIntent ? `Locked intent ${persistedIntentId}` : "This freezes the decision hash, offer, merchant, amount, and approval policy."}</p></div>{!hasIntent ? <button type="button" disabled={authorityPending} onClick={onPrepareAuthority}>Lock offer and request approval</button> : approvalStatus !== "APPROVED" ? approval ? <div className={styles.approvalRoles}>{approval.required_roles.map((role) => <button type="button" disabled={authorityPending || approval.approved_roles.includes(role)} onClick={() => onApprove(role)} key={role}>{approval.approved_roles.includes(role) ? <Check aria-hidden="true" /> : null}{role.replaceAll("_", " ")}</button>)}</div> : <p>Approval is in progress. Continue from the assigned inbox item.</p> : <button type="button" disabled={handoffPending} onClick={onOpenHandoff}>{handoffPending ? "Preparing…" : view.payment_handoff?.status === "OPENED" ? "Continue to payment" : "Open payment handoff"}</button>}</section> : null}
     </section>
   );
 }
@@ -391,9 +413,9 @@ function ActionStage({ view, optionsHref, onNavigateOptions, onExecute, pending,
 function ResultStage({ view }: { view: DecisionView }) {
   return (
     <section className={styles.stageSection}>
-      <div className={styles.stageIntro}><p>05 · Result</p><h2>Verified outcome and artifacts</h2><span>Payment success, fulfillment, deployment, and outcome are never collapsed into one green state.</span></div>
+      <div className={styles.stageIntro}><p>05 · Result</p><h2>Verified outcome and artifacts</h2><span>An opened external handoff, deployment, and outcome are never collapsed into one green state.</span></div>
       {view.result_artifacts.length ? <div className={styles.artifactGrid}>{view.result_artifacts.map((artifact) => <article key={artifact.id}><FileCheck2 aria-hidden="true" /><span><small>{artifact.type.replaceAll("_", " ")}</small><strong>{artifact.safe_label}</strong><p>{artifact.verification_state.replaceAll("_", " ").toLowerCase()} · owned by {artifact.owner_role.replaceAll("_", " ").toLowerCase()}</p></span></article>)}</div> : <div className={styles.emptyStage}><Clock3 aria-hidden="true" /><h3>No verified result yet</h3><p>The selected action has not produced the required action-specific artifacts. No completion is inferred from workflow status alone.</p></div>}
-      <div className={styles.resultStates}><article><small>Payment</small><strong>{view.payment?.status ?? "Not required"}</strong><p>A receipt appears only when money moved.</p></article><article><small>Fulfillment</small><strong>{view.fulfillment?.status ?? "Not started"}</strong><p>Entitlement is verified separately from charge.</p></article><article><small>Company stack</small><strong>{view.stack_change?.status ?? "No change applied"}</strong><p>{view.stack_change?.summary ?? "The current Stack remains unchanged."}</p></article><article><small>Outcome</small><strong>Checkpoint not reached</strong><p>Adoption and business outcome need their own evidence.</p></article></div>
+      <div className={styles.resultStates}><article><small>External handoff</small><strong>{view.payment_handoff?.status ?? "Not prepared"}</strong><p>Opening it never proves that money moved.</p></article><article><small>Evidence</small><strong>{view.result_artifacts.length ? "Recorded" : "Pending"}</strong><p>External outcomes require their own verified artifact.</p></article><article><small>Company stack</small><strong>{view.stack_change?.status ?? "No change applied"}</strong><p>{view.stack_change?.summary ?? "The current Stack remains unchanged."}</p></article><article><small>Outcome</small><strong>Checkpoint not reached</strong><p>Adoption and business outcome need their own evidence.</p></article></div>
     </section>
   );
 }
@@ -412,12 +434,14 @@ function StageCanvas(props: {
   approval: ApprovalRequestView | null;
   onPrepareAuthority: () => void;
   onApprove: (role: string) => void;
+  onOpenHandoff: () => void;
   authorityPending: boolean;
+  handoffPending: boolean;
   onNavigateOptions?: () => void;
 }) {
   if (props.stage === "need") return <NeedStage view={props.view} />;
   if (props.stage === "company-fit") return <CompanyFitStage view={props.view} />;
-  if (props.stage === "action") return <ActionStage view={props.view} optionsHref={props.optionsHref} onNavigateOptions={props.onNavigateOptions} onExecute={props.onExecute} pending={props.pendingExecution} purchaseIntent={props.purchaseIntent} approval={props.approval} onPrepareAuthority={props.onPrepareAuthority} onApprove={props.onApprove} authorityPending={props.authorityPending} />;
+  if (props.stage === "action") return <ActionStage view={props.view} optionsHref={props.optionsHref} onNavigateOptions={props.onNavigateOptions} onExecute={props.onExecute} pending={props.pendingExecution} purchaseIntent={props.purchaseIntent} approval={props.approval} onPrepareAuthority={props.onPrepareAuthority} onApprove={props.onApprove} onOpenHandoff={props.onOpenHandoff} authorityPending={props.authorityPending} handoffPending={props.handoffPending} />;
   if (props.stage === "result") return <ResultStage view={props.view} />;
   return <OptionsStage view={props.view} onLedger={props.onLedger} onSelect={props.onSelect} onFeedback={props.onFeedback} pendingFeedback={props.pendingFeedback} />;
 }
@@ -587,6 +611,18 @@ export function DecisionWorkspacePanel({
     onError: () => setToast("Approval was not recorded."),
   });
 
+  const handoffMutation = useMutation({
+    mutationFn: async () => {
+      if (!view) throw new Error("Decision not loaded");
+      return prepareAndOpenPaymentHandoff(view, purchaseIntent);
+    },
+    onSuccess: (handoff) => {
+      void queryClient.invalidateQueries({ queryKey: ["decision-view", requestId] });
+      window.location.assign(handoff.destination_url);
+    },
+    onError: () => setToast("The payment handoff could not be opened. No payment was attempted."),
+  });
+
   const normalizedStage = stages.some((item) => item.slug === activeStage) ? activeStage : "options";
   return (
     <div className={styles.embeddedShell}>
@@ -600,7 +636,7 @@ export function DecisionWorkspacePanel({
       {view ? <DecisionPath view={view} requestId={requestId} version={String(activeVersion)} currentSlug={normalizedStage} onNavigate={setActiveStage} /> : <div className={styles.pathSkeleton} />}
       <div className={styles.embeddedCanvas}>
         {query.isPending && WEB_DATA_MODE === "api" ? <div className={styles.canvasLoading}><i /><i /><i /></div> : null}
-        {view ? <StageCanvas stage={normalizedStage} optionsHref="" view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} onExecute={(action) => executionMutation.mutate(action)} pendingExecution={executionMutation.isPending} purchaseIntent={purchaseIntent} approval={approval} onPrepareAuthority={() => authorityMutation.mutate()} onApprove={(role) => approveMutation.mutate(role)} authorityPending={authorityMutation.isPending || approveMutation.isPending} onNavigateOptions={() => setActiveStage("options")} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>This decision has not been evaluated yet. Return to chat and let SIRA finish the work.</p></div> : null}
+        {view ? <StageCanvas stage={normalizedStage} optionsHref="" view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} onExecute={(action) => executionMutation.mutate(action)} pendingExecution={executionMutation.isPending} purchaseIntent={purchaseIntent} approval={approval} onPrepareAuthority={() => authorityMutation.mutate()} onApprove={(role) => approveMutation.mutate(role)} onOpenHandoff={() => handoffMutation.mutate()} authorityPending={authorityMutation.isPending || approveMutation.isPending} handoffPending={handoffMutation.isPending} onNavigateOptions={() => setActiveStage("options")} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>This decision has not been evaluated yet. Return to chat and let SIRA finish the work.</p></div> : null}
       </div>
       <div className={toast ? styles.toastVisible : styles.toast} role="status">{toast}</div>
     </div>
@@ -746,6 +782,18 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
       setToast("A verified buyer account is required to record purchase approval."),
   });
 
+  const handoffMutation = useMutation({
+    mutationFn: async () => {
+      if (!view) throw new Error("Decision not loaded");
+      return prepareAndOpenPaymentHandoff(view, purchaseIntent);
+    },
+    onSuccess: (handoff) => {
+      void queryClient.invalidateQueries({ queryKey: ["decision-view", requestId] });
+      window.location.assign(handoff.destination_url);
+    },
+    onError: () => setToast("The payment handoff could not be opened. No payment was attempted."),
+  });
+
   const activeStage = stages.some((item) => item.slug === stage) ? stage : "options";
   const title = view?.request.intent ?? "Decision Room";
 
@@ -771,7 +819,7 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
           <ConversationPanel onReviewSources={() => setLedgerOpen(true)} />
           <div className={styles.structuredCanvas} id="main-content">
             {query.isPending && WEB_DATA_MODE === "api" ? <div className={styles.canvasLoading}><i /><i /><i /></div> : null}
-            {view ? <StageCanvas stage={activeStage} optionsHref={`/decisions/${requestId}/versions/${version}/options`} view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} onExecute={(action) => executionMutation.mutate(action)} pendingExecution={executionMutation.isPending} purchaseIntent={purchaseIntent} approval={approval} onPrepareAuthority={() => authorityMutation.mutate()} onApprove={(role) => approveMutation.mutate(role)} authorityPending={authorityMutation.isPending || approveMutation.isPending} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>The last verified state cannot be loaded. Retry after the local API is available.</p></div> : versionMismatch || fixtureRequestMissing ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Nothing was substituted</h2><p>The requested immutable decision record is not available in this data mode.</p></div> : null}
+            {view ? <StageCanvas stage={activeStage} optionsHref={`/decisions/${requestId}/versions/${version}/options`} view={view} onLedger={() => setLedgerOpen(true)} onSelect={setSelectedOption} onFeedback={(option, action) => feedbackMutation.mutate({ option, action })} pendingFeedback={feedbackMutation.isPending} onExecute={(action) => executionMutation.mutate(action)} pendingExecution={executionMutation.isPending} purchaseIntent={purchaseIntent} approval={approval} onPrepareAuthority={() => authorityMutation.mutate()} onApprove={(role) => approveMutation.mutate(role)} onOpenHandoff={() => handoffMutation.mutate()} authorityPending={authorityMutation.isPending || approveMutation.isPending} handoffPending={handoffMutation.isPending} /> : query.isError ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Decision unavailable</h2><p>The last verified state cannot be loaded. Retry after the local API is available.</p></div> : versionMismatch || fixtureRequestMissing ? <div className={styles.emptyStage}><CircleAlert aria-hidden="true" /><h2>Nothing was substituted</h2><p>The requested immutable decision record is not available in this data mode.</p></div> : null}
           </div>
         </div>
       </main>

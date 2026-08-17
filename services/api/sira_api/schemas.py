@@ -8,8 +8,6 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AnyUrl, BaseModel, ConfigDict, Field, StringConstraints, UrlConstraints
 
-from domain.enums import PaymentStatus
-
 Identifier = Annotated[
     str,
     StringConstraints(min_length=3, max_length=128, pattern=r"^[a-z][a-z0-9_:-]{2,127}$"),
@@ -51,17 +49,6 @@ class ApprovalStatus(StrEnum):
     REVOKED = "REVOKED"
     EXPIRED = "EXPIRED"
     SUPERSEDED = "SUPERSEDED"
-
-
-class FulfillmentStatus(StrEnum):
-    NOT_REQUIRED = "NOT_REQUIRED"
-    NOT_STARTED = "NOT_STARTED"
-    PENDING = "PENDING"
-    PARTIAL = "PARTIAL"
-    VERIFIED = "VERIFIED"
-    FAILED_RETRYABLE = "FAILED_RETRYABLE"
-    FAILED_FINAL = "FAILED_FINAL"
-    REVOKED = "REVOKED"
 
 
 class RequestVisibility(StrEnum):
@@ -271,14 +258,10 @@ class ApprovalView(StrictModel):
     intent_hash: HashValue | None = None
 
 
-class PaymentView(StrictModel):
-    status: PaymentStatus
-    provider_session_reference: str | None = None
-
-
-class FulfillmentView(StrictModel):
-    status: FulfillmentStatus
-    verified_entitlement_ids: list[Identifier] = Field(default_factory=list)
+class PaymentHandoffSummary(StrictModel):
+    id: Identifier
+    status: Literal["READY", "OPENED", "EXPIRED", "CANCELLED"]
+    href: str
 
 
 class LegacyDecisionView(StrictModel):
@@ -289,9 +272,7 @@ class LegacyDecisionView(StrictModel):
     selected_solution_plan: SolutionPlanView
     stack_patch: StackPatchView
     approval: ApprovalView
-    payment: PaymentView
-    fulfillment: FulfillmentView
-    receipt: dict[str, Any] | None = None
+    payment_handoff: PaymentHandoffSummary | None = None
     counterfactual: dict[str, Any]
 
 
@@ -514,8 +495,6 @@ class PurchaseIntentView(StrictModel):
     approval_requirement_set_id: Identifier
     approval_plan_hash: HashValue
     approval_status: ApprovalStatus
-    payment_status: PaymentStatus
-    fulfillment_status: FulfillmentStatus
     intent_hash: HashValue
     locked_at: datetime
 
@@ -567,85 +546,18 @@ class PaymentHandoffView(StrictModel):
     opened_at: datetime | None = None
 
 
-class PravaSessionCreate(StrictModel):
-    return_url: BrowserReturnUrl
-
-
-class PravaSessionView(StrictModel):
-    id: Identifier
-    purchase_intent_id: Identifier
-    status: PaymentStatus
-    hosted_url: str | None = None
-    expires_at: datetime | None = None
-    production_provider: Literal["PRAVA"] = "PRAVA"
-    production_verified: Literal[False] = False
-    setup_blocked: bool
-    missing_configuration: list[str] = Field(default_factory=list)
-
-
-class PravaBrowserReturnCreate(StrictModel):
-    state: Annotated[
-        str,
-        StringConstraints(
-            min_length=16,
-            max_length=256,
-            pattern=r"^[A-Za-z0-9._~-]+$",
-        ),
-    ]
-    return_url: BrowserReturnUrl
-
-
 class PurchaseStatusView(StrictModel):
     purchase_intent_id: Identifier
     approval_status: ApprovalStatus
-    payment_status: PaymentStatus
-    fulfillment_status: FulfillmentStatus
+    handoff_status: Literal["READY", "OPENED", "EXPIRED", "CANCELLED"] | None
     purchase_state: Literal[
         "AWAITING_APPROVAL",
-        "APPROVED_NOT_STARTED",
-        "PAYMENT_IN_PROGRESS",
-        "PAYMENT_NOT_COMPLETED",
-        "PAYMENT_UNCERTAIN",
-        "PAID_UNFULFILLED",
-        "PURCHASE_FULFILLED",
-        "REFUND_PENDING",
-        "REFUNDED",
+        "READY_FOR_HANDOFF",
+        "HANDOFF_OPENED",
+        "HANDOFF_EXPIRED",
+        "HANDOFF_CANCELLED",
     ]
-    deployment_state: Literal["NOT_STARTED", "STAGED", "ACTIVE"]
     outcome_state: Literal["NOT_MEASURED", "MEASURING", "ACHIEVED", "NOT_ACHIEVED", "INCONCLUSIVE"]
-
-
-class ReversalCreate(StrictModel):
-    kind: Literal["CANCELLATION", "REFUND"]
-    requested_amount: MoneyAmount | None = None
-    reason_code: Annotated[str, StringConstraints(pattern=r"^[A-Z][A-Z0-9_]{2,79}$")]
-    reason: str = Field(min_length=3, max_length=1000)
-
-
-class ReversalView(StrictModel):
-    id: Identifier
-    purchase_intent_id: Identifier
-    intent_hash: HashValue
-    kind: Literal["CANCELLATION", "REFUND"]
-    status: Literal[
-        "REQUESTED",
-        "PROVIDER_PENDING",
-        "PARTIALLY_REFUNDED",
-        "REFUNDED",
-        "REJECTED",
-        "FAILED_RETRYABLE",
-        "COMPENSATION_REQUIRED",
-        "COMPENSATED",
-        "CANCELLED",
-    ]
-    requested_amount: MoneyAmount
-    refunded_amount: MoneyAmount
-    currency: Currency
-    provider_confirmed: bool
-    provider_action_required: bool
-    safe_error_code: str | None = None
-    created_at: datetime
-    completed_at: datetime | None = None
 
 
 class OutcomeCheckpointCreate(StrictModel):
@@ -675,39 +587,6 @@ class OutcomeCheckpointView(StrictModel):
     source_reference_hash: HashValue
     checkpoint_hash: HashValue
     preference_proposal: dict[str, Any] | None = None
-
-
-class ReceiptView(StrictModel):
-    schema_version: str
-    receipt_id: Identifier
-    purchase_id: Identifier
-    purchase_intent_id: Identifier
-    request_id: Identifier
-    decision_id: Identifier
-    decision_hash: HashValue
-    pack_id: Identifier
-    pack_version: int = Field(ge=1)
-    offer_id: Identifier
-    offer_version: int = Field(ge=1)
-    quote_id: Identifier
-    quote_version: int = Field(ge=1)
-    approval_request_id: Identifier
-    approval_intent_hash: HashValue
-    prava_session_reference: Identifier
-    prava_order_reference: Identifier
-    merchant_order_id: Identifier
-    merchant: dict[str, str]
-    amount: MoneyAmount
-    currency: Currency
-    payment_status: Literal["PRAVA_COMPLETED"]
-    fulfillment_status: Literal["VERIFIED"]
-    entitlement_ids: list[Identifier] = Field(min_length=1)
-    stack_patch_id: Identifier
-    stack_patch_status: Literal["STAGED"]
-    issued_at: datetime
-    environment: Literal["fixture", "sandbox", "production"]
-    adapter_label: str = Field(min_length=1, max_length=100)
-    production_success: bool
 
 
 class StackfileView(StrictModel):

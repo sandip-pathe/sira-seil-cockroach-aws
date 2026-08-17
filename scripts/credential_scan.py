@@ -53,8 +53,8 @@ TEXT_SUFFIXES = {
 }
 PATTERNS = [
     re.compile(
-        r"(?i)(prava_secret_key|controlled_merchant_api_key)"
-        r"\s*[=:]\s*['\"]?[A-Za-z0-9_\-]{12,}"
+        r"(?i)([a-z0-9_]+_secret_key|[a-z0-9_]+_api_key)"
+        r"\s*[=:]\s*['\"][A-Za-z0-9_\-]{12,}['\"]"
     ),
     re.compile(r"sk-(?:proj-)?[A-Za-z0-9_-]{20,}"),
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),

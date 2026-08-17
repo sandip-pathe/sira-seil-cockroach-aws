@@ -455,7 +455,7 @@ export function SecurityPage() {
           <div className={styles.sectionHeading}>
             <p>Independent controls</p>
             <h2 id="control-title" data-pretext>
-              Recommendation, approval, payment, fulfillment, and outcome are different facts.
+              Recommendation, approval, external action, and outcome are different facts.
             </h2>
           </div>
 
@@ -470,11 +470,11 @@ export function SecurityPage() {
             </li>
             <li>
               <span>03</span>
-              <div><strong>Authorize payment if charged</strong><p>The cardholder sees merchant, line items, fee, amount, currency, and expiry.</p></div>
+              <div><strong>Open the approved handoff</strong><p>An authorized user sees the recipient, amount, currency, reference, and expiry before leaving SIRA.</p></div>
             </li>
             <li>
               <span>04</span>
-              <div><strong>Verify fulfillment</strong><p>An approved or paid order is not an entitlement, deployment, or successful outcome.</p></div>
+              <div><strong>Record the outcome</strong><p>An opened link is not proof of payment, deployment, or a successful outcome.</p></div>
             </li>
           </ol>
         </div>
@@ -485,22 +485,22 @@ export function SecurityPage() {
           <div className={styles.stateIntro}>
             <CreditCard aria-hidden="true" />
             <div>
-              <p>Payment and fulfillment</p>
-              <h2 id="state-separation-title" data-pretext>Known money state never hides missing access.</h2>
+              <p>External action boundary</p>
+              <h2 id="state-separation-title" data-pretext>SIRA never invents success outside its authority.</h2>
             </div>
           </div>
           <div className={styles.stateRows}>
             <div>
-              <strong>Payment confirmed; access missing</strong>
-              <span>Show paid-unfulfilled with provisioning, support, or refund recovery.</span>
+              <strong>Handoff opened</strong>
+              <span>Record only that the approved destination was opened; wait for separate outcome evidence.</span>
             </div>
             <div>
-              <strong>Payment uncertain</strong>
-              <span>Block duplicate checkout and expose reconciliation only. A browser return never declares success.</span>
+              <strong>Outcome unknown</strong>
+              <span>Do not infer payment or delivery from navigation, retries, or browser state.</span>
             </div>
             <div>
-              <strong>Fulfilled; deployment pending</strong>
-              <span>Keep entitlement, staged deployment, active deployment, and outcome checkpoints separate.</span>
+              <strong>Evidence received</strong>
+              <span>Keep the external result, company-stack change, and measured outcome separate.</span>
             </div>
           </div>
         </div>
@@ -511,12 +511,12 @@ export function SecurityPage() {
           <div>
             <ShieldCheck aria-hidden="true" />
             <p>Credential isolation</p>
-            <h2 id="credential-title" data-pretext>Payment credentials stay inside one hosted checkout operation.</h2>
+            <h2 id="credential-title" data-pretext>Payment credentials stay outside SIRA.</h2>
           </div>
           <p data-pretext>
             They do not enter product models, browser payloads, persistence, logs,
             traces, Redis, workflow histories, analytics, or safe errors. The browser
-            receives hosted handoff status and returns to backend reconciliation.
+            receives only an approved external destination and records that it was opened.
           </p>
         </div>
       </section>
@@ -550,7 +550,7 @@ const legalContent = {
     sections: [
       ["Private workspace records", "Buyer and seller private records remain scoped to their authorized organization, role, purpose, and object."],
       ["Cross-boundary records", "Only reviewed, allowlisted Product Evidence and the exact sanitized Requirement Brief may cross between products."],
-      ["Service providers", "Identity, evidence, hosted authorization, merchant, fulfillment, and communication providers receive only the scope required for their operation."],
+      ["Service providers", "Identity, evidence, external payment, and communication providers receive only the scope required for their operation."],
       ["Measurement", "Restricted screens exclude hidden buyer and seller context from analytics and disable session replay where required."],
       ["Retention and rights", "The approved notice must state region-specific retention, access, correction, deletion, export, objection, and contact procedures before production activation."],
     ],
@@ -563,8 +563,8 @@ const legalContent = {
     sections: [
       ["Account authority", "Users may act only for organizations, roles, products, and decisions the server authorizes. A UI selection never changes that authority."],
       ["Evidence and recommendations", "Product Evidence carries publisher authority, provenance, freshness, and uncertainty. SIRA reports the best supported action among evaluated options, not a guarantee."],
-      ["Consent and transactions", "Contact consent, plan selection, policy approval, budget approval, cardholder authorization, payment, fulfillment, deployment, and outcome remain separate acts."],
-      ["Provider operations", "Hosted authorization and merchant or fulfillment providers retain their own operating terms. Browser callbacks do not prove payment or fulfillment."],
+      ["Consent and transactions", "Contact consent, plan selection, policy approval, budget approval, external payment, deployment, and outcome remain separate acts."],
+      ["Provider operations", "External payment providers retain their own operating terms. Opening a handoff does not prove payment or fulfillment."],
       ["Acceptable use and disputes", "The approved terms must define prohibited use, suspension, evidence disputes, appeals, liability, termination, governing law, and contact procedures before production activation."],
     ],
   },

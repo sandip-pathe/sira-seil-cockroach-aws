@@ -177,16 +177,6 @@
             "title": "Execution Steps",
             "type": "array"
           },
-          "fulfillment": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FulfillmentProjection"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "last_successful_checkpoint_id": {
             "anyOf": [
               {
@@ -204,10 +194,10 @@
           "owner_role": {
             "$ref": "#/components/schemas/ActorRole"
           },
-          "payment": {
+          "payment_handoff": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/PaymentProjection"
+                "$ref": "#/components/schemas/PaymentHandoffProjection"
               },
               {
                 "type": "null"
@@ -281,8 +271,7 @@
           "last_successful_checkpoint_id",
           "owner_role",
           "execution_steps",
-          "payment",
-          "fulfillment",
+          "payment_handoff",
           "result_artifacts",
           "created_at",
           "updated_at",
@@ -391,7 +380,6 @@
           "POLICY_REVIEWER",
           "BUDGET_OWNER",
           "PROCUREMENT",
-          "CARDHOLDER",
           "IT_OPERATIONS",
           "AUDITOR",
           "SELLER_EDITOR",
@@ -2691,20 +2679,10 @@
           "evaluation": {
             "$ref": "#/components/schemas/EvaluationSummary"
           },
-          "fulfillment": {
+          "payment_handoff": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FulfillmentProjection"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "payment": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PaymentProjection"
+                "$ref": "#/components/schemas/PaymentHandoffProjection"
               },
               {
                 "type": "null"
@@ -2713,16 +2691,6 @@
           },
           "rank_stability": {
             "$ref": "#/components/schemas/RankStabilityProjection"
-          },
-          "receipt": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ReceiptProjection"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "request": {
             "$ref": "#/components/schemas/DecisionRequestHeader"
@@ -3761,90 +3729,6 @@
         "title": "FrozenVersions",
         "type": "object"
       },
-      "FulfillmentProjection": {
-        "additionalProperties": false,
-        "properties": {
-          "expected_item_count": {
-            "minimum": 0.0,
-            "title": "Expected Item Count",
-            "type": "integer"
-          },
-          "href": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Href"
-          },
-          "last_checkpoint_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Checkpoint At"
-          },
-          "owner_role": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ActorRole"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "partial_item_count": {
-            "minimum": 0.0,
-            "title": "Partial Item Count",
-            "type": "integer"
-          },
-          "required": {
-            "title": "Required",
-            "type": "boolean"
-          },
-          "status": {
-            "$ref": "#/components/schemas/FulfillmentStatus"
-          },
-          "verified_item_count": {
-            "minimum": 0.0,
-            "title": "Verified Item Count",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "required",
-          "status",
-          "expected_item_count",
-          "verified_item_count",
-          "partial_item_count"
-        ],
-        "title": "FulfillmentProjection",
-        "type": "object"
-      },
-      "FulfillmentStatus": {
-        "enum": [
-          "NOT_REQUIRED",
-          "NOT_STARTED",
-          "PENDING",
-          "PARTIAL",
-          "VERIFIED",
-          "FAILED_RETRYABLE",
-          "FAILED_FINAL",
-          "REVOKED"
-        ],
-        "title": "FulfillmentStatus",
-        "type": "string"
-      },
       "GateReasonView": {
         "additionalProperties": false,
         "properties": {
@@ -4022,64 +3906,6 @@
           "offer_id"
         ],
         "title": "MerchantProjection",
-        "type": "object"
-      },
-      "MerchantSubtotalPaymentLineItem": {
-        "additionalProperties": false,
-        "properties": {
-          "amount": {
-            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
-            "title": "Amount",
-            "type": "string"
-          },
-          "type": {
-            "const": "MERCHANT_SUBTOTAL",
-            "title": "Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "amount"
-        ],
-        "title": "MerchantSubtotalPaymentLineItem",
-        "type": "object"
-      },
-      "MerchantView": {
-        "additionalProperties": false,
-        "properties": {
-          "country": {
-            "pattern": "^[A-Z]{2}$",
-            "title": "Country",
-            "type": "string"
-          },
-          "merchant_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Merchant Id",
-            "type": "string"
-          },
-          "name": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "url": {
-            "maxLength": 500,
-            "pattern": "^https://",
-            "title": "Url",
-            "type": "string"
-          }
-        },
-        "required": [
-          "merchant_id",
-          "name",
-          "url",
-          "country"
-        ],
-        "title": "MerchantView",
         "type": "object"
       },
       "MissionArtifactView": {
@@ -4659,46 +4485,61 @@
         "title": "PackAuthority",
         "type": "string"
       },
-      "PaymentProjection": {
+      "PaymentHandoffProjection": {
         "additionalProperties": false,
         "properties": {
+          "amount": {
+            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "approval_request_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Approval Request Id",
+            "type": "string"
+          },
           "currency": {
-            "anyOf": [
-              {
-                "pattern": "^[A-Z]{3}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Currency"
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "destination_url": {
+            "maxLength": 2000,
+            "pattern": "^https://",
+            "title": "Destination Url",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "handoff_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Handoff Hash",
+            "type": "string"
           },
           "href": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Href"
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Href",
+            "type": "string"
           },
-          "landed_total": {
-            "anyOf": [
-              {
-                "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Landed Total"
+          "id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Id",
+            "type": "string"
           },
-          "last_checkpoint_at": {
+          "intent_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Intent Hash",
+            "type": "string"
+          },
+          "opened_at": {
             "anyOf": [
               {
                 "format": "date-time",
@@ -4708,73 +4549,162 @@
                 "type": "null"
               }
             ],
-            "title": "Last Checkpoint At"
-          },
-          "line_items": {
-            "items": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/MerchantSubtotalPaymentLineItem"
-                },
-                {
-                  "$ref": "#/components/schemas/TransactionFeePaymentLineItem"
-                },
-                {
-                  "$ref": "#/components/schemas/TaxPaymentLineItem"
-                }
-              ]
-            },
-            "title": "Line Items",
-            "type": "array"
+            "title": "Opened At"
           },
           "purchase_intent_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Purchase Intent Id",
+            "type": "string"
+          },
+          "recipient": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Recipient",
+            "type": "string"
+          },
+          "reference": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Reference",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "READY",
+              "OPENED",
+              "EXPIRED",
+              "CANCELLED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "purchase_intent_id",
+          "approval_request_id",
+          "intent_hash",
+          "handoff_hash",
+          "destination_url",
+          "recipient",
+          "amount",
+          "currency",
+          "reference",
+          "status",
+          "expires_at",
+          "href"
+        ],
+        "title": "PaymentHandoffProjection",
+        "type": "object"
+      },
+      "PaymentHandoffView": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "approval_request_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Approval Request Id",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "destination_url": {
+            "maxLength": 2000,
+            "pattern": "^https://",
+            "title": "Destination Url",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "handoff_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Handoff Hash",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "intent_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Intent Hash",
+            "type": "string"
+          },
+          "opened_at": {
             "anyOf": [
               {
-                "maxLength": 128,
-                "minLength": 3,
-                "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+                "format": "date-time",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Purchase Intent Id"
+            "title": "Opened At"
           },
-          "required": {
-            "title": "Required",
-            "type": "boolean"
+          "purchase_intent_id": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
+            "title": "Purchase Intent Id",
+            "type": "string"
+          },
+          "recipient": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Recipient",
+            "type": "string"
+          },
+          "reference": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Reference",
+            "type": "string"
           },
           "status": {
-            "$ref": "#/components/schemas/PaymentStatus"
+            "enum": [
+              "READY",
+              "OPENED",
+              "EXPIRED",
+              "CANCELLED"
+            ],
+            "title": "Status",
+            "type": "string"
           }
         },
         "required": [
-          "required",
+          "id",
+          "purchase_intent_id",
+          "approval_request_id",
+          "intent_hash",
+          "handoff_hash",
+          "destination_url",
+          "recipient",
+          "amount",
+          "currency",
+          "reference",
           "status",
-          "line_items"
+          "expires_at"
         ],
-        "title": "PaymentProjection",
+        "title": "PaymentHandoffView",
         "type": "object"
-      },
-      "PaymentStatus": {
-        "description": "Persisted first-build payment states.\n\nA one-time Prava credential deliberately has no persisted state: it exists\nonly in the isolated checkout operation between CARDHOLDER_PENDING and\nCHECKOUT_PENDING.",
-        "enum": [
-          "NOT_REQUIRED",
-          "NOT_STARTED",
-          "SESSION_CREATED",
-          "CARDHOLDER_PENDING",
-          "CHECKOUT_PENDING",
-          "MERCHANT_APPROVED",
-          "REPORTING",
-          "PRAVA_COMPLETED",
-          "DECLINED",
-          "EXPIRED",
-          "UNCERTAIN",
-          "FAILED"
-        ],
-        "title": "PaymentStatus",
-        "type": "string"
       },
       "PlanComponentView": {
         "additionalProperties": false,
@@ -4990,98 +4920,6 @@
           "state"
         ],
         "title": "PlanSelectionView",
-        "type": "object"
-      },
-      "PravaSessionCreate": {
-        "additionalProperties": false,
-        "properties": {
-          "return_url": {
-            "format": "uri",
-            "minLength": 1,
-            "title": "Return Url",
-            "type": "string"
-          }
-        },
-        "required": [
-          "return_url"
-        ],
-        "title": "PravaSessionCreate",
-        "type": "object"
-      },
-      "PravaSessionView": {
-        "additionalProperties": false,
-        "properties": {
-          "expires_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires At"
-          },
-          "hosted_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Hosted Url"
-          },
-          "id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "missing_configuration": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Missing Configuration",
-            "type": "array"
-          },
-          "production_provider": {
-            "const": "PRAVA",
-            "default": "PRAVA",
-            "title": "Production Provider",
-            "type": "string"
-          },
-          "production_verified": {
-            "const": false,
-            "default": false,
-            "title": "Production Verified",
-            "type": "boolean"
-          },
-          "purchase_intent_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Purchase Intent Id",
-            "type": "string"
-          },
-          "setup_blocked": {
-            "title": "Setup Blocked",
-            "type": "boolean"
-          },
-          "status": {
-            "$ref": "#/components/schemas/PaymentStatus"
-          }
-        },
-        "required": [
-          "id",
-          "purchase_intent_id",
-          "status",
-          "setup_blocked"
-        ],
-        "title": "PravaSessionView",
         "type": "object"
       },
       "PreferenceScoreBounds": {
@@ -5488,9 +5326,6 @@
             "title": "Fulfillment Completion Policy",
             "type": "string"
           },
-          "fulfillment_status": {
-            "$ref": "#/components/schemas/FulfillmentStatus"
-          },
           "intent_hash": {
             "pattern": "^sha256:[0-9a-f]{64}$",
             "title": "Intent Hash",
@@ -5554,9 +5389,6 @@
           "pack_version": {
             "title": "Pack Version",
             "type": "integer"
-          },
-          "payment_status": {
-            "$ref": "#/components/schemas/PaymentStatus"
           },
           "procurement_gate_result_hash": {
             "pattern": "^sha256:[0-9a-f]{64}$",
@@ -5696,8 +5528,6 @@
           "approval_requirement_set_id",
           "approval_plan_hash",
           "approval_status",
-          "payment_status",
-          "fulfillment_status",
           "intent_hash",
           "locked_at"
         ],
@@ -5710,17 +5540,22 @@
           "approval_status": {
             "$ref": "#/components/schemas/ApprovalStatus"
           },
-          "deployment_state": {
-            "enum": [
-              "NOT_STARTED",
-              "STAGED",
-              "ACTIVE"
+          "handoff_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "READY",
+                  "OPENED",
+                  "EXPIRED",
+                  "CANCELLED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Deployment State",
-            "type": "string"
-          },
-          "fulfillment_status": {
-            "$ref": "#/components/schemas/FulfillmentStatus"
+            "title": "Handoff Status"
           },
           "outcome_state": {
             "enum": [
@@ -5733,9 +5568,6 @@
             "title": "Outcome State",
             "type": "string"
           },
-          "payment_status": {
-            "$ref": "#/components/schemas/PaymentStatus"
-          },
           "purchase_intent_id": {
             "maxLength": 128,
             "minLength": 3,
@@ -5746,14 +5578,10 @@
           "purchase_state": {
             "enum": [
               "AWAITING_APPROVAL",
-              "APPROVED_NOT_STARTED",
-              "PAYMENT_IN_PROGRESS",
-              "PAYMENT_NOT_COMPLETED",
-              "PAYMENT_UNCERTAIN",
-              "PAID_UNFULFILLED",
-              "PURCHASE_FULFILLED",
-              "REFUND_PENDING",
-              "REFUNDED"
+              "READY_FOR_HANDOFF",
+              "HANDOFF_OPENED",
+              "HANDOFF_EXPIRED",
+              "HANDOFF_CANCELLED"
             ],
             "title": "Purchase State",
             "type": "string"
@@ -5762,10 +5590,8 @@
         "required": [
           "purchase_intent_id",
           "approval_status",
-          "payment_status",
-          "fulfillment_status",
+          "handoff_status",
           "purchase_state",
-          "deployment_state",
           "outcome_state"
         ],
         "title": "PurchaseStatusView",
@@ -6218,590 +6044,6 @@
         "title": "RankStabilityProjection",
         "type": "object"
       },
-      "ReceiptLineItem": {
-        "additionalProperties": false,
-        "properties": {
-          "demo_policy_label": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Demo Policy Label"
-          },
-          "description": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Description",
-            "type": "string"
-          },
-          "line_item_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Line Item Id",
-            "type": "string"
-          },
-          "quantity": {
-            "minimum": 1.0,
-            "title": "Quantity",
-            "type": "integer"
-          },
-          "schedule_version": {
-            "anyOf": [
-              {
-                "maxLength": 128,
-                "minLength": 3,
-                "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Schedule Version"
-          },
-          "total_amount": {
-            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
-            "title": "Total Amount",
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "MERCHANT_SUBTOTAL",
-              "SIRA_TRANSACTION_FEE",
-              "TAX"
-            ],
-            "title": "Type",
-            "type": "string"
-          },
-          "unit_amount": {
-            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
-            "title": "Unit Amount",
-            "type": "string"
-          }
-        },
-        "required": [
-          "line_item_id",
-          "type",
-          "description",
-          "quantity",
-          "unit_amount",
-          "total_amount",
-          "schedule_version",
-          "demo_policy_label"
-        ],
-        "title": "ReceiptLineItem",
-        "type": "object"
-      },
-      "ReceiptProjection": {
-        "additionalProperties": false,
-        "properties": {
-          "adapter_label": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Adapter Label",
-            "type": "string"
-          },
-          "amount": {
-            "const": "990.00",
-            "title": "Amount",
-            "type": "string"
-          },
-          "approval_intent_hash": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Approval Intent Hash",
-            "type": "string"
-          },
-          "approval_request_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Approval Request Id",
-            "type": "string"
-          },
-          "buyer_transaction_fee": {
-            "const": "10.00",
-            "title": "Buyer Transaction Fee",
-            "type": "string"
-          },
-          "currency": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Currency",
-            "type": "string"
-          },
-          "decision_hash": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Decision Hash",
-            "type": "string"
-          },
-          "decision_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Decision Id",
-            "type": "string"
-          },
-          "decision_version": {
-            "minimum": 1.0,
-            "title": "Decision Version",
-            "type": "integer"
-          },
-          "entitlement_ids": {
-            "items": {
-              "maxLength": 128,
-              "minLength": 3,
-              "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-              "type": "string"
-            },
-            "minItems": 1,
-            "title": "Entitlement Ids",
-            "type": "array"
-          },
-          "environment": {
-            "enum": [
-              "fixture",
-              "sandbox",
-              "production"
-            ],
-            "title": "Environment",
-            "type": "string"
-          },
-          "fee_schedule_version": {
-            "const": "buyer_txn_demo_v1",
-            "title": "Fee Schedule Version",
-            "type": "string"
-          },
-          "fulfillment_status": {
-            "const": "VERIFIED",
-            "title": "Fulfillment Status",
-            "type": "string"
-          },
-          "issued_at": {
-            "format": "date-time",
-            "title": "Issued At",
-            "type": "string"
-          },
-          "line_items": {
-            "items": {
-              "$ref": "#/components/schemas/ReceiptLineItem"
-            },
-            "minItems": 2,
-            "title": "Line Items",
-            "type": "array"
-          },
-          "merchant": {
-            "$ref": "#/components/schemas/MerchantView"
-          },
-          "merchant_order_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Merchant Order Id",
-            "type": "string"
-          },
-          "merchant_subtotal": {
-            "const": "980.00",
-            "title": "Merchant Subtotal",
-            "type": "string"
-          },
-          "offer_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Offer Id",
-            "type": "string"
-          },
-          "offer_version": {
-            "minimum": 1.0,
-            "title": "Offer Version",
-            "type": "integer"
-          },
-          "pack_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Pack Id",
-            "type": "string"
-          },
-          "pack_version": {
-            "minimum": 1.0,
-            "title": "Pack Version",
-            "type": "integer"
-          },
-          "payment_status": {
-            "const": "PRAVA_COMPLETED",
-            "title": "Payment Status",
-            "type": "string"
-          },
-          "prava_order_reference": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Prava Order Reference",
-            "type": "string"
-          },
-          "prava_session_reference": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Prava Session Reference",
-            "type": "string"
-          },
-          "production_success": {
-            "title": "Production Success",
-            "type": "boolean"
-          },
-          "purchase_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Purchase Id",
-            "type": "string"
-          },
-          "purchase_intent_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Purchase Intent Id",
-            "type": "string"
-          },
-          "quote_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Quote Id",
-            "type": "string"
-          },
-          "quote_version": {
-            "minimum": 1.0,
-            "title": "Quote Version",
-            "type": "integer"
-          },
-          "receipt_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Receipt Id",
-            "type": "string"
-          },
-          "request_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Request Id",
-            "type": "string"
-          },
-          "schema_version": {
-            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "selection_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Selection Id",
-            "type": "string"
-          },
-          "solution_plan_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Solution Plan Id",
-            "type": "string"
-          },
-          "stack_patch_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Stack Patch Id",
-            "type": "string"
-          },
-          "stack_patch_status": {
-            "const": "STAGED",
-            "title": "Stack Patch Status",
-            "type": "string"
-          },
-          "tax_amount": {
-            "const": "0.00",
-            "title": "Tax Amount",
-            "type": "string"
-          }
-        },
-        "required": [
-          "schema_version",
-          "receipt_id",
-          "purchase_id",
-          "purchase_intent_id",
-          "request_id",
-          "decision_id",
-          "decision_version",
-          "decision_hash",
-          "selection_id",
-          "solution_plan_id",
-          "pack_id",
-          "pack_version",
-          "offer_id",
-          "offer_version",
-          "quote_id",
-          "quote_version",
-          "approval_request_id",
-          "approval_intent_hash",
-          "prava_session_reference",
-          "prava_order_reference",
-          "merchant_order_id",
-          "merchant",
-          "line_items",
-          "merchant_subtotal",
-          "buyer_transaction_fee",
-          "fee_schedule_version",
-          "tax_amount",
-          "amount",
-          "currency",
-          "payment_status",
-          "fulfillment_status",
-          "entitlement_ids",
-          "stack_patch_id",
-          "stack_patch_status",
-          "issued_at",
-          "environment",
-          "adapter_label",
-          "production_success"
-        ],
-        "title": "ReceiptProjection",
-        "type": "object"
-      },
-      "ReceiptView": {
-        "additionalProperties": false,
-        "properties": {
-          "adapter_label": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Adapter Label",
-            "type": "string"
-          },
-          "amount": {
-            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
-            "title": "Amount",
-            "type": "string"
-          },
-          "approval_intent_hash": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Approval Intent Hash",
-            "type": "string"
-          },
-          "approval_request_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Approval Request Id",
-            "type": "string"
-          },
-          "currency": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Currency",
-            "type": "string"
-          },
-          "decision_hash": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Decision Hash",
-            "type": "string"
-          },
-          "decision_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Decision Id",
-            "type": "string"
-          },
-          "entitlement_ids": {
-            "items": {
-              "maxLength": 128,
-              "minLength": 3,
-              "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-              "type": "string"
-            },
-            "minItems": 1,
-            "title": "Entitlement Ids",
-            "type": "array"
-          },
-          "environment": {
-            "enum": [
-              "fixture",
-              "sandbox",
-              "production"
-            ],
-            "title": "Environment",
-            "type": "string"
-          },
-          "fulfillment_status": {
-            "const": "VERIFIED",
-            "title": "Fulfillment Status",
-            "type": "string"
-          },
-          "issued_at": {
-            "format": "date-time",
-            "title": "Issued At",
-            "type": "string"
-          },
-          "merchant": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Merchant",
-            "type": "object"
-          },
-          "merchant_order_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Merchant Order Id",
-            "type": "string"
-          },
-          "offer_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Offer Id",
-            "type": "string"
-          },
-          "offer_version": {
-            "minimum": 1.0,
-            "title": "Offer Version",
-            "type": "integer"
-          },
-          "pack_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Pack Id",
-            "type": "string"
-          },
-          "pack_version": {
-            "minimum": 1.0,
-            "title": "Pack Version",
-            "type": "integer"
-          },
-          "payment_status": {
-            "const": "PRAVA_COMPLETED",
-            "title": "Payment Status",
-            "type": "string"
-          },
-          "prava_order_reference": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Prava Order Reference",
-            "type": "string"
-          },
-          "prava_session_reference": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Prava Session Reference",
-            "type": "string"
-          },
-          "production_success": {
-            "title": "Production Success",
-            "type": "boolean"
-          },
-          "purchase_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Purchase Id",
-            "type": "string"
-          },
-          "purchase_intent_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Purchase Intent Id",
-            "type": "string"
-          },
-          "quote_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Quote Id",
-            "type": "string"
-          },
-          "quote_version": {
-            "minimum": 1.0,
-            "title": "Quote Version",
-            "type": "integer"
-          },
-          "receipt_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Receipt Id",
-            "type": "string"
-          },
-          "request_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Request Id",
-            "type": "string"
-          },
-          "schema_version": {
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "stack_patch_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Stack Patch Id",
-            "type": "string"
-          },
-          "stack_patch_status": {
-            "const": "STAGED",
-            "title": "Stack Patch Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "schema_version",
-          "receipt_id",
-          "purchase_id",
-          "purchase_intent_id",
-          "request_id",
-          "decision_id",
-          "decision_hash",
-          "pack_id",
-          "pack_version",
-          "offer_id",
-          "offer_version",
-          "quote_id",
-          "quote_version",
-          "approval_request_id",
-          "approval_intent_hash",
-          "prava_session_reference",
-          "prava_order_reference",
-          "merchant_order_id",
-          "merchant",
-          "amount",
-          "currency",
-          "payment_status",
-          "fulfillment_status",
-          "entitlement_ids",
-          "stack_patch_id",
-          "stack_patch_status",
-          "issued_at",
-          "environment",
-          "adapter_label",
-          "production_success"
-        ],
-        "title": "ReceiptView",
-        "type": "object"
-      },
       "RequestVisibility": {
         "enum": [
           "PRIVATE",
@@ -7046,20 +6288,6 @@
           "owner_role": {
             "$ref": "#/components/schemas/ActorRole"
           },
-          "receipt_id": {
-            "anyOf": [
-              {
-                "maxLength": 128,
-                "minLength": 3,
-                "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Receipt Id"
-          },
           "safe_label": {
             "maxLength": 200,
             "minLength": 1,
@@ -7115,8 +6343,7 @@
           "occurred_at",
           "safe_label",
           "href",
-          "stack_patch_id",
-          "receipt_id"
+          "stack_patch_id"
         ],
         "title": "ResultArtifact",
         "type": "object"
@@ -7127,170 +6354,12 @@
           "CONFIGURATION_CHANGE",
           "CONTRACT_CONFIRMATION",
           "CANCELLATION_CONFIRMATION",
-          "ORDER",
-          "ENTITLEMENT",
           "MIGRATION_RECORD",
           "STACK_PATCH",
           "OUTCOME_CHECKPOINT"
         ],
         "title": "ResultArtifactType",
         "type": "string"
-      },
-      "ReversalCreate": {
-        "additionalProperties": false,
-        "properties": {
-          "kind": {
-            "enum": [
-              "CANCELLATION",
-              "REFUND"
-            ],
-            "title": "Kind",
-            "type": "string"
-          },
-          "reason": {
-            "maxLength": 1000,
-            "minLength": 3,
-            "title": "Reason",
-            "type": "string"
-          },
-          "reason_code": {
-            "pattern": "^[A-Z][A-Z0-9_]{2,79}$",
-            "title": "Reason Code",
-            "type": "string"
-          },
-          "requested_amount": {
-            "anyOf": [
-              {
-                "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Requested Amount"
-          }
-        },
-        "required": [
-          "kind",
-          "reason_code",
-          "reason"
-        ],
-        "title": "ReversalCreate",
-        "type": "object"
-      },
-      "ReversalView": {
-        "additionalProperties": false,
-        "properties": {
-          "completed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Completed At"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "currency": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Currency",
-            "type": "string"
-          },
-          "id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "intent_hash": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Intent Hash",
-            "type": "string"
-          },
-          "kind": {
-            "enum": [
-              "CANCELLATION",
-              "REFUND"
-            ],
-            "title": "Kind",
-            "type": "string"
-          },
-          "provider_action_required": {
-            "title": "Provider Action Required",
-            "type": "boolean"
-          },
-          "provider_confirmed": {
-            "title": "Provider Confirmed",
-            "type": "boolean"
-          },
-          "purchase_intent_id": {
-            "maxLength": 128,
-            "minLength": 3,
-            "pattern": "^[a-z][a-z0-9_:-]{2,127}$",
-            "title": "Purchase Intent Id",
-            "type": "string"
-          },
-          "refunded_amount": {
-            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
-            "title": "Refunded Amount",
-            "type": "string"
-          },
-          "requested_amount": {
-            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
-            "title": "Requested Amount",
-            "type": "string"
-          },
-          "safe_error_code": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Safe Error Code"
-          },
-          "status": {
-            "enum": [
-              "REQUESTED",
-              "PROVIDER_PENDING",
-              "PARTIALLY_REFUNDED",
-              "REFUNDED",
-              "REJECTED",
-              "FAILED_RETRYABLE",
-              "COMPENSATION_REQUIRED",
-              "COMPENSATED",
-              "CANCELLED"
-            ],
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "purchase_intent_id",
-          "intent_hash",
-          "kind",
-          "status",
-          "requested_amount",
-          "refunded_amount",
-          "currency",
-          "provider_confirmed",
-          "provider_action_required",
-          "created_at"
-        ],
-        "title": "ReversalView",
-        "type": "object"
       },
       "ScoreComponentView": {
         "additionalProperties": false,
@@ -9530,27 +8599,6 @@
         "title": "StageStatus",
         "type": "string"
       },
-      "TaxPaymentLineItem": {
-        "additionalProperties": false,
-        "properties": {
-          "amount": {
-            "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
-            "title": "Amount",
-            "type": "string"
-          },
-          "type": {
-            "const": "TAX",
-            "title": "Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "amount"
-        ],
-        "title": "TaxPaymentLineItem",
-        "type": "object"
-      },
       "TotalCostBounds": {
         "additionalProperties": false,
         "properties": {
@@ -9596,33 +8644,6 @@
         "title": "TotalCostBounds",
         "type": "object"
       },
-      "TransactionFeePaymentLineItem": {
-        "additionalProperties": false,
-        "properties": {
-          "amount": {
-            "const": "10.00",
-            "title": "Amount",
-            "type": "string"
-          },
-          "schedule_version": {
-            "const": "buyer_txn_demo_v1",
-            "title": "Schedule Version",
-            "type": "string"
-          },
-          "type": {
-            "const": "SIRA_TRANSACTION_FEE",
-            "title": "Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "amount",
-          "schedule_version"
-        ],
-        "title": "TransactionFeePaymentLineItem",
-        "type": "object"
-      },
       "TruthValue": {
         "enum": [
           "TRUE",
@@ -9649,9 +8670,8 @@
           "ACCEPT_EXCEPTION",
           "APPROVE_POLICY",
           "APPROVE_BUDGET",
-          "AUTHORIZE_PAYMENT",
+          "OPEN_PAYMENT_HANDOFF",
           "EXECUTE_CONFIGURATION",
-          "VERIFY_FULFILLMENT",
           "PROVIDE_OUTCOME",
           "EXPORT_AUDIT",
           "EDIT_PRODUCT_EVIDENCE",
@@ -16389,6 +15409,240 @@
         ]
       }
     },
+    "/v1/payment-handoffs/{handoff_id}/open": {
+      "post": {
+        "operationId": "open_payment_handoff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handoff_id",
+            "required": true,
+            "schema": {
+              "title": "Handoff Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Roles"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Step-Up-Verified",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "X-Step-Up-Verified",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Identity-Kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Identity-Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-Party",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Party"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Workspace-Mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Mode"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentHandoffView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid request semantics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authority denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State or hash conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Contract validation failed"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Provider rejected the operation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency or setup unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Open Payment Handoff",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
     "/v1/purchase-intents/{intent_id}/approval-requests": {
       "post": {
         "operationId": "create_approval_request",
@@ -16877,10 +16131,9 @@
         ]
       }
     },
-    "/v1/purchase-intents/{intent_id}/prava-sessions": {
+    "/v1/purchase-intents/{intent_id}/payment-handoff": {
       "post": {
-        "deprecated": true,
-        "operationId": "create_prava_session",
+        "operationId": "create_payment_handoff",
         "parameters": [
           {
             "in": "path",
@@ -17009,22 +16262,12 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PravaSessionCreate"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PravaSessionView"
+                  "$ref": "#/components/schemas/PaymentHandoffView"
                 }
               }
             },
@@ -17116,251 +16359,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Create Prava Session",
-        "tags": [
-          "commerce"
-        ]
-      }
-    },
-    "/v1/purchase-intents/{intent_id}/reversals": {
-      "post": {
-        "operationId": "request_purchase_reversal",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "intent_id",
-            "required": true,
-            "schema": {
-              "title": "Intent Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Organization-Id"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Actor-Id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor-Id"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Actor-Roles",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor-Roles"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Step-Up-Verified",
-            "required": false,
-            "schema": {
-              "default": false,
-              "title": "X-Step-Up-Verified",
-              "type": "boolean"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Identity-Kind",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Identity-Kind"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Actor-Party",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor-Party"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Workspace-Mode",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Workspace-Mode"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Idempotency-Key",
-            "required": true,
-            "schema": {
-              "maxLength": 128,
-              "minLength": 8,
-              "title": "Idempotency-Key",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReversalCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReversalView"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Invalid request semantics"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Authentication failed"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Authority denied"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Resource unavailable"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "State or hash conflict"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Contract validation failed"
-          },
-          "502": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Provider rejected the operation"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Dependency or setup unavailable"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Request Purchase Reversal",
+        "summary": "Create Payment Handoff",
         "tags": [
           "commerce"
         ]
@@ -17584,229 +16583,6 @@
           }
         ],
         "summary": "Purchase Status",
-        "tags": [
-          "commerce"
-        ]
-      }
-    },
-    "/v1/purchases/{purchase_id}/receipt": {
-      "get": {
-        "operationId": "get_receipt",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "purchase_id",
-            "required": true,
-            "schema": {
-              "title": "Purchase Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Organization-Id"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Actor-Id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor-Id"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Actor-Roles",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor-Roles"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Step-Up-Verified",
-            "required": false,
-            "schema": {
-              "default": false,
-              "title": "X-Step-Up-Verified",
-              "type": "boolean"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Identity-Kind",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Identity-Kind"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Actor-Party",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor-Party"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Workspace-Mode",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Workspace-Mode"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReceiptView"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Invalid request semantics"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Authentication failed"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Authority denied"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Resource unavailable"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "State or hash conflict"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Contract validation failed"
-          },
-          "502": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Provider rejected the operation"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Dependency or setup unavailable"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Get Receipt",
         "tags": [
           "commerce"
         ]

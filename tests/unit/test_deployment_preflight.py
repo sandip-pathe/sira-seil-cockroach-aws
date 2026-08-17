@@ -18,7 +18,6 @@ def _runtime_secret() -> dict[str, str]:
         "SIRA_CATALOG_DATABASE_URL": (
             f"cockroachdb+asyncpg://sira_catalog_app:{credential}@{base}"
         ),
-        "BROWSER_RETURN_SIGNING_KEY": "b" * 48,
         "GUEST_SESSION_SIGNING_KEY": "g" * 48,
     }
 
@@ -56,13 +55,13 @@ def test_deployment_preflight_rejects_local_system_or_unverified_database(url: s
         validate_database_url(url)
 
 
-def test_runtime_secret_requires_role_and_signing_key_separation() -> None:
+def test_runtime_secret_requires_role_separation_and_strong_guest_signing() -> None:
     secret = _runtime_secret()
     secret["SIRA_WORKER_DATABASE_URL"] = secret["DATABASE_URL"]
     with pytest.raises(ValueError, match="identities must be distinct"):
         validate_runtime_secret(secret)
 
     secret = _runtime_secret()
-    secret["GUEST_SESSION_SIGNING_KEY"] = secret["BROWSER_RETURN_SIGNING_KEY"]
-    with pytest.raises(ValueError, match="signing keys must be distinct"):
+    secret["GUEST_SESSION_SIGNING_KEY"] = "short"
+    with pytest.raises(ValueError, match="at least 32 bytes"):
         validate_runtime_secret(secret)

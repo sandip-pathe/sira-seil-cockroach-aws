@@ -40,15 +40,6 @@ class ApiSettings(BaseSettings):
     catalog_database_url: SecretStr = Field(
         default=SecretStr(""), validation_alias="SIRA_CATALOG_DATABASE_URL"
     )
-    browser_return_signing_key: SecretStr = Field(
-        default=SecretStr(""), validation_alias="BROWSER_RETURN_SIGNING_KEY"
-    )
-    browser_return_ttl_seconds: int = Field(
-        default=600,
-        ge=60,
-        le=1800,
-        validation_alias="BROWSER_RETURN_TTL_SECONDS",
-    )
     identity_introspection_url: str = Field(
         default="", validation_alias="IDENTITY_INTROSPECTION_URL"
     )
@@ -132,19 +123,10 @@ class ApiSettings(BaseSettings):
                 catalog_backend = "invalid"
             if catalog_backend != "cockroachdb":
                 raise ValueError("production requires a CockroachDB SIRA_CATALOG_DATABASE_URL")
-        self.browser_return_signing_secret()
         if self.guest_session_enabled:
             self.guest_session_signing_secret()
         if self.agent_runtime_provider != "bedrock":
             raise ValueError("production requires AGENT_RUNTIME_PROVIDER=bedrock")
-
-    def browser_return_signing_secret(self) -> str:
-        value = self.browser_return_signing_key.get_secret_value()
-        if len(value.encode("utf-8")) >= 32:
-            return value
-        if self.is_development:
-            return "development-only-browser-return-key"  # pragma: allowlist secret
-        raise ValueError("production requires a 32-byte BROWSER_RETURN_SIGNING_KEY")
 
     def guest_session_signing_secret(self) -> str:
         value = self.guest_session_signing_key.get_secret_value()

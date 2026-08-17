@@ -376,7 +376,7 @@ def test_graph_models_and_engagement_binding_are_typed_and_tenant_owned() -> Non
     assert "ck_engagement_requirement_brief_version_positive" in engagement_constraints
     assert "fk_engagement_exact_requirement_brief" in engagement_constraints
 
-    prohibited = {"credential", "token", "cvv", "card_number", "prava_secret"}
+    prohibited = {"credential", "token", "cvv", "card_number", "provider_secret"}
     graph_columns = {
         column.name.lower()
         for table_name in GRAPH_TABLES
@@ -584,7 +584,7 @@ async def test_action_run_and_verified_result_artifact_are_action_neutral() -> N
             status="RUNNING",
             current_checkpoint="approved",
             last_successful_checkpoint="selected",
-            owner_role="CARDHOLDER",
+            owner_role="PROCUREMENT",
             blocking_task=None,
             recovery_action=None,
             retryable=False,
@@ -609,7 +609,6 @@ async def test_action_run_and_verified_result_artifact_are_action_neutral() -> N
             safe_label="Decision recorded",
             href="/v1/result-artifacts/artifact_a",
             stack_patch_id=None,
-            receipt_id=None,
             artifact_hash=_sha(artifact_payload),
             payload=artifact_payload,
         )

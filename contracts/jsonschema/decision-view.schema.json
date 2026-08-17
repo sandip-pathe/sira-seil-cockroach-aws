@@ -4,7 +4,7 @@
   "title": "Role-filtered SIRA Decision Room view",
   "type": "object",
   "additionalProperties": false,
-  "required": ["request", "workflow", "evaluation", "company_context", "coverage", "decision_outcome", "rank_stability", "solution_options", "selected_action_plan", "stack_change", "approval", "payment", "fulfillment", "result_artifacts", "receipt"],
+  "required": ["request", "workflow", "evaluation", "company_context", "coverage", "decision_outcome", "rank_stability", "solution_options", "selected_action_plan", "stack_change", "approval", "payment_handoff", "result_artifacts"],
   "properties": {
     "request": { "$ref": "#/$defs/RequestView" },
     "workflow": { "$ref": "#/$defs/WorkflowView" },
@@ -32,25 +32,13 @@
         { "type": "null" }
       ]
     },
-    "payment": {
+    "payment_handoff": {
       "oneOf": [
-        { "$ref": "#/$defs/PaymentView" },
+        { "$ref": "#/$defs/PaymentHandoffView" },
         { "type": "null" }
       ]
     },
-    "fulfillment": {
-      "oneOf": [
-        { "$ref": "#/$defs/FulfillmentView" },
-        { "type": "null" }
-      ]
-    },
-    "result_artifacts": { "type": "array", "items": { "$ref": "#/$defs/ResultArtifact" } },
-    "receipt": {
-      "oneOf": [
-        { "$ref": "receipt.schema.json" },
-        { "type": "null" }
-      ]
-    }
+    "result_artifacts": { "type": "array", "items": { "$ref": "#/$defs/ResultArtifact" } }
   },
   "$defs": {
     "NullableIdentifier": {
@@ -553,135 +541,31 @@
         }
       ]
     },
-    "PaymentLineItem": {
+    "PaymentHandoffView": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "amount"],
+      "required": ["id", "purchase_intent_id", "approval_request_id", "intent_hash", "handoff_hash", "destination_url", "recipient", "amount", "currency", "reference", "status", "expires_at", "opened_at", "href"],
       "properties": {
-        "type": { "type": "string", "enum": ["MERCHANT_SUBTOTAL", "SIRA_TRANSACTION_FEE", "TAX"] },
+        "id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "purchase_intent_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "approval_request_id": { "$ref": "common.schema.json#/$defs/Identifier" },
+        "intent_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+        "handoff_hash": { "$ref": "common.schema.json#/$defs/Sha256" },
+        "destination_url": { "type": "string", "pattern": "^https://", "maxLength": 2000 },
+        "recipient": { "type": "string", "minLength": 1, "maxLength": 200 },
         "amount": { "$ref": "common.schema.json#/$defs/DecimalAmount" },
-        "schedule_version": { "$ref": "common.schema.json#/$defs/Identifier" }
-      },
-      "allOf": [
-        {
-          "if": { "properties": { "type": { "const": "SIRA_TRANSACTION_FEE" } }, "required": ["type"] },
-          "then": {
-            "required": ["schedule_version"],
-            "properties": { "amount": { "const": "10.00" }, "schedule_version": { "const": "buyer_txn_demo_v1" } }
-          },
-          "else": { "not": { "required": ["schedule_version"] } }
-        }
-      ]
-    },
-    "PaymentView": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["required", "status", "currency", "line_items", "landed_total", "purchase_intent_id", "last_checkpoint_at", "href"],
-      "properties": {
-        "required": { "type": "boolean" },
-        "status": { "$ref": "enums.schema.json#/$defs/PaymentStatus" },
-        "currency": {
-          "oneOf": [
-            { "$ref": "common.schema.json#/$defs/Currency" },
-            { "type": "null" }
-          ]
-        },
-        "line_items": { "type": "array", "items": { "$ref": "#/$defs/PaymentLineItem" } },
-        "landed_total": {
-          "oneOf": [
-            { "$ref": "common.schema.json#/$defs/DecimalAmount" },
-            { "type": "null" }
-          ]
-        },
-        "purchase_intent_id": { "$ref": "#/$defs/NullableIdentifier" },
-        "last_checkpoint_at": { "$ref": "#/$defs/NullableTimestamp" },
-        "href": { "$ref": "#/$defs/NullableHref" }
-      },
-      "allOf": [
-        {
-          "if": { "properties": { "required": { "const": false } }, "required": ["required"] },
-          "then": {
-            "properties": {
-              "status": { "const": "NOT_REQUIRED" },
-              "currency": { "type": "null" },
-              "line_items": { "maxItems": 0 },
-              "landed_total": { "type": "null" },
-              "purchase_intent_id": { "type": "null" },
-              "href": { "type": "null" }
-            }
-          },
-          "else": {
-            "properties": {
-              "currency": { "const": "USD" },
-              "landed_total": { "const": "990.00" },
-              "line_items": {
-                "minItems": 2,
-                "uniqueItems": true,
-                "allOf": [
-                  {
-                    "contains": {
-                      "type": "object",
-                      "properties": { "type": { "const": "SIRA_TRANSACTION_FEE" }, "amount": { "const": "10.00" }, "schedule_version": { "const": "buyer_txn_demo_v1" } },
-                      "required": ["type", "amount", "schedule_version"]
-                    },
-                    "minContains": 1,
-                    "maxContains": 1
-                  },
-                  {
-                    "contains": {
-                      "type": "object",
-                      "properties": { "type": { "const": "MERCHANT_SUBTOTAL" }, "amount": { "const": "980.00" } },
-                      "required": ["type", "amount"]
-                    },
-                    "minContains": 1,
-                    "maxContains": 1
-                  }
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    "FulfillmentView": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["required", "status", "expected_item_count", "verified_item_count", "partial_item_count", "owner_role", "last_checkpoint_at", "href"],
-      "properties": {
-        "required": { "type": "boolean" },
-        "status": { "$ref": "enums.schema.json#/$defs/FulfillmentStatus" },
-        "expected_item_count": { "type": "integer", "minimum": 0 },
-        "verified_item_count": { "type": "integer", "minimum": 0 },
-        "partial_item_count": { "type": "integer", "minimum": 0 },
-        "owner_role": {
-          "oneOf": [
-            { "$ref": "enums.schema.json#/$defs/ActorRole" },
-            { "type": "null" }
-          ]
-        },
-        "last_checkpoint_at": { "$ref": "#/$defs/NullableTimestamp" },
-        "href": { "$ref": "#/$defs/NullableHref" }
-      },
-      "allOf": [
-        {
-          "if": { "properties": { "required": { "const": false } }, "required": ["required"] },
-          "then": {
-            "properties": {
-              "status": { "const": "NOT_REQUIRED" },
-              "expected_item_count": { "const": 0 },
-              "verified_item_count": { "const": 0 },
-              "partial_item_count": { "const": 0 },
-              "owner_role": { "type": "null" },
-              "href": { "type": "null" }
-            }
-          }
-        }
-      ]
+        "currency": { "$ref": "common.schema.json#/$defs/Currency" },
+        "reference": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "status": { "type": "string", "enum": ["READY", "OPENED", "EXPIRED", "CANCELLED"] },
+        "expires_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "opened_at": { "$ref": "#/$defs/NullableTimestamp" },
+        "href": { "$ref": "common.schema.json#/$defs/Href" }
+      }
     },
     "ResultArtifact": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "type", "verification_state", "actor_ref", "owner_role", "occurred_at", "verified_at", "safe_label", "href", "stack_patch_id", "receipt_id"],
+      "required": ["id", "type", "verification_state", "actor_ref", "owner_role", "occurred_at", "verified_at", "safe_label", "href", "stack_patch_id"],
       "properties": {
         "id": { "$ref": "common.schema.json#/$defs/Identifier" },
         "type": { "$ref": "enums.schema.json#/$defs/ResultArtifactType" },
@@ -692,8 +576,7 @@
         "verified_at": { "$ref": "#/$defs/NullableTimestamp" },
         "safe_label": { "type": "string", "minLength": 1, "maxLength": 200 },
         "href": { "$ref": "common.schema.json#/$defs/Href" },
-        "stack_patch_id": { "$ref": "#/$defs/NullableIdentifier" },
-        "receipt_id": { "$ref": "#/$defs/NullableIdentifier" }
+        "stack_patch_id": { "$ref": "#/$defs/NullableIdentifier" }
       }
     }
   }

@@ -64,7 +64,6 @@ def production_settings() -> ApiSettings:
         development_fixture_mode=False,
         demo_reset_enabled=False,
         agent_runtime_provider="bedrock",
-        browser_return_signing_key="production-test-browser-return-key",
     )
 
 
@@ -99,17 +98,6 @@ def test_production_configuration_requires_cockroachdb() -> None:
             app_env="production",
             database_url="cockroachdb+asyncpg://sira_app@db.example:26257/sira?ssl=verify-full",
             catalog_database_url="postgresql+asyncpg://catalog@db.example:26257/sira?ssl=verify-full",
-            development_fixture_mode=False,
-            demo_reset_enabled=False,
-            browser_return_signing_key="production-test-browser-return-key",
-        )
-
-
-def test_production_configuration_requires_stable_browser_return_signing_key() -> None:
-    with pytest.raises(ValidationError, match="32-byte BROWSER_RETURN_SIGNING_KEY"):
-        ApiSettings(
-            app_env="production",
-            database_url="cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira?ssl=disable",
             development_fixture_mode=False,
             demo_reset_enabled=False,
         )

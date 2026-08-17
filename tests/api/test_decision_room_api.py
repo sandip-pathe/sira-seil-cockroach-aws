@@ -196,14 +196,7 @@ async def test_plan_selection_and_action_run_bind_the_exact_decision(
     ).json()
     assert historical["request"]["decision_version"] == 1
     assert historical["selected_action_plan"] is None
-    assert current["payment"]["line_items"] == [
-        {"type": "MERCHANT_SUBTOTAL", "amount": "980.00"},
-        {
-            "type": "SIRA_TRANSACTION_FEE",
-            "amount": "10.00",
-            "schedule_version": "buyer_txn_demo_v1",
-        },
-    ]
+    assert current["payment_handoff"] is None
 
     intent = await api_client.post(
         f"/v1/decisions/{selected_body['selected_decision_id']}/purchase-intents",
@@ -242,8 +235,7 @@ async def test_plan_selection_and_action_run_bind_the_exact_decision(
         "blocking_task",
         "recovery_action",
         "execution_steps",
-        "payment",
-        "fulfillment",
+        "payment_handoff",
         "result_artifacts",
         "created_at",
         "updated_at",
@@ -281,23 +273,4 @@ async def test_zero_charge_selection_has_no_payment_or_fee(
     frozen_validator("decision-view.schema.json").validate(current)
     assert current["selected_action_plan"]["action_type"] == "CONFIGURE_EXISTING"
     assert current["approval"]["status"] == "NOT_REQUIRED"
-    assert current["payment"] == {
-        "required": False,
-        "status": "NOT_REQUIRED",
-        "currency": None,
-        "line_items": [],
-        "landed_total": None,
-        "purchase_intent_id": None,
-        "last_checkpoint_at": None,
-        "href": None,
-    }
-    assert current["fulfillment"] == {
-        "required": False,
-        "status": "NOT_REQUIRED",
-        "expected_item_count": 0,
-        "verified_item_count": 0,
-        "partial_item_count": 0,
-        "owner_role": None,
-        "last_checkpoint_at": None,
-        "href": None,
-    }
+    assert current["payment_handoff"] is None

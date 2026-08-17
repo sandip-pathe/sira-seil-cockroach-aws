@@ -26,7 +26,6 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
-    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
@@ -1040,10 +1039,6 @@ class PurchaseIntent(Base, TenantOwned, Timestamped):
     approval_status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="NOT_REQUESTED"
     )
-    payment_status: Mapped[str] = mapped_column(String(32), nullable=False, default="NOT_STARTED")
-    fulfillment_status: Mapped[str] = mapped_column(
-        String(32), nullable=False, default="NOT_STARTED"
-    )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     __table_args__ = (
@@ -1063,70 +1058,6 @@ class PurchaseIntent(Base, TenantOwned, Timestamped):
             "approval_status IN ("
             "'NOT_REQUESTED','PENDING','APPROVED','REJECTED','REVOKED','EXPIRED','SUPERSEDED')",
             name="ck_purchase_intent_approval_status",
-        ),
-        CheckConstraint(
-            "payment_status IN ("
-            "'NOT_STARTED','SESSION_CREATED','CARDHOLDER_PENDING','CHECKOUT_PENDING',"
-            "'MERCHANT_APPROVED','REPORTING','PRAVA_COMPLETED','DECLINED','EXPIRED','UNCERTAIN','FAILED')",
-            name="ck_purchase_intent_payment_status",
-        ),
-        CheckConstraint(
-            "fulfillment_status IN ('NOT_STARTED','PENDING','PARTIAL','VERIFIED',"
-            "'FAILED_RETRYABLE','FAILED_FINAL','REVOKED')",
-            name="ck_purchase_intent_fulfillment_status",
-        ),
-    )
-
-
-class PurchaseReversal(Base, TenantOwned, Timestamped):
-    """Refund/cancellation state bound to one exact paid Purchase Intent."""
-
-    __tablename__ = "purchase_reversals"
-
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    purchase_intent_id: Mapped[str] = mapped_column(
-        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=False
-    )
-    intent_hash: Mapped[str] = mapped_column(String(80), nullable=False)
-    kind: Mapped[str] = mapped_column(String(24), nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False)
-    requested_amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
-    refunded_amount: Mapped[Decimal] = mapped_column(
-        Numeric(20, 2), nullable=False, default=Decimal("0.00")
-    )
-    currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    merchant_order_id: Mapped[str] = mapped_column(String(160), nullable=False)
-    provider_reference: Mapped[str | None] = mapped_column(String(160), nullable=True)
-    provider_adapter_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    provider_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    reason_code: Mapped[str] = mapped_column(String(80), nullable=False)
-    reason_hash: Mapped[str] = mapped_column(String(80), nullable=False)
-    requested_by_actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    safe_error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    __table_args__ = (
-        CheckConstraint("kind IN ('CANCELLATION','REFUND')", name="ck_reversal_kind"),
-        CheckConstraint(
-            "status IN ('REQUESTED','PROVIDER_PENDING','PARTIALLY_REFUNDED','REFUNDED',"
-            "'REJECTED','FAILED_RETRYABLE','COMPENSATION_REQUIRED','COMPENSATED','CANCELLED')",
-            name="ck_reversal_status",
-        ),
-        CheckConstraint("requested_amount > 0", name="ck_reversal_requested_positive"),
-        CheckConstraint("refunded_amount >= 0", name="ck_reversal_refunded_nonnegative"),
-        CheckConstraint("refunded_amount <= requested_amount", name="ck_reversal_refunded_bounded"),
-        CheckConstraint("currency = upper(currency)", name="ck_reversal_currency_upper"),
-        UniqueConstraint(
-            "organization_id",
-            "purchase_intent_id",
-            "reason_hash",
-            name="uq_reversal_request",
-        ),
-        Index(
-            "ix_reversal_intent_status",
-            "organization_id",
-            "purchase_intent_id",
-            "status",
         ),
     )
 
@@ -1265,9 +1196,6 @@ class ResultArtifact(Base, TenantOwned, Timestamped):
     stack_patch_id: Mapped[str | None] = mapped_column(
         ForeignKey("stack_patches.id", ondelete="RESTRICT"), nullable=True
     )
-    receipt_id: Mapped[str | None] = mapped_column(
-        ForeignKey("receipts.id", ondelete="RESTRICT"), nullable=True
-    )
     artifact_hash: Mapped[str] = mapped_column(String(80), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
 
@@ -1277,8 +1205,7 @@ class ResultArtifact(Base, TenantOwned, Timestamped):
         ),
         CheckConstraint(
             "artifact_type IN ('DECISION_RECORD','CONFIGURATION_CHANGE','CONTRACT_CONFIRMATION',"
-            "'CANCELLATION_CONFIRMATION','ORDER','ENTITLEMENT','MIGRATION_RECORD','STACK_PATCH',"
-            "'OUTCOME_CHECKPOINT')",
+            "'CANCELLATION_CONFIRMATION','MIGRATION_RECORD','STACK_PATCH','OUTCOME_CHECKPOINT')",
             name="ck_result_artifact_type",
         ),
         CheckConstraint(
@@ -1397,188 +1324,6 @@ class PaymentHandoff(Base, TenantOwned, Timestamped):
             "status",
         ),
     )
-
-
-class PaymentSession(Base, TenantOwned, Timestamped):
-    __tablename__ = "payment_sessions"
-
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    purchase_intent_id: Mapped[str] = mapped_column(
-        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=False
-    )
-    provider: Mapped[str] = mapped_column(String(40), nullable=False)
-    provider_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    provider_order_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    hosted_url: Mapped[str] = mapped_column(Text, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("provider", "provider_session_id", name="uq_provider_payment_session"),
-    )
-
-
-class PravaShoppingRun(Base, TenantOwned, Timestamped):
-    """Canonical identifiers for one real Prava quote-to-order chain."""
-
-    __tablename__ = "prava_shopping_runs"
-
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    purchase_intent_id: Mapped[str | None] = mapped_column(
-        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=True
-    )
-    product_id: Mapped[str] = mapped_column(String(200), nullable=False)
-    variant_id: Mapped[str] = mapped_column(String(200), nullable=False)
-    merchant: Mapped[str] = mapped_column(String(255), nullable=False)
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    checkout_session_id: Mapped[str] = mapped_column(String(200), nullable=False)
-    payment_session_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    payment_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
-    currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    quote_payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False)
-    order_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    safe_error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
-
-    __table_args__ = (
-        UniqueConstraint(
-            "organization_id", "checkout_session_id", name="uq_prava_shopping_checkout"
-        ),
-        CheckConstraint("quantity >= 1", name="ck_prava_shopping_quantity"),
-        CheckConstraint("amount > 0", name="ck_prava_shopping_amount"),
-        CheckConstraint("currency = upper(currency)", name="ck_prava_shopping_currency"),
-        CheckConstraint(
-            "status IN ('QUOTED','AWAITING_APPROVAL','QUEUED','RUNNING','PAID','FAILED')",
-            name="ck_prava_shopping_status",
-        ),
-    )
-
-
-class BrowserReturnBinding(Base, TenantOwned, Timestamped):
-    __tablename__ = "browser_return_bindings"
-
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    purchase_intent_id: Mapped[str] = mapped_column(
-        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=False
-    )
-    payment_session_id: Mapped[str] = mapped_column(
-        ForeignKey("payment_sessions.id", ondelete="RESTRICT"), nullable=False
-    )
-    actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    state_hash: Mapped[str] = mapped_column(String(80), nullable=False)
-    provider_session_hash: Mapped[str] = mapped_column(String(80), nullable=False)
-    return_url_hash: Mapped[str] = mapped_column(String(80), nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    __table_args__ = (
-        UniqueConstraint("organization_id", "state_hash", name="uq_browser_return_state_hash"),
-        UniqueConstraint(
-            "organization_id",
-            "payment_session_id",
-            name="uq_browser_return_payment_session",
-        ),
-    )
-
-
-class PaymentAttempt(Base, TenantOwned, Timestamped):
-    __tablename__ = "payment_attempts"
-
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    purchase_intent_id: Mapped[str] = mapped_column(
-        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=False
-    )
-    payment_session_id: Mapped[str] = mapped_column(
-        ForeignKey("payment_sessions.id", ondelete="RESTRICT"), nullable=False
-    )
-    merchant_outcome: Mapped[str | None] = mapped_column(String(24), nullable=True)
-    external_order_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    __table_args__ = (
-        Index(
-            "uq_open_payment_attempt",
-            "purchase_intent_id",
-            unique=True,
-            postgresql_where=text("closed_at IS NULL"),
-            sqlite_where=text("closed_at IS NULL"),
-        ),
-        Index(
-            "uq_charged_or_uncertain_intent",
-            "purchase_intent_id",
-            unique=True,
-            postgresql_where=text("merchant_outcome IN ('APPROVED','UNKNOWN')"),
-            sqlite_where=text("merchant_outcome IN ('APPROVED','UNKNOWN')"),
-        ),
-    )
-
-
-class MerchantOrder(Base, TenantOwned, Timestamped):
-    __tablename__ = "merchant_orders"
-
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    purchase_intent_id: Mapped[str] = mapped_column(
-        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=False
-    )
-    merchant_adapter_id: Mapped[str] = mapped_column(String(80), nullable=False)
-    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
-    external_order_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False)
-    amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
-    currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    safe_payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint(
-            "merchant_adapter_id", "idempotency_key", name="uq_merchant_order_provider_key"
-        ),
-        UniqueConstraint(
-            "merchant_adapter_id", "external_order_id", name="uq_merchant_external_order"
-        ),
-    )
-
-
-class Entitlement(Base, TenantOwned, Timestamped):
-    __tablename__ = "entitlements"
-
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    purchase_intent_id: Mapped[str] = mapped_column(
-        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=False
-    )
-    merchant_order_id: Mapped[str] = mapped_column(
-        ForeignKey("merchant_orders.id", ondelete="RESTRICT"), nullable=False
-    )
-    fulfillment_adapter_id: Mapped[str] = mapped_column(String(80), nullable=False)
-    external_entitlement_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    fulfillment_item_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    entitlement_type: Mapped[str] = mapped_column(String(80), nullable=False)
-    subject_type: Mapped[str] = mapped_column(String(80), nullable=False)
-    subject_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    verification_status: Mapped[str] = mapped_column(String(32), nullable=False)
-    safe_payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint(
-            "fulfillment_adapter_id",
-            "external_entitlement_id",
-            name="uq_external_entitlement",
-        ),
-        CheckConstraint("quantity >= 0", name="ck_entitlement_quantity_nonnegative"),
-    )
-
-
-class Receipt(Base, TenantOwned, Timestamped):
-    __tablename__ = "receipts"
-
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    purchase_intent_id: Mapped[str] = mapped_column(
-        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=False, unique=True
-    )
-    receipt_hash: Mapped[str] = mapped_column(String(80), nullable=False)
-    payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
 
 
 class StackSnapshot(Base, TenantOwned, Timestamped):
@@ -2317,41 +2062,5 @@ class WorkflowRun(Base, TenantOwned, Timestamped):
         ),
         CheckConstraint(
             "status IN ('PENDING','RUNNING','COMPLETED','FAILED')", name="ck_workflow_status"
-        ),
-    )
-
-
-class TransactionTransition(Base, TenantOwned):
-    __tablename__ = "transaction_transitions"
-
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    purchase_intent_id: Mapped[str] = mapped_column(
-        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=False
-    )
-    from_state: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    to_state: Mapped[str] = mapped_column(String(32), nullable=False)
-    attempt_id: Mapped[str | None] = mapped_column(
-        ForeignKey("payment_attempts.id", ondelete="RESTRICT"), nullable=True
-    )
-    actor_type: Mapped[str] = mapped_column(String(40), nullable=False)
-    actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    reason_code: Mapped[str] = mapped_column(String(80), nullable=False)
-    event_key: Mapped[str] = mapped_column(String(128), nullable=False)
-    provider_event_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    payload_hash: Mapped[str] = mapped_column(String(80), nullable=False)
-    occurred_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-
-    __table_args__ = (
-        UniqueConstraint(
-            "organization_id", "purchase_intent_id", "event_key", name="uq_transaction_event_key"
-        ),
-        Index(
-            "uq_provider_event_ref",
-            "organization_id",
-            "provider_event_ref",
-            unique=True,
-            postgresql_where=text("provider_event_ref IS NOT NULL"),
         ),
     )

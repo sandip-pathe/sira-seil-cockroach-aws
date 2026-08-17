@@ -50,7 +50,7 @@ def test_handoff_hash_binds_exact_approved_context() -> None:
     "destination",
     [
         "http://payments.example.test/invoice/123",
-        "https://user:secret@payments.example.test/invoice/123",
+        "https://user:secret@payments.example.test/invoice/123",  # pragma: allowlist secret
         "https://payments.example.test/invoice/123#card-number",
     ],
 )

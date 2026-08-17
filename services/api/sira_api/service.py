@@ -29,19 +29,12 @@ from domain import (
 from domain import (
     PaymentHandoff as DomainPaymentHandoff,
 )
-from integrations.errors import ProviderError, ProviderErrorCode
-from integrations.prava.models import (
-    PravaMerchantDetails,
-    PravaProductDetails,
-    PravaSessionRequest,
-)
 from persistence.database import Database
 from persistence.mission_repository import MissionRepository
 from persistence.models import (
     ActionRun,
     ApprovalEvent,
     ApprovalRequest,
-    BrowserReturnBinding,
     CalibrationRun,
     CandidateFeedback,
     CandidateSetMember,
@@ -52,25 +45,19 @@ from persistence.models import (
     DecisionSourceSnapshot,
     DiscoveryRun,
     Engagement,
-    Entitlement,
     EvaluationPipelineVersion,
     EvaluationRun,
     EvaluationSolutionPlan,
     EvidenceAssessmentRecord,
     IdempotencyRecord,
     IdentityMerge,
-    MerchantOrder,
     Organization,
     OutboxEvent,
     OutcomeCheckpoint,
-    PaymentAttempt,
     PaymentHandoff,
-    PaymentSession,
     PurchaseBriefVersion,
     PurchaseIntent,
     PurchaseRequest,
-    PurchaseReversal,
-    Receipt,
     RequirementBriefVersion,
     ResultArtifact,
     RobustnessFrontier,
@@ -90,7 +77,6 @@ from persistence.models import (
     SolutionPlanComponent,
     StackPatch,
     StackSnapshot,
-    TransactionTransition,
     WorkflowRun,
 )
 from persistence.repositories import (
@@ -101,7 +87,6 @@ from persistence.repositories import (
     new_id,
 )
 
-from .callback_state import BrowserReturnStateSigner
 from .commercial_terms import (
     CommercialTermsConflict,
     build_demo_plan_commercial_terms,
@@ -123,7 +108,6 @@ from .graph_persistence import (
     ensure_evaluation_pipeline_version,
 )
 from .marketplace import SellerOrganizationDirectory
-from .providers import PravaRuntimeConfiguration
 
 DEMO_ORGANIZATION_ID = "org_consultco"
 DEMO_ACTOR_ID = "usr_demo_requester"
@@ -139,8 +123,6 @@ class WorkflowService:
         fixtures: DemoFixtureBundle | None,
         *,
         allow_development_tenant_bootstrap: bool = False,
-        browser_return_signer: BrowserReturnStateSigner | None = None,
-        browser_return_ttl_seconds: int = 600,
         seller_directory: SellerOrganizationDirectory | None = None,
         clock: Callable[[], datetime] | None = None,
         quote_clock: Callable[[], datetime] | None = None,
@@ -148,10 +130,6 @@ class WorkflowService:
         self.database = database
         self.fixtures = fixtures
         self.allow_development_tenant_bootstrap = allow_development_tenant_bootstrap
-        self.browser_return_signer = browser_return_signer or BrowserReturnStateSigner(
-            "development-only-browser-return-key"  # pragma: allowlist secret
-        )
-        self.browser_return_ttl_seconds = browser_return_ttl_seconds
         self.seller_directory = seller_directory
         self._clock = clock or (lambda: datetime.now(UTC))
         self._quote_clock = quote_clock or self._clock
@@ -489,16 +467,9 @@ class WorkflowService:
                 CounterfactualRecordModel,
                 EvaluationRun,
                 EvaluationPipelineVersion,
-                TransactionTransition,
-                Entitlement,
                 ApprovalEvent,
-                PaymentAttempt,
-                BrowserReturnBinding,
-                PaymentSession,
-                MerchantOrder,
-                Receipt,
+                PaymentHandoff,
                 ApprovalRequest,
-                PurchaseReversal,
                 OutcomeCheckpoint,
                 PurchaseIntent,
                 CandidateFeedback,
@@ -620,7 +591,7 @@ class WorkflowService:
                     party="BUYER",
                     intent=None,
                     approval=None,
-                    receipt=None,
+                    handoff=None,
                     superseded_by=None,
                 ),
             }
@@ -793,9 +764,8 @@ class WorkflowService:
                         "authority_path": [
                             "evaluation",
                             "exact approval",
-                            "Prava authorization",
-                            "durable checkout worker",
-                            "fulfillment verification",
+                            "human-operated payment handoff",
+                            "outcome measurement",
                         ],
                     },
                     source_refs=[{"type": "decision_request", "id": request_id}],
@@ -1002,7 +972,7 @@ class WorkflowService:
                     party="BUYER",
                     intent=None,
                     approval=None,
-                    receipt=None,
+                    handoff=None,
                     superseded_by=None,
                 ),
             }
@@ -1098,6 +1068,10 @@ class WorkflowService:
             if decision is None:
                 raise self._missing("DECISION")
             view = cast(dict[str, Any], deepcopy(decision.payload["decision_view"]))
+            view.pop("payment", None)
+            view.pop("fulfillment", None)
+            view.pop("receipt", None)
+            view["payment_handoff"] = None
             intent = (
                 await session.execute(
                     select(PurchaseIntent)
@@ -1112,8 +1086,6 @@ class WorkflowService:
             if intent is not None:
                 view["approval"]["status"] = intent.approval_status
                 view["approval"]["intent_hash"] = intent.intent_hash
-                view["payment"]["status"] = intent.payment_status
-                view["fulfillment"]["status"] = intent.fulfillment_status
                 approval = (
                     await session.execute(
                         select(ApprovalRequest)
@@ -1131,16 +1103,22 @@ class WorkflowService:
                             "approval_request_id": approval.id,
                         }
                     )
-                receipt = (
+                handoff = (
                     await session.execute(
-                        select(Receipt).where(
-                            Receipt.organization_id == organization_id,
-                            Receipt.purchase_intent_id == intent.id,
+                        select(PaymentHandoff)
+                        .where(
+                            PaymentHandoff.organization_id == organization_id,
+                            PaymentHandoff.purchase_intent_id == intent.id,
                         )
+                        .order_by(PaymentHandoff.created_at.desc())
+                        .limit(1)
                     )
                 ).scalar_one_or_none()
-                if receipt is not None:
-                    view["receipt"] = receipt.payload
+                if handoff is not None:
+                    view["payment_handoff"] = {
+                        **self._payment_handoff_view(handoff),
+                        "href": f"/v1/payment-handoffs/{handoff.id}/open",
+                    }
             return view
 
     async def get_purchase_brief(self, organization_id: str, request_id: str) -> dict[str, Any]:
@@ -2221,7 +2199,7 @@ class WorkflowService:
                         party="BUYER",
                         intent=None,
                         approval=None,
-                        receipt=None,
+                        handoff=None,
                         superseded_by=None,
                     ),
                 }
@@ -2510,8 +2488,6 @@ class WorkflowService:
                 expected_fulfillments=payload["expected_fulfillments"],
                 payload=payload,
                 approval_status="NOT_REQUESTED",
-                payment_status="NOT_STARTED",
-                fulfillment_status="NOT_STARTED",
                 version=1,
             )
             await repository.add_purchase_intent(record)
@@ -2861,41 +2837,6 @@ class WorkflowService:
                     status_code=409,
                     next_action="poll_purchase_status",
                 )
-            if intent.payment_status not in {
-                "NOT_STARTED",
-                "SESSION_CREATED",
-                "CARDHOLDER_PENDING",
-            }:
-                raise ApiProblem(
-                    code="REVOCATION_TOO_LATE",
-                    message="Checkout has already reached merchant dispatch or a terminal state.",
-                    status_code=409,
-                    next_action="poll_purchase_status",
-                )
-
-            sessions = (
-                (
-                    await session.execute(
-                        select(PaymentSession)
-                        .where(
-                            PaymentSession.organization_id == organization_id,
-                            PaymentSession.purchase_intent_id == intent.id,
-                        )
-                        .with_for_update()
-                    )
-                )
-                .scalars()
-                .all()
-            )
-            if any(item.status == "CREATING" for item in sessions):
-                raise ApiProblem(
-                    code="SESSION_CREATE_PENDING",
-                    message="Wait for the in-flight Prava session create before revoking it.",
-                    status_code=409,
-                    retryable=True,
-                    next_action="retry_revocation",
-                )
-
             role = body["actor_role"]
             self._require_verified_approval_role(approval, actor_roles, role)
             await repository.record_approval_event(
@@ -2907,69 +2848,22 @@ class WorkflowService:
                 event_key=f"revoke:{approval_id}:{actor_id}",
                 reason=body["reason"],
             )
-            now = self._now()
             approval.status = "REVOKED"
             intent.approval_status = "REVOKED"
-            for payment_session in sessions:
-                if payment_session.status in {"SESSION_CREATED", "CARDHOLDER_PENDING"}:
-                    payment_session.status = "REVOKED"
-            bindings = (
-                (
-                    await session.execute(
-                        select(BrowserReturnBinding)
-                        .where(
-                            BrowserReturnBinding.organization_id == organization_id,
-                            BrowserReturnBinding.purchase_intent_id == intent.id,
-                            BrowserReturnBinding.consumed_at.is_(None),
-                        )
-                        .with_for_update()
-                    )
-                )
-                .scalars()
-                .all()
-            )
-            for binding in bindings:
-                binding.consumed_at = now
-            queued_events = (
-                (
-                    await session.execute(
-                        select(OutboxEvent)
-                        .where(
-                            OutboxEvent.organization_id == organization_id,
-                            OutboxEvent.aggregate_type == "purchase_intent",
-                            OutboxEvent.aggregate_id == intent.id,
-                            OutboxEvent.event_type == "purchase_checkout.requested",
-                            OutboxEvent.published_at.is_(None),
-                        )
-                        .with_for_update()
-                    )
-                )
-                .scalars()
-                .all()
-            )
-            for event in queued_events:
-                event.published_at = now
-            workflow = (
+            handoff = (
                 await session.execute(
-                    select(WorkflowRun)
+                    select(PaymentHandoff)
                     .where(
-                        WorkflowRun.id == f"wf_checkout_{intent.id}",
-                        WorkflowRun.organization_id == organization_id,
+                        PaymentHandoff.organization_id == organization_id,
+                        PaymentHandoff.approval_request_id == approval.id,
+                        PaymentHandoff.status == "READY",
                     )
                     .with_for_update()
                 )
             ).scalar_one_or_none()
-            if workflow is not None and workflow.status == "PENDING":
-                workflow.status = "FAILED"
-                workflow.safe_error_code = "APPROVAL_REVOKED"
-                workflow.event_log = [
-                    *workflow.event_log,
-                    {
-                        "id": str(len(workflow.event_log) + 1),
-                        "status": "FAILED",
-                        "message": "Approval revoked before merchant dispatch",
-                    },
-                ]
+            if handoff is not None:
+                handoff.status = "CANCELLED"
+
             await repository.add_outbox(
                 aggregate_type="purchase_intent",
                 aggregate_id=intent.id,
@@ -3318,543 +3212,20 @@ class WorkflowService:
             )
             return response
 
-    async def create_prava_session(
-        self,
-        *,
-        organization_id: str,
-        actor_id: str,
-        intent_id: str,
-        idempotency_key: str,
-        body: dict[str, Any],
-    ) -> tuple[int, dict[str, Any]]:
-        configuration = PravaRuntimeConfiguration.load()
-        return_url = str(body["return_url"])
-        configuration.validate_return_url(return_url)
-        callback_state = self.browser_return_signer.issue()
-        callback_state_hash = self.browser_return_signer.digest(callback_state)
-        return_url_hash = self.browser_return_signer.digest(return_url)
-        request_hash = content_hash({"intent_id": intent_id, "return_url": return_url})
-        internal_session_id = new_id("pays")
-        idempotency_record_id: str
-        session_request: PravaSessionRequest
-
-        approval_expiry = await self._expire_purchase_approval_if_needed(organization_id, intent_id)
-        if approval_expiry is not None:
-            raise approval_expiry
-
-        async with self.database.transaction(organization_id) as session:
-            repository = WorkflowRepository(session, organization_id)
-            claim = await repository.claim_idempotency(
-                actor_id=actor_id,
-                operation="prava_sessions.create",
-                idempotency_key=idempotency_key,
-                request_hash=request_hash,
-            )
-            if claim.replay:
-                return int(claim.record.response_status or 201), dict(
-                    claim.record.response_payload or {}
-                )
-            intent = await self._not_found(
-                repository.get_purchase_intent(intent_id, lock=True), "PURCHASE_INTENT"
-            )
-            decision = await repository.get_decision(intent.decision_id)
-            await self._require_current_decision(session, organization_id, decision)
-            if intent.approval_status != "APPROVED":
-                raise ApiProblem(
-                    code="APPROVAL_REQUIRED",
-                    message="Every required role must approve the exact current intent hash first.",
-                    status_code=409,
-                    next_action="complete_approval",
-                )
-            approval = (
-                await session.execute(
-                    select(ApprovalRequest)
-                    .where(
-                        ApprovalRequest.organization_id == organization_id,
-                        ApprovalRequest.purchase_intent_id == intent.id,
-                        ApprovalRequest.intent_hash == intent.intent_hash,
-                        ApprovalRequest.status == "APPROVED",
-                    )
-                    .order_by(ApprovalRequest.created_at.desc())
-                    .limit(1)
-                    .with_for_update()
-                )
-            ).scalar_one_or_none()
-            if approval is None:
-                raise ApiProblem(
-                    code="APPROVAL_REQUIRED",
-                    message="The canonical exact-hash approval is unavailable.",
-                    status_code=409,
-                    next_action="complete_approval",
-                )
-            if self._as_utc(approval.expires_at) <= self._now():
-                raise ApiProblem(
-                    code="APPROVAL_EXPIRED",
-                    message="The exact-hash approval expired before Prava session creation.",
-                    status_code=409,
-                    next_action="create_approval_request",
-                )
-            if self._as_utc(intent.quote_expires_at) <= self._quote_now():
-                raise ApiProblem(
-                    code="QUOTE_EXPIRED",
-                    message="The approved quote expired before Prava session creation.",
-                    status_code=409,
-                    next_action="refresh_quote",
-                )
-            existing = (
-                await session.execute(
-                    select(PaymentSession)
-                    .where(
-                        PaymentSession.organization_id == organization_id,
-                        PaymentSession.purchase_intent_id == intent_id,
-                    )
-                    .order_by(PaymentSession.created_at.desc())
-                    .limit(1)
-                )
-            ).scalar_one_or_none()
-            if existing is not None:
-                if existing.status == "SESSION_CREATED":
-                    response = self._prava_session_view(existing)
-                    await repository.complete_idempotency(
-                        claim.record,
-                        response_status=201,
-                        response_payload=response,
-                        response_reference=existing.id,
-                    )
-                    return 201, response
-                if (
-                    existing.status == "CREATING"
-                    and self._as_utc(existing.expires_at) > self._now()
-                ):
-                    raise ApiProblem(
-                        code="SESSION_CREATE_PENDING",
-                        message=(
-                            "A provider session create is still inside its safe response window."
-                        ),
-                        status_code=409,
-                        retryable=True,
-                        next_action="retry_provider_session_later",
-                    )
-                if existing.status == "CREATING":
-                    existing.status = "EXPIRED"
-                elif existing.status not in {"FAILED", "UNCERTAIN", "EXPIRED"}:
-                    raise ApiProblem(
-                        code="SESSION_CREATE_NOT_RETRYABLE",
-                        message="The current payment session cannot be replaced safely.",
-                        status_code=409,
-                        retryable=False,
-                        next_action="poll_purchase_status",
-                    )
-
-            configuration.validate_merchant_url(intent.merchant_url)
-            line_items = intent.payload.get("line_items")
-            if not isinstance(line_items, list) or not line_items:
-                raise ApiProblem(
-                    code="PURCHASE_INTENT_INVALID",
-                    message="The locked Purchase Intent has no line items.",
-                    status_code=409,
-                )
-            products = tuple(
-                PravaProductDetails(
-                    description=str(item["description"]),
-                    unit_price=str(item["unit_amount"]),
-                    quantity=int(item["quantity"]),
-                    product_id=str(item["line_item_id"]),
-                )
-                for item in line_items
-                if isinstance(item, dict)
-            )
-            session_request = PravaSessionRequest(
-                user_id=actor_id,
-                user_email=configuration.user_email,
-                total_amount=f"{intent.amount:.2f}",
-                currency=intent.currency,
-                merchant=PravaMerchantDetails(
-                    name=intent.merchant_name,
-                    url=intent.merchant_url,
-                    country_code_iso2=configuration.merchant_country,
-                ),
-                products=products,
-                callback_url=configuration.callback_url_with_state(callback_state),
-            )
-            placeholder = PaymentSession(
-                id=internal_session_id,
-                organization_id=organization_id,
-                purchase_intent_id=intent_id,
-                provider="PRAVA",
-                provider_session_id=f"pending:{internal_session_id}",
-                provider_order_id=f"pending:{internal_session_id}",
-                hosted_url="",
-                expires_at=self._now() + timedelta(minutes=15),
-                status="CREATING",
-            )
-            session.add(placeholder)
-            idempotency_record_id = claim.record.id
-
-        adapter = configuration.build_adapter(canonical_merchant_url=session_request.merchant.url)
-        provider_error: ProviderError | None = None
-        unexpected_failure = False
-        hosted_session = None
-        try:
-            hosted_session = await adapter.create_session(session_request)
-        except ProviderError as error:
-            provider_error = error
-        except Exception:
-            unexpected_failure = True
-        finally:
-            await adapter.aclose()
-
-        if provider_error is not None or unexpected_failure:
-            retryable = provider_error.retryable if provider_error is not None else True
-            safe_code = (
-                provider_error.code.value
-                if provider_error is not None
-                else ProviderErrorCode.UNAVAILABLE.value
-            )
-            await self._mark_session_create_failed(
-                organization_id=organization_id,
-                intent_id=intent_id,
-                internal_session_id=internal_session_id,
-                safe_code=safe_code,
-                uncertain=retryable,
-            )
-            raise ApiProblem(
-                code=safe_code,
-                message="Prava session creation did not produce a safely confirmed session.",
-                status_code=503 if retryable else 502,
-                retryable=retryable,
-                next_action=(
-                    "retry_provider_session" if retryable else "review_provider_configuration"
-                ),
-            ) from None
-        if hosted_session is None:
-            raise RuntimeError("unreachable hosted session state")
-
-        async with self.database.transaction(organization_id) as session:
-            repository = WorkflowRepository(session, organization_id)
-            payment_session = (
-                await session.execute(
-                    select(PaymentSession)
-                    .where(
-                        PaymentSession.id == internal_session_id,
-                        PaymentSession.organization_id == organization_id,
-                    )
-                    .with_for_update()
-                )
-            ).scalar_one()
-            payment_session.provider_session_id = hosted_session.session_id
-            payment_session.provider_order_id = hosted_session.order_id
-            payment_session.hosted_url = hosted_session.hosted_url
-            payment_session.expires_at = hosted_session.expires_at
-            payment_session.status = "SESSION_CREATED"
-            session.add(
-                BrowserReturnBinding(
-                    id=new_id("brb"),
-                    organization_id=organization_id,
-                    purchase_intent_id=intent_id,
-                    payment_session_id=payment_session.id,
-                    actor_id=actor_id,
-                    state_hash=callback_state_hash,
-                    provider_session_hash=self.browser_return_signer.digest(
-                        hosted_session.session_id
-                    ),
-                    return_url_hash=return_url_hash,
-                    expires_at=min(
-                        self._as_utc(hosted_session.expires_at),
-                        self._now() + timedelta(seconds=self.browser_return_ttl_seconds),
-                    ),
-                    consumed_at=None,
-                )
-            )
-            await repository.transition_purchase_intent(
-                intent_id=intent_id,
-                state_field="payment_status",
-                allowed_from={"NOT_STARTED"},
-                to_state="SESSION_CREATED",
-                event_key=f"prava-session-created:{hosted_session.session_id}",
-                actor_type="provider",
-                actor_id="prava",
-                reason_code="HOSTED_SESSION_CREATED",
-                payload_hash=content_hash(
-                    {
-                        "session_id": hosted_session.session_id,
-                        "order_id": hosted_session.order_id,
-                        "expires_at": hosted_session.expires_at.isoformat(),
-                    }
-                ),
-                provider_event_ref=hosted_session.session_id,
-            )
-            idempotency_record = (
-                await session.execute(
-                    select(IdempotencyRecord).where(
-                        IdempotencyRecord.id == idempotency_record_id,
-                        IdempotencyRecord.organization_id == organization_id,
-                    )
-                )
-            ).scalar_one()
-            response = self._prava_session_view(payment_session)
-            await repository.complete_idempotency(
-                idempotency_record,
-                response_status=201,
-                response_payload=response,
-                response_reference=payment_session.id,
-            )
-            return 201, response
-
-    async def accept_prava_browser_return(
-        self,
-        *,
-        organization_id: str,
-        actor_id: str,
-        body: dict[str, Any],
-    ) -> dict[str, Any]:
-        state = str(body["state"])
-        return_url = str(body["return_url"])
-        if not self.browser_return_signer.verify(state):
-            raise ApiProblem(
-                code="CALLBACK_STATE_INVALID",
-                message="The browser-return state could not be verified.",
-                status_code=400,
-                next_action="restart_hosted_checkout",
-            )
-        state_hash = self.browser_return_signer.digest(state)
-        return_url_hash = self.browser_return_signer.digest(return_url)
-        preflight_intent_id: str | None = None
-        async with self.database.transaction(organization_id) as session:
-            preflight_binding = (
-                await session.execute(
-                    select(BrowserReturnBinding).where(
-                        BrowserReturnBinding.organization_id == organization_id,
-                        BrowserReturnBinding.state_hash == state_hash,
-                        BrowserReturnBinding.actor_id == actor_id,
-                    )
-                )
-            ).scalar_one_or_none()
-            if preflight_binding is not None:
-                preflight_intent_id = preflight_binding.purchase_intent_id
-        if preflight_intent_id is not None:
-            approval_expiry = await self._expire_purchase_approval_if_needed(
-                organization_id, preflight_intent_id
-            )
-            if approval_expiry is not None:
-                raise approval_expiry
-        now = self._now()
-        async with self.database.transaction(organization_id) as session:
-            repository = WorkflowRepository(session, organization_id)
-            binding = (
-                await session.execute(
-                    select(BrowserReturnBinding)
-                    .where(
-                        BrowserReturnBinding.organization_id == organization_id,
-                        BrowserReturnBinding.state_hash == state_hash,
-                    )
-                    .with_for_update()
-                )
-            ).scalar_one_or_none()
-            if binding is None or binding.actor_id != actor_id:
-                raise ApiProblem(
-                    code="CALLBACK_STATE_INVALID",
-                    message="The browser-return state is not valid for this identity.",
-                    status_code=403,
-                    next_action="restart_hosted_checkout",
-                )
-            if binding.consumed_at is not None:
-                raise ApiProblem(
-                    code="CALLBACK_STATE_REPLAYED",
-                    message="The browser-return state has already been consumed.",
-                    status_code=409,
-                    next_action="poll_purchase_status",
-                )
-            if binding.return_url_hash != return_url_hash:
-                raise ApiProblem(
-                    code="CALLBACK_BINDING_MISMATCH",
-                    message="The browser return does not match the approved destination.",
-                    status_code=403,
-                    next_action="restart_hosted_checkout",
-                )
-            payment_session = (
-                await session.execute(
-                    select(PaymentSession)
-                    .where(
-                        PaymentSession.id == binding.payment_session_id,
-                        PaymentSession.organization_id == organization_id,
-                    )
-                    .with_for_update()
-                )
-            ).scalar_one_or_none()
-            if payment_session is None:
-                raise ApiProblem(
-                    code="CALLBACK_BINDING_MISMATCH",
-                    message="The bound payment session is unavailable.",
-                    status_code=409,
-                    next_action="restart_hosted_checkout",
-                )
-            intent = await repository.get_purchase_intent(binding.purchase_intent_id, lock=True)
-            approval = (
-                await session.execute(
-                    select(ApprovalRequest)
-                    .where(
-                        ApprovalRequest.organization_id == organization_id,
-                        ApprovalRequest.purchase_intent_id == intent.id,
-                        ApprovalRequest.intent_hash == intent.intent_hash,
-                        ApprovalRequest.status == "APPROVED",
-                    )
-                    .order_by(ApprovalRequest.created_at.desc())
-                    .limit(1)
-                    .with_for_update()
-                )
-            ).scalar_one_or_none()
-            if (
-                payment_session.purchase_intent_id != intent.id
-                or binding.provider_session_hash
-                != self.browser_return_signer.digest(payment_session.provider_session_id)
-            ):
-                raise ApiProblem(
-                    code="CALLBACK_BINDING_MISMATCH",
-                    message="The browser return no longer matches the locked payment session.",
-                    status_code=409,
-                    next_action="restart_hosted_checkout",
-                )
-            if (
-                self._as_utc(binding.expires_at) <= now
-                or self._as_utc(payment_session.expires_at) <= now
-                or self._as_utc(intent.quote_expires_at) <= self._quote_now()
-                or approval is None
-                or self._as_utc(approval.expires_at) <= now
-            ):
-                raise ApiProblem(
-                    code="CALLBACK_STATE_EXPIRED",
-                    message="The browser-return authority has expired.",
-                    status_code=409,
-                    next_action="restart_hosted_checkout",
-                )
-            if (
-                payment_session.status != "SESSION_CREATED"
-                or intent.payment_status != "SESSION_CREATED"
-                or intent.approval_status != "APPROVED"
-            ):
-                raise ApiProblem(
-                    code="CALLBACK_STATE_INVALID_STATE",
-                    message="The locked purchase is not ready for browser-return continuation.",
-                    status_code=409,
-                    next_action="poll_purchase_status",
-                )
-
-            binding.consumed_at = now
-            payment_session.status = "CARDHOLDER_PENDING"
-            await repository.transition_purchase_intent(
-                intent_id=intent.id,
-                state_field="payment_status",
-                allowed_from={"SESSION_CREATED"},
-                to_state="CARDHOLDER_PENDING",
-                event_key=f"prava-browser-return:{payment_session.id}",
-                actor_type="user",
-                actor_id=actor_id,
-                reason_code="AUTHENTICATED_BROWSER_RETURN",
-                payload_hash=content_hash(
-                    {
-                        "payment_session_id": payment_session.id,
-                        "state_hash": binding.state_hash,
-                    }
-                ),
-            )
-            workflow_id = f"wf_checkout_{intent.id}"
-            workflow = (
-                await session.execute(
-                    select(WorkflowRun)
-                    .where(
-                        WorkflowRun.id == workflow_id,
-                        WorkflowRun.organization_id == organization_id,
-                    )
-                    .with_for_update()
-                )
-            ).scalar_one_or_none()
-            if workflow is None:
-                session.add(
-                    WorkflowRun(
-                        id=workflow_id,
-                        organization_id=organization_id,
-                        aggregate_type="purchase_intent",
-                        aggregate_id=intent.id,
-                        operation="purchase_checkout",
-                        status="PENDING",
-                        result_reference=f"/v1/purchase-intents/{intent.id}/status",
-                        safe_error_code=None,
-                        event_log=[
-                            {
-                                "id": "1",
-                                "status": "PENDING",
-                                "message": "Hosted authorization returned; checkout queued",
-                            }
-                        ],
-                    )
-                )
-            await repository.add_outbox(
-                aggregate_type="purchase_intent",
-                aggregate_id=intent.id,
-                event_type="purchase_checkout.requested",
-                event_key=f"purchase-checkout-requested:{payment_session.id}",
-                payload={
-                    "workflow_id": workflow_id,
-                    "purchase_intent_id": intent.id,
-                    "intent_hash": intent.intent_hash,
-                    "payment_session_id": payment_session.id,
-                    "prava_session_id": payment_session.provider_session_id,
-                },
-            )
-            return self._workflow_urls(workflow_id)
-
-    async def _mark_session_create_failed(
-        self,
-        *,
-        organization_id: str,
-        intent_id: str,
-        internal_session_id: str,
-        safe_code: str,
-        uncertain: bool,
-    ) -> None:
-        target = "UNCERTAIN" if uncertain else "FAILED"
-        async with self.database.transaction(organization_id) as session:
-            payment_session = (
-                await session.execute(
-                    select(PaymentSession)
-                    .where(
-                        PaymentSession.id == internal_session_id,
-                        PaymentSession.organization_id == organization_id,
-                    )
-                    .with_for_update()
-                )
-            ).scalar_one()
-            payment_session.status = target
-            intent = (
-                await session.execute(
-                    select(PurchaseIntent)
-                    .where(
-                        PurchaseIntent.id == intent_id,
-                        PurchaseIntent.organization_id == organization_id,
-                    )
-                    .with_for_update()
-                )
-            ).scalar_one()
-            if intent.payment_status != "NOT_STARTED":
-                raise PersistenceConflict(
-                    "Provider session failure cannot rewrite an active payment state"
-                )
-
     async def purchase_status(self, organization_id: str, intent_id: str) -> dict[str, Any]:
         async with self.database.transaction(organization_id) as session:
             repository = WorkflowRepository(session, organization_id)
             intent = await self._not_found(
                 repository.get_purchase_intent(intent_id), "PURCHASE_INTENT"
             )
-            reversal = (
+            handoff = (
                 await session.execute(
-                    select(PurchaseReversal)
+                    select(PaymentHandoff)
                     .where(
-                        PurchaseReversal.organization_id == organization_id,
-                        PurchaseReversal.purchase_intent_id == intent.id,
+                        PaymentHandoff.organization_id == organization_id,
+                        PaymentHandoff.purchase_intent_id == intent.id,
                     )
-                    .order_by(PurchaseReversal.created_at.desc(), PurchaseReversal.id.desc())
+                    .order_by(PaymentHandoff.created_at.desc(), PaymentHandoff.id.desc())
                     .limit(1)
                 )
             ).scalar_one_or_none()
@@ -3869,171 +3240,24 @@ class WorkflowService:
                     .limit(1)
                 )
             ).scalar_one_or_none()
+            handoff_status = handoff.status if handoff is not None else None
+            if intent.approval_status != "APPROVED":
+                purchase_state = "AWAITING_APPROVAL"
+            elif handoff_status == "OPENED":
+                purchase_state = "HANDOFF_OPENED"
+            elif handoff_status == "EXPIRED":
+                purchase_state = "HANDOFF_EXPIRED"
+            elif handoff_status == "CANCELLED":
+                purchase_state = "HANDOFF_CANCELLED"
+            else:
+                purchase_state = "READY_FOR_HANDOFF"
             return {
                 "purchase_intent_id": intent.id,
                 "approval_status": intent.approval_status,
-                "payment_status": intent.payment_status,
-                "fulfillment_status": intent.fulfillment_status,
-                "purchase_state": self._derive_purchase_state(intent, reversal),
-                "deployment_state": "STAGED"
-                if intent.fulfillment_status == "VERIFIED"
-                else "NOT_STARTED",
+                "handoff_status": handoff_status,
+                "purchase_state": purchase_state,
                 "outcome_state": outcome.state if outcome is not None else "NOT_MEASURED",
             }
-
-    async def request_reversal(
-        self,
-        *,
-        organization_id: str,
-        actor_id: str,
-        intent_id: str,
-        idempotency_key: str,
-        body: dict[str, Any],
-    ) -> tuple[int, dict[str, Any]]:
-        request_hash = content_hash({"intent_id": intent_id, **body})
-        async with self.database.transaction(organization_id) as session:
-            repository = WorkflowRepository(session, organization_id)
-            claim = await repository.claim_idempotency(
-                actor_id=actor_id,
-                operation="purchase_reversal.create",
-                idempotency_key=idempotency_key,
-                request_hash=request_hash,
-            )
-            if claim.replay:
-                return int(claim.record.response_status or 202), dict(
-                    claim.record.response_payload or {}
-                )
-            intent = await self._not_found(
-                repository.get_purchase_intent(intent_id, lock=True), "PURCHASE_INTENT"
-            )
-            if intent.payment_status != "PRAVA_COMPLETED":
-                raise ApiProblem(
-                    code="REVERSAL_REQUIRES_SETTLED_PAYMENT",
-                    message=(
-                        "A refund or paid cancellation requires a reconciled completed payment."
-                    ),
-                    status_code=409,
-                    next_action="check_purchase_status",
-                )
-            merchant_order = (
-                await session.execute(
-                    select(MerchantOrder)
-                    .where(
-                        MerchantOrder.organization_id == organization_id,
-                        MerchantOrder.purchase_intent_id == intent.id,
-                        MerchantOrder.status == "APPROVED",
-                    )
-                    .order_by(MerchantOrder.id)
-                    .limit(1)
-                )
-            ).scalar_one_or_none()
-            if merchant_order is None or not merchant_order.external_order_id:
-                raise ApiProblem(
-                    code="REVERSAL_MERCHANT_ORDER_REQUIRED",
-                    message="The canonical merchant order is unavailable for reversal.",
-                    status_code=409,
-                )
-            committed = (
-                await session.execute(
-                    select(func.coalesce(func.sum(PurchaseReversal.requested_amount), 0)).where(
-                        PurchaseReversal.organization_id == organization_id,
-                        PurchaseReversal.purchase_intent_id == intent.id,
-                        PurchaseReversal.status.not_in(["REJECTED", "CANCELLED"]),
-                    )
-                )
-            ).scalar_one()
-            remaining = intent.amount - Decimal(committed)
-            requested = (
-                Decimal(str(body["requested_amount"]))
-                if body.get("requested_amount") is not None
-                else remaining
-            )
-            if requested <= 0 or requested > remaining:
-                raise ApiProblem(
-                    code="REVERSAL_AMOUNT_EXCEEDS_REMAINING",
-                    message="The requested reversal exceeds the unsettled purchase amount.",
-                    status_code=409,
-                    details={"remaining_amount": f"{remaining:.2f}", "currency": intent.currency},
-                )
-            reason_hash = content_hash(
-                {
-                    "intent_hash": intent.intent_hash,
-                    "kind": body["kind"],
-                    "requested_amount": f"{requested:.2f}",
-                    "currency": intent.currency,
-                    "reason_code": body["reason_code"],
-                    "reason": body["reason"],
-                }
-            )
-            now = self._now()
-            reversal = PurchaseReversal(
-                id=new_id("rev"),
-                organization_id=organization_id,
-                purchase_intent_id=intent.id,
-                intent_hash=intent.intent_hash,
-                kind=body["kind"],
-                status="REQUESTED",
-                requested_amount=requested,
-                refunded_amount=Decimal("0.00"),
-                currency=intent.currency,
-                merchant_order_id=merchant_order.external_order_id,
-                provider_reference=None,
-                provider_adapter_id=merchant_order.merchant_adapter_id,
-                provider_confirmed=False,
-                reason_code=body["reason_code"],
-                reason_hash=reason_hash,
-                requested_by_actor_id=actor_id,
-                safe_error_code=None,
-                completed_at=None,
-                created_at=now,
-                updated_at=now,
-            )
-            session.add(reversal)
-            workflow_id = f"wf_reversal_{reversal.id}"
-            session.add(
-                WorkflowRun(
-                    id=workflow_id,
-                    organization_id=organization_id,
-                    aggregate_type="purchase_reversal",
-                    aggregate_id=reversal.id,
-                    operation="refund",
-                    status="PENDING",
-                    result_reference=None,
-                    safe_error_code=None,
-                    event_log=[
-                        {
-                            "id": "1",
-                            "status": "PENDING",
-                            "message": "Refund request queued",
-                        }
-                    ],
-                )
-            )
-            await repository.add_outbox(
-                aggregate_type="purchase_reversal",
-                aggregate_id=reversal.id,
-                event_type="purchase_reversal.requested",
-                event_key=f"purchase-reversal-requested:{reversal.id}:{reason_hash}",
-                payload={
-                    "reversal_id": reversal.id,
-                    "workflow_id": workflow_id,
-                    "purchase_intent_id": intent.id,
-                    "intent_hash": intent.intent_hash,
-                    "merchant_order_id": merchant_order.external_order_id,
-                    "amount": f"{requested:.2f}",
-                    "currency": intent.currency,
-                    "kind": reversal.kind,
-                    "reason_code": reversal.reason_code,
-                },
-            )
-            response = self._reversal_view(reversal)
-            await repository.complete_idempotency(
-                claim.record,
-                response_status=202,
-                response_payload=response,
-                response_reference=reversal.id,
-            )
-            return 202, response
 
     async def record_outcome_checkpoint(
         self,
@@ -4060,12 +3284,21 @@ class WorkflowService:
             intent = await self._not_found(
                 repository.get_purchase_intent(intent_id), "PURCHASE_INTENT"
             )
-            if intent.fulfillment_status != "VERIFIED":
+            handoff = (
+                await session.execute(
+                    select(PaymentHandoff).where(
+                        PaymentHandoff.organization_id == organization_id,
+                        PaymentHandoff.purchase_intent_id == intent.id,
+                        PaymentHandoff.status == "OPENED",
+                    )
+                )
+            ).scalar_one_or_none()
+            if handoff is None or handoff.opened_at is None:
                 raise ApiProblem(
-                    code="OUTCOME_REQUIRES_VERIFIED_FULFILLMENT",
-                    message="Outcome measurement starts only after verified fulfillment.",
+                    code="OUTCOME_REQUIRES_OPENED_HANDOFF",
+                    message="Outcome measurement starts after the approved handoff is opened.",
                     status_code=409,
-                    next_action="verify_fulfillment",
+                    next_action="open_payment_handoff",
                 )
             decision = await self._not_found(
                 repository.get_decision(intent.decision_id), "DECISION"
@@ -4113,30 +3346,11 @@ class WorkflowService:
                     message="Outcome observations cannot be recorded in the future.",
                     status_code=422,
                 )
-            measurement_started_at = (
-                await session.execute(
-                    select(TransactionTransition.occurred_at)
-                    .where(
-                        TransactionTransition.organization_id == organization_id,
-                        TransactionTransition.purchase_intent_id == intent.id,
-                        TransactionTransition.to_state == "VERIFIED",
-                        TransactionTransition.reason_code == "ENTITLEMENT_VERIFIED",
-                    )
-                    .order_by(TransactionTransition.occurred_at, TransactionTransition.id)
-                    .limit(1)
-                )
-            ).scalar_one_or_none()
-            if measurement_started_at is None:
-                raise ApiProblem(
-                    code="OUTCOME_MEASUREMENT_START_UNAVAILABLE",
-                    message="The verified fulfillment checkpoint is unavailable.",
-                    status_code=409,
-                )
-            measurement_started_at = self._as_utc(measurement_started_at)
+            measurement_started_at = self._as_utc(handoff.opened_at)
             if observed_at < measurement_started_at:
                 raise ApiProblem(
-                    code="OUTCOME_OBSERVATION_BEFORE_FULFILLMENT",
-                    message="Outcome observations cannot predate verified fulfillment.",
+                    code="OUTCOME_OBSERVATION_BEFORE_HANDOFF",
+                    message="Outcome observations cannot predate the approved handoff.",
                     status_code=422,
                 )
             checkpoint_due_at = measurement_started_at + timedelta(days=checkpoint_days)
@@ -4230,28 +3444,6 @@ class WorkflowService:
                 response_reference=checkpoint.id,
             )
             return 201, response
-
-    async def get_receipt(self, organization_id: str, purchase_id: str) -> dict[str, Any]:
-        async with self.database.transaction(organization_id) as session:
-            receipt = (
-                await session.execute(
-                    select(Receipt).where(
-                        Receipt.organization_id == organization_id,
-                        (Receipt.id == purchase_id) | (Receipt.purchase_intent_id == purchase_id),
-                    )
-                )
-            ).scalar_one_or_none()
-            if receipt is None:
-                raise ApiProblem(
-                    code="RECEIPT_NOT_AVAILABLE",
-                    message=(
-                        "A receipt exists only after payment reconciliation and required "
-                        "entitlement verification."
-                    ),
-                    status_code=404,
-                    next_action="check_purchase_status",
-                )
-            return deepcopy(receipt.payload)
 
     async def stackfile(self, organization_id: str) -> dict[str, Any]:
         async with self.database.transaction(organization_id) as session:
@@ -4542,8 +3734,6 @@ class WorkflowService:
                 "currency": intent.currency,
                 "expected_fulfillments": intent.expected_fulfillments,
                 "approval_status": intent.approval_status,
-                "payment_status": intent.payment_status,
-                "fulfillment_status": intent.fulfillment_status,
                 "intent_hash": intent.intent_hash,
             }
         )
@@ -4579,39 +3769,6 @@ class WorkflowService:
             "opened_at": handoff.opened_at.isoformat() if handoff.opened_at else None,
         }
 
-    @staticmethod
-    def _prava_session_view(payment_session: PaymentSession) -> dict[str, Any]:
-        return {
-            "id": payment_session.id,
-            "purchase_intent_id": payment_session.purchase_intent_id,
-            "status": payment_session.status,
-            "hosted_url": payment_session.hosted_url,
-            "expires_at": payment_session.expires_at.isoformat(),
-            "production_provider": "PRAVA",
-            "production_verified": False,
-            "setup_blocked": False,
-            "missing_configuration": [],
-        }
-
-    @staticmethod
-    def _reversal_view(reversal: PurchaseReversal) -> dict[str, Any]:
-        return {
-            "id": reversal.id,
-            "purchase_intent_id": reversal.purchase_intent_id,
-            "intent_hash": reversal.intent_hash,
-            "kind": reversal.kind,
-            "status": reversal.status,
-            "requested_amount": f"{reversal.requested_amount:.2f}",
-            "refunded_amount": f"{reversal.refunded_amount:.2f}",
-            "currency": reversal.currency,
-            "provider_confirmed": reversal.provider_confirmed,
-            "provider_action_required": reversal.status
-            in {"REQUESTED", "PROVIDER_PENDING", "FAILED_RETRYABLE"},
-            "safe_error_code": reversal.safe_error_code,
-            "created_at": reversal.created_at.isoformat(),
-            "completed_at": (reversal.completed_at.isoformat() if reversal.completed_at else None),
-        }
-
     @classmethod
     def _outcome_checkpoint_view(cls, checkpoint: OutcomeCheckpoint) -> dict[str, Any]:
         return {
@@ -4641,43 +3798,6 @@ class WorkflowService:
         if "." in rendered:
             rendered = rendered.rstrip("0").rstrip(".")
         return rendered or "0"
-
-    @staticmethod
-    def _derive_purchase_state(
-        intent: PurchaseIntent, reversal: PurchaseReversal | None = None
-    ) -> str:
-        if reversal is not None:
-            if reversal.status == "REFUNDED" and reversal.refunded_amount == intent.amount:
-                return "REFUNDED"
-            if reversal.status in {
-                "REQUESTED",
-                "PROVIDER_PENDING",
-                "PARTIALLY_REFUNDED",
-                "FAILED_RETRYABLE",
-                "COMPENSATION_REQUIRED",
-            }:
-                return "REFUND_PENDING"
-        if intent.approval_status != "APPROVED":
-            return "AWAITING_APPROVAL"
-        if intent.payment_status == "NOT_STARTED":
-            return "APPROVED_NOT_STARTED"
-        if intent.payment_status in {
-            "SESSION_CREATED",
-            "CARDHOLDER_PENDING",
-            "CHECKOUT_PENDING",
-            "MERCHANT_APPROVED",
-            "REPORTING",
-        }:
-            return "PAYMENT_IN_PROGRESS"
-        if intent.payment_status in {"DECLINED", "EXPIRED", "FAILED"}:
-            return "PAYMENT_NOT_COMPLETED"
-        if intent.payment_status == "UNCERTAIN":
-            return "PAYMENT_UNCERTAIN"
-        if intent.payment_status == "PRAVA_COMPLETED":
-            if intent.fulfillment_status == "VERIFIED":
-                return "PURCHASE_FULFILLED"
-            return "PAID_UNFULFILLED"
-        return "PAYMENT_UNCERTAIN"
 
     @staticmethod
     def _as_utc(value: datetime | str) -> datetime:

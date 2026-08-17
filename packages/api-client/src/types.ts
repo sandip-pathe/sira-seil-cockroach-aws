@@ -26,10 +26,9 @@ export interface ActionRunView {
   decision_id: string;
   decision_version: number;
   execution_steps: ExecutionStep[];
-  fulfillment: FulfillmentProjection | null;
   last_successful_checkpoint_id: string | null;
   owner_role: ActorRole;
-  payment: PaymentProjection | null;
+  payment_handoff: PaymentHandoffProjection | null;
   recovery_action?: ActionDescriptor | null;
   result_artifacts: ResultArtifact[];
   schema_version: string;
@@ -54,7 +53,7 @@ export interface ActiveOperation {
   updated_at: string;
 }
 
-export type ActorRole = "REQUESTER" | "DECISION_MAKER" | "POLICY_REVIEWER" | "BUDGET_OWNER" | "PROCUREMENT" | "CARDHOLDER" | "IT_OPERATIONS" | "AUDITOR" | "SELLER_EDITOR" | "SELLER_REVIEWER" | "PLATFORM_OPERATOR";
+export type ActorRole = "REQUESTER" | "DECISION_MAKER" | "POLICY_REVIEWER" | "BUDGET_OWNER" | "PROCUREMENT" | "IT_OPERATIONS" | "AUDITOR" | "SELLER_EDITOR" | "SELLER_REVIEWER" | "PLATFORM_OPERATOR";
 
 export interface AgentProposalView {
   advisory_only?: boolean;
@@ -421,10 +420,8 @@ export interface DecisionView {
   coverage: CoverageProjection;
   decision_outcome: DecisionOutcome;
   evaluation: EvaluationSummary;
-  fulfillment?: FulfillmentProjection | null;
-  payment?: PaymentProjection | null;
+  payment_handoff?: PaymentHandoffProjection | null;
   rank_stability: RankStabilityProjection;
-  receipt?: ReceiptProjection | null;
   request: DecisionRequestHeader;
   result_artifacts: ResultArtifact[];
   selected_action_plan?: SelectedActionPlan | null;
@@ -601,19 +598,6 @@ export interface FrozenVersions {
   taxonomy: string;
 }
 
-export interface FulfillmentProjection {
-  expected_item_count: number;
-  href?: string | null;
-  last_checkpoint_at?: string | null;
-  owner_role?: ActorRole | null;
-  partial_item_count: number;
-  required: boolean;
-  status: FulfillmentStatus;
-  verified_item_count: number;
-}
-
-export type FulfillmentStatus = "NOT_REQUIRED" | "NOT_STARTED" | "PENDING" | "PARTIAL" | "VERIFIED" | "FAILED_RETRYABLE" | "FAILED_FINAL" | "REVOKED";
-
 export interface GateReasonView {
   detail: string;
   reason_code: string;
@@ -645,18 +629,6 @@ export interface IdentityMergeView {
 export interface MerchantProjection {
   id: string;
   offer_id: string;
-}
-
-export interface MerchantSubtotalPaymentLineItem {
-  amount: string;
-  type: "MERCHANT_SUBTOTAL";
-}
-
-export interface MerchantView {
-  country: string;
-  merchant_id: string;
-  name: string;
-  url: string;
 }
 
 export interface MissionArtifactView {
@@ -760,18 +732,38 @@ export interface OutcomeCheckpointView {
 
 export type PackAuthority = "SELLER_SEALED" | "PLATFORM_COMPILED" | "EXTERNAL_UNSEALED";
 
-export interface PaymentProjection {
-  currency?: string | null;
-  href?: string | null;
-  landed_total?: string | null;
-  last_checkpoint_at?: string | null;
-  line_items: Array<MerchantSubtotalPaymentLineItem | TransactionFeePaymentLineItem | TaxPaymentLineItem>;
-  purchase_intent_id?: string | null;
-  required: boolean;
-  status: PaymentStatus;
+export interface PaymentHandoffProjection {
+  amount: string;
+  approval_request_id: string;
+  currency: string;
+  destination_url: string;
+  expires_at: string;
+  handoff_hash: string;
+  href: string;
+  id: string;
+  intent_hash: string;
+  opened_at?: string | null;
+  purchase_intent_id: string;
+  recipient: string;
+  reference: string;
+  status: "READY" | "OPENED" | "EXPIRED" | "CANCELLED";
 }
 
-export type PaymentStatus = "NOT_REQUIRED" | "NOT_STARTED" | "SESSION_CREATED" | "CARDHOLDER_PENDING" | "CHECKOUT_PENDING" | "MERCHANT_APPROVED" | "REPORTING" | "PRAVA_COMPLETED" | "DECLINED" | "EXPIRED" | "UNCERTAIN" | "FAILED";
+export interface PaymentHandoffView {
+  amount: string;
+  approval_request_id: string;
+  currency: string;
+  destination_url: string;
+  expires_at: string;
+  handoff_hash: string;
+  id: string;
+  intent_hash: string;
+  opened_at?: string | null;
+  purchase_intent_id: string;
+  recipient: string;
+  reference: string;
+  status: "READY" | "OPENED" | "EXPIRED" | "CANCELLED";
+}
 
 export interface PlanComponentView {
   action_type: SolutionActionType;
@@ -812,22 +804,6 @@ export interface PlanSelectionView {
   solution_plan_id: string;
   source_decision_id: string;
   state: PlanSelectionState;
-}
-
-export interface PravaSessionCreate {
-  return_url: string;
-}
-
-export interface PravaSessionView {
-  expires_at?: string | null;
-  hosted_url?: string | null;
-  id: string;
-  missing_configuration?: string[];
-  production_provider?: "PRAVA";
-  production_verified?: false;
-  purchase_intent_id: string;
-  setup_blocked: boolean;
-  status: PaymentStatus;
 }
 
 export interface PreferenceScoreBounds {
@@ -898,7 +874,6 @@ export interface PurchaseIntentView {
   fee_amount: string;
   fee_schedule_version: string;
   fulfillment_completion_policy: string;
-  fulfillment_status: FulfillmentStatus;
   intent_hash: string;
   landed_total: string;
   line_items: { [key: string]: unknown; }[];
@@ -910,7 +885,6 @@ export interface PurchaseIntentView {
   organization_id: string;
   pack_id: string;
   pack_version: number;
-  payment_status: PaymentStatus;
   procurement_gate_result_hash: string;
   procurement_plan_id: string;
   purchase_intent_group_id?: string | null;
@@ -929,12 +903,10 @@ export interface PurchaseIntentView {
 
 export interface PurchaseStatusView {
   approval_status: ApprovalStatus;
-  deployment_state: "NOT_STARTED" | "STAGED" | "ACTIVE";
-  fulfillment_status: FulfillmentStatus;
+  handoff_status: "READY" | "OPENED" | "EXPIRED" | "CANCELLED" | null;
   outcome_state: "NOT_MEASURED" | "MEASURING" | "ACHIEVED" | "NOT_ACHIEVED" | "INCONCLUSIVE";
-  payment_status: PaymentStatus;
   purchase_intent_id: string;
-  purchase_state: "AWAITING_APPROVAL" | "APPROVED_NOT_STARTED" | "PAYMENT_IN_PROGRESS" | "PAYMENT_NOT_COMPLETED" | "PAYMENT_UNCERTAIN" | "PAID_UNFULFILLED" | "PURCHASE_FULFILLED" | "REFUND_PENDING" | "REFUNDED";
+  purchase_state: "AWAITING_APPROVAL" | "READY_FOR_HANDOFF" | "HANDOFF_OPENED" | "HANDOFF_EXPIRED" | "HANDOFF_CANCELLED";
 }
 
 export interface QualificationApprovalCreate {
@@ -1019,91 +991,6 @@ export interface RankStabilityProjection {
   summary: string;
 }
 
-export interface ReceiptLineItem {
-  demo_policy_label: string | null;
-  description: string;
-  line_item_id: string;
-  quantity: number;
-  schedule_version: string | null;
-  total_amount: string;
-  type: "MERCHANT_SUBTOTAL" | "SIRA_TRANSACTION_FEE" | "TAX";
-  unit_amount: string;
-}
-
-export interface ReceiptProjection {
-  adapter_label: string;
-  amount: "990.00";
-  approval_intent_hash: string;
-  approval_request_id: string;
-  buyer_transaction_fee: "10.00";
-  currency: string;
-  decision_hash: string;
-  decision_id: string;
-  decision_version: number;
-  entitlement_ids: string[];
-  environment: "fixture" | "sandbox" | "production";
-  fee_schedule_version: "buyer_txn_demo_v1";
-  fulfillment_status: "VERIFIED";
-  issued_at: string;
-  line_items: ReceiptLineItem[];
-  merchant: MerchantView;
-  merchant_order_id: string;
-  merchant_subtotal: "980.00";
-  offer_id: string;
-  offer_version: number;
-  pack_id: string;
-  pack_version: number;
-  payment_status: "PRAVA_COMPLETED";
-  prava_order_reference: string;
-  prava_session_reference: string;
-  production_success: boolean;
-  purchase_id: string;
-  purchase_intent_id: string;
-  quote_id: string;
-  quote_version: number;
-  receipt_id: string;
-  request_id: string;
-  schema_version: string;
-  selection_id: string;
-  solution_plan_id: string;
-  stack_patch_id: string;
-  stack_patch_status: "STAGED";
-  tax_amount: "0.00";
-}
-
-export interface ReceiptView {
-  adapter_label: string;
-  amount: string;
-  approval_intent_hash: string;
-  approval_request_id: string;
-  currency: string;
-  decision_hash: string;
-  decision_id: string;
-  entitlement_ids: string[];
-  environment: "fixture" | "sandbox" | "production";
-  fulfillment_status: "VERIFIED";
-  issued_at: string;
-  merchant: { [key: string]: string; };
-  merchant_order_id: string;
-  offer_id: string;
-  offer_version: number;
-  pack_id: string;
-  pack_version: number;
-  payment_status: "PRAVA_COMPLETED";
-  prava_order_reference: string;
-  prava_session_reference: string;
-  production_success: boolean;
-  purchase_id: string;
-  purchase_intent_id: string;
-  quote_id: string;
-  quote_version: number;
-  receipt_id: string;
-  request_id: string;
-  schema_version: string;
-  stack_patch_id: string;
-  stack_patch_status: "STAGED";
-}
-
 export type RequestVisibility = "PRIVATE" | "SELECTIVE" | "OPEN_RFP";
 
 export interface RequirementBriefCreate {
@@ -1146,7 +1033,6 @@ export interface ResultArtifact {
   id: string;
   occurred_at: string;
   owner_role: ActorRole;
-  receipt_id: string | null;
   safe_label: string;
   stack_patch_id: string | null;
   type: ResultArtifactType;
@@ -1154,30 +1040,7 @@ export interface ResultArtifact {
   verified_at?: string | null;
 }
 
-export type ResultArtifactType = "DECISION_RECORD" | "CONFIGURATION_CHANGE" | "CONTRACT_CONFIRMATION" | "CANCELLATION_CONFIRMATION" | "ORDER" | "ENTITLEMENT" | "MIGRATION_RECORD" | "STACK_PATCH" | "OUTCOME_CHECKPOINT";
-
-export interface ReversalCreate {
-  kind: "CANCELLATION" | "REFUND";
-  reason: string;
-  reason_code: string;
-  requested_amount?: string | null;
-}
-
-export interface ReversalView {
-  completed_at?: string | null;
-  created_at: string;
-  currency: string;
-  id: string;
-  intent_hash: string;
-  kind: "CANCELLATION" | "REFUND";
-  provider_action_required: boolean;
-  provider_confirmed: boolean;
-  purchase_intent_id: string;
-  refunded_amount: string;
-  requested_amount: string;
-  safe_error_code?: string | null;
-  status: "REQUESTED" | "PROVIDER_PENDING" | "PARTIALLY_REFUNDED" | "REFUNDED" | "REJECTED" | "FAILED_RETRYABLE" | "COMPENSATION_REQUIRED" | "COMPENSATED" | "CANCELLED";
-}
+export type ResultArtifactType = "DECISION_RECORD" | "CONFIGURATION_CHANGE" | "CONTRACT_CONFIRMATION" | "CANCELLATION_CONFIRMATION" | "MIGRATION_RECORD" | "STACK_PATCH" | "OUTCOME_CHECKPOINT";
 
 export interface ScoreComponentView {
   conservative_contribution: ExactRatioView;
@@ -1551,26 +1414,15 @@ export interface StageHistoryEntry {
 
 export type StageStatus = "NOT_STARTED" | "READY" | "CURRENT" | "WAITING" | "BLOCKED" | "COMPLETED" | "SUPERSEDED";
 
-export interface TaxPaymentLineItem {
-  amount: string;
-  type: "TAX";
-}
-
 export interface TotalCostBounds {
   base: MoneyViewV2 | BoundUnavailableView;
   high: MoneyViewV2 | BoundUnavailableView;
   low: MoneyViewV2 | BoundUnavailableView;
 }
 
-export interface TransactionFeePaymentLineItem {
-  amount: "10.00";
-  schedule_version: "buyer_txn_demo_v1";
-  type: "SIRA_TRANSACTION_FEE";
-}
-
 export type TruthValue = "TRUE" | "FALSE" | "UNKNOWN" | "CONFLICT" | "UNRESOLVED";
 
-export type UIActionCapability = "VIEW_DECISION" | "EDIT_REQUEST" | "ANSWER_TASK" | "VIEW_PRIVATE_COMPANY_FACTS" | "KEEP_OPTION" | "ELIMINATE_OPTION" | "ASK_VENDOR" | "SAVE_OPTION" | "REQUEST_EVIDENCE" | "SELECT_PLAN" | "ACCEPT_EXCEPTION" | "APPROVE_POLICY" | "APPROVE_BUDGET" | "AUTHORIZE_PAYMENT" | "EXECUTE_CONFIGURATION" | "VERIFY_FULFILLMENT" | "PROVIDE_OUTCOME" | "EXPORT_AUDIT" | "EDIT_PRODUCT_EVIDENCE" | "REVIEW_PRODUCT_EVIDENCE" | "PUBLISH_PRODUCT_EVIDENCE" | "SUSPEND_PRODUCT_EVIDENCE";
+export type UIActionCapability = "VIEW_DECISION" | "EDIT_REQUEST" | "ANSWER_TASK" | "VIEW_PRIVATE_COMPANY_FACTS" | "KEEP_OPTION" | "ELIMINATE_OPTION" | "ASK_VENDOR" | "SAVE_OPTION" | "REQUEST_EVIDENCE" | "SELECT_PLAN" | "ACCEPT_EXCEPTION" | "APPROVE_POLICY" | "APPROVE_BUDGET" | "OPEN_PAYMENT_HANDOFF" | "EXECUTE_CONFIGURATION" | "PROVIDE_OUTCOME" | "EXPORT_AUDIT" | "EDIT_PRODUCT_EVIDENCE" | "REVIEW_PRODUCT_EVIDENCE" | "PUBLISH_PRODUCT_EVIDENCE" | "SUSPEND_PRODUCT_EVIDENCE";
 
 export interface VersionLinks {
   current: string;
@@ -1687,7 +1539,7 @@ export interface Operations {
   approve: { method: "POST"; path: "/v1/approval-requests/{approval_id}/approve"; pathParams: { approval_id: string; }; queryParams: Record<never, never>; body: ApprovalCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   create_approval_request: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/approval-requests"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: ApprovalRequestCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   create_decision_request: { method: "POST"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: DecisionRequestCreate; response: DecisionRequestView; requiresIdempotency: true; };
-  create_prava_session: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/prava-sessions"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: PravaSessionCreate; response: PravaSessionView; requiresIdempotency: true; };
+  create_payment_handoff: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/payment-handoff"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: never; response: PaymentHandoffView; requiresIdempotency: true; };
   discover_decision_request: { method: "POST"; path: "/v1/decision-requests/{request_id}/discover"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: WorkflowAccepted; requiresIdempotency: true; };
   get_action_run: { method: "GET"; path: "/v1/action-runs/{action_run_id}"; pathParams: { action_run_id: string; }; queryParams: Record<never, never>; body: never; response: ActionRunView; requiresIdempotency: false; };
   get_counterfactuals: { method: "GET"; path: "/v1/decisions/{decision_id}/counterfactuals"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: never; response: CounterfactualView; requiresIdempotency: false; };
@@ -1695,7 +1547,6 @@ export interface Operations {
   get_decision_request: { method: "GET"; path: "/v1/decision-requests/{request_id}"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: DecisionRequestView; requiresIdempotency: false; };
   get_decision_room: { method: "GET"; path: "/v1/decision-requests/{request_id}/decision-view"; pathParams: { request_id: string; }; queryParams: { version?: number | null; }; body: never; response: DecisionView; requiresIdempotency: false; };
   get_decision_rules: { method: "GET"; path: "/v1/decision-requests/{request_id}/decision-rules"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: DecisionRulesView; requiresIdempotency: false; };
-  get_receipt: { method: "GET"; path: "/v1/purchases/{purchase_id}/receipt"; pathParams: { purchase_id: string; }; queryParams: Record<never, never>; body: never; response: ReceiptView; requiresIdempotency: false; };
   get_requirement_brief: { method: "GET"; path: "/v1/requirement-briefs/{brief_id}"; pathParams: { brief_id: string; }; queryParams: Record<never, never>; body: never; response: RequirementBriefView; requiresIdempotency: false; };
   get_stackfile: { method: "GET"; path: "/v1/organizations/{organization_id}/stackfile"; pathParams: { organization_id: string; }; queryParams: Record<never, never>; body: never; response: StackfileView; requiresIdempotency: false; };
   get_workflow: { method: "GET"; path: "/v1/workflows/{workflow_id}"; pathParams: { workflow_id: string; }; queryParams: Record<never, never>; body: never; response: WorkflowView; requiresIdempotency: false; };
@@ -1703,6 +1554,7 @@ export interface Operations {
   health: { method: "GET"; path: "/health"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: HealthResponse; requiresIdempotency: false; };
   list_decision_requests: { method: "GET"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: DecisionIndexView; requiresIdempotency: false; };
   lock_purchase_intent: { method: "POST"; path: "/v1/decisions/{decision_id}/purchase-intents"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: PurchaseIntentCreate; response: PurchaseIntentView; requiresIdempotency: true; };
+  open_payment_handoff: { method: "POST"; path: "/v1/payment-handoffs/{handoff_id}/open"; pathParams: { handoff_id: string; }; queryParams: Record<never, never>; body: never; response: PaymentHandoffView; requiresIdempotency: true; };
   purchase_status: { method: "GET"; path: "/v1/purchase-intents/{intent_id}/status"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: never; response: PurchaseStatusView; requiresIdempotency: false; };
   qualification_create_company_context: { method: "POST"; path: "/v1/qualification/company-context"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: CompanyContextCreate; response: QualificationMutationView; requiresIdempotency: true; };
   qualification_create_introduction: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/introduction"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationIntroductionCreate; response: QualificationMutationView; requiresIdempotency: true; };
@@ -1731,7 +1583,6 @@ export interface Operations {
   reject_approval: { method: "POST"; path: "/v1/approval-requests/{approval_id}/reject"; pathParams: { approval_id: string; }; queryParams: Record<never, never>; body: ApprovalRejectCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   reject_rule_proposal: { method: "POST"; path: "/v1/decision-rules/{rules_id}/proposals/{proposal_id}/reject"; pathParams: { rules_id: string; proposal_id: string; }; queryParams: Record<never, never>; body: ProposalDecisionCreate; response: ProposalDecisionView; requiresIdempotency: true; };
   replay_evaluation: { method: "POST"; path: "/v1/evaluation-runs/{evaluation_run_id}/replay"; pathParams: { evaluation_run_id: string; }; queryParams: Record<never, never>; body: never; response: EvaluationReplayView; requiresIdempotency: false; };
-  request_purchase_reversal: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/reversals"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: ReversalCreate; response: ReversalView; requiresIdempotency: true; };
   reset_demo: { method: "POST"; path: "/v1/demo/reset"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: { [key: string]: unknown; }; requiresIdempotency: false; };
   revoke_approval: { method: "POST"; path: "/v1/approval-requests/{approval_id}/revoke"; pathParams: { approval_id: string; }; queryParams: Record<never, never>; body: ApprovalRevokeCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   run_decision_calibration: { method: "POST"; path: "/v1/decision-requests/{request_id}/calibration-runs"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: CalibrationRunCreate; response: CalibrationRunView; requiresIdempotency: true; };

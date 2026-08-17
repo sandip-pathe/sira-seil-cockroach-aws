@@ -45,7 +45,6 @@ _SELLER_DENIED_KEY_PARTS = frozenset(
 
 _SECRET_VALUE_PATTERNS = (
     re.compile(r"\bsk-[A-Za-z0-9_-]{12,}\b"),
-    re.compile(r"\bprava_[A-Za-z0-9_-]{16,}\b", re.IGNORECASE),
     re.compile(r"\b(?:\d[ -]*?){13,19}\b"),
 )
 

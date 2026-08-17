@@ -111,7 +111,6 @@ def provision_database(admin_url: URL) -> ProvisionedRuntime:
         "SIRA_CATALOG_DATABASE_URL": _async_url(
             admin_url, "sira_catalog_app", passwords["sira_catalog_app"]
         ),
-        "BROWSER_RETURN_SIGNING_KEY": secrets.token_urlsafe(48),
         "GUEST_SESSION_SIGNING_KEY": secrets.token_urlsafe(48),
     }
     return ProvisionedRuntime(str(admin_url.database), runtime_secret)

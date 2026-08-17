@@ -4,7 +4,7 @@
   "title": "Action-neutral execution run",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "action_run_id", "workflow_id", "decision_id", "decision_version", "decision_hash", "selection_id", "solution_plan_id", "action_type", "status", "current_step_id", "last_successful_checkpoint_id", "owner_role", "blocking_task", "recovery_action", "execution_steps", "payment", "fulfillment", "result_artifacts", "created_at", "updated_at", "completed_at"],
+  "required": ["schema_version", "action_run_id", "workflow_id", "decision_id", "decision_version", "decision_hash", "selection_id", "solution_plan_id", "action_type", "status", "current_step_id", "last_successful_checkpoint_id", "owner_role", "blocking_task", "recovery_action", "execution_steps", "payment_handoff", "result_artifacts", "created_at", "updated_at", "completed_at"],
   "properties": {
     "schema_version": { "$ref": "common.schema.json#/$defs/SemanticVersion" },
     "action_run_id": { "$ref": "common.schema.json#/$defs/Identifier" },
@@ -49,15 +49,9 @@
       "minItems": 1,
       "items": { "$ref": "decision-view.schema.json#/$defs/ExecutionStep" }
     },
-    "payment": {
+    "payment_handoff": {
       "oneOf": [
-        { "$ref": "decision-view.schema.json#/$defs/PaymentView" },
-        { "type": "null" }
-      ]
-    },
-    "fulfillment": {
-      "oneOf": [
-        { "$ref": "decision-view.schema.json#/$defs/FulfillmentView" },
+        { "$ref": "decision-view.schema.json#/$defs/PaymentHandoffView" },
         { "type": "null" }
       ]
     },

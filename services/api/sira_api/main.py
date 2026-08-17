@@ -34,7 +34,6 @@ from integrations.aws_services import (
 from persistence.database import Database, DatabaseSettings
 from persistence.repositories import PersistenceConflict
 
-from .callback_state import BrowserReturnStateSigner
 from .config import ApiSettings, get_settings
 from .errors import ApiProblem
 from .fixtures import DemoFixtureBundle
@@ -193,10 +192,6 @@ def create_app(
             allow_development_tenant_bootstrap=(
                 resolved_settings.is_development or resolved_settings.guest_session_enabled
             ),
-            browser_return_signer=BrowserReturnStateSigner(
-                resolved_settings.browser_return_signing_secret()
-            ),
-            browser_return_ttl_seconds=resolved_settings.browser_return_ttl_seconds,
             seller_directory=resolved_seller_directory,
             quote_clock=fixture_quote_clock,
         )
@@ -267,7 +262,7 @@ def create_app(
         )
         application.state.workspace_service = WorkspaceService(
             fixtures,
-            api_key=resolved_settings.openai_api_key.get_secret_value(),
+            api_key=resolved_settings.openai_api_key.get_secret_value(),  # pragma: allowlist secret
             seil_api_key=resolved_settings.resolved_seil_openai_api_key(),
             model=resolved_settings.openai_model,
             workflow_service=workflow_service,

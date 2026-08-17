@@ -115,7 +115,7 @@ def main() -> int:
         party="BUYER",
         intent=None,
         approval=None,
-        receipt=None,
+        handoff=None,
         superseded_by=None,
     )
     _write("expected_decision_view.json", decision_view)
@@ -164,17 +164,6 @@ def main() -> int:
     for stage in approval["stages"]:
         stage["approved_intent_hash"] = purchase_intent["intent_hash"]
     _write("expected_approval.json", approval)
-
-    receipt = _load("expected_receipt.json")
-    receipt.update(
-        {
-            "decision_hash": ledger["decision_hash"],
-            "solution_plan_id": selected_plan_id,
-            "approval_intent_hash": purchase_intent["intent_hash"],
-            "stack_patch_id": stack_patch["patch_id"],
-        }
-    )
-    _write("expected_receipt.json", receipt)
 
     engagement = _load("expected_selective_engagement.json")
     engagement.pop("request_id", None)

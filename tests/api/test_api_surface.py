@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
-from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
-import respx
 from sqlalchemy import select
 
 from domain import content_hash
-from persistence.models import BrowserReturnBinding, PurchaseIntent
+from persistence.models import PurchaseIntent
 
 
 def idempotency(value: str) -> dict[str, str]:
@@ -120,14 +117,13 @@ async def test_context_and_execution_permissions_are_independent(
     assert private_view.json()["error"]["code"] == "PERMISSION_REQUIRED"
 
     execution = await api_client.post(
-        "/v1/purchase-intents/pi_missing/prava-sessions",
+        "/v1/purchase-intents/pi_missing/payment-handoff",
         headers={
             **idempotency("execute-without-step-up"),
             "X-Actor-Roles": "can_execute_purchase",
             "X-Actor-Party": "BUYER",
             "X-Step-Up-Verified": "false",
         },
-        json={"return_url": "https://app.example.test/return"},
     )
     assert execution.status_code == 403
     assert execution.json()["error"]["code"] == "STEP_UP_REQUIRED"
@@ -841,7 +837,8 @@ async def test_approval_stages_are_serial_and_rejection_is_exact_hash_bound(
     status = await api_client.get(f"/v1/purchase-intents/{intent['purchase_intent_id']}/status")
     assert status.status_code == 200, status.text
     assert status.json()["approval_status"] == "REJECTED"
-    assert status.json()["payment_status"] == "NOT_STARTED"
+    assert status.json()["handoff_status"] is None
+    assert status.json()["purchase_state"] == "AWAITING_APPROVAL"
 
 
 @pytest.mark.asyncio
@@ -893,9 +890,8 @@ async def test_exact_hash_approval_and_separate_states(api_client: httpx.AsyncCl
     assert status_response.status_code == 200
     status_body = status_response.json()
     assert status_body["approval_status"] == "APPROVED"
-    assert status_body["payment_status"] == "NOT_STARTED"
-    assert status_body["fulfillment_status"] == "NOT_STARTED"
-    assert status_body["deployment_state"] == "NOT_STARTED"
+    assert status_body["handoff_status"] is None
+    assert status_body["purchase_state"] == "READY_FOR_HANDOFF"
     assert status_body["outcome_state"] == "NOT_MEASURED"
 
 
@@ -968,7 +964,8 @@ async def test_approved_authority_can_be_revoked_before_checkout(
     status = await api_client.get(f"/v1/purchase-intents/{intent['purchase_intent_id']}/status")
     assert status.status_code == 200
     assert status.json()["approval_status"] == "REVOKED"
-    assert status.json()["payment_status"] == "NOT_STARTED"
+    assert status.json()["handoff_status"] is None
+    assert status.json()["purchase_state"] == "AWAITING_APPROVAL"
 
     reapprove = await api_client.post(
         f"/v1/approval-requests/{approval['id']}/approve",
@@ -981,233 +978,6 @@ async def test_approved_authority_can_be_revoked_before_checkout(
         json={"intent_hash": approval["intent_hash"], "actor_role": "operations_owner"},
     )
     assert reapprove.status_code == 409
-
-
-@pytest.mark.asyncio
-async def test_prava_setup_blocker_and_no_fake_receipt(api_client: httpx.AsyncClient) -> None:
-    intent, _approval = await lock_intent_and_start_approval(api_client)
-    intent_id = intent["purchase_intent_id"]
-    provider = await api_client.post(
-        f"/v1/purchase-intents/{intent_id}/prava-sessions",
-        headers=idempotency("prava-session-0001"),
-        json={"return_url": "https://localhost:3000/purchase/return"},
-    )
-    assert provider.status_code == 503
-    error = provider.json()["error"]
-    assert error["code"] == "PROVIDER_SETUP_BLOCKED"
-    assert "PRAVA_SECRET_KEY" in error["details"]["missing_configuration"]
-    assert "credential" not in provider.text.lower()
-
-    receipt = await api_client.get(f"/v1/purchases/{intent_id}/receipt")
-    assert receipt.status_code == 404
-    assert receipt.json()["error"]["code"] == "RECEIPT_NOT_AVAILABLE"
-
-
-@pytest.mark.asyncio
-async def test_configured_prava_session_uses_real_adapter_and_updates_canonical_state(
-    api_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    intent, approval = await lock_intent_and_start_approval(api_client)
-    for index, role in enumerate(
-        ["operations_owner", "security_privacy_owner", "legal_owner", "budget_owner"]
-    ):
-        approved = await api_client.post(
-            f"/v1/approval-requests/{approval['id']}/approve",
-            headers={
-                **idempotency(f"provider-approve-{index:04d}"),
-                "X-Actor-Id": f"usr_provider_{role}",
-                "X-Actor-Roles": f"{role},can_approve_purchase",
-                "X-Step-Up-Verified": "true",
-            },
-            json={"intent_hash": approval["intent_hash"], "actor_role": role},
-        )
-        assert approved.status_code == 200, approved.text
-
-    environment = {
-        "PRAVA_BASE_URL": "https://api.prava.test",
-        "PRAVA_SECRET_KEY": "x",
-        "PRAVA_MERCHANT_URL": "https://merchant-d.example.test",
-        "PRAVA_CALLBACK_URL": "https://api.example.test/prava/callback",
-        "PRAVA_USER_EMAIL": "fixture-user@example.test",
-        "PRAVA_HOSTED_CHECKOUT_HOSTS": "checkout.prava.test",
-        "PRAVA_MERCHANT_COUNTRY": "US",
-        "CONTROLLED_MERCHANT_BASE_URL": "https://merchant-d.example.test",
-        "CONTROLLED_MERCHANT_API_KEY": "x",
-        "CONTROLLED_MERCHANT_ID": "merchant_fixture_d",
-        "WEB_BASE_URL": "https://app.example.test",
-    }
-    for name, value in environment.items():
-        monkeypatch.setenv(name, value)
-
-    provider_started_at = datetime.now(UTC)
-    with respx.mock(assert_all_called=True) as mock:
-        mock.post("https://api.prava.test/v1/sessions").mock(
-            return_value=httpx.Response(
-                201,
-                json={
-                    "session_id": "ses_real_contract_1",
-                    "order_id": "ord_real_contract_1",
-                    "iframe_url": "https://checkout.prava.test/session/1",
-                    "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
-                },
-            )
-        )
-        response = await api_client.post(
-            f"/v1/purchase-intents/{intent['purchase_intent_id']}/prava-sessions",
-            headers=idempotency("configured-prava-session"),
-            json={"return_url": "https://app.example.test/purchase/return"},
-        )
-        provider_request = json.loads(mock.calls[0].request.content)
-        callback_url = provider_request["callback_url"]
-        state = parse_qs(urlsplit(callback_url).query)["state"][0]
-    provider_finished_at = datetime.now(UTC)
-
-    assert response.status_code == 201, response.text
-    assert response.json()["status"] == "SESSION_CREATED"
-    assert response.json()["production_verified"] is False
-    assert response.json()["hosted_url"].startswith("https://checkout.prava.test/")
-    assert "state" not in response.json()
-    assert urlsplit(callback_url)._replace(query="").geturl() == environment["PRAVA_CALLBACK_URL"]
-    database = application_for(api_client).state.database
-    async with database.transaction("org_consultco") as session:
-        binding = (
-            await session.execute(
-                select(BrowserReturnBinding).where(
-                    BrowserReturnBinding.purchase_intent_id == intent["purchase_intent_id"]
-                )
-            )
-        ).scalar_one()
-        binding_expiry = binding.expires_at
-        if binding_expiry.tzinfo is None:
-            binding_expiry = binding_expiry.replace(tzinfo=UTC)
-        assert binding_expiry >= provider_started_at + timedelta(seconds=599)
-        assert binding_expiry <= provider_finished_at + timedelta(seconds=601)
-
-    tampered_state = f"{state[:-1]}{'A' if state[-1] != 'A' else 'B'}"
-    tampered = await api_client.post(
-        "/v1/prava/browser-return",
-        json={
-            "state": tampered_state,
-            "return_url": "https://app.example.test/purchase/return",
-        },
-    )
-    assert tampered.status_code == 400
-    wrong_actor = await api_client.post(
-        "/v1/prava/browser-return",
-        headers={"X-Actor-Id": "usr_different_cardholder"},
-        json={
-            "state": state,
-            "return_url": "https://app.example.test/purchase/return",
-        },
-    )
-    assert wrong_actor.status_code == 403
-    wrong_return = await api_client.post(
-        "/v1/prava/browser-return",
-        json={
-            "state": state,
-            "return_url": "https://app.example.test/purchase/different",
-        },
-    )
-    assert wrong_return.status_code == 403
-
-    browser_return = await api_client.post(
-        "/v1/prava/browser-return",
-        json={
-            "state": state,
-            "return_url": "https://app.example.test/purchase/return",
-        },
-    )
-    assert browser_return.status_code == 202, browser_return.text
-    workflow = browser_return.json()
-    assert workflow["workflow_id"] == f"wf_checkout_{intent['purchase_intent_id']}"
-    assert workflow["status_url"].endswith(workflow["workflow_id"])
-    workflow_status = await api_client.get(workflow["status_url"])
-    assert workflow_status.status_code == 200
-    assert workflow_status.json()["status"] == "PENDING"
-
-    replay = await api_client.post(
-        "/v1/prava/browser-return",
-        json={
-            "state": state,
-            "return_url": "https://app.example.test/purchase/return",
-        },
-    )
-    assert replay.status_code == 409
-    assert replay.json()["error"]["code"] == "CALLBACK_STATE_REPLAYED"
-    status_response = await api_client.get(
-        f"/v1/purchase-intents/{intent['purchase_intent_id']}/status"
-    )
-    assert status_response.json()["payment_status"] == "CARDHOLDER_PENDING"
-
-
-@pytest.mark.asyncio
-async def test_prava_session_create_can_retry_after_uncertain_provider_failure(
-    api_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    intent, approval = await lock_intent_and_start_approval(api_client)
-    for index, role in enumerate(
-        ["operations_owner", "security_privacy_owner", "legal_owner", "budget_owner"]
-    ):
-        approved = await api_client.post(
-            f"/v1/approval-requests/{approval['id']}/approve",
-            headers={
-                **idempotency(f"retry-provider-approve-{index:04d}"),
-                "X-Actor-Id": f"usr_retry_provider_{role}",
-                "X-Actor-Roles": f"{role},can_approve_purchase",
-                "X-Step-Up-Verified": "true",
-            },
-            json={"intent_hash": approval["intent_hash"], "actor_role": role},
-        )
-        assert approved.status_code == 200, approved.text
-
-    environment = {
-        "PRAVA_BASE_URL": "https://api.prava.test",
-        "PRAVA_SECRET_KEY": "x",
-        "PRAVA_MERCHANT_URL": "https://merchant-d.example.test",
-        "PRAVA_CALLBACK_URL": "https://api.example.test/prava/callback",
-        "PRAVA_USER_EMAIL": "fixture-user@example.test",
-        "PRAVA_HOSTED_CHECKOUT_HOSTS": "checkout.prava.test",
-        "PRAVA_MERCHANT_COUNTRY": "US",
-        "CONTROLLED_MERCHANT_BASE_URL": "https://merchant-d.example.test",
-        "CONTROLLED_MERCHANT_API_KEY": "x",
-        "CONTROLLED_MERCHANT_ID": "merchant_fixture_d",
-        "WEB_BASE_URL": "https://app.example.test",
-    }
-    for name, value in environment.items():
-        monkeypatch.setenv(name, value)
-
-    with respx.mock(assert_all_called=True) as mock:
-        mock.post("https://api.prava.test/v1/sessions").mock(
-            side_effect=[
-                httpx.Response(503),
-                httpx.Response(
-                    201,
-                    json={
-                        "session_id": "ses_recovered_contract",
-                        "order_id": "ord_recovered_contract",
-                        "iframe_url": "https://checkout.prava.test/session/recovered",
-                        "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
-                    },
-                ),
-            ]
-        )
-        first = await api_client.post(
-            f"/v1/purchase-intents/{intent['purchase_intent_id']}/prava-sessions",
-            headers=idempotency("retry-configured-prava-session"),
-            json={"return_url": "https://app.example.test/purchase/return"},
-        )
-        status = await api_client.get(f"/v1/purchase-intents/{intent['purchase_intent_id']}/status")
-        second = await api_client.post(
-            f"/v1/purchase-intents/{intent['purchase_intent_id']}/prava-sessions",
-            headers=idempotency("retry-configured-prava-session"),
-            json={"return_url": "https://app.example.test/purchase/return"},
-        )
-
-    assert first.status_code == 503
-    assert first.json()["error"]["next_action"] == "retry_provider_session"
-    assert status.json()["payment_status"] == "NOT_STARTED"
-    assert second.status_code == 201, second.text
-    assert second.json()["status"] == "SESSION_CREATED"
 
 
 @pytest.mark.asyncio

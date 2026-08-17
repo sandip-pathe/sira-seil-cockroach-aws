@@ -15,10 +15,10 @@ from persistence.models import (
     DecisionRecord,
     EvaluationRun,
     EvaluationSolutionPlan,
+    PaymentHandoff,
     PurchaseBriefVersion,
     PurchaseIntent,
     PurchaseRequest,
-    Receipt,
 )
 from persistence.repositories import WorkflowRepository, new_id
 
@@ -198,7 +198,7 @@ class DecisionRoomSurface:
                 )
             ).scalar_one_or_none()
             approval = None
-            receipt = None
+            handoff = None
             if intent is not None:
                 approval = (
                     await session.execute(
@@ -211,12 +211,15 @@ class DecisionRoomSurface:
                         .limit(1)
                     )
                 ).scalar_one_or_none()
-                receipt = (
+                handoff = (
                     await session.execute(
-                        select(Receipt).where(
-                            Receipt.organization_id == organization_id,
-                            Receipt.purchase_intent_id == intent.id,
+                        select(PaymentHandoff)
+                        .where(
+                            PaymentHandoff.organization_id == organization_id,
+                            PaymentHandoff.purchase_intent_id == intent.id,
                         )
+                        .order_by(PaymentHandoff.created_at.desc())
+                        .limit(1)
                     )
                 ).scalar_one_or_none()
             return project_decision_room(
@@ -227,7 +230,7 @@ class DecisionRoomSurface:
                 party=party,
                 intent=intent,
                 approval=approval,
-                receipt=receipt,
+                handoff=handoff,
                 superseded_by=superseded_by,
             )
 
@@ -363,7 +366,7 @@ class DecisionRoomSurface:
                 party="BUYER",
                 intent=None,
                 approval=None,
-                receipt=None,
+                handoff=None,
                 superseded_by=None,
             )
             if not any(item["id"] == solution_plan_id for item in view["solution_options"]):
@@ -458,7 +461,7 @@ class DecisionRoomSurface:
                 party=party,
                 intent=None,
                 approval=None,
-                receipt=None,
+                handoff=None,
                 superseded_by=None,
             )
             option = next(
@@ -619,7 +622,7 @@ class DecisionRoomSurface:
                 party=party,
                 intent=None,
                 approval=None,
-                receipt=None,
+                handoff=None,
                 superseded_by=None,
             )
             selected = view["selected_action_plan"]
@@ -689,8 +692,7 @@ class DecisionRoomSurface:
                 "recovery_action": None,
                 "execution_steps": selected["execution_steps"],
                 "result_artifacts": [],
-                "payment": view["payment"],
-                "fulfillment": view["fulfillment"],
+                "payment_handoff": view["payment_handoff"],
                 "created_at": now.isoformat(),
                 "updated_at": now.isoformat(),
                 "completed_at": None,

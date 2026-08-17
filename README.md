@@ -11,7 +11,7 @@ The key correctness claim is narrow: concurrent buyer, seller, and worker activi
 - The existing SIRA and SEIL product surfaces are retained.
 - Previous sponsor-specific infrastructure has been removed from the active tree.
 - CockroachDB schema, vector retrieval, serializable retries, fenced worker recovery, Bedrock embeddings, and ECS deployment are under active implementation.
-- PRAVA remains an optional hosted payment and approval boundary; card data never enters SIRA.
+- Approved purchases can produce an immutable external payment handoff; SIRA never handles card data or claims payment success.
 
 Do not treat planned CockroachDB or AWS work as implemented until its checklist verification passes. See [docs/hackathon-build/00-HANDOFF.md](docs/hackathon-build/00-HANDOFF.md) and [docs/hackathon-build/checklist.md](docs/hackathon-build/checklist.md).
 

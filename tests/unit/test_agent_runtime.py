@@ -117,7 +117,7 @@ async def test_all_model_payloads_reject_credentials_and_card_like_values() -> N
                 instructions="Extract.",
                 prompt="Extract.",
                 model_context={
-                    "prava_secret_key": "do-not-send"  # pragma: allowlist secret
+                    "payment_provider_secret_key": "do-not-send"  # pragma: allowlist secret
                 },
             )
         )

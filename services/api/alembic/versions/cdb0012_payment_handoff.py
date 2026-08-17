@@ -1,4 +1,4 @@
-"""add provider-neutral payment handoff
+"""replace legacy checkout execution with a provider-neutral payment handoff
 
 Revision ID: cdb0012
 Revises: cdb0011
@@ -102,14 +102,29 @@ def upgrade() -> None:
         f"FOR ALL TO sira_runtime USING ({_TENANT_EXPRESSION}) "
         f"WITH CHECK ({_TENANT_EXPRESSION})"
     )
+    op.execute("ALTER TABLE result_artifacts DROP COLUMN IF EXISTS receipt_id CASCADE")
+    for table in (
+        "transaction_transitions",
+        "entitlements",
+        "payment_attempts",
+        "browser_return_bindings",
+        "payment_sessions",
+        "merchant_orders",
+        "prava_shopping_runs",
+        "purchase_reversals",
+        "receipts",
+    ):
+        op.execute(f'DROP TABLE IF EXISTS "{table}" CASCADE')
+    op.execute(
+        "ALTER TABLE purchase_intents DROP COLUMN IF EXISTS payment_status CASCADE"
+    )
+    op.execute(
+        "ALTER TABLE purchase_intents DROP COLUMN IF EXISTS fulfillment_status CASCADE"
+    )
 
 
 def downgrade() -> None:
-    op.execute("DROP POLICY IF EXISTS tenant_isolation ON payment_handoffs")
-    op.execute("ALTER TABLE payment_handoffs DISABLE ROW LEVEL SECURITY")
-    op.execute("REVOKE ALL ON TABLE payment_handoffs FROM sira_runtime")
-    op.drop_index(
-        op.f("ix_payment_handoffs_organization_id"), table_name="payment_handoffs"
+    raise RuntimeError(
+        "cdb0012 intentionally removes the unshipped checkout prototype; restore from backup "
+        "instead of recreating payment-processing tables"
     )
-    op.drop_index("ix_payment_handoff_intent_status", table_name="payment_handoffs")
-    op.drop_table("payment_handoffs")

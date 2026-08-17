@@ -11,9 +11,9 @@ from domain.enums import ActorRole, UIActionCapability
 from persistence.models import (
     ApprovalRequest,
     DecisionRecord,
+    PaymentHandoff,
     PurchaseIntent,
     PurchaseRequest,
-    Receipt,
 )
 
 from .fixtures import (
@@ -52,7 +52,6 @@ def actor_role(roles: frozenset[str], party: str | None) -> ActorRole:
     ordered = (
         ("platform_operator", ActorRole.PLATFORM_OPERATOR),
         ("auditor", ActorRole.AUDITOR),
-        ("cardholder", ActorRole.CARDHOLDER),
         ("budget_owner", ActorRole.BUDGET_OWNER),
         ("procurement", ActorRole.PROCUREMENT),
         ("security_privacy_owner", ActorRole.POLICY_REVIEWER),
@@ -98,7 +97,7 @@ def actor_capabilities(roles: frozenset[str], resolved_role: ActorRole) -> list[
     if "can_approve_purchase" in roles:
         capabilities.add(UIActionCapability.APPROVE_BUDGET)
     if "can_execute_purchase" in roles:
-        capabilities.add(UIActionCapability.AUTHORIZE_PAYMENT)
+        capabilities.add(UIActionCapability.OPEN_PAYMENT_HANDOFF)
     return sorted(item.value for item in capabilities)
 
 
@@ -553,7 +552,7 @@ def _selected_plan(
             "id": "step_execute",
             "type": "EXECUTE_OR_ASSIGN",
             "status": "NOT_REACHED",
-            "owner_role": "CARDHOLDER" if charged else "IT_OPERATIONS",
+            "owner_role": "PROCUREMENT" if charged else "IT_OPERATIONS",
             "started_at": None,
             "completed_at": None,
             "checkpoint_id": None,
@@ -623,7 +622,7 @@ def project_decision_room(
     party: str | None,
     intent: PurchaseIntent | None,
     approval: ApprovalRequest | None,
-    receipt: Receipt | None,
+    handoff: PaymentHandoff | None,
     superseded_by: DecisionRecord | None,
 ) -> dict[str, Any]:
     ledger = deepcopy(decision.payload["ledger"])
@@ -687,8 +686,7 @@ def project_decision_room(
         "RESIZE",
     }
     approval_projection = None
-    payment_projection = None
-    fulfillment_projection = None
+    handoff_projection = None
     if selected is not None:
         approval_projection = {
             "required": charged,
@@ -711,64 +709,24 @@ def project_decision_room(
             "expires_at": approval.expires_at.isoformat() if approval is not None else None,
             "href": f"/v1/decisions/{decision.id}/approval" if charged else None,
         }
-        if charged:
-            payment_projection = {
-                "required": True,
-                "status": intent.payment_status if intent is not None else "NOT_STARTED",
-                "currency": "USD",
-                "line_items": [
-                    {"type": "MERCHANT_SUBTOTAL", "amount": "980.00"},
-                    {
-                        "type": "SIRA_TRANSACTION_FEE",
-                        "amount": "10.00",
-                        "schedule_version": "buyer_txn_demo_v1",
-                    },
-                ],
-                "landed_total": "990.00",
-                "purchase_intent_id": intent.id if intent is not None else None,
-                "last_checkpoint_at": None,
-                "href": (
-                    f"/v1/purchase-intents/{intent.id}/status" if intent is not None else None
-                ),
-            }
-            fulfillment_projection = {
-                "required": True,
-                "status": intent.fulfillment_status if intent is not None else "NOT_STARTED",
-                "expected_item_count": 2,
-                "verified_item_count": 2
-                if intent and intent.fulfillment_status == "VERIFIED"
-                else 0,
-                "partial_item_count": 0,
-                "owner_role": None,
-                "last_checkpoint_at": None,
-                "href": (
-                    f"/v1/purchase-intents/{intent.id}/status" if intent is not None else None
-                ),
-            }
-        else:
-            payment_projection = {
-                "required": False,
-                "status": "NOT_REQUIRED",
-                "currency": None,
-                "line_items": [],
-                "landed_total": None,
-                "purchase_intent_id": None,
-                "last_checkpoint_at": None,
-                "href": None,
-            }
-            fulfillment_projection = {
-                "required": False,
-                "status": "NOT_REQUIRED",
-                "expected_item_count": 0,
-                "verified_item_count": 0,
-                "partial_item_count": 0,
-                "owner_role": None,
-                "last_checkpoint_at": None,
-                "href": None,
-            }
-    receipt_projection = (
-        deepcopy(receipt.payload) if receipt is not None and intent is not None else None
-    )
+    if handoff is not None:
+        handoff_projection = {
+            "id": handoff.id,
+            "purchase_intent_id": handoff.purchase_intent_id,
+            "approval_request_id": handoff.approval_request_id,
+            "intent_hash": handoff.intent_hash,
+            "handoff_hash": handoff.handoff_hash,
+            "destination_url": handoff.destination_url,
+            "recipient": handoff.recipient,
+            "amount": f"{handoff.amount:.2f}",
+            "currency": handoff.currency,
+            "reference": handoff.reference,
+            "status": handoff.status,
+            "expires_at": handoff.expires_at.isoformat(),
+            "opened_at": handoff.opened_at.isoformat() if handoff.opened_at else None,
+            "href": f"/v1/payment-handoffs/{handoff.id}/open",
+        }
+
     return {
         "request": {
             "id": request.id,
@@ -856,10 +814,8 @@ def project_decision_room(
             else None
         ),
         "approval": approval_projection,
-        "payment": payment_projection,
-        "fulfillment": fulfillment_projection,
+        "payment_handoff": handoff_projection,
         "result_artifacts": [],
-        "receipt": receipt_projection,
     }
 
 

@@ -16,11 +16,9 @@ from domain.enums import (
     DecisionVersionState,
     ExecutionStepStatus,
     ExecutionStepType,
-    FulfillmentStatus,
     OperationStatus,
     OptionFeedbackAction,
     PackAuthority,
-    PaymentStatus,
     PlanSelectionState,
     RankStability,
     RequestVisibility,
@@ -371,87 +369,21 @@ class ApprovalProjection(StrictModel):
         return self
 
 
-class MerchantSubtotalPaymentLineItem(StrictModel):
-    type: Literal["MERCHANT_SUBTOTAL"]
+class PaymentHandoffProjection(StrictModel):
+    id: Identifier
+    purchase_intent_id: Identifier
+    approval_request_id: Identifier
+    intent_hash: HashValue
+    handoff_hash: HashValue
+    destination_url: str = Field(pattern=r"^https://", max_length=2000)
+    recipient: str = Field(min_length=1, max_length=200)
     amount: MoneyAmount
-
-
-class TransactionFeePaymentLineItem(StrictModel):
-    type: Literal["SIRA_TRANSACTION_FEE"]
-    amount: Literal["10.00"]
-    schedule_version: Literal["buyer_txn_demo_v1"]
-
-
-class TaxPaymentLineItem(StrictModel):
-    type: Literal["TAX"]
-    amount: MoneyAmount
-
-
-PaymentLineItem = (
-    MerchantSubtotalPaymentLineItem | TransactionFeePaymentLineItem | TaxPaymentLineItem
-)
-
-
-class PaymentProjection(StrictModel):
-    required: bool
-    status: PaymentStatus
-    currency: Currency | None = None
-    line_items: list[PaymentLineItem]
-    landed_total: MoneyAmount | None = None
-    purchase_intent_id: Identifier | None = None
-    last_checkpoint_at: datetime | None = None
-    href: str | None = Field(default=None, max_length=500)
-
-    @model_validator(mode="after")
-    def validate_payment_requirement(self) -> PaymentProjection:
-        if not self.required:
-            if (
-                self.status != PaymentStatus.NOT_REQUIRED
-                or self.currency is not None
-                or self.line_items
-                or self.landed_total is not None
-                or self.purchase_intent_id is not None
-                or self.href is not None
-            ):
-                raise ValueError("a non-required payment cannot expose payment state")
-            return self
-        fees = [item for item in self.line_items if item.type == "SIRA_TRANSACTION_FEE"]
-        subtotals = [item for item in self.line_items if item.type == "MERCHANT_SUBTOTAL"]
-        if (
-            self.currency != "USD"
-            or self.landed_total != "990.00"
-            or len(fees) != 1
-            or len(subtotals) != 1
-            or subtotals[0].amount != "980.00"
-        ):
-            raise ValueError(
-                "charge-bearing demo payment must be USD 980.00 plus one USD 10.00 fee"
-            )
-        return self
-
-
-class FulfillmentProjection(StrictModel):
-    required: bool
-    status: FulfillmentStatus
-    expected_item_count: int = Field(ge=0)
-    verified_item_count: int = Field(ge=0)
-    partial_item_count: int = Field(ge=0)
-    owner_role: ActorRole | None = None
-    last_checkpoint_at: datetime | None = None
-    href: str | None = Field(default=None, max_length=500)
-
-    @model_validator(mode="after")
-    def validate_fulfillment_requirement(self) -> FulfillmentProjection:
-        if not self.required and (
-            self.status != FulfillmentStatus.NOT_REQUIRED
-            or self.expected_item_count
-            or self.verified_item_count
-            or self.partial_item_count
-            or self.owner_role is not None
-            or self.href is not None
-        ):
-            raise ValueError("a non-required fulfillment cannot expose fulfillment state")
-        return self
+    currency: Currency
+    reference: str = Field(min_length=1, max_length=160)
+    status: Literal["READY", "OPENED", "EXPIRED", "CANCELLED"]
+    expires_at: datetime
+    opened_at: datetime | None = None
+    href: str = Field(min_length=1, max_length=500)
 
 
 class ResultArtifact(StrictModel):
@@ -465,93 +397,6 @@ class ResultArtifact(StrictModel):
     safe_label: str = Field(min_length=1, max_length=200)
     href: str = Field(pattern=r"^/", max_length=500)
     stack_patch_id: Identifier | None
-    receipt_id: Identifier | None
-
-
-class MerchantView(StrictModel):
-    merchant_id: Identifier
-    name: str = Field(min_length=1, max_length=100)
-    url: str = Field(pattern=r"^https://", max_length=500)
-    country: str = Field(pattern=r"^[A-Z]{2}$")
-
-
-class ReceiptLineItem(StrictModel):
-    line_item_id: Identifier
-    type: Literal["MERCHANT_SUBTOTAL", "SIRA_TRANSACTION_FEE", "TAX"]
-    description: str = Field(min_length=1, max_length=200)
-    quantity: int = Field(ge=1)
-    unit_amount: MoneyAmount
-    total_amount: MoneyAmount
-    schedule_version: Identifier | None
-    demo_policy_label: str | None = Field(max_length=100)
-
-    @model_validator(mode="after")
-    def validate_fee_policy(self) -> ReceiptLineItem:
-        if self.type == "SIRA_TRANSACTION_FEE":
-            if (
-                self.quantity != 1
-                or self.unit_amount != "10.00"
-                or self.total_amount != "10.00"
-                or self.schedule_version != "buyer_txn_demo_v1"
-                or self.demo_policy_label != "DEMO_ONLY"
-            ):
-                raise ValueError("invalid demo transaction fee line item")
-        elif self.schedule_version is not None or self.demo_policy_label is not None:
-            raise ValueError("non-fee receipt lines cannot carry fee policy metadata")
-        return self
-
-
-class ReceiptProjection(StrictModel):
-    schema_version: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")
-    receipt_id: Identifier
-    purchase_id: Identifier
-    purchase_intent_id: Identifier
-    request_id: Identifier
-    decision_id: Identifier
-    decision_version: int = Field(ge=1)
-    decision_hash: HashValue
-    selection_id: Identifier
-    solution_plan_id: Identifier
-    pack_id: Identifier
-    pack_version: int = Field(ge=1)
-    offer_id: Identifier
-    offer_version: int = Field(ge=1)
-    quote_id: Identifier
-    quote_version: int = Field(ge=1)
-    approval_request_id: Identifier
-    approval_intent_hash: HashValue
-    prava_session_reference: Identifier
-    prava_order_reference: Identifier
-    merchant_order_id: Identifier
-    merchant: MerchantView
-    line_items: list[ReceiptLineItem] = Field(min_length=2)
-    merchant_subtotal: Literal["980.00"]
-    buyer_transaction_fee: Literal["10.00"]
-    fee_schedule_version: Literal["buyer_txn_demo_v1"]
-    tax_amount: Literal["0.00"]
-    amount: Literal["990.00"]
-    currency: Currency
-    payment_status: Literal["PRAVA_COMPLETED"]
-    fulfillment_status: Literal["VERIFIED"]
-    entitlement_ids: list[Identifier] = Field(min_length=1)
-    stack_patch_id: Identifier
-    stack_patch_status: Literal["STAGED"]
-    issued_at: datetime
-    environment: Literal["fixture", "sandbox", "production"]
-    adapter_label: str = Field(min_length=1, max_length=100)
-    production_success: bool
-
-    @model_validator(mode="after")
-    def validate_fee_and_fixture_provenance(self) -> ReceiptProjection:
-        fees = [item for item in self.line_items if item.type == "SIRA_TRANSACTION_FEE"]
-        subtotals = [item for item in self.line_items if item.type == "MERCHANT_SUBTOTAL"]
-        if len(fees) != 1 or len(subtotals) != 1 or subtotals[0].total_amount != "980.00":
-            raise ValueError("receipt must itemize one merchant subtotal and one buyer fee")
-        if self.environment == "fixture" and (
-            self.adapter_label != "DEVELOPMENT_FIXTURE_NOT_PRODUCTION" or self.production_success
-        ):
-            raise ValueError("fixture receipts cannot claim production success")
-        return self
 
 
 class DecisionView(StrictModel):
@@ -566,10 +411,8 @@ class DecisionView(StrictModel):
     selected_action_plan: SelectedActionPlan | None = None
     stack_change: StackChangeProjection | None = None
     approval: ApprovalProjection | None = None
-    payment: PaymentProjection | None = None
-    fulfillment: FulfillmentProjection | None = None
+    payment_handoff: PaymentHandoffProjection | None = None
     result_artifacts: list[ResultArtifact]
-    receipt: ReceiptProjection | None = None
 
 
 class FrozenVersions(StrictModel):
@@ -894,8 +737,7 @@ class ActionRunView(StrictModel):
     blocking_task: BlockingTask | None = None
     recovery_action: ActionDescriptor | None = None
     execution_steps: list[ExecutionStep] = Field(min_length=1)
-    payment: PaymentProjection | None
-    fulfillment: FulfillmentProjection | None
+    payment_handoff: PaymentHandoffProjection | None
     result_artifacts: list[ResultArtifact]
     created_at: datetime
     updated_at: datetime

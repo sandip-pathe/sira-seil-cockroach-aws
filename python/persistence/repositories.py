@@ -30,19 +30,16 @@ from .models import (
     DecisionSourceSnapshot,
     DiscoveryRun,
     Engagement,
-    Entitlement,
     EvaluationPipelineVersion,
     EvaluationRun,
     EvaluationSolutionPlan,
     EvidenceAssessmentRecord,
     IdempotencyRecord,
     IdentityMerge,
-    MerchantOrder,
     OutboxEvent,
-    PaymentSession,
+    PaymentHandoff,
     PurchaseIntent,
     PurchaseRequest,
-    Receipt,
     RequirementBriefVersion,
     ResultArtifact,
     RobustnessFrontier,
@@ -51,7 +48,6 @@ from .models import (
     SolutionPlanComponent,
     StackPatch,
     StackSnapshot,
-    TransactionTransition,
 )
 
 
@@ -660,14 +656,6 @@ class WorkflowRepository:
                     StackPatch.organization_id == self.organization_id,
                 ),
             )
-        if record.receipt_id is not None:
-            await _one_or_missing(
-                self.session,
-                select(Receipt.id).where(
-                    Receipt.id == record.receipt_id,
-                    Receipt.organization_id == self.organization_id,
-                ),
-            )
         self._assert_payload_hash(record.payload, record.artifact_hash, "result artifact")
         self.session.add(record)
         await self.add_outbox(
@@ -729,78 +717,6 @@ class WorkflowRepository:
         )
         return record
 
-    async def transition_purchase_intent(
-        self,
-        *,
-        intent_id: str,
-        state_field: str,
-        allowed_from: set[str],
-        to_state: str,
-        event_key: str,
-        actor_type: str,
-        actor_id: str,
-        reason_code: str,
-        payload_hash: str,
-        attempt_id: str | None = None,
-        provider_event_ref: str | None = None,
-    ) -> PurchaseIntent:
-        if state_field not in {"approval_status", "payment_status", "fulfillment_status"}:
-            raise ValueError("Unsupported state field")
-
-        intent = await self.get_purchase_intent(intent_id, lock=True)
-        current = str(getattr(intent, state_field))
-        duplicate = (
-            await self.session.execute(
-                select(TransactionTransition).where(
-                    TransactionTransition.organization_id == self.organization_id,
-                    TransactionTransition.purchase_intent_id == intent_id,
-                    TransactionTransition.event_key == event_key,
-                )
-            )
-        ).scalar_one_or_none()
-        if duplicate is not None:
-            if duplicate.to_state != to_state or duplicate.payload_hash != payload_hash:
-                raise PersistenceConflict(
-                    "A transition event key was replayed with different semantics"
-                )
-            return intent
-
-        if current not in allowed_from:
-            raise PersistenceConflict(
-                f"Transition {state_field} {current!r} -> {to_state!r} is not allowed"
-            )
-
-        setattr(intent, state_field, to_state)
-        transition = TransactionTransition(
-            id=new_id("tr"),
-            organization_id=self.organization_id,
-            purchase_intent_id=intent_id,
-            from_state=current,
-            to_state=to_state,
-            attempt_id=attempt_id,
-            actor_type=actor_type,
-            actor_id=actor_id,
-            reason_code=reason_code,
-            event_key=event_key,
-            provider_event_ref=provider_event_ref,
-            payload_hash=payload_hash,
-        )
-        self.session.add(transition)
-        await self.add_outbox(
-            aggregate_type="purchase_intent",
-            aggregate_id=intent_id,
-            event_type=f"purchase_intent.{state_field}.changed",
-            event_key=f"outbox:{event_key}",
-            payload={
-                "purchase_intent_id": intent_id,
-                "state_field": state_field,
-                "from": current,
-                "to": to_state,
-                "transition_id": transition.id,
-            },
-        )
-        return intent
-
     async def supersede_approval_for_mutation(
         self, *, intent_id: str, current_intent_hash: str, mutation_event_key: str
     ) -> None:
@@ -849,20 +765,7 @@ class WorkflowRepository:
             )
         ).scalars()
         superseded = 0
-        safe_pre_checkout_states = {
-            "NOT_STARTED",
-            "SESSION_CREATED",
-            "CARDHOLDER_PENDING",
-            "DECLINED",
-            "EXPIRED",
-            "FAILED",
-        }
         for intent in intents:
-            if intent.payment_status not in safe_pre_checkout_states:
-                raise PersistenceConflict(
-                    "A Decision cannot change while an older intent has an in-flight, paid, "
-                    "or uncertain checkout."
-                )
             changed = intent.approval_status in {"NOT_REQUESTED", "PENDING", "APPROVED"}
             if changed:
                 intent.approval_status = "SUPERSEDED"
@@ -875,18 +778,17 @@ class WorkflowRepository:
                     )
                     .values(status="SUPERSEDED")
                 )
-            if intent.payment_status in {"SESSION_CREATED", "CARDHOLDER_PENDING"}:
-                intent.payment_status = "EXPIRED"
-                await self.session.execute(
-                    update(PaymentSession)
-                    .where(
-                        PaymentSession.organization_id == self.organization_id,
-                        PaymentSession.purchase_intent_id == intent.id,
-                        PaymentSession.status.in_(["SESSION_CREATED", "CARDHOLDER_PENDING"]),
-                    )
-                    .values(status="EXPIRED")
+            cancelled = await self.session.execute(
+                update(PaymentHandoff)
+                .where(
+                    PaymentHandoff.organization_id == self.organization_id,
+                    PaymentHandoff.purchase_intent_id == intent.id,
+                    PaymentHandoff.status == "READY",
                 )
-                changed = True
+                .values(status="CANCELLED")
+            )
+            changed = changed or bool(cancelled.rowcount)
+
             if not changed:
                 continue
             await self.add_outbox(
@@ -973,25 +875,6 @@ class WorkflowRepository:
         if lock:
             statement = statement.with_for_update()
         return await _one_or_missing(self.session, statement)
-
-    async def add_merchant_order(self, order: MerchantOrder) -> MerchantOrder:
-        self._assert_tenant(order.organization_id)
-        self.session.add(order)
-        return order
-
-    async def add_entitlement(self, entitlement: Entitlement) -> Entitlement:
-        self._assert_tenant(entitlement.organization_id)
-        self.session.add(entitlement)
-        return entitlement
-
-    async def get_receipt(self, receipt_id: str) -> Receipt:
-        return await _one_or_missing(
-            self.session,
-            select(Receipt).where(
-                Receipt.id == receipt_id,
-                Receipt.organization_id == self.organization_id,
-            ),
-        )
 
     async def get_stack_snapshot(self, *, version: int | None = None) -> StackSnapshot:
         statement = select(StackSnapshot).where(

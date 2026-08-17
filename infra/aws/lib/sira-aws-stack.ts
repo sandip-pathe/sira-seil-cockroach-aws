@@ -471,10 +471,6 @@ export class SiraAwsStack extends cdk.Stack {
           runtimeSecret,
           "SIRA_CATALOG_DATABASE_URL",
         ),
-        BROWSER_RETURN_SIGNING_KEY: ecs.Secret.fromSecretsManager(
-          runtimeSecret,
-          "BROWSER_RETURN_SIGNING_KEY",
-        ),
         GUEST_SESSION_SIGNING_KEY: ecs.Secret.fromSecretsManager(
           runtimeSecret,
           "GUEST_SESSION_SIGNING_KEY",

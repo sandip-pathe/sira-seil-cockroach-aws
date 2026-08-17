@@ -94,30 +94,6 @@ ENUMS = {
         "EXPIRED",
         "SUPERSEDED",
     ],
-    "PaymentStatus": [
-        "NOT_REQUIRED",
-        "NOT_STARTED",
-        "SESSION_CREATED",
-        "CARDHOLDER_PENDING",
-        "CHECKOUT_PENDING",
-        "MERCHANT_APPROVED",
-        "REPORTING",
-        "PRAVA_COMPLETED",
-        "DECLINED",
-        "EXPIRED",
-        "UNCERTAIN",
-        "FAILED",
-    ],
-    "FulfillmentStatus": [
-        "NOT_REQUIRED",
-        "NOT_STARTED",
-        "PENDING",
-        "PARTIAL",
-        "VERIFIED",
-        "FAILED_RETRYABLE",
-        "FAILED_FINAL",
-        "REVOKED",
-    ],
     "RequestVisibility": ["PRIVATE", "SELECTIVE", "OPEN_RFP"],
     "ActorRole": [
         "REQUESTER",
@@ -125,7 +101,6 @@ ENUMS = {
         "POLICY_REVIEWER",
         "BUDGET_OWNER",
         "PROCUREMENT",
-        "CARDHOLDER",
         "IT_OPERATIONS",
         "AUDITOR",
         "SELLER_EDITOR",
@@ -146,9 +121,8 @@ ENUMS = {
         "ACCEPT_EXCEPTION",
         "APPROVE_POLICY",
         "APPROVE_BUDGET",
-        "AUTHORIZE_PAYMENT",
+        "OPEN_PAYMENT_HANDOFF",
         "EXECUTE_CONFIGURATION",
-        "VERIFY_FULFILLMENT",
         "PROVIDE_OUTCOME",
         "EXPORT_AUDIT",
         "EDIT_PRODUCT_EVIDENCE",
@@ -194,8 +168,6 @@ ENUMS = {
         "CONFIGURATION_CHANGE",
         "CONTRACT_CONFIRMATION",
         "CANCELLATION_CONFIRMATION",
-        "ORDER",
-        "ENTITLEMENT",
         "MIGRATION_RECORD",
         "STACK_PATCH",
         "OUTCOME_CHECKPOINT",
@@ -217,7 +189,7 @@ def registry_and_schemas() -> tuple[Registry, dict[str, dict[str, Any]]]:
 
 def test_every_schema_is_valid_draft_2020_12() -> None:
     _registry, schemas = registry_and_schemas()
-    assert len(schemas) == 23
+    assert len(schemas) == 21
     assert len({schema["$id"] for schema in schemas.values()}) == len(schemas)
     for schema in schemas.values():
         validator_for(schema).check_schema(schema)
@@ -269,10 +241,7 @@ def test_every_demo_document_validates_against_frozen_schema() -> None:
         (DEMO / "expected_calibration_run.json", "calibration.schema.json"),
         (DEMO / "expected_decision_ledger.json", "decision-ledger.schema.json"),
         (DEMO / "expected_decision_view.json", "decision-view.schema.json"),
-        (DEMO / "expected_entitlement.json", "entitlement.schema.json"),
-        (DEMO / "expected_seat_entitlement.json", "entitlement.schema.json"),
         (DEMO / "expected_purchase_intent.json", "purchase-intent.schema.json"),
-        (DEMO / "expected_receipt.json", "receipt.schema.json"),
         (DEMO / "expected_selective_engagement.json", "engagement.schema.json"),
         (DEMO / "expected_stack_patch.json", "stack-patch.schema.json"),
     ]
@@ -288,7 +257,7 @@ def test_every_demo_document_validates_against_frozen_schema() -> None:
     assignments.extend(
         (path, "seil-pack.schema.json") for path in sorted((DEMO / "packs").glob("*.json"))
     )
-    assert len(assignments) >= 27
+    assert len(assignments) >= 24
 
     for document_path, schema_name in assignments:
         schema = schemas[schema_name]
@@ -317,8 +286,7 @@ def test_decision_view_is_action_neutral_and_server_owned() -> None:
         "selected_action_plan",
         "stack_change",
         "approval",
-        "payment",
-        "fulfillment",
+        "payment_handoff",
         "result_artifacts",
     } <= set(schema["required"])
     assert schema["$defs"]["SolutionOption"]["properties"]["action_type"] == {
@@ -337,22 +305,6 @@ def test_decision_view_is_action_neutral_and_server_owned() -> None:
         "stage_history",
         "version_links",
     ]
-
-
-def test_fee_contract_is_one_versioned_buyer_line_item() -> None:
-    common = load(SCHEMAS / "common.schema.json")
-    fee_rule = common["$defs"]["LineItem"]["allOf"][0]["then"]["properties"]
-    assert fee_rule["unit_amount"]["const"] == "10.00"
-    assert fee_rule["total_amount"]["const"] == "10.00"
-    assert fee_rule["schedule_version"]["const"] == "buyer_txn_demo_v1"
-
-    for name in ("purchase-intent.schema.json", "receipt.schema.json"):
-        schema = load(SCHEMAS / name)
-        assert schema["properties"]["amount"]["const"] == "990.00"
-        assert schema["properties"]["currency"]["const"] == "USD"
-        line_items = schema["properties"]["line_items"]
-        fee_constraints = line_items.get("allOf", [line_items])
-        assert any(item.get("maxContains") == 1 for item in fee_constraints)
 
 
 def test_required_api_paths_are_frozen_in_openapi() -> None:
@@ -396,12 +348,10 @@ def test_required_api_paths_are_frozen_in_openapi() -> None:
         "/v1/approval-requests/{approval_id}/approve": {"post"},
         "/v1/approval-requests/{approval_id}/reject": {"post"},
         "/v1/approval-requests/{approval_id}/revoke": {"post"},
-        "/v1/purchase-intents/{intent_id}/prava-sessions": {"post"},
-        "/v1/prava/browser-return": {"get"},
+        "/v1/purchase-intents/{intent_id}/payment-handoff": {"post"},
+        "/v1/payment-handoffs/{handoff_id}/open": {"post"},
         "/v1/purchase-intents/{intent_id}/status": {"get"},
-        "/v1/purchase-intents/{intent_id}/reversals": {"post"},
         "/v1/purchase-intents/{intent_id}/outcome-checkpoints": {"post"},
-        "/v1/purchases/{purchase_id}/receipt": {"get"},
         "/v1/organizations/{organization_id}/stackfile": {"get"},
     }
     paths = app.openapi()["paths"]
@@ -415,15 +365,3 @@ def test_checked_in_openapi_has_no_drift() -> None:
 
     checked_in = load(ROOT / "contracts" / "openapi" / "openapi.json")
     assert checked_in == app.openapi()
-
-
-def test_fixture_labels_cannot_claim_production_success() -> None:
-    for name in (
-        "expected_entitlement.json",
-        "expected_seat_entitlement.json",
-        "expected_receipt.json",
-    ):
-        document = load(DEMO / name)
-        serialized = json.dumps(document, sort_keys=True)
-        assert "DEVELOPMENT_FIXTURE_NOT_PRODUCTION" in serialized
-        assert document.get("production_success", False) is False

@@ -41,9 +41,6 @@ from .schemas import (
     OutcomeCheckpointCreate,
     OutcomeCheckpointView,
     PaymentHandoffView,
-    PravaBrowserReturnCreate,
-    PravaSessionCreate,
-    PravaSessionView,
     ProposalDecisionCreate,
     ProposalDecisionView,
     PurchaseBriefView,
@@ -52,10 +49,7 @@ from .schemas import (
     PurchaseRequestCreate,
     PurchaseRequestView,
     PurchaseStatusView,
-    ReceiptView,
     RequirementBriefView,
-    ReversalCreate,
-    ReversalView,
     StackfileView,
     WorkflowAccepted,
     WorkflowView,
@@ -152,56 +146,6 @@ async def create_purchase_request(
     )
     response.status_code = response_status
     return payload
-
-
-@router.post(
-    "/v1/purchase-intents/{intent_id}/prava-sessions",
-    response_model=PravaSessionView,
-    status_code=status.HTTP_201_CREATED,
-    tags=["commerce"],
-    deprecated=True,
-)
-async def create_prava_session(
-    intent_id: str,
-    body: PravaSessionCreate,
-    context: ContextDependency,
-    service: ServiceDependency,
-    idempotency_key: IdempotencyDependency,
-    response: Response,
-) -> dict[str, object]:
-    require_human_identity(context)
-    require_permission(context, "can_execute_purchase", require_step_up=True)
-    response_status, payload = await service.create_prava_session(
-        organization_id=context.organization_id,
-        actor_id=context.actor_id,
-        intent_id=intent_id,
-        idempotency_key=idempotency_key,
-        body=body.model_dump(mode="json"),
-    )
-    response.status_code = response_status
-    return payload
-
-
-@router.post(
-    "/v1/prava/browser-return",
-    response_model=WorkflowAccepted,
-    status_code=status.HTTP_202_ACCEPTED,
-    tags=["commerce"],
-    deprecated=True,
-    include_in_schema=False,
-)
-async def accept_prava_browser_return(
-    body: PravaBrowserReturnCreate,
-    context: ContextDependency,
-    service: ServiceDependency,
-) -> dict[str, object]:
-    require_human_identity(context)
-    require_permission(context, "can_execute_purchase")
-    return await service.accept_prava_browser_return(
-        organization_id=context.organization_id,
-        actor_id=context.actor_id,
-        body=body.model_dump(mode="json"),
-    )
 
 
 @router.get(
@@ -687,33 +631,6 @@ async def purchase_status(
 
 
 @router.post(
-    "/v1/purchase-intents/{intent_id}/reversals",
-    response_model=ReversalView,
-    status_code=status.HTTP_202_ACCEPTED,
-    tags=["commerce"],
-)
-async def request_purchase_reversal(
-    intent_id: str,
-    body: ReversalCreate,
-    context: ContextDependency,
-    service: ServiceDependency,
-    idempotency_key: IdempotencyDependency,
-    response: Response,
-) -> dict[str, object]:
-    require_human_identity(context)
-    require_permission(context, "can_execute_purchase", require_step_up=True)
-    response_status, payload = await service.request_reversal(
-        organization_id=context.organization_id,
-        actor_id=context.actor_id,
-        intent_id=intent_id,
-        idempotency_key=idempotency_key,
-        body=body.model_dump(mode="json"),
-    )
-    response.status_code = response_status
-    return payload
-
-
-@router.post(
     "/v1/purchase-intents/{intent_id}/outcome-checkpoints",
     response_model=OutcomeCheckpointView,
     status_code=status.HTTP_201_CREATED,
@@ -738,14 +655,6 @@ async def record_purchase_outcome(
     )
     response.status_code = response_status
     return payload
-
-
-@router.get("/v1/purchases/{purchase_id}/receipt", response_model=ReceiptView, tags=["commerce"])
-async def get_receipt(
-    purchase_id: str, context: ContextDependency, service: ServiceDependency
-) -> dict[str, object]:
-    require_permission(context, "can_view_context")
-    return await service.get_receipt(context.organization_id, purchase_id)
 
 
 @router.get(

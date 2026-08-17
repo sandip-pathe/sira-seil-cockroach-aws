@@ -246,7 +246,7 @@ class WorkspaceService:
         self.fixtures = fixtures
         self.api_key = api_key
         self.seil_api_key = seil_api_key or api_key
-        self.seil_backup_api_key = (
+        self.seil_backup_api_key = (  # pragma: allowlist secret
             api_key if api_key and self.seil_api_key and api_key != self.seil_api_key else ""
         )
         self._seil_backup_active = False

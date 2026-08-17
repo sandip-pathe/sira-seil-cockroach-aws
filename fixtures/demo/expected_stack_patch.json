@@ -76,12 +76,12 @@
   ],
   "prerequisites": [
     "Exact Purchase Intent approval is current.",
-    "Payment reaches PRAVA_COMPLETED.",
+    "The approved payment handoff is opened by an authorized user.",
     "Workspace and ten-seat entitlements are verified."
   ],
   "rollback_plan": [
     "Do not activate the staged instance if entitlement verification fails.",
-    "Revoke the staged instance and integration edges after a confirmed full refund."
+    "Revoke the staged instance and integration edges if the external purchase is cancelled."
   ],
   "cost_impact": {
     "monthly_delta": "82.50",
