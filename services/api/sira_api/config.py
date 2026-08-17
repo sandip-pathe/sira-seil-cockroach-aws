@@ -81,6 +81,12 @@ class ApiSettings(BaseSettings):
     agent_runtime_provider: Literal["bedrock", "openai"] = Field(
         default="openai", validation_alias="AGENT_RUNTIME_PROVIDER"
     )
+    cognitive_kernel_enabled: bool = Field(
+        default=False, validation_alias="COGNITIVE_KERNEL_ENABLED"
+    )
+    principal_isolation_enabled: bool = Field(
+        default=False, validation_alias="PRINCIPAL_ISOLATION_ENABLED"
+    )
     bedrock_chat_model_id: str = Field(
         default="amazon.nova-micro-v1:0",
         validation_alias="BEDROCK_CHAT_MODEL_ID",
@@ -127,6 +133,10 @@ class ApiSettings(BaseSettings):
             self.guest_session_signing_secret()
         if self.agent_runtime_provider != "bedrock":
             raise ValueError("production requires AGENT_RUNTIME_PROVIDER=bedrock")
+        if self.cognitive_kernel_enabled and not self.principal_isolation_enabled:
+            raise ValueError(
+                "production COGNITIVE_KERNEL_ENABLED requires PRINCIPAL_ISOLATION_ENABLED=true"
+            )
 
     def guest_session_signing_secret(self) -> str:
         value = self.guest_session_signing_key.get_secret_value()

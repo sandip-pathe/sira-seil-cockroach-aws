@@ -103,6 +103,19 @@ def test_production_configuration_requires_cockroachdb() -> None:
         )
 
 
+def test_production_rejects_cognitive_kernel_before_principal_isolation() -> None:
+    with pytest.raises(ValidationError, match="PRINCIPAL_ISOLATION_ENABLED=true"):
+        ApiSettings(
+            app_env="production",
+            database_url="cockroachdb+asyncpg://sira_app@db.example:26257/sira?ssl=verify-full",
+            development_fixture_mode=False,
+            demo_reset_enabled=False,
+            agent_runtime_provider="bedrock",
+            cognitive_kernel_enabled=True,
+            principal_isolation_enabled=False,
+        )
+
+
 def test_production_identity_configuration_is_explicit() -> None:
     with pytest.raises(ValueError, match="IDENTITY_INTROSPECTION_URL"):
         production_settings().assert_identity_configuration()

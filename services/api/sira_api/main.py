@@ -21,7 +21,13 @@ from sira_agents.bedrock_runtime import (
     bedrock_tools_from_function_tools,
     create_bedrock_client,
 )
+from sira_agents.cognitive_runtime import (
+    BedrockCognitiveRuntime,
+    DeterministicCognitiveRuntime,
+)
 from sira_agents.commerce_tools import commerce_tool_registry
+from sira_agents.run_engine import RunEngine
+from sira_agents.tool_broker import ToolBroker
 from sira_agents.workspace_tools import workspace_tool_registry
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import Response
@@ -243,6 +249,19 @@ def create_app(
                     else None
                 ),
             )
+        cognitive_engine = None
+        if resolved_settings.cognitive_kernel_enabled:
+            cognitive_runtime = (
+                BedrockCognitiveRuntime(workspace_runtime)
+                if workspace_runtime is not None
+                else DeterministicCognitiveRuntime()
+            )
+            cognitive_engine = RunEngine(
+                database=resolved_database,
+                runtime=cognitive_runtime,
+                broker=ToolBroker({}),
+                handlers={},
+            )
         application.state.workflow_service = workflow_service
         application.state.seller_evidence_service = seller_evidence_service
         application.state.qualification_service = QualificationService(
@@ -270,6 +289,7 @@ def create_app(
             database=resolved_database,
             runtime=workspace_runtime,
             runtime_provider=resolved_settings.agent_runtime_provider,
+            cognitive_engine=cognitive_engine,
         )
         yield
         close_identity = getattr(resolved_identity_adapter, "aclose", None)

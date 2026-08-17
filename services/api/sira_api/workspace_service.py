@@ -16,7 +16,9 @@ from uuid import uuid4
 from openai import AuthenticationError, RateLimitError
 from pydantic import ValidationError
 from sira_agents.commerce_tools import SEIL_TOOL_NAMES, SIRA_TOOL_NAMES, commerce_tool_registry
+from sira_agents.kernel_models import Principal
 from sira_agents.mission_models import MissionTurnOutput
+from sira_agents.run_engine import RunEngine, TurnCommand, TurnResult
 from sira_agents.runtime import (
     AgentRole,
     AgentRunContext,
@@ -27,6 +29,7 @@ from sira_agents.runtime import (
 )
 from sira_agents.workspace_tools import workspace_tool_registry
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from persistence.database import Database
 from persistence.mission_repository import MissionRepository, MissionSnapshot
@@ -242,6 +245,7 @@ class WorkspaceService:
         seil_web_researcher: SeilWebResearcher | None = None,
         runtime: AgentRuntime | None = None,
         runtime_provider: str = "openai",
+        cognitive_engine: RunEngine | None = None,
     ) -> None:
         self.fixtures = fixtures
         self.api_key = api_key
@@ -263,7 +267,10 @@ class WorkspaceService:
         tools = {**workspace_tool_registry(), **commerce_tool_registry()}
         self.runtime = runtime or OpenAIAgentsRuntime(model=model, tools=tools)
         self.runtime_provider = runtime_provider if runtime is not None else "openai"
-        self.runtime_ready = runtime is not None or bool(self.api_key)
+        self.cognitive_engine = cognitive_engine
+        self.runtime_ready = (
+            cognitive_engine is not None or runtime is not None or bool(self.api_key)
+        )
         runtime_tools = getattr(self.runtime, "tools", tools)
         self.available_tool_names = frozenset(runtime_tools)
 
@@ -370,6 +377,12 @@ class WorkspaceService:
             body=body,
             run_context=run_context,
         )
+        if self.cognitive_engine is not None:
+            return await self._chat_with_cognitive_kernel(
+                body=body,
+                mission_id=mission_id,
+                run_context=run_context,
+            )
         if self._routes_to_marketplace_discovery(body):
             return await self._run_marketplace_discovery_turn(
                 body=body,
@@ -532,6 +545,94 @@ class WorkspaceService:
             "attention": answer.attention.model_dump(mode="json") if answer.attention else None,
             "advisory_only": False,
         }
+
+    async def _chat_with_cognitive_kernel(
+        self,
+        *,
+        body: WorkspaceChatCreate,
+        mission_id: str,
+        run_context: AgentRunContext,
+    ) -> dict[str, Any]:
+        if self.cognitive_engine is None:
+            raise RuntimeError("cognitive engine is not configured")
+        request_key = run_context.request_id or uuid4().hex
+        result = await self.cognitive_engine.process(
+            TurnCommand(
+                organization_id=run_context.organization_id,
+                actor_id=run_context.actor_id,
+                principal=Principal.SIRA if body.mode == "sira" else Principal.SEIL,
+                purpose="software_selection" if body.mode == "sira" else "seller_evidence",
+                conversation_id=mission_id,
+                turn_id=request_key,
+                idempotency_key=request_key,
+                message=body.message,
+                recent_messages=tuple(
+                    {"role": item.role, "content": item.content} for item in body.history[-20:]
+                ),
+            )
+        )
+        snapshot = await self._persist_kernel_projection(
+            mission_id=mission_id,
+            result=result,
+            run_context=run_context,
+            turn_key=request_key,
+        )
+        return {
+            "conversation_id": mission_id,
+            "mission_id": mission_id,
+            "message": result.message,
+            "follow_up_required": result.status == "WAITING",
+            "panel": None,
+            "products": [],
+            "tool_calls": [],
+            "proposals": [],
+            "mission": snapshot["mission"],
+            "events": snapshot["events"],
+            "artifacts": snapshot["artifacts"],
+            "attention": None,
+            "advisory_only": False,
+        }
+
+    async def _persist_kernel_projection(
+        self,
+        *,
+        mission_id: str,
+        result: TurnResult,
+        run_context: AgentRunContext,
+        turn_key: str,
+    ) -> dict[str, Any]:
+        if self.database is None:
+            return {
+                "mission": {
+                    "id": mission_id,
+                    "mode": "sira",
+                    "goal": result.message,
+                    "state": "PAUSED" if result.status == "WAITING" else result.status,
+                    "version": 1,
+                    "plan": [],
+                    "stop_reason": None,
+                },
+                "events": [],
+                "artifacts": [],
+            }
+
+        async def work(session: AsyncSession) -> dict[str, Any]:
+            repository = MissionRepository(session, run_context.organization_id)
+            mission = await repository.get_for_actor(mission_id, run_context.actor_id, lock=True)
+            mission.state = "PAUSED" if result.status == "WAITING" else result.status
+            mission.version += 1
+            await repository.append_event(
+                mission,
+                event_type="assistant.message",
+                event_key=f"assistant-message:{mission.id}:{turn_key}",
+                actor_type="ROOT_AGENT",
+                actor_id=f"{mission.mode.lower()}-agent",
+                payload={"message": result.message, "cognitive_run_id": result.run_id},
+            )
+            await repository.checkpoint(mission)
+            return self._snapshot_view(await repository.snapshot(mission))
+
+        return await self.database.run_retryable(run_context.organization_id, work)
 
     @staticmethod
     def _routes_to_marketplace_discovery(body: WorkspaceChatCreate) -> bool:
@@ -899,7 +1000,10 @@ class WorkspaceService:
                     for item in body.history[-20:]
                 ],
             }
-        async with self.database.transaction(run_context.organization_id) as session:
+        requested_mission_id = mission_id
+        turn_key = run_context.request_id or uuid4().hex
+
+        async def work(session: AsyncSession) -> tuple[str, dict[str, Any]]:
             organization = await session.get(Organization, run_context.organization_id)
             if organization is None and run_context.organization_id.startswith(
                 ("org_guest_", "org_user_")
@@ -917,10 +1021,11 @@ class WorkspaceService:
                 )
                 await session.flush()
             repository = MissionRepository(session, run_context.organization_id)
-            if mission_id is None:
-                mission_id = f"msn_{uuid4().hex}"
+            resolved_mission_id = requested_mission_id
+            if resolved_mission_id is None:
+                resolved_mission_id = f"msn_{uuid4().hex}"
                 mission = await repository.create(
-                    mission_id=mission_id,
+                    mission_id=resolved_mission_id,
                     actor_id=run_context.actor_id,
                     mode=body.mode.upper(),
                     goal=body.message,
@@ -933,11 +1038,11 @@ class WorkspaceService:
             else:
                 try:
                     mission = await repository.get_for_actor(
-                        mission_id, run_context.actor_id, lock=True
+                        resolved_mission_id, run_context.actor_id, lock=True
                     )
                 except RecordNotFound:
                     mission = await repository.create(
-                        mission_id=mission_id,
+                        mission_id=resolved_mission_id,
                         actor_id=run_context.actor_id,
                         mode=body.mode.upper(),
                         goal=body.message,
@@ -955,7 +1060,7 @@ class WorkspaceService:
             await repository.append_event(
                 mission,
                 event_type="user.message",
-                event_key=f"user-message:{mission.id}:{run_context.request_id or uuid4().hex}",
+                event_key=f"user-message:{mission.id}:{turn_key}",
                 actor_type="USER",
                 actor_id=run_context.actor_id,
                 payload={"message": body.message},
@@ -964,9 +1069,7 @@ class WorkspaceService:
                 await repository.append_event(
                     mission,
                     event_type="agent.accepted",
-                    event_key=(
-                        f"agent-accepted:{mission.id}:{run_context.request_id or uuid4().hex}"
-                    ),
+                    event_key=(f"agent-accepted:{mission.id}:{turn_key}"),
                     actor_type="SYSTEM",
                     actor_id="mission-runtime",
                     payload={
@@ -976,6 +1079,8 @@ class WorkspaceService:
                 )
             snapshot = await repository.snapshot(mission)
             return mission.id, snapshot.model_context()
+
+        return await self.database.run_retryable(run_context.organization_id, work)
 
     async def _mission_context(
         self, *, mission_id: str, run_context: AgentRunContext
