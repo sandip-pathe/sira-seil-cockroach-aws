@@ -25,6 +25,11 @@ class ExchangeRoute(BaseModel):
     merchant_url: str = Field(pattern=r"^https://", max_length=2000)
     buyer_organization_id: str = Field(min_length=1, max_length=64)
     seller_organization_id: str = Field(min_length=1, max_length=64)
+    development_guest_organization_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+    )
     expires_at: datetime
 
 
@@ -58,9 +63,12 @@ class ExchangeRouteCodec:
             raise ValueError("now must include a timezone")
         if current >= route.expires_at:
             raise ExchangeRouteError("exchange route has expired")
-        if organization_id not in {
+        permitted_organizations = {
             route.buyer_organization_id,
             route.seller_organization_id,
-        }:
+        }
+        if route.development_guest_organization_id is not None:
+            permitted_organizations.add(route.development_guest_organization_id)
+        if organization_id not in permitted_organizations:
             raise ExchangeRouteError("exchange route belongs to another organization")
         return route

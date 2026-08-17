@@ -60,6 +60,7 @@ async def create_exchange_case(
         idempotency_key=idempotency_key,
         purchase_request_id=body.purchase_request_id,
         candidate_id=body.candidate_id,
+        guest_identity=context.guest_identity,
     )
 
 
@@ -81,6 +82,7 @@ async def get_exchange_case(
         party=context.party,
         case_id=case_id,
         route_capability=route_capability,
+        guest_identity=context.guest_identity,
     )
 
 
@@ -109,6 +111,7 @@ async def publish_exchange_evidence(
         expected_version=body.expected_version,
         summary=body.summary,
         published_span_ids=body.published_span_ids,
+        guest_identity=context.guest_identity,
     )
 
 
@@ -141,6 +144,7 @@ async def propose_exchange_offer(
         rationale=body.rationale,
         changed_terms=body.changed_terms,
         expires_at=body.expires_at,
+        guest_identity=context.guest_identity,
     )
 
 
@@ -168,6 +172,7 @@ async def accept_exchange_offer(
         idempotency_key=idempotency_key,
         expected_version=body.expected_version,
         offer_hash=body.offer_hash,
+        guest_identity=context.guest_identity,
     )
 
 
@@ -196,6 +201,7 @@ async def approve_exchange_offer(
         expected_version=body.expected_version,
         offer_hash=body.offer_hash,
         approval_expires_at=body.approval_expires_at,
+        guest_identity=context.guest_identity,
     )
 
 
@@ -222,6 +228,7 @@ async def create_exchange_handoff(
         route_capability=route_capability,
         expected_version=body.expected_version,
         offer_hash=body.offer_hash,
+        guest_identity=context.guest_identity,
     )
 
 
@@ -248,4 +255,5 @@ async def open_exchange_handoff(
         route_capability=route_capability,
         handoff_id=handoff_id,
         handoff_hash=body.handoff_hash,
+        guest_identity=context.guest_identity,
     )

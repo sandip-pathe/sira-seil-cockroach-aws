@@ -229,6 +229,9 @@ def create_app(
             allow_development_tenant_bootstrap=(
                 resolved_settings.is_development or resolved_settings.guest_session_enabled
             ),
+            allow_development_guest_bridge=(
+                resolved_settings.is_development and resolved_settings.development_fixture_mode
+            ),
         )
         resolved_evidence_store = evidence_store
         if resolved_evidence_store is None and resolved_settings.s3_evidence_bucket.strip():

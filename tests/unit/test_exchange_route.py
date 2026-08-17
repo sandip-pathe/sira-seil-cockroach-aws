@@ -50,3 +50,24 @@ def test_route_rejects_expiry_and_tampering() -> None:
         codec.decode(token, organization_id="org-buyer", now=now)
     with pytest.raises(ExchangeRouteError, match="invalid"):
         codec.decode(f"{token[:-1]}x", organization_id="org-buyer", now=now)
+
+
+def test_development_guest_audience_is_explicit_and_opaque() -> None:
+    now = datetime(2026, 8, 18, tzinfo=UTC)
+    codec = ExchangeRouteCodec("x" * 32)
+    token = codec.encode(
+        ExchangeRoute(
+            case_id="case-1",
+            candidate_id="candidate-1",
+            product_id="product-1",
+            merchant_name="Seller",
+            merchant_url="https://seller.example.test/pay",
+            buyer_organization_id="org_guest_buyer",
+            seller_organization_id="org-seller",
+            development_guest_organization_id="org_guest_buyer",
+            expires_at=now + timedelta(hours=1),
+        )
+    )
+
+    assert "org_guest_buyer" not in token
+    assert codec.decode(token, organization_id="org_guest_buyer", now=now).case_id == "case-1"

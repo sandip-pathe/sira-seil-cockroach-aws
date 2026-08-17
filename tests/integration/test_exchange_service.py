@@ -3,12 +3,14 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+import pytest
+from sira_api.errors import ApiProblem
 from sira_api.exchange_service import ExchangeService
 from sira_api.marketplace import SellerPrincipalBinding, StaticSellerOrganizationDirectory
 
 from domain import content_hash
 from domain.evidence_pipeline import parse_evidence
-from domain.exchange_route import ExchangeRouteCodec
+from domain.exchange_route import ExchangeRoute, ExchangeRouteCodec
 from persistence.database import Database, DatabaseSettings
 from persistence.evidence_repository import EvidenceRepository
 from persistence.models import (
@@ -273,3 +275,60 @@ async def test_buyer_release_creates_distinct_safe_party_projections() -> None:
         assert opened["handoff_hash"] == handoff["handoff_hash"]
     finally:
         await database.close()
+
+
+async def test_guest_bridge_requires_explicit_development_policy() -> None:
+    now = datetime(2026, 8, 18, tzinfo=UTC)
+    codec = ExchangeRouteCodec("route-secret-material" * 2)
+    route = ExchangeRoute(
+        case_id="case-1",
+        candidate_id="candidate-1",
+        product_id="product-1",
+        merchant_name="Seller",
+        merchant_url="https://seller.example.test/pay",
+        buyer_organization_id="org_guest_browser",
+        seller_organization_id="org-seller",
+        development_guest_organization_id="org_guest_browser",
+        expires_at=now + timedelta(hours=1),
+    )
+    token = codec.encode(route)
+    denied = ExchangeService(
+        Database(DatabaseSettings(database_url="sqlite+aiosqlite:///:memory:")),
+        codec,
+        clock=lambda: now,
+    )
+    enabled = ExchangeService(
+        denied.database,
+        codec,
+        allow_development_guest_bridge=True,
+        clock=lambda: now,
+    )
+    try:
+        with pytest.raises(ApiProblem, match="authorized exchange participant"):
+            denied._decode_route(
+                organization_id="org_guest_browser",
+                party="SELLER",
+                case_id="case-1",
+                route_capability=token,
+                guest_identity=True,
+            )
+        with pytest.raises(ApiProblem, match="authorized exchange participant"):
+            enabled._decode_route(
+                organization_id="org_guest_browser",
+                party="SELLER",
+                case_id="case-1",
+                route_capability=token,
+                guest_identity=False,
+            )
+        assert (
+            enabled._decode_route(
+                organization_id="org_guest_browser",
+                party="SELLER",
+                case_id="case-1",
+                route_capability=token,
+                guest_identity=True,
+            )
+            == route
+        )
+    finally:
+        await denied.database.close()

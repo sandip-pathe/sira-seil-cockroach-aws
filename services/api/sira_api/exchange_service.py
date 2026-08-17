@@ -90,12 +90,14 @@ class ExchangeService:
         *,
         seller_directory: SellerOrganizationDirectory | None = None,
         allow_development_tenant_bootstrap: bool = False,
+        allow_development_guest_bridge: bool = False,
         clock: Any | None = None,
     ) -> None:
         self.database = database
         self.route_codec = route_codec
         self.seller_directory = seller_directory
         self.allow_development_tenant_bootstrap = allow_development_tenant_bootstrap
+        self.allow_development_guest_bridge = allow_development_guest_bridge
         self._clock = clock or (lambda: datetime.now(UTC))
 
     def _decode_route(
@@ -105,6 +107,7 @@ class ExchangeService:
         party: str | None,
         case_id: str,
         route_capability: str,
+        guest_identity: bool = False,
     ) -> ExchangeRoute:
         if party not in {"BUYER", "SELLER"}:
             raise ApiProblem(
@@ -131,13 +134,23 @@ class ExchangeService:
                 status_code=403,
             )
         expected = route.buyer_organization_id if party == "BUYER" else route.seller_organization_id
-        if organization_id != expected:
+        guest_seller_bridge = (
+            self.allow_development_guest_bridge
+            and guest_identity
+            and party == "SELLER"
+            and route.development_guest_organization_id == organization_id
+        )
+        if organization_id != expected and not guest_seller_bridge:
             raise ApiProblem(
                 code="EXCHANGE_PARTY_MISMATCH",
                 message="This identity is not the authorized exchange participant.",
                 status_code=403,
             )
         return route
+
+    @staticmethod
+    def _party_organization(route: ExchangeRoute, party: str | None) -> str:
+        return route.buyer_organization_id if party == "BUYER" else route.seller_organization_id
 
     async def _publish_compiled(self, route: ExchangeRoute, compiled: Any) -> None:
         async with self.database.transaction(route.seller_organization_id) as session:
@@ -190,6 +203,7 @@ class ExchangeService:
         idempotency_key: str,
         purchase_request_id: str,
         candidate_id: str,
+        guest_identity: bool = False,
     ) -> dict[str, Any]:
         if party != "BUYER":
             raise ApiProblem(
@@ -379,6 +393,13 @@ class ExchangeService:
             merchant_url=binding.merchant_url,
             buyer_organization_id=organization_id,
             seller_organization_id=seller_organization_id,
+            development_guest_organization_id=(
+                organization_id
+                if self.allow_development_guest_bridge
+                and guest_identity
+                and organization_id.startswith("org_guest_")
+                else None
+            ),
             expires_at=expires_at,
         )
         return {
@@ -395,15 +416,18 @@ class ExchangeService:
         party: str | None,
         case_id: str,
         route_capability: str,
+        guest_identity: bool = False,
     ) -> dict[str, Any]:
-        self._decode_route(
+        route = self._decode_route(
             organization_id=organization_id,
             party=party,
             case_id=case_id,
             route_capability=route_capability,
+            guest_identity=guest_identity,
         )
-        async with self.database.transaction(organization_id) as session:
-            projection = await BilateralRepository(session, organization_id).latest_projection(
+        party_organization = self._party_organization(route, party)
+        async with self.database.transaction(party_organization) as session:
+            projection = await BilateralRepository(session, party_organization).latest_projection(
                 case_id, party=cast(str, party)
             )
         return _projection(projection)
@@ -420,12 +444,14 @@ class ExchangeService:
         expected_version: int,
         summary: str,
         published_span_ids: list[str],
+        guest_identity: bool = False,
     ) -> dict[str, Any]:
         route = self._decode_route(
             organization_id=organization_id,
             party=party,
             case_id=case_id,
             route_capability=route_capability,
+            guest_identity=guest_identity,
         )
         if party != "SELLER":
             raise ApiProblem(
@@ -492,7 +518,7 @@ class ExchangeService:
                 compiled = await repository.apply_command(
                     exchange,
                     command,
-                    command_organization_id=organization_id,
+                    command_organization_id=route.seller_organization_id,
                 )
                 await repository.publish_projection(compiled.buyer_projection)
         except (PersistenceConflict, RecordNotFound, ValueError) as error:
@@ -516,12 +542,14 @@ class ExchangeService:
         rationale: str,
         changed_terms: list[str],
         expires_at: datetime,
+        guest_identity: bool = False,
     ) -> dict[str, Any]:
         route = self._decode_route(
             organization_id=organization_id,
             party=party,
             case_id=case_id,
             route_capability=route_capability,
+            guest_identity=guest_identity,
         )
         party_value = ExchangeParty(str(party))
         command_id = _stable_id("command", case_id, idempotency_key)
@@ -595,7 +623,7 @@ class ExchangeService:
                 compiled = await repository.apply_command(
                     exchange,
                     command,
-                    command_organization_id=organization_id,
+                    command_organization_id=self._party_organization(route, party),
                 )
                 await repository.publish_projection(compiled.buyer_projection)
         except (PersistenceConflict, RecordNotFound, ValueError) as error:
@@ -615,12 +643,14 @@ class ExchangeService:
         idempotency_key: str,
         expected_version: int,
         offer_hash: str,
+        guest_identity: bool = False,
     ) -> dict[str, Any]:
         route = self._decode_route(
             organization_id=organization_id,
             party=party,
             case_id=case_id,
             route_capability=route_capability,
+            guest_identity=guest_identity,
         )
         party_value = ExchangeParty(str(party))
         command_id = _stable_id("command", case_id, idempotency_key)
@@ -667,7 +697,7 @@ class ExchangeService:
                 compiled = await repository.apply_command(
                     exchange,
                     command,
-                    command_organization_id=organization_id,
+                    command_organization_id=self._party_organization(route, party),
                 )
                 await repository.publish_projection(compiled.buyer_projection)
         except (PersistenceConflict, RecordNotFound, ValueError) as error:
@@ -688,12 +718,14 @@ class ExchangeService:
         expected_version: int,
         offer_hash: str,
         approval_expires_at: datetime,
+        guest_identity: bool = False,
     ) -> dict[str, Any]:
         route = self._decode_route(
             organization_id=organization_id,
             party=party,
             case_id=case_id,
             route_capability=route_capability,
+            guest_identity=guest_identity,
         )
         if party != "BUYER":
             raise ApiProblem(
@@ -758,12 +790,14 @@ class ExchangeService:
         route_capability: str,
         expected_version: int,
         offer_hash: str,
+        guest_identity: bool = False,
     ) -> dict[str, Any]:
         route = self._decode_route(
             organization_id=organization_id,
             party=party,
             case_id=case_id,
             route_capability=route_capability,
+            guest_identity=guest_identity,
         )
         if party != "BUYER":
             raise ApiProblem(
@@ -835,12 +869,14 @@ class ExchangeService:
         route_capability: str,
         handoff_id: str,
         handoff_hash: str,
+        guest_identity: bool = False,
     ) -> dict[str, Any]:
         route = self._decode_route(
             organization_id=organization_id,
             party=party,
             case_id=case_id,
             route_capability=route_capability,
+            guest_identity=guest_identity,
         )
         if party != "BUYER":
             raise ApiProblem(
