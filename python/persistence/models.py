@@ -1348,6 +1348,57 @@ class ApprovalEvent(Base, TenantOwned):
     )
 
 
+class PaymentHandoff(Base, TenantOwned, Timestamped):
+    """Approved context for a human-operated payment step outside SIRA."""
+
+    __tablename__ = "payment_handoffs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    purchase_intent_id: Mapped[str] = mapped_column(
+        ForeignKey("purchase_intents.id", ondelete="RESTRICT"), nullable=False
+    )
+    approval_request_id: Mapped[str] = mapped_column(
+        ForeignKey("approval_requests.id", ondelete="RESTRICT"), nullable=False
+    )
+    intent_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    handoff_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    destination_url: Mapped[str] = mapped_column(Text, nullable=False)
+    recipient: Mapped[str] = mapped_column(String(200), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    reference: Mapped[str] = mapped_column(String(160), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="READY")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "handoff_hash", name="uq_payment_handoff_hash"),
+        UniqueConstraint(
+            "organization_id",
+            "purchase_intent_id",
+            "approval_request_id",
+            name="uq_payment_handoff_approval",
+        ),
+        CheckConstraint("amount >= 0", name="ck_payment_handoff_amount_nonnegative"),
+        CheckConstraint("currency = upper(currency)", name="ck_payment_handoff_currency_upper"),
+        CheckConstraint(
+            "status IN ('READY','OPENED','EXPIRED','CANCELLED')",
+            name="ck_payment_handoff_status",
+        ),
+        CheckConstraint(
+            "(status = 'OPENED' AND opened_at IS NOT NULL) OR "
+            "(status <> 'OPENED' AND opened_at IS NULL)",
+            name="ck_payment_handoff_opened_state",
+        ),
+        Index(
+            "ix_payment_handoff_intent_status",
+            "organization_id",
+            "purchase_intent_id",
+            "status",
+        ),
+    )
+
+
 class PaymentSession(Base, TenantOwned, Timestamped):
     __tablename__ = "payment_sessions"
 
