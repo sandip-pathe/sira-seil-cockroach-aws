@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-EXPECTED_ALEMBIC_HEADS: frozenset[str] = frozenset({"cdb0014"})
+EXPECTED_ALEMBIC_HEADS: frozenset[str] = frozenset({"cdb0015"})
 logger = logging.getLogger(__name__)
 
 _ORGANIZATION_ID = re.compile(r"[A-Za-z0-9_-]{1,48}\Z")

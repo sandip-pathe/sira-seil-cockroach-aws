@@ -1939,6 +1939,122 @@ class RuntimeTicketUse(Base, TenantOwned):
     )
 
 
+class BilateralExchangeCase(Base, TenantOwned, Timestamped):
+    """Coordinator authority stored in the buyer tenant; parties receive projections."""
+
+    __tablename__ = "bilateral_exchange_cases"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    seller_organization_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    state: Mapped[str] = mapped_column(String(40), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    coordinator_state: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    state_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    last_command_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('CREATED','REQUIREMENT_RELEASED','EVIDENCE_RELEASED','OFFERED',"
+            "'COUNTERED','AGREED_PENDING_APPROVAL','APPROVED_FOR_HANDOFF','REJECTED','EXPIRED')",
+            name="ck_bilateral_exchange_state",
+        ),
+        Index("ix_bilateral_exchange_state", "organization_id", "state", "updated_at"),
+    )
+
+
+class BilateralPartyCommand(Base, TenantOwned):
+    """Append-only command authored in exactly one party tenant."""
+
+    __tablename__ = "bilateral_party_commands"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    case_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    party: Mapped[str] = mapped_column(String(12), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    command_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    expected_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("party IN ('BUYER','SELLER','SYSTEM')", name="ck_bilateral_command_party"),
+        CheckConstraint(
+            "status IN ('PENDING','APPLIED','REJECTED')", name="ck_bilateral_command_status"
+        ),
+        UniqueConstraint(
+            "organization_id", "party", "idempotency_key", name="uq_bilateral_command_idempotency"
+        ),
+        Index("ix_bilateral_command_case", "organization_id", "case_id", "created_at"),
+    )
+
+
+class BilateralTransition(Base, TenantOwned):
+    """Canonical append-only coordinator transition in the buyer tenant."""
+
+    __tablename__ = "bilateral_transitions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    case_id: Mapped[str] = mapped_column(
+        ForeignKey("bilateral_exchange_cases.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    command_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    command_organization_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    previous_state: Mapped[str] = mapped_column(String(40), nullable=False)
+    next_state: Mapped[str] = mapped_column(String(40), nullable=False)
+    transition_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "case_id", "sequence", name="uq_bilateral_transition_sequence"
+        ),
+        UniqueConstraint(
+            "organization_id", "case_id", "command_id", name="uq_bilateral_transition_command"
+        ),
+    )
+
+
+class BilateralPartyProjection(Base, TenantOwned):
+    """Immutable party-visible projection; no private opposing-plane columns exist."""
+
+    __tablename__ = "bilateral_party_projections"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    case_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    party: Mapped[str] = mapped_column(String(12), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(40), nullable=False)
+    released: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    source_command_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    projection_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("party IN ('BUYER','SELLER')", name="ck_bilateral_projection_party"),
+        UniqueConstraint(
+            "organization_id", "case_id", "party", "version", name="uq_bilateral_projection_version"
+        ),
+        UniqueConstraint("organization_id", "projection_hash", name="uq_bilateral_projection_hash"),
+        Index(
+            "ix_bilateral_projection_latest",
+            "organization_id",
+            "case_id",
+            "party",
+            "version",
+        ),
+    )
+
+
 class AgentMission(Base, TenantOwned, Timestamped):
     """Canonical, resumable unit of agent work.
 
