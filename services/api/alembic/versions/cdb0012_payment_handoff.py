@@ -104,7 +104,6 @@ def upgrade() -> None:
         "browser_return_bindings",
         "payment_sessions",
         "merchant_orders",
-        "prava_shopping_runs",
         "purchase_reversals",
         "receipts",
     ):

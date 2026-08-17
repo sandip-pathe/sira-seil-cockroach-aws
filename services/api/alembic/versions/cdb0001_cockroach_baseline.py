@@ -1779,8 +1779,6 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("approval_status", sa.String(length=32), nullable=False),
-        sa.Column("payment_status", sa.String(length=32), nullable=False),
-        sa.Column("fulfillment_status", sa.String(length=32), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
         sa.Column("organization_id", sa.String(length=64), nullable=False),
         sa.Column(
@@ -1798,14 +1796,6 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "approval_status IN ('NOT_REQUESTED','PENDING','APPROVED','REJECTED','REVOKED','EXPIRED','SUPERSEDED')",
             name="ck_purchase_intent_approval_status",
-        ),
-        sa.CheckConstraint(
-            "fulfillment_status IN ('NOT_STARTED','PENDING','PARTIAL','VERIFIED','FAILED_RETRYABLE','FAILED_FINAL','REVOKED')",
-            name="ck_purchase_intent_fulfillment_status",
-        ),
-        sa.CheckConstraint(
-            "payment_status IN ('NOT_STARTED','SESSION_CREATED','CARDHOLDER_PENDING','CHECKOUT_PENDING','MERCHANT_APPROVED','REPORTING','PRAVA_COMPLETED','DECLINED','EXPIRED','UNCERTAIN','FAILED')",
-            name="ck_purchase_intent_payment_status",
         ),
         sa.CheckConstraint("amount >= 0", name="ck_purchase_intent_amount_nonnegative"),
         sa.CheckConstraint("currency = upper(currency)", name="ck_purchase_intent_currency_upper"),
@@ -2461,65 +2451,6 @@ def upgrade() -> None:
     op.create_index(
         op.f("ix_payment_sessions_organization_id"),
         "payment_sessions",
-        ["organization_id"],
-        unique=False,
-    )
-    op.create_table(
-        "prava_shopping_runs",
-        sa.Column("id", sa.String(length=64), nullable=False),
-        sa.Column("actor_id", sa.String(length=100), nullable=False),
-        sa.Column("purchase_intent_id", sa.String(length=64), nullable=True),
-        sa.Column("product_id", sa.String(length=200), nullable=False),
-        sa.Column("variant_id", sa.String(length=200), nullable=False),
-        sa.Column("merchant", sa.String(length=255), nullable=False),
-        sa.Column("quantity", sa.Integer(), nullable=False),
-        sa.Column("checkout_session_id", sa.String(length=200), nullable=False),
-        sa.Column("payment_session_id", sa.String(length=200), nullable=True),
-        sa.Column("payment_url", sa.Text(), nullable=True),
-        sa.Column("amount", sa.Numeric(precision=20, scale=2), nullable=False),
-        sa.Column("currency", sa.String(length=3), nullable=False),
-        sa.Column(
-            "quote_payload",
-            sa.JSON().with_variant(
-                postgresql.JSONB(none_as_null=True, astext_type=sa.Text()), "postgresql"
-            ),
-            nullable=False,
-        ),
-        sa.Column("status", sa.String(length=32), nullable=False),
-        sa.Column("order_id", sa.String(length=200), nullable=True),
-        sa.Column("safe_error_code", sa.String(length=80), nullable=True),
-        sa.Column("organization_id", sa.String(length=64), nullable=False),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.CheckConstraint(
-            "status IN ('QUOTED','AWAITING_APPROVAL','QUEUED','RUNNING','PAID','FAILED')",
-            name="ck_prava_shopping_status",
-        ),
-        sa.CheckConstraint("amount > 0", name="ck_prava_shopping_amount"),
-        sa.CheckConstraint("currency = upper(currency)", name="ck_prava_shopping_currency"),
-        sa.CheckConstraint("quantity >= 1", name="ck_prava_shopping_quantity"),
-        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(
-            ["purchase_intent_id"], ["purchase_intents.id"], ondelete="RESTRICT"
-        ),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "organization_id", "checkout_session_id", name="uq_prava_shopping_checkout"
-        ),
-    )
-    op.create_index(
-        op.f("ix_prava_shopping_runs_organization_id"),
-        "prava_shopping_runs",
         ["organization_id"],
         unique=False,
     )
@@ -3589,8 +3520,6 @@ def downgrade() -> None:
     op.drop_index("ix_reversal_intent_status", table_name="purchase_reversals")
     op.drop_index(op.f("ix_purchase_reversals_organization_id"), table_name="purchase_reversals")
     op.drop_table("purchase_reversals")
-    op.drop_index(op.f("ix_prava_shopping_runs_organization_id"), table_name="prava_shopping_runs")
-    op.drop_table("prava_shopping_runs")
     op.drop_index(op.f("ix_payment_sessions_organization_id"), table_name="payment_sessions")
     op.drop_table("payment_sessions")
     op.drop_index("ix_outcome_intent_metric", table_name="outcome_checkpoints")

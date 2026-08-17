@@ -17,7 +17,7 @@ Founder direction:
 - Keep SIRA and SEIL; reject a memory rebrand.
 - Make CockroachDB causal to buying-decision correctness, not a decorative database swap.
 - Use CockroachDB Distributed Vector Indexing and Cloud Managed MCP plus AWS Bedrock and ECS/Fargate.
-- Keep PRAVA only as a narrow hosted payment/approval step.
+- Keep payment outside SIRA behind a narrow human-approved handoff.
 - Remove DataHub because the self-hosted runtime is too large for this hackathon.
 - Preserve honest project history and clearly disclose pre-existing work.
 
@@ -42,7 +42,7 @@ Removed from the active root tree:
 - Senso adapters, configuration, tools, UI copy, fixtures, and tests;
 - Snowflake infrastructure, connector, decision routes, generated API contracts, fixtures, and tests;
 - Temporal worker runtime and tests;
-- PRAVA MCP/OAuth while retaining the hosted REST payment path;
+- payment-provider MCP/OAuth and hosted checkout execution;
 - PostgreSQL Compose/bootstrap runtime and imported PostgreSQL Alembic chain;
 - obsolete generated clients and old release scripts.
 
@@ -51,7 +51,7 @@ Retained:
 - SIRA and SEIL product routes and workspace;
 - Firebase/auth and buyer/seller authority concepts;
 - deterministic decision logic and product-evidence flows that are not sponsor-specific;
-- narrow PRAVA hosted checkout models/adapters;
+- narrow provider-neutral payment-handoff models;
 - Apache-2.0 license and original history.
 
 Verification:

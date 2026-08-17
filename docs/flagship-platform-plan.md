@@ -13,7 +13,7 @@ This replaces the earlier platform-wide P0–P9 roadmap. The final scope is one 
 5. **SIRA and SEIL are separate principals.** They share kernel code, never private context, runtime identity, tool policy, capabilities, or budgets.
 6. **Use a small custom agent kernel first.** Do not add LangGraph, Temporal, or another checkpoint authority without measured need.
 7. **AWS is used where it fits.** Bedrock provides inference; two AgentCore Runtime deployments eventually host SIRA and SEIL; ECS runs the web, API, and trusted workers.
-8. **No Prava and no payment processing.** V1 ends at a provider-neutral, human-approved contract/payment handoff.
+8. **No payment processing.** V1 ends at a provider-neutral, human-approved contract/payment handoff.
 9. **One excellent vertical slice precedes platform breadth.** V1 proves a realistic software-buying case with real evidence and two candidates.
 10. **Technical evidence is the deliverable.** Architecture claims must link to code, deterministic tests, evaluations, traces, or hosted measurements.
 
@@ -47,7 +47,7 @@ This replaces the earlier platform-wide P0–P9 roadmap. The final scope is one 
 | P0 | Its fallback emits `EVALUATING`, absent from `MissionState` | Freeze one state contract and test every producer/consumer |
 | P0 | Interactive writes use ordinary transactions and continuation errors can be swallowed | Use retryable database-only closures and durable typed failures |
 | P0 | `authority.py` accepts undeclared extra fields and is not an enforced boundary | Bind exact schemas, versions, hashes, capability scope, use count, and expiry |
-| P0 | Prava remains active in settings, services, workers, persistence, schemas, tests, and docs | Remove it; retain only a provider-neutral `PaymentHandoff` |
+| P0 | Legacy checkout execution remains active in settings, services, workers, persistence, schemas, tests, and docs | Remove it; retain only a provider-neutral `PaymentHandoff` |
 | P1 | The active general runtime is OpenAI Agents SDK | Migrate behind `CognitiveRuntime`; fake first, Bedrock second |
 | P1 | AgentCore hosts a stateless experiment, not isolated production SIRA/SEIL | Deploy two role runtimes only after parity passes |
 | P1 | Tool access is mainly a name allowlist plus in-tool checks | Prefilter by principal, purpose, state, data class, risk, and authority |
@@ -365,7 +365,7 @@ Build:
 
 - record visual snapshots and route/API characterization for restored UI;
 - fix invalid `EVALUATING` and add producer/consumer contract tests;
-- remove every active Prava path and add only `PaymentHandoff`;
+- remove every active checkout-provider path and add only `PaymentHandoff`;
 - implement `sira-dev doctor|up|status|logs|check|down` and `sira-scenario reset|run|verify`;
 - start Cockroach, migrations, API, worker, and web locally with explicit profiles;
 - add PR CI for Python, web, contracts, Cockroach, browser, security, and CDK;
@@ -375,7 +375,7 @@ Build:
 Gate:
 
 - clean Windows/Ubuntu clones run the deterministic scenario;
-- no Prava symbol, route, table, environment key, UI, or document remains;
+- no legacy checkout-provider symbol, route, table, environment key, UI, or document remains;
 - UI snapshots match the restored baseline;
 - intentional boundary/contract drift fails CI;
 - local mode needs no cloud credentials and cannot perform external effects.

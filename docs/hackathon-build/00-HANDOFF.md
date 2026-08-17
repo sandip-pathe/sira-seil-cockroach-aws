@@ -19,7 +19,7 @@ Do not rename the product around memory. Do not build a separate proof/infrastru
 - Original Git history restored and the current hackathon boundary tagged.
 - Canonical repository created and pushed.
 - Abandoned nested side build deleted.
-- DataHub, Senso, Snowflake, Temporal, PRAVA MCP/OAuth, old PostgreSQL runtime/migrations, and old submission surfaces removed from the active tree.
+- DataHub, Senso, Snowflake, Temporal, legacy payment integrations, old PostgreSQL runtime/migrations, and old submission surfaces removed from the active tree.
 - Web checks, generated client, and Python lint pass on cleanup commit `f8db5e8`.
 
 ## Current truth

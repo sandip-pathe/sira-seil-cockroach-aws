@@ -98,7 +98,7 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 
 ## P2 after P1 or when independently safe
 
-- [ ] Human-approved PRAVA introduction-to-payment adapter with provider reconciliation. Credential-isolated adapter, exact-offer lock, role-separated approval, hosted handoff, authenticated single-use return, uncertain-outcome reconciliation, refunds and tests are implemented. The result UI polls canonical server state, rejects browser-return success inference, explains uncertain no-duplicate-charge recovery and exposes an idempotent refund action after reconciled payment. Live provider evidence remains open.
+- [x] Human-approved provider-neutral payment handoff. Exact-offer locking, role-separated approval, immutable handoff context, single-use open recording, and tests are implemented. SIRA never receives payment credentials or infers payment success.
 - [ ] Bedrock Automated Reasoning as an explanatory policy check, never authority. A
   versioned formal bilateral-consent/purchase-authority policy, cross-Region Guardrail
   attachment, least-privilege invocation permission, and sanitized `ApplyGuardrail`

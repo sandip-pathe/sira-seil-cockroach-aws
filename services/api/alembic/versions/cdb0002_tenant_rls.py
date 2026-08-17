@@ -49,7 +49,6 @@ TENANT_TABLES = (
     "outcome_checkpoints",
     "payment_attempts",
     "payment_sessions",
-    "prava_shopping_runs",
     "purchase_brief_versions",
     "purchase_intents",
     "purchase_requests",

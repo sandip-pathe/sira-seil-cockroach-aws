@@ -23,7 +23,7 @@ A repository name or new remote does not make reused code new. The commit graph 
 - Buyer/seller product model and authority concepts.
 - Firebase/auth boundary.
 - Deterministic eligibility and ranking logic, subject to existing fixture drift.
-- Seller evidence, research-only labeling, and narrow PRAVA hosted REST concepts where they remain cleanly separable.
+- Seller evidence, research-only labeling, and narrow external payment-handoff concepts where they remain cleanly separable.
 
 ## Removed from active scope
 
@@ -31,7 +31,7 @@ A repository name or new remote does not make reused code new. The commit graph 
 - Senso adapters/configuration/tools.
 - Snowflake integration, infrastructure, routes, and fixtures.
 - Temporal runtime.
-- PRAVA MCP/OAuth.
+- Payment-provider MCP/OAuth.
 - PostgreSQL Compose/bootstrap runtime and imported Alembic migration chain.
 - Abandoned nested `cockroach-build` side repository.
 
