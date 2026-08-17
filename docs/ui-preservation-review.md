@@ -46,10 +46,16 @@ These are repairs, not permission to reinterpret the interface.
 
 ## Current behavioral findings (not design proposals)
 
-The current `/sira` surface renders the restored interface correctly. A live browser check found
-that a greeting reached the cloud Bedrock adapter during local mode and displayed the existing
-safe failure card. That is a runtime-profile defect. The fix belongs in local runtime selection;
-the card and surrounding UI do not need redesign.
+A live desktop and 390 px browser pass on 18 August 2026 confirmed that `/`, `/sira`, and `/seil`
+render the restored interface without browser warnings or horizontal overflow. The UI shell is not
+the current problem.
+
+The local offline runtime correctly keeps greetings non-technical, but it currently repeats the
+same greeting for a vague request and for the concrete request “Show me the products in this
+workspace.” This is a runtime-profile limitation: the offline deterministic provider does not
+perform model reasoning. It must not be repaired with UI changes or disguised with keyword-based
+chat behavior. The production-quality behavior must be verified against the typed Bedrock or
+AgentCore cognitive path, where the kernel—not the model—executes authorized tools.
 
 The bilateral workflow needs to project these already-defined product states into the current
 components:

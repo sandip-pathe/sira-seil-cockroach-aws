@@ -27,6 +27,8 @@ The explainable engineering record is in
 
 ## Product boundaries
 
+- [UI preservation agreement](docs/ui-preservation-review.md)
+
 - Buyer context stays buyer-private.
 - Seller drafts stay seller-private; only published buyer-safe projections cross into SIRA.
 - Public research is visibly labeled and never silently becomes seller-attested evidence.
