@@ -24,16 +24,23 @@ from sira_agents.bedrock_runtime import (
 )
 from sira_agents.cognitive_runtime import (
     BedrockCognitiveRuntime,
+    CognitiveRuntime,
     DeterministicCognitiveRuntime,
 )
 from sira_agents.commerce_tools import SEIL_TOOL_NAMES, SIRA_TOOL_NAMES, commerce_tool_registry
 from sira_agents.context_assembler import default_context_assembler
+from sira_agents.kernel_models import Principal
 from sira_agents.run_engine import RunEngine
+from sira_agents.runtime_ticket import RuntimeTicketCodec
 from sira_agents.tool_broker import ToolBroker
 from sira_agents.workspace_tools import workspace_tool_registry
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import Response
 
+from integrations.agentcore_runtime import (
+    AgentCoreCognitiveRuntime,
+    create_agentcore_client,
+)
 from integrations.aws_services import (
     ContentAddressedEvidenceStore,
     EvidenceStore,
@@ -259,11 +266,25 @@ def create_app(
             )
         cognitive_engine = None
         if resolved_settings.cognitive_kernel_enabled:
-            cognitive_runtime = (
-                BedrockCognitiveRuntime(workspace_runtime)
-                if workspace_runtime is not None
-                else DeterministicCognitiveRuntime()
-            )
+            cognitive_runtime: CognitiveRuntime
+            if resolved_settings.agent_runtime_provider == "agentcore":
+                cognitive_runtime = AgentCoreCognitiveRuntime(
+                    client=create_agentcore_client(
+                        region=resolved_settings.aws_region,
+                        profile=resolved_settings.aws_profile.strip() or None,
+                    ),
+                    ticket_codec=RuntimeTicketCodec(
+                        resolved_settings.runtime_ticket_signing_key.get_secret_value().encode()
+                    ),
+                    runtime_arns={
+                        Principal.SIRA: resolved_settings.sira_agentcore_runtime_arn,
+                        Principal.SEIL: resolved_settings.seil_agentcore_runtime_arn,
+                    },
+                )
+            elif workspace_runtime is not None:
+                cognitive_runtime = BedrockCognitiveRuntime(workspace_runtime)
+            else:
+                cognitive_runtime = DeterministicCognitiveRuntime()
             cognitive_engine = RunEngine(
                 database=resolved_database,
                 runtime=cognitive_runtime,

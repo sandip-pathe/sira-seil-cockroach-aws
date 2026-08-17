@@ -78,7 +78,7 @@ class ApiSettings(BaseSettings):
         validation_alias=AliasChoices("AWS_REGION", "AWS_DEFAULT_REGION"),
     )
     aws_profile: str = Field(default="", validation_alias="AWS_PROFILE")
-    agent_runtime_provider: Literal["bedrock", "openai"] = Field(
+    agent_runtime_provider: Literal["agentcore", "bedrock", "openai"] = Field(
         default="openai", validation_alias="AGENT_RUNTIME_PROVIDER"
     )
     cognitive_kernel_enabled: bool = Field(
@@ -86,6 +86,15 @@ class ApiSettings(BaseSettings):
     )
     principal_isolation_enabled: bool = Field(
         default=False, validation_alias="PRINCIPAL_ISOLATION_ENABLED"
+    )
+    sira_agentcore_runtime_arn: str = Field(
+        default="", validation_alias="SIRA_AGENTCORE_RUNTIME_ARN"
+    )
+    seil_agentcore_runtime_arn: str = Field(
+        default="", validation_alias="SEIL_AGENTCORE_RUNTIME_ARN"
+    )
+    runtime_ticket_signing_key: SecretStr = Field(
+        default=SecretStr(""), validation_alias="RUNTIME_TICKET_SIGNING_KEY"
     )
     bedrock_chat_model_id: str = Field(
         default="amazon.nova-micro-v1:0",
@@ -131,12 +140,17 @@ class ApiSettings(BaseSettings):
                 raise ValueError("production requires a CockroachDB SIRA_CATALOG_DATABASE_URL")
         if self.guest_session_enabled:
             self.guest_session_signing_secret()
-        if self.agent_runtime_provider != "bedrock":
-            raise ValueError("production requires AGENT_RUNTIME_PROVIDER=bedrock")
+        if self.agent_runtime_provider != "agentcore":
+            raise ValueError("production requires AGENT_RUNTIME_PROVIDER=agentcore")
         if self.cognitive_kernel_enabled and not self.principal_isolation_enabled:
             raise ValueError(
                 "production COGNITIVE_KERNEL_ENABLED requires PRINCIPAL_ISOLATION_ENABLED=true"
             )
+        if self.cognitive_kernel_enabled:
+            if not self.sira_agentcore_runtime_arn or not self.seil_agentcore_runtime_arn:
+                raise ValueError("production cognitive runtime requires both AgentCore ARNs")
+            if len(self.runtime_ticket_signing_key.get_secret_value().encode()) < 32:
+                raise ValueError("production cognitive runtime requires a 32-byte ticket key")
 
     def guest_session_signing_secret(self) -> str:
         value = self.guest_session_signing_key.get_secret_value()

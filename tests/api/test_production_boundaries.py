@@ -63,7 +63,7 @@ def production_settings() -> ApiSettings:
         database_url="cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira?ssl=disable",
         development_fixture_mode=False,
         demo_reset_enabled=False,
-        agent_runtime_provider="bedrock",
+        agent_runtime_provider="agentcore",
     )
 
 
@@ -110,7 +110,7 @@ def test_production_rejects_cognitive_kernel_before_principal_isolation() -> Non
             database_url="cockroachdb+asyncpg://sira_app@db.example:26257/sira?ssl=verify-full",
             development_fixture_mode=False,
             demo_reset_enabled=False,
-            agent_runtime_provider="bedrock",
+            agent_runtime_provider="agentcore",
             cognitive_kernel_enabled=True,
             principal_isolation_enabled=False,
         )

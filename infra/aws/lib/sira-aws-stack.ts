@@ -390,50 +390,62 @@ export class SiraAwsStack extends cdk.Stack {
       ignoreMode: cdk.IgnoreMode.GLOB,
     });
 
-    const experimentRuntime = new agentcore.Runtime(this, "ExperimentRuntime", {
-      runtimeName: `Sira${props.stage.replace(/[^A-Za-z0-9]/g, "")}Evaluator`,
-      description:
-        "Stateless labelled qualification evaluator; CockroachDB remains the system of record.",
-      agentRuntimeArtifact: agentcore.AgentRuntimeArtifact.fromEcrRepository(
-        agentCoreImage.repository,
-        agentCoreImage.imageTag,
-      ),
-      protocolConfiguration: agentcore.ProtocolType.HTTP,
-      networkConfiguration: agentcore.RuntimeNetworkConfiguration.usingPublicNetwork(),
-      environmentVariables: {
-        BEDROCK_CHAT_MODEL_ID: props.chatModelId,
-        BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
-        BEDROCK_GUARDRAIL_VERSION: guardrailVersion.attrVersion,
-      },
-      lifecycleConfiguration: {
-        idleRuntimeSessionTimeout: cdk.Duration.minutes(5),
-        maxLifetime: cdk.Duration.hours(1),
-      },
-      tracingEnabled: true,
-    });
-    experimentRuntime.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
-        resources: [
-          `arn:${this.partition}:bedrock:${this.region}::foundation-model/${props.chatModelId}`,
-        ],
-      }),
-    );
-    experimentRuntime.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["bedrock:ApplyGuardrail"],
-        resources: [guardrail.attrGuardrailArn],
-      }),
-    );
-    experimentRuntime.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["bedrock:InvokeAutomatedReasoningPolicy"],
-        resources: [reasoningPolicyVersionArn],
-      }),
-    );
-    experimentRuntime.addEndpoint("Default", {
-      description: "Stable endpoint for reproducible SIRA qualification experiments.",
-    });
+    const createPrincipalRuntime = (
+      constructId: string,
+      principal: "SIRA" | "SEIL",
+    ): agentcore.Runtime => {
+      const runtime = new agentcore.Runtime(this, constructId, {
+        runtimeName: `${principal}${props.stage.replace(/[^A-Za-z0-9]/g, "")}Runtime`,
+        description:
+          `${principal} typed cognitive runtime; CockroachDB and trusted services retain authority.`,
+        agentRuntimeArtifact: agentcore.AgentRuntimeArtifact.fromEcrRepository(
+          agentCoreImage.repository,
+          agentCoreImage.imageTag,
+        ),
+        protocolConfiguration: agentcore.ProtocolType.HTTP,
+        networkConfiguration: agentcore.RuntimeNetworkConfiguration.usingPublicNetwork(),
+        environmentVariables: {
+          AGENT_PRINCIPAL: principal,
+          AGENT_RUNTIME_AUDIENCE: `agentcore://${principal.toLowerCase()}`,
+          RUNTIME_SECRET_ARN: runtimeSecret.secretArn,
+          BEDROCK_CHAT_MODEL_ID: props.chatModelId,
+          BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
+          BEDROCK_GUARDRAIL_VERSION: guardrailVersion.attrVersion,
+        },
+        lifecycleConfiguration: {
+          idleRuntimeSessionTimeout: cdk.Duration.minutes(5),
+          maxLifetime: cdk.Duration.hours(1),
+        },
+        tracingEnabled: true,
+      });
+      runtime.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+          resources: [
+            `arn:${this.partition}:bedrock:${this.region}::foundation-model/${props.chatModelId}`,
+          ],
+        }),
+      );
+      runtime.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["bedrock:ApplyGuardrail"],
+          resources: [guardrail.attrGuardrailArn],
+        }),
+      );
+      runtime.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["bedrock:InvokeAutomatedReasoningPolicy"],
+          resources: [reasoningPolicyVersionArn],
+        }),
+      );
+      runtimeSecret.grantRead(runtime);
+      runtime.addEndpoint("Default", {
+        description: `Stable principal-locked ${principal} runtime endpoint.`,
+      });
+      return runtime;
+    };
+    const siraRuntime = createPrincipalRuntime("SiraRuntime", "SIRA");
+    const seilRuntime = createPrincipalRuntime("SeilRuntime", "SEIL");
 
     const apiLogs = this.logGroup(`${name}/api`);
     const webLogs = this.logGroup(`${name}/web`);
@@ -457,7 +469,11 @@ export class SiraAwsStack extends cdk.Stack {
         DEMO_RESET_ENABLED: "false",
         GUEST_SESSION_ENABLED: "true",
         AWS_REGION: this.region,
-        AGENT_RUNTIME_PROVIDER: "bedrock",
+        AGENT_RUNTIME_PROVIDER: "agentcore",
+        COGNITIVE_KERNEL_ENABLED: "true",
+        PRINCIPAL_ISOLATION_ENABLED: "true",
+        SIRA_AGENTCORE_RUNTIME_ARN: siraRuntime.agentRuntimeArn,
+        SEIL_AGENTCORE_RUNTIME_ARN: seilRuntime.agentRuntimeArn,
         BEDROCK_CHAT_MODEL_ID: props.chatModelId,
         BEDROCK_EMBEDDING_MODEL_ID: props.embeddingModelId,
         BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
@@ -474,6 +490,10 @@ export class SiraAwsStack extends cdk.Stack {
         GUEST_SESSION_SIGNING_KEY: ecs.Secret.fromSecretsManager(
           runtimeSecret,
           "GUEST_SESSION_SIGNING_KEY",
+        ),
+        RUNTIME_TICKET_SIGNING_KEY: ecs.Secret.fromSecretsManager(
+          runtimeSecret,
+          "RUNTIME_TICKET_SIGNING_KEY",
         ),
       },
       healthCheck: {
@@ -504,6 +524,8 @@ export class SiraAwsStack extends cdk.Stack {
         ],
       }),
     );
+    siraRuntime.grantInvokeRuntime(apiTask.taskRole);
+    seilRuntime.grantInvokeRuntime(apiTask.taskRole);
     apiTask.taskRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: ["bedrock:ApplyGuardrail"],
@@ -610,7 +632,7 @@ export class SiraAwsStack extends cdk.Stack {
       BEDROCK_EMBEDDING_MODEL_ID: props.embeddingModelId,
       BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
       BEDROCK_GUARDRAIL_VERSION: guardrailVersion.attrVersion,
-      AGENTCORE_EXPERIMENT_RUNTIME_ARN: experimentRuntime.agentRuntimeArn,
+      AGENTCORE_EXPERIMENT_RUNTIME_ARN: siraRuntime.agentRuntimeArn,
       WORKER_ORGANIZATION_IDS: props.workerOrganizationIds,
     };
     const workerDatabaseSecret = ecs.Secret.fromSecretsManager(
@@ -665,7 +687,7 @@ export class SiraAwsStack extends cdk.Stack {
         resources: [guardrail.attrGuardrailArn],
       }),
     );
-    experimentRuntime.grantInvokeRuntime(qualificationTask.taskRole);
+    siraRuntime.grantInvokeRuntime(qualificationTask.taskRole);
     this.service(cluster, "QualificationService", qualificationTask, 1);
 
     const changefeedTask = this.workerTask(
@@ -711,8 +733,11 @@ export class SiraAwsStack extends cdk.Stack {
       value: `${name}/runtime`,
       description: "Create this JSON secret before starting ECS services.",
     });
-    new cdk.CfnOutput(this, "AgentCoreExperimentRuntimeArn", {
-      value: experimentRuntime.agentRuntimeArn,
+    new cdk.CfnOutput(this, "SiraAgentCoreRuntimeArn", {
+      value: siraRuntime.agentRuntimeArn,
+    });
+    new cdk.CfnOutput(this, "SeilAgentCoreRuntimeArn", {
+      value: seilRuntime.agentRuntimeArn,
     });
     new cdk.CfnOutput(this, "AutomatedReasoningPolicyVersionArn", {
       value: reasoningPolicyVersionArn,

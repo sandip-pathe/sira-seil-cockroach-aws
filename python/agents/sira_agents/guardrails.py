@@ -66,7 +66,17 @@ def _normalized_key(value: object) -> str:
 
 def _key_is_denied(key: object, denied_parts: frozenset[str]) -> bool:
     normalized = _normalized_key(key)
-    return any(part in normalized for part in denied_parts)
+    return any(
+        (
+            normalized == "token"
+            or normalized.startswith("token_")
+            or normalized.endswith("_token")
+            or "_token_" in normalized
+        )
+        if part == "token"
+        else part in normalized
+        for part in denied_parts
+    )
 
 
 def _walk(value: object, path: tuple[str, ...] = ()) -> list[tuple[tuple[str, ...], object]]:

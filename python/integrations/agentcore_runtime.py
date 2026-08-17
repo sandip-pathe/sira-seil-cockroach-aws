@@ -6,10 +6,13 @@ import asyncio
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from hashlib import sha256
 from typing import Any, Protocol, cast
 
 from sira_agents.experiment import ExperimentResult, ExperimentSpec
 from sira_agents.guardrails import validate_agent_payload
+from sira_agents.kernel_models import ContextManifest, Principal, TurnDecision, TurnDecisionEnvelope
+from sira_agents.runtime_ticket import RuntimeTicketCodec
 
 from domain import content_hash
 
@@ -112,4 +115,78 @@ class AgentCoreExperimentRunner:
         except (UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError) as error:
             raise AgentCoreRuntimeError(
                 "AgentCore response violated the experiment result contract"
+            ) from error
+
+
+@dataclass(slots=True)
+class AgentCoreCognitiveRuntime:
+    """Invoke one principal-locked AgentCore runtime for a typed decision only."""
+
+    client: AgentCoreClient = field(repr=False)
+    ticket_codec: RuntimeTicketCodec = field(repr=False)
+    runtime_arns: Mapping[Principal, str]
+    qualifier: str = "DEFAULT"
+    timeout_seconds: float = 120
+    max_output_bytes: int = 65_536
+
+    def __post_init__(self) -> None:
+        if set(self.runtime_arns) != {Principal.SIRA, Principal.SEIL}:
+            raise ValueError("both principal-specific AgentCore runtime ARNs are required")
+        if any(
+            not arn.startswith("arn:aws:bedrock-agentcore:")
+            for arn in self.runtime_arns.values()
+        ):
+            raise ValueError("valid Bedrock AgentCore Runtime ARNs are required")
+
+    async def decide(self, manifest: ContextManifest) -> TurnDecision:
+        if manifest.manifest_hash != manifest.calculate_hash():
+            raise ValueError("AgentCore cognitive runtime requires a sealed context manifest")
+        principal = manifest.principal
+        audience = f"agentcore://{principal.value.casefold()}"
+        ticket = self.ticket_codec.issue(
+            principal=principal,
+            party=manifest.party,
+            organization_id=manifest.organization_id,
+            actor_id=manifest.actor_id,
+            purpose=manifest.purpose,
+            audience=audience,
+            allowed_tools=manifest.available_tools,
+        )
+        request = {
+            "contract": "sira.cognitive-turn.v1",
+            "ticket": ticket,
+            "manifest": manifest.model_dump(mode="json"),
+        }
+        validate_agent_payload(request, seller_visible=principal is Principal.SEIL)
+        encoded = json.dumps(request, sort_keys=True, separators=(",", ":")).encode()
+        session_id = (
+            f"{principal.value.casefold()}-turn-"
+            f"{sha256(encoded).hexdigest()[:32]}"
+        )
+
+        def invoke() -> Mapping[str, Any]:
+            return self.client.invoke_agent_runtime(
+                agentRuntimeArn=self.runtime_arns[principal],
+                qualifier=self.qualifier,
+                runtimeSessionId=session_id,
+                contentType="application/json",
+                accept="application/json",
+                payload=encoded,
+            )
+
+        try:
+            response = await asyncio.wait_for(
+                asyncio.to_thread(invoke), timeout=self.timeout_seconds
+            )
+            raw = _read_response_body(response, self.max_output_bytes)
+            document = json.loads(raw)
+            envelope = TurnDecisionEnvelope.model_validate(document)
+            return envelope.decision
+        except AgentCoreRuntimeError:
+            raise
+        except TimeoutError as error:
+            raise AgentCoreRuntimeError("AgentCore cognitive turn timed out") from error
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError) as error:
+            raise AgentCoreRuntimeError(
+                "AgentCore response violated the typed decision contract"
             ) from error

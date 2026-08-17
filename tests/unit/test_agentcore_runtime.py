@@ -6,8 +6,14 @@ from typing import Any
 
 import pytest
 from sira_agents.experiment import ExperimentSpec
+from sira_agents.kernel_models import ContextManifest, Party, Principal
+from sira_agents.runtime_ticket import RuntimeTicketCodec
 
-from integrations.agentcore_runtime import AgentCoreExperimentRunner, AgentCoreRuntimeError
+from integrations.agentcore_runtime import (
+    AgentCoreCognitiveRuntime,
+    AgentCoreExperimentRunner,
+    AgentCoreRuntimeError,
+)
 
 
 def _spec(*, max_output_bytes: int = 2_000_000) -> ExperimentSpec:
@@ -80,3 +86,35 @@ async def test_agentcore_runner_enforces_output_budget() -> None:
 
     with pytest.raises(AgentCoreRuntimeError, match="output budget"):
         await runner.run(_spec(max_output_bytes=1024))
+
+
+async def test_agentcore_cognitive_runtime_routes_by_principal_and_sends_signed_scope() -> None:
+    client = FakeAgentCoreClient(
+        {"decision": {"kind": "respond", "message": "Hello. What do you need?"}}
+    )
+    runtime = AgentCoreCognitiveRuntime(
+        client=client,
+        ticket_codec=RuntimeTicketCodec(b"agentcore-test-key-that-is-at-least-32-bytes"),
+        runtime_arns={
+            Principal.SIRA: "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/sira",
+            Principal.SEIL: "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/seil",
+        },
+    )
+    manifest = ContextManifest(
+        principal=Principal.SEIL,
+        party=Party.SELLER,
+        organization_id="org-seller",
+        actor_id="seller-1",
+        purpose="workspace_turn",
+        conversation_id="conversation-1",
+        turn_id="turn-1",
+        current_message="Hello",
+        available_tools=("search_seller_products",),
+    ).sealed()
+    decision = await runtime.decide(manifest)
+    assert decision.kind == "respond"
+    call = client.calls[0]
+    assert call["agentRuntimeArn"].endswith("/seil")
+    request = json.loads(call["payload"])
+    assert request["manifest"]["principal"] == "SEIL"
+    assert request["ticket"].count(".") == 1

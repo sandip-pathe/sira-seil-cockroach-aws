@@ -34,8 +34,8 @@ test("synthesizes isolated durable application topology", () => {
   rendered.resourceCountIs("AWS::Bedrock::GuardrailVersion", 1);
   rendered.resourceCountIs("AWS::Bedrock::AutomatedReasoningPolicy", 1);
   rendered.resourceCountIs("AWS::Bedrock::AutomatedReasoningPolicyVersion", 1);
-  rendered.resourceCountIs("AWS::BedrockAgentCore::Runtime", 1);
-  rendered.resourceCountIs("AWS::BedrockAgentCore::RuntimeEndpoint", 1);
+  rendered.resourceCountIs("AWS::BedrockAgentCore::Runtime", 2);
+  rendered.resourceCountIs("AWS::BedrockAgentCore::RuntimeEndpoint", 2);
   rendered.resourceCountIs("AWS::Lambda::Function", 3);
   rendered.resourceCountIs("AWS::ApiGatewayV2::Api", 1);
   rendered.hasResourceProperties("AWS::ElasticLoadBalancingV2::LoadBalancer", {
@@ -64,7 +64,8 @@ test("synthesizes isolated durable application topology", () => {
   });
   rendered.hasOutput("QualificationDlqUrl", {});
   rendered.hasOutput("GithubDeployRoleArn", {});
-  rendered.hasOutput("AgentCoreExperimentRuntimeArn", {});
+  rendered.hasOutput("SiraAgentCoreRuntimeArn", {});
+  rendered.hasOutput("SeilAgentCoreRuntimeArn", {});
   rendered.hasOutput("AutomatedReasoningPolicyVersionArn", {});
   rendered.hasOutput("ChangefeedWebhookUrl", {});
   rendered.hasOutput("ChangefeedWebhookTokenSecretName", {});
@@ -141,7 +142,7 @@ test("keeps Automated Reasoning explanatory and gives it an immutable policy ver
   assert.match(serialized, /bedrock:InvokeAutomatedReasoningPolicy/);
 });
 
-test("runs a stateless bounded AgentCore evaluator without AgentCore Memory", () => {
+test("runs isolated bounded SIRA and SEIL runtimes without AgentCore Memory", () => {
   const rendered = template();
 
   rendered.hasResourceProperties("AWS::BedrockAgentCore::Runtime", {
@@ -155,6 +156,9 @@ test("runs a stateless bounded AgentCore evaluator without AgentCore Memory", ()
   rendered.resourceCountIs("AWS::BedrockAgentCore::Memory", 0);
   const serialized = JSON.stringify(rendered.toJSON());
   assert.match(serialized, /bedrock-agentcore:InvokeAgentRuntime/);
+  assert.match(serialized, /AGENT_PRINCIPAL.*SIRA/);
+  assert.match(serialized, /AGENT_PRINCIPAL.*SEIL/);
+  assert.match(serialized, /RUNTIME_SECRET_ARN/);
 });
 
 test("keeps tasks private and gives Bedrock only to agent-bearing roles", () => {
@@ -184,7 +188,9 @@ test("keeps tasks private and gives Bedrock only to agent-bearing roles", () => 
       Match.objectLike({
         Name: "api",
         Environment: Match.arrayWith([
-          { Name: "AGENT_RUNTIME_PROVIDER", Value: "bedrock" },
+          { Name: "AGENT_RUNTIME_PROVIDER", Value: "agentcore" },
+          { Name: "COGNITIVE_KERNEL_ENABLED", Value: "true" },
+          { Name: "PRINCIPAL_ISOLATION_ENABLED", Value: "true" },
           { Name: "BEDROCK_CHAT_MODEL_ID", Value: "amazon.nova-micro-v1:0" },
         ]),
       }),
