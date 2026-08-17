@@ -30,11 +30,24 @@ Requirements: Python 3.12+, `uv`, Node.js 22+, pnpm 11, and Docker Desktop.
 ```powershell
 uv sync --all-extras
 corepack pnpm install --frozen-lockfile
-corepack pnpm check:web
-uv run pytest tests/unit -q
+uv run sira-dev doctor --profile local
+uv run sira-dev up --profile local
+uv run sira-dev status --profile local
 ```
 
-The CockroachDB local runtime commands will be documented when the K1 compatibility gate passes.
+`sira-dev up` starts the loopback-only CockroachDB database, applies migrations and
+role grants, then starts the API and restored web interface. Local mode does not
+start cloud workers or perform external effects. Use `sira-dev logs`, `sira-dev
+check`, and `sira-dev down` for the remaining lifecycle operations.
+
+The destructive scenario reset is restricted to the exact local `sira_test`
+database:
+
+```powershell
+uv run sira-scenario reset --scenario evidence-race
+uv run sira-scenario run --scenario evidence-race
+uv run sira-scenario verify --latest
+```
 
 ## Provenance
 

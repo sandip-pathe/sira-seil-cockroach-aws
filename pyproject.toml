@@ -30,6 +30,10 @@ dependencies = [
   "uvicorn[standard]>=0.35,<1",
 ]
 
+[project.scripts]
+sira-dev = "sira_cli.dev:main"
+sira-scenario = "sira_cli.scenario:main"
+
 [project.optional-dependencies]
 agents = [
   "openai-agents>=0.2,<1"
@@ -57,6 +61,7 @@ packages = [
   "python/agents/sira_agents",
   "python/integrations",
   "python/persistence",
+  "python/sira_cli",
   "services/api/sira_api",
   "services/worker/sira_worker"
 ]
@@ -99,6 +104,7 @@ ignore = ["S101"]
 "services/api/alembic/versions/*.py" = ["E501", "S608"]
 "python/persistence/qualification_catalog.py" = ["S608"]
 "services/api/sira_api/schemas.py" = ["S105"]
+"python/sira_cli/*.py" = ["S603", "T201"]
 
 [tool.mypy]
 python_version = "3.12"
