@@ -778,16 +778,19 @@ class WorkflowRepository:
                     )
                     .values(status="SUPERSEDED")
                 )
-            cancelled = await self.session.execute(
-                update(PaymentHandoff)
-                .where(
-                    PaymentHandoff.organization_id == self.organization_id,
-                    PaymentHandoff.purchase_intent_id == intent.id,
-                    PaymentHandoff.status == "READY",
+            cancelled_id = (
+                await self.session.execute(
+                    update(PaymentHandoff)
+                    .where(
+                        PaymentHandoff.organization_id == self.organization_id,
+                        PaymentHandoff.purchase_intent_id == intent.id,
+                        PaymentHandoff.status == "READY",
+                    )
+                    .values(status="CANCELLED")
+                    .returning(PaymentHandoff.id)
                 )
-                .values(status="CANCELLED")
-            )
-            changed = changed or bool(cancelled.rowcount)
+            ).scalar_one_or_none()
+            changed = changed or cancelled_id is not None
 
             if not changed:
                 continue

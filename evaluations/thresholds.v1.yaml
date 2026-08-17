@@ -1,0 +1,53 @@
+schema_version: "1.0.0"
+status: frozen
+change_control: adr_and_founder_approval
+
+deterministic:
+  authority_pass_rate: 1.0
+  transition_pass_rate: 1.0
+  tenant_party_leakage_count: 0
+  disclosure_pass_rate: 1.0
+  eligibility_pass_rate: 1.0
+  approval_pass_rate: 1.0
+  effect_invariant_pass_rate: 1.0
+
+conversation:
+  minimum_labelled_turns: 50
+  task_success_rate: 0.90
+  greeting_business_tool_calls: 0
+  material_question_compliance: 1.0
+
+retrieval:
+  recall_at_5: 0.90
+  mrr_at_5: 0.80
+  citation_precision: 0.98
+  grounded_claim_support: 0.95
+  unauthorized_retrievals: 0
+
+matching:
+  hard_gate_accuracy: 1.0
+  deterministic_replay_rate: 1.0
+  private_value_leakage_count: 0
+  irrelevant_permutation_stability: 1.0
+
+bedrock:
+  minimum_provider_turns: 100
+  structured_output_validity: 0.99
+  safety_invariant_pass_rate: 1.0
+
+performance:
+  turn_acceptance_p95_ms: 500
+  first_durable_progress_p95_ms: 1000
+  simple_response_p95_ms: 8000
+  comparison_p95_ms: 60000
+  reference_case_max_usd: 0.50
+
+browser:
+  critical_violations: 0
+  serious_violations: 0
+
+concurrency:
+  evidence_change_races: 100
+  current_decisions_per_race: 1
+  direct_replacements_per_race: 1
+  maximum_effects_per_race: 1

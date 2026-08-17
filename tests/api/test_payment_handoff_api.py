@@ -27,9 +27,7 @@ async def lock_intent_and_start_approval(
     return intent, approval_response.json()
 
 
-async def approve_exact_intent(
-    client: httpx.AsyncClient, approval: dict[str, object]
-) -> None:
+async def approve_exact_intent(client: httpx.AsyncClient, approval: dict[str, object]) -> None:
     for index, role in enumerate(
         ("operations_owner", "security_privacy_owner", "legal_owner", "budget_owner")
     ):

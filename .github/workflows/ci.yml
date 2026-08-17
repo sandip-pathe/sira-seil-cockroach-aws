@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: astral-sh/setup-uv@v7.2.1
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --all-extras
+      - run: uv run ruff check python services tests scripts
+      - run: uv run ruff format --check python services tests scripts
+      - run: uv run mypy python services
+      - run: uv run pytest -m "not cockroach and not provider"
+      - run: uv run python scripts/generate_openapi.py --check
+      - run: uv run python scripts/evaluate_qualification_agent.py --check
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7.2.1
+      - run: uv sync --frozen --all-extras
+      - run: uv run python scripts/credential_scan.py --current-tree-only
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: pnpm/action-setup@v6.0.9
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:web
+      - run: pnpm format:check
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: pnpm/action-setup@v6.0.9
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:browser
+        env:
+          NEXT_PUBLIC_WEB_DATA_MODE: fixture
+          NEXT_PUBLIC_GUEST_SESSION_ENABLED: "true"
+      - if: failure()
+        uses: actions/upload-artifact@v6.0.0
+        with:
+          name: playwright-report
+          path: .artifacts/playwright
+          if-no-files-found: ignore
+
+  cockroach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: astral-sh/setup-uv@v7.2.1
+      - run: uv sync --frozen --all-extras
+      - run: docker compose up -d --wait cockroach
+      - name: Initialize isolated database and roles
+        run: |
+          docker compose exec -T cockroach cockroach sql --insecure --host=localhost:26257 --execute="CREATE DATABASE IF NOT EXISTS sira_test; CREATE USER IF NOT EXISTS sira_app; CREATE USER IF NOT EXISTS sira_worker_app; CREATE USER IF NOT EXISTS sira_catalog_app;"
+          DATABASE_ADMIN_URL="cockroachdb+psycopg://root@127.0.0.1:26257/sira_test?sslmode=disable" uv run alembic upgrade head
+          docker compose exec -T cockroach cockroach sql --insecure --host=localhost:26257 --database=sira_test --execute="GRANT CONNECT ON DATABASE sira_test TO sira_app, sira_worker_app, sira_catalog_app; GRANT sira_runtime, sira_api_tenant_bootstrap TO sira_app; GRANT sira_runtime, sira_worker_directory_reader TO sira_worker_app; GRANT sira_catalog_reader TO sira_catalog_app;"
+      - run: uv run pytest tests/cockroach_integration -m cockroach
+        env:
+          SIRA_TEST_DATABASE_ADMIN_URL: cockroachdb+psycopg://root@127.0.0.1:26257/sira_test?sslmode=disable
+          SIRA_TEST_DATABASE_URL: cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira_test?ssl=disable
+          SIRA_TEST_WORKER_DATABASE_URL: cockroachdb+asyncpg://sira_worker_app@127.0.0.1:26257/sira_test?ssl=disable
+          SIRA_TEST_CATALOG_DATABASE_URL: cockroachdb+asyncpg://sira_catalog_app@127.0.0.1:26257/sira_test?ssl=disable
+
+  infrastructure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: pnpm/action-setup@v6.0.9
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir infra/aws build
+      - run: pnpm --dir infra/aws test
+      - run: pnpm --dir infra/aws synth

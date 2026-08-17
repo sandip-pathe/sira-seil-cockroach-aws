@@ -149,18 +149,14 @@ async def test_agents_sdk_function_tool_is_reused_by_bedrock_and_returns_proposa
                 },
                 stop_reason="tool_use",
             ),
-            _response(
-                {"text": json.dumps({"recommendation": "review", "evidence_ids": []})}
-            ),
+            _response({"text": json.dumps({"recommendation": "review", "evidence_ids": []})}),
         ]
     )
     source_tool = commerce_tool_registry()["propose_purchase_request"]
     runtime = BedrockConverseRuntime(
         client=client,
         model_id="amazon.nova-micro-v1:0",
-        tools=bedrock_tools_from_function_tools(
-            {"propose_purchase_request": source_tool}
-        ),
+        tools=bedrock_tools_from_function_tools({"propose_purchase_request": source_tool}),
     )
     context = AgentRunContext(
         organization_id="org_buyer",
@@ -187,7 +183,7 @@ async def test_agents_sdk_function_tool_is_reused_by_bedrock_and_returns_proposa
 async def test_converse_repairs_prose_with_one_forced_structured_output_tool() -> None:
     client = FakeBedrockClient(
         responses=[
-            _response({"text": "Here is the answer: {\"recommendation\":\"review\"} trailing"}),
+            _response({"text": 'Here is the answer: {"recommendation":"review"} trailing'}),
             _response(
                 {
                     "toolUse": {

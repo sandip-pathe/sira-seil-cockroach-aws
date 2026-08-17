@@ -12,9 +12,19 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: process.env.SIRA_WEB_URL ?? "http://127.0.0.1:3000",
-    channel: "chrome",
+    channel: process.env.CI ? undefined : "chrome",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+  },
+  webServer: {
+    command: "pnpm dev:web",
+    url: process.env.SIRA_WEB_URL ?? "http://127.0.0.1:3000",
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+    env: {
+      NEXT_PUBLIC_WEB_DATA_MODE: "fixture",
+      NEXT_PUBLIC_GUEST_SESSION_ENABLED: "true",
+    },
   },
   projects: [
     { name: "desktop-chrome", use: { ...devices["Desktop Chrome"] } },

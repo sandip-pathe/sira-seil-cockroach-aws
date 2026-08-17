@@ -3165,7 +3165,7 @@ class WorkflowService:
             domain_handoff = DomainPaymentHandoff(
                 schema_version="1.0",
                 handoff_id=record.id,
-                organization_id=record.organization_id,
+                organization_id=cast(str, record.organization_id),
                 purchase_intent_id=record.purchase_intent_id,
                 approval_request_id=record.approval_request_id,
                 intent_hash=record.intent_hash,

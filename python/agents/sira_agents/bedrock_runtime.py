@@ -363,8 +363,7 @@ class BedrockConverseRuntime:
             schema = schema_factory()
             instructions.append(
                 f"When the mission turn is complete, call {_FINAL_OUTPUT_TOOL} with an input "
-                "matching this schema: "
-                + json.dumps(schema, sort_keys=True, separators=(",", ":"))
+                "matching this schema: " + json.dumps(schema, sort_keys=True, separators=(",", ":"))
             )
             instructions.append(
                 "Do not emit markdown fences, thinking tags, analysis, or prose outside the JSON."

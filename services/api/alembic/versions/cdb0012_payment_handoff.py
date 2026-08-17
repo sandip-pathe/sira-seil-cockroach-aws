@@ -50,9 +50,7 @@ def upgrade() -> None:
         ),
         sa.Column("organization_id", sa.String(length=64), nullable=False),
         sa.CheckConstraint("amount >= 0", name="ck_payment_handoff_amount_nonnegative"),
-        sa.CheckConstraint(
-            "currency = upper(currency)", name="ck_payment_handoff_currency_upper"
-        ),
+        sa.CheckConstraint("currency = upper(currency)", name="ck_payment_handoff_currency_upper"),
         sa.CheckConstraint(
             "status IN ('READY','OPENED','EXPIRED','CANCELLED')",
             name="ck_payment_handoff_status",
@@ -65,9 +63,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["approval_request_id"], ["approval_requests.id"], ondelete="RESTRICT"
         ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["purchase_intent_id"], ["purchase_intents.id"], ondelete="RESTRICT"
         ),
@@ -78,9 +74,7 @@ def upgrade() -> None:
             "approval_request_id",
             name="uq_payment_handoff_approval",
         ),
-        sa.UniqueConstraint(
-            "organization_id", "handoff_hash", name="uq_payment_handoff_hash"
-        ),
+        sa.UniqueConstraint("organization_id", "handoff_hash", name="uq_payment_handoff_hash"),
     )
     op.create_index(
         "ix_payment_handoff_intent_status",
@@ -115,12 +109,8 @@ def upgrade() -> None:
         "receipts",
     ):
         op.execute(f'DROP TABLE IF EXISTS "{table}" CASCADE')
-    op.execute(
-        "ALTER TABLE purchase_intents DROP COLUMN IF EXISTS payment_status CASCADE"
-    )
-    op.execute(
-        "ALTER TABLE purchase_intents DROP COLUMN IF EXISTS fulfillment_status CASCADE"
-    )
+    op.execute("ALTER TABLE purchase_intents DROP COLUMN IF EXISTS payment_status CASCADE")
+    op.execute("ALTER TABLE purchase_intents DROP COLUMN IF EXISTS fulfillment_status CASCADE")
 
 
 def downgrade() -> None:
