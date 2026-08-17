@@ -34,6 +34,79 @@ class Vector1024(UserDefinedType[str]):
         return "VECTOR(1024)"
 
 
+class EvidenceSourceVersion(Base, TenantOwned, Timestamped):
+    """Immutable parsed identity for one uploaded seller evidence object."""
+
+    __tablename__ = "evidence_source_versions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    product_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    object_bucket: Mapped[str] = mapped_column(String(255), nullable=False)
+    object_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    object_version_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    object_checksum: Mapped[str] = mapped_column(String(80), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    parser_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    text_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('PARSED','VALIDATED','PUBLISHED','REJECTED')",
+            name="ck_evidence_source_status",
+        ),
+        CheckConstraint("size_bytes > 0", name="ck_evidence_source_size"),
+        UniqueConstraint(
+            "organization_id", "product_id", "object_checksum", name="uq_evidence_source_object"
+        ),
+    )
+
+
+class EvidenceSpan(Base, TenantOwned):
+    """Stable, provenance-bound text span indexed only after relational visibility gates."""
+
+    __tablename__ = "evidence_spans"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    source_version_id: Mapped[str] = mapped_column(
+        ForeignKey("evidence_source_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    product_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    visibility: Mapped[str] = mapped_column(String(20), nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_offset: Mapped[int] = mapped_column(Integer, nullable=False)
+    end_offset: Mapped[int] = mapped_column(Integer, nullable=False)
+    text_content: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    instruction_markers: Mapped[list[str]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    embedding_model_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    embedding: Mapped[str] = mapped_column(Vector1024(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "visibility IN ('PRIVATE','BUYER_SAFE','PUBLIC')", name="ck_evidence_span_visibility"
+        ),
+        CheckConstraint("sequence >= 1", name="ck_evidence_span_sequence"),
+        CheckConstraint(
+            "start_offset >= 0 AND end_offset > start_offset", name="ck_evidence_span_offsets"
+        ),
+        UniqueConstraint(
+            "organization_id", "source_version_id", "sequence", name="uq_evidence_span_sequence"
+        ),
+        Index(
+            "ix_evidence_span_scope",
+            "organization_id",
+            "product_id",
+            "visibility",
+            "source_version_id",
+        ),
+    )
+
+
 class CompanyContextItem(Base, TenantOwned, Timestamped):
     __tablename__ = "qualification_company_context_items"
 
