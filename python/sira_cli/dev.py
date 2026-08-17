@@ -19,6 +19,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / ".artifacts" / "local"
 PROCESS_FILE = ARTIFACTS / "processes.json"
+COCKROACH_VERSION = "26.2.3"
+COCKROACH_BINARY_SHA256 = "97a8836b3e816745ba698f47616ff5038ba55f5e252a2959924e9e2d41014d7f"
 LOCAL_URLS = {
     "api": "http://127.0.0.1:8000/health",
     "ready": "http://127.0.0.1:8000/ready",
@@ -49,30 +51,91 @@ def _require_success(result: subprocess.CompletedProcess[str], label: str) -> No
         raise RuntimeError(f"{label} failed" + (f": {detail}" if detail else ""))
 
 
-def local_database_urls(database_name: str = "sira") -> dict[str, str]:
+def local_database_urls(database_name: str = "sira", *, host: str = "127.0.0.1") -> dict[str, str]:
     return {
         "DATABASE_ADMIN_URL": (
-            f"cockroachdb+psycopg://root@127.0.0.1:26257/{database_name}?sslmode=disable"
+            f"cockroachdb+psycopg://root@{host}:26257/{database_name}?sslmode=disable"
         ),
         "DATABASE_URL": (
-            f"cockroachdb+asyncpg://sira_app@127.0.0.1:26257/{database_name}?ssl=disable"
+            f"cockroachdb+asyncpg://sira_app@{host}:26257/{database_name}?ssl=disable"
         ),
         "SIRA_WORKER_DATABASE_URL": (
-            f"cockroachdb+asyncpg://sira_worker_app@127.0.0.1:26257/{database_name}?ssl=disable"
+            f"cockroachdb+asyncpg://sira_worker_app@{host}:26257/{database_name}?ssl=disable"
         ),
         "SIRA_CATALOG_DATABASE_URL": (
-            f"cockroachdb+asyncpg://sira_catalog_app@127.0.0.1:26257/{database_name}?ssl=disable"
+            f"cockroachdb+asyncpg://sira_catalog_app@{host}:26257/{database_name}?ssl=disable"
         ),
     }
 
 
-def bootstrap_database(*, database_name: str = "sira", reset: bool = False) -> None:
+def _docker_ready() -> bool:
+    if shutil.which("docker") is None:
+        return False
+    return _run(["docker", "info", "--format", "{{.ServerVersion}}"], capture=True).returncode == 0
+
+
+def _wsl(arguments: str) -> subprocess.CompletedProcess[str]:
+    return _run(["wsl.exe", "-e", "sh", "-lc", arguments], capture=True)
+
+
+def _wsl_database_host() -> str:
+    result = _wsl("hostname -I | awk '{print $1}'")
+    _require_success(result, "WSL network discovery")
+    host = result.stdout.strip()
+    if not re.fullmatch(r"[0-9a-fA-F:.]+", host):
+        raise RuntimeError("WSL returned an invalid database address")
+    return host
+
+
+def local_database_host() -> str:
+    override = os.environ.get("SIRA_LOCAL_DATABASE_HOST", "").strip()
+    if override:
+        return override
+    if _docker_ready() or os.name != "nt":
+        return "127.0.0.1"
+    return _wsl_database_host()
+
+
+def _start_wsl_cockroach() -> None:
+    version = COCKROACH_VERSION
+    checksum = COCKROACH_BINARY_SHA256
+    command = (
+        "set -eu; root=${XDG_DATA_HOME:-$HOME/.local/share}/sira/cockroach; "
+        "bin=$root/cockroach; "
+        f"version={version}; expected={checksum}; "
+        "mkdir -p $root; chmod 700 $root; "
+        'if [ ! -x $bin ] || ! echo "$expected  $bin" | sha256sum -c - >/dev/null 2>&1; then '
+        "archive=$root/cockroach-$version.tgz; unpack=$root/unpack-$version; "
+        "rm -rf $unpack; mkdir -p $unpack; "
+        "curl -fsSLo $archive "
+        "https://binaries.cockroachdb.com/cockroach-v$version.linux-amd64.tgz; "
+        "tar -xzf $archive -C $unpack --strip-components=1; "
+        "cp $unpack/cockroach $bin; chmod 755 $bin; "
+        'echo "$expected  $bin" | sha256sum -c - >/dev/null; fi; '
+        "pid=$root/cockroach.pid; "
+        "if ! $bin sql --insecure --host=localhost:26257 -e 'SELECT 1' >/dev/null 2>&1; then "
+        "$bin start-single-node --insecure --listen-addr=0.0.0.0:26257 "
+        "--advertise-addr=localhost:26257 --http-addr=0.0.0.0:8080 "
+        "--store=$root/data --background --pid-file=$pid; fi"
+    )
+    _require_success(_wsl(command), "WSL CockroachDB startup")
+
+
+def bootstrap_database(*, database_name: str = "sira", reset: bool = False) -> str:
     if database_name not in {"sira", "sira_test"}:
         raise ValueError("local database must be sira or sira_test")
-    _require_success(
-        _run(["docker", "compose", "up", "-d", "--wait", "cockroach"], capture=True),
-        "CockroachDB startup",
-    )
+    use_docker = _docker_ready()
+    if use_docker:
+        _require_success(
+            _run(["docker", "compose", "up", "-d", "--wait", "cockroach"], capture=True),
+            "CockroachDB startup",
+        )
+        host = "127.0.0.1"
+    elif os.name == "nt" and shutil.which("wsl.exe"):
+        _start_wsl_cockroach()
+        host = _wsl_database_host()
+    else:
+        raise RuntimeError("CockroachDB requires a running Docker daemon or WSL2 on Windows")
     setup = [
         "SET CLUSTER SETTING feature.vector_index.enabled = true",
         f"{'DROP DATABASE IF EXISTS ' + database_name + ' CASCADE; ' if reset else ''}"
@@ -81,8 +144,8 @@ def bootstrap_database(*, database_name: str = "sira", reset: bool = False) -> N
         "CREATE USER IF NOT EXISTS sira_worker_app",
         "CREATE USER IF NOT EXISTS sira_catalog_app",
     ]
-    _require_success(
-        _run(
+    if use_docker:
+        initialize = _run(
             [
                 "docker",
                 "compose",
@@ -96,10 +159,19 @@ def bootstrap_database(*, database_name: str = "sira", reset: bool = False) -> N
                 f"--execute={'; '.join(setup)};",
             ],
             capture=True,
-        ),
-        "CockroachDB initialization",
-    )
-    migration_env = {**os.environ, **local_database_urls(database_name)}
+        )
+    else:
+        binary = "${XDG_DATA_HOME:-$HOME/.local/share}/sira/cockroach/cockroach"
+        _require_success(
+            _wsl(f'{binary} sql --insecure --host=localhost:26257 -e "{setup[0]}"'),
+            "CockroachDB vector setting",
+        )
+        initialization_sql = "; ".join(setup[1:])
+        initialize = _wsl(
+            f'{binary} sql --insecure --host=localhost:26257 -e "{initialization_sql};"'
+        )
+    _require_success(initialize, "CockroachDB initialization")
+    migration_env = {**os.environ, **local_database_urls(database_name, host=host)}
     _require_success(
         _run([sys.executable, "-m", "alembic", "upgrade", "head"], env=migration_env),
         "database migration",
@@ -108,7 +180,8 @@ def bootstrap_database(*, database_name: str = "sira", reset: bool = False) -> N
         f"GRANT CONNECT ON DATABASE {database_name} TO "
         "sira_app, sira_worker_app, sira_catalog_app; "
         "GRANT sira_runtime, sira_api_tenant_bootstrap TO sira_app; "
-        "GRANT sira_runtime, sira_worker_directory_reader TO sira_worker_app; "
+        "GRANT sira_runtime, sira_qualification_worker, "
+        "sira_worker_directory_reader TO sira_worker_app; "
         "GRANT sira_catalog_reader TO sira_catalog_app; "
         "UPSERT INTO organizations (id, name, version) VALUES "
         "('org_demo', 'SIRA Demo Buyer', 1), "
@@ -116,8 +189,8 @@ def bootstrap_database(*, database_name: str = "sira", reset: bool = False) -> N
         "('org_seller_a', 'Atlas Seller', 1), "
         "('org_seller_b', 'Beacon Seller', 1)"
     )
-    _require_success(
-        _run(
+    if use_docker:
+        grant_result = _run(
             [
                 "docker",
                 "compose",
@@ -132,9 +205,15 @@ def bootstrap_database(*, database_name: str = "sira", reset: bool = False) -> N
                 f"--execute={grants};",
             ],
             capture=True,
-        ),
-        "runtime role grants",
-    )
+        )
+    else:
+        grant_result = _wsl(
+            "${XDG_DATA_HOME:-$HOME/.local/share}/sira/cockroach/cockroach "
+            "sql --insecure --host=localhost:26257 "
+            f'--database={database_name} -e "{grants};"'
+        )
+    _require_success(grant_result, "runtime role grants")
+    return host
 
 
 def _command_version(command: str, *arguments: str) -> tuple[bool, str]:
@@ -175,7 +254,7 @@ def doctor(profile: str) -> int:
     return 0 if all(passed for passed, _detail in checks.values()) else 1
 
 
-def _local_environment() -> dict[str, str]:
+def _local_environment(database_host: str | None = None) -> dict[str, str]:
     python_paths = [
         ROOT / "python",
         ROOT / "python" / "agents",
@@ -187,7 +266,7 @@ def _local_environment() -> dict[str, str]:
         python_paths.append(Path(existing))
     return {
         **os.environ,
-        **local_database_urls(),
+        **local_database_urls(host=database_host or local_database_host()),
         "PYTHONPATH": os.pathsep.join(str(path) for path in python_paths),
         "APP_ENV": "development",
         "DEVELOPMENT_FIXTURE_MODE": "true",
@@ -251,9 +330,9 @@ def _probe(url: str) -> tuple[bool, str]:
 def up(profile: str) -> int:
     if profile != "local":
         raise RuntimeError("provider and hosted lifecycle use deployment tooling, not sira-dev up")
-    bootstrap_database()
+    database_host = bootstrap_database()
     processes = _load_processes()
-    environment = _local_environment()
+    environment = _local_environment(database_host)
     if not _process_alive(processes.get("api", -1)):
         processes["api"] = _spawn(
             "api",

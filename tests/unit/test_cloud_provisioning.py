@@ -39,6 +39,10 @@ def test_admin_url_requires_a_safe_named_database() -> None:
 def test_runtime_users_receive_only_their_narrow_composed_roles() -> None:
     assert _USERS == {
         "sira_app": ("sira_runtime", "sira_api_tenant_bootstrap"),
-        "sira_worker_app": ("sira_runtime", "sira_worker_directory_reader"),
+        "sira_worker_app": (
+            "sira_runtime",
+            "sira_qualification_worker",
+            "sira_worker_directory_reader",
+        ),
         "sira_catalog_app": ("sira_catalog_reader",),
     }

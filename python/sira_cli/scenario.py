@@ -10,7 +10,7 @@ import sys
 from datetime import UTC, datetime
 from typing import Any
 
-from .dev import ROOT, bootstrap_database, local_database_urls
+from .dev import ROOT, bootstrap_database, local_database_host, local_database_urls
 
 RESULT_DIR = ROOT / ".artifacts" / "scenarios" / "evidence-race"
 RESULT_FILE = RESULT_DIR / "latest.json"
@@ -23,7 +23,7 @@ EVIDENCE_RACE_TESTS = (
 
 
 def _scenario_environment() -> dict[str, str]:
-    urls = local_database_urls("sira_test")
+    urls = local_database_urls("sira_test", host=local_database_host())
     return {
         **os.environ,
         "SIRA_TEST_DATABASE_ADMIN_URL": urls["DATABASE_ADMIN_URL"],

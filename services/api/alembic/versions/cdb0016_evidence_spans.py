@@ -116,7 +116,10 @@ def upgrade() -> None:
         ),
     )
     # CockroachDB owns the physical VECTOR type and distributed vector index.
-    op.execute("ALTER TABLE evidence_spans ALTER COLUMN embedding TYPE VECTOR(1024)")
+    op.execute(
+        "ALTER TABLE evidence_spans ALTER COLUMN embedding TYPE VECTOR(1024) "
+        "USING embedding::VECTOR(1024)"
+    )
     op.create_index(
         "ix_evidence_span_scope",
         "evidence_spans",

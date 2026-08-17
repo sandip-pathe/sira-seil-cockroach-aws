@@ -25,7 +25,11 @@ from sqlalchemy.engine import URL, make_url
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,62}\Z")
 _USERS: Mapping[str, tuple[str, ...]] = {
     "sira_app": ("sira_runtime", "sira_api_tenant_bootstrap"),
-    "sira_worker_app": ("sira_runtime", "sira_worker_directory_reader"),
+    "sira_worker_app": (
+        "sira_runtime",
+        "sira_qualification_worker",
+        "sira_worker_directory_reader",
+    ),
     "sira_catalog_app": ("sira_catalog_reader",),
 }
 _ORGANIZATIONS: Sequence[tuple[str, str]] = (

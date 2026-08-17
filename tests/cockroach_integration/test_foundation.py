@@ -92,6 +92,7 @@ async def test_real_40001_is_replayed_with_a_fresh_transaction() -> None:
         nonlocal attempts
         attempts += 1
         if attempts == 1:
+            await session.execute(text("SET allow_unsafe_internals = true"))
             await session.execute(text("SELECT crdb_internal.force_retry('100ms'::INTERVAL)"))
         return int(await session.scalar(text("SELECT 7")) or 0)
 
@@ -111,6 +112,7 @@ async def test_real_40001_retry_exhaustion_is_visible() -> None:
     async def work(session: AsyncSession) -> None:
         nonlocal attempts
         attempts += 1
+        await session.execute(text("SET allow_unsafe_internals = true"))
         await session.execute(text("SELECT crdb_internal.force_retry('100ms'::INTERVAL)"))
 
     try:
