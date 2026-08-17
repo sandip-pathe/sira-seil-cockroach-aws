@@ -20,6 +20,10 @@ The key correctness claim is narrow: concurrent buyer, seller, and worker activi
 Implementation status and evidence are tracked in
 [docs/flagship-platform-plan.md](docs/flagship-platform-plan.md). The current interface is a
 frozen product boundary; see [docs/ui-preservation-review.md](docs/ui-preservation-review.md).
+The explainable engineering record is in
+[architecture decisions](docs/architecture-decisions.md), the
+[threat model](docs/threat-model.md), and the
+[typed tool guide](docs/tool-authoring-guide.md).
 
 ## Product boundaries
 
