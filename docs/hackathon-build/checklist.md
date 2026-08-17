@@ -30,6 +30,8 @@ hardening remains. Current as of 2026-08-18.
   resources. Live deployment is not claimed.
 - AWS provider: live Nova Converse and Titan V2 smoke passes in `us-east-1` with a normalized 1,024-dimensional embedding. A separate five-case live Nova qualification evaluation passes typed output, inspect-every-candidate, groundedness and expected-product gates at 100%; Guardrail intervention remains deployment-gated.
 - A disposable local Cockroach backup/restore drill passes with matching schema/count digests and verified temporary-database cleanup. Cockroach Cloud managed backup/restore remains a separate external gate.
+- A disposable forward-upgrade drill passes from `cdb0017` (`99` tables) to `cdb0018` (`100`
+  tables), including the new handoff table, forced RLS, three runtime policies and verified cleanup.
 - A sanitized local API timing gate passes: health p95 `2.26 ms`, Cockroach readiness p95
   `119.04 ms`, catalogue p95 `2.27 ms`, and a durable lightweight turn p95 `207.65 ms`. These are
   same-machine development measurements, not hosted-load claims.

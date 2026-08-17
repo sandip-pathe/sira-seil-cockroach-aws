@@ -100,6 +100,17 @@ and drops the temporary database in `finally`. Its ignored artifact is
 temporary database name. This proves the local restore procedure. Cockroach Cloud managed backup
 and restore evidence remains a separate hosted gate.
 
+Prove the forward upgrade from the previous supported migration head in another disposable
+database:
+
+```powershell
+uv run python scripts/cockroach_upgrade_drill.py
+```
+
+The drill migrates an empty database to `cdb0017`, upgrades it to `cdb0018`, verifies the new
+handoff table, forced RLS and all three runtime policies, then removes the database. Its ignored,
+sanitized artifact is `.artifacts/preflight/cockroach-upgrade.json`.
+
 ## Local performance gate
 
 With the local API and CockroachDB running, record sanitized same-machine latency evidence:
