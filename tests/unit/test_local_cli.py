@@ -45,6 +45,14 @@ def test_command_parsers_match_documented_surface() -> None:
     assert scenario.parser().parse_args(["verify", "--latest"]).latest is True
 
 
+def test_local_environment_forces_the_deterministic_isolated_kernel() -> None:
+    environment = dev._local_environment("127.0.0.1")
+
+    assert environment["AGENT_RUNTIME_PROVIDER"] == "openai"
+    assert environment["COGNITIVE_KERNEL_ENABLED"] == "true"
+    assert environment["PRINCIPAL_ISOLATION_ENABLED"] == "true"
+
+
 def test_verify_requires_a_passing_latest_record(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

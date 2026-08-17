@@ -116,7 +116,8 @@ def _start_wsl_cockroach() -> None:
         "if ! $bin sql --insecure --host=localhost:26257 -e 'SELECT 1' >/dev/null 2>&1; then "
         "$bin start-single-node --insecure --listen-addr=0.0.0.0:26257 "
         "--advertise-addr=localhost:26257 --http-addr=0.0.0.0:8080 "
-        "--store=$root/data --background --pid-file=$pid; fi"
+        "--store=$root/data --background --pid-file=$pid; "
+        "elif [ ! -f $pid ]; then pgrep -f 'cockroach start-single-node.*26257' | head -1 >$pid; fi"
     )
     _require_success(_wsl(command), "WSL CockroachDB startup")
 
@@ -245,9 +246,16 @@ def doctor(profile: str) -> int:
         "compose_file": ((ROOT / "compose.yaml").exists(), "compose.yaml"),
         "environment": ((ROOT / ".env").exists(), ".env"),
     }
-    if profile == "local" and checks["docker"][0]:
-        checks["docker_daemon"] = _command_version(
-            "docker", "info", "--format", "{{.ServerVersion}}"
+    if profile == "local":
+        docker_daemon = (
+            _command_version("docker", "info", "--format", "{{.ServerVersion}}")
+            if checks["docker"][0]
+            else (False, "missing")
+        )
+        wsl = _command_version("wsl.exe", "--status") if os.name == "nt" else (False, "n/a")
+        checks["cockroach_runtime"] = (
+            docker_daemon[0] or wsl[0],
+            "Docker" if docker_daemon[0] else ("WSL2" if wsl[0] else "unavailable"),
         )
     for name, (passed, detail) in checks.items():
         print(f"{'PASS' if passed else 'FAIL'}  {name}: {detail}")
@@ -272,6 +280,9 @@ def _local_environment(database_host: str | None = None) -> dict[str, str]:
         "DEVELOPMENT_FIXTURE_MODE": "true",
         "DEMO_RESET_ENABLED": "true",
         "GUEST_SESSION_ENABLED": "true",
+        "AGENT_RUNTIME_PROVIDER": "openai",
+        "COGNITIVE_KERNEL_ENABLED": "true",
+        "PRINCIPAL_ISOLATION_ENABLED": "true",
         "NEXT_PUBLIC_GUEST_SESSION_ENABLED": "true",
         "NEXT_PUBLIC_WEB_DATA_MODE": "api",
         "SIRA_API_BASE_URL": "http://127.0.0.1:8000",
@@ -379,9 +390,23 @@ def status(_profile: str) -> int:
         passed, detail = _probe(url)
         print(f"{'PASS' if passed else 'FAIL'}  {name}: {detail}")
         healthy = healthy and passed
-    database = _run(["docker", "compose", "ps", "--status", "running", "cockroach"], capture=True)
-    database_up = database.returncode == 0 and "cockroach" in database.stdout
-    print(f"{'UP' if database_up else 'DOWN'}  cockroach")
+    if _docker_ready():
+        database = _run(
+            ["docker", "compose", "ps", "--status", "running", "cockroach"], capture=True
+        )
+        database_up = database.returncode == 0 and "cockroach" in database.stdout
+        database_mode = "Docker"
+    elif os.name == "nt" and shutil.which("wsl.exe"):
+        database = _wsl(
+            "${XDG_DATA_HOME:-$HOME/.local/share}/sira/cockroach/cockroach "
+            "sql --insecure --host=localhost:26257 -e 'SELECT 1'"
+        )
+        database_up = database.returncode == 0
+        database_mode = "WSL2"
+    else:
+        database_up = False
+        database_mode = "unavailable"
+    print(f"{'UP' if database_up else 'DOWN'}  cockroach ({database_mode})")
     return 0 if healthy and database_up else 1
 
 
@@ -391,6 +416,16 @@ def logs(_profile: str, *, follow: bool) -> int:
         print(f"--- {name} ({path})")
         if path.exists():
             print("\n".join(path.read_text(encoding="utf-8", errors="replace").splitlines()[-100:]))
+    if not _docker_ready() and os.name == "nt" and shutil.which("wsl.exe"):
+        if follow:
+            print("Follow mode for WSL Cockroach logs is not supported; showing the latest lines.")
+        result = _wsl(
+            "root=${XDG_DATA_HOME:-$HOME/.local/share}/sira/cockroach; "
+            "file=$(find $root/data/logs -type f -name '*.log' 2>/dev/null | sort | tail -1); "
+            'if [ -n "$file" ]; then tail -100 "$file"; fi'
+        )
+        print(result.stdout, end="")
+        return result.returncode
     if follow:
         return _run(
             ["docker", "compose", "logs", "--follow", "--tail", "100", "cockroach"]
@@ -403,11 +438,19 @@ def down(_profile: str) -> int:
         if not _process_alive(pid):
             continue
         if os.name == "nt":
-            _run(["taskkill", "/PID", str(pid), "/T"], capture=True)
+            _run(["taskkill", "/PID", str(pid), "/T", "/F"], capture=True)
         else:
             os.killpg(pid, signal.SIGTERM)  # type: ignore[attr-defined]
     PROCESS_FILE.unlink(missing_ok=True)
-    return _run(["docker", "compose", "stop", "cockroach"]).returncode
+    if _docker_ready():
+        return _run(["docker", "compose", "stop", "cockroach"]).returncode
+    if os.name == "nt" and shutil.which("wsl.exe"):
+        return _wsl(
+            "root=${XDG_DATA_HOME:-$HOME/.local/share}/sira/cockroach; pid=$root/cockroach.pid; "
+            'if [ -f $pid ] && kill -0 "$(cat $pid)" 2>/dev/null; then '
+            'kill "$(cat $pid)"; fi; rm -f $pid'
+        ).returncode
+    return 0
 
 
 def check(_profile: str) -> int:
