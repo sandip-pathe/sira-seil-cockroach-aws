@@ -266,3 +266,34 @@ async def test_engine_cancel_is_durable_and_idempotent() -> None:
         assert run.cancelled_at is not None
     finally:
         await database.close()
+
+
+async def test_engine_sanitizes_unexpected_provider_failure() -> None:
+    class FailingRuntime:
+        async def decide(self, _manifest: ContextManifest) -> object:
+            raise RuntimeError("provider response contained a private diagnostic")
+
+    database = await _database()
+    engine = RunEngine(
+        database=cast(RuntimeDatabase, database),
+        runtime=cast(Any, FailingRuntime()),
+        broker=ToolBroker({}),
+        handlers={},
+    )
+    try:
+        result = await engine.process(
+            _command(turn_id="turn-provider-error", idempotency_key="submit-provider-error")
+        )
+        assert result.status == "FAILED"
+        assert result.message == (
+            "I couldn't reach the reasoning service. Your confirmed work is saved."
+        )
+        assert "private diagnostic" not in result.message
+        async with database.transaction("org-buyer") as session:
+            repository = CognitiveRepository(session, "org-buyer")
+            run = await repository.get(result.run_id)
+            snapshot = await repository.snapshot(run)
+        assert run.failure_code == "PROVIDER_UNAVAILABLE"
+        assert snapshot.user_events[-1].retryable is True
+    finally:
+        await database.close()

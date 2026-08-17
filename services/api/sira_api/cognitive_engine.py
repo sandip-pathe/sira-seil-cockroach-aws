@@ -189,6 +189,15 @@ class RunEngine:
                     retryable=True,
                     tool_calls=tuple(completed_tool_names),
                 )
+            except Exception:
+                return await self._fail(
+                    command.organization_id,
+                    run.id,
+                    FailureCode.PROVIDER_UNAVAILABLE,
+                    "I couldn't reach the reasoning service. Your confirmed work is saved.",
+                    retryable=True,
+                    tool_calls=tuple(completed_tool_names),
+                )
 
             await self._record_decision(command.organization_id, run.id, decision)
             if not isinstance(decision, ProposeTools):
