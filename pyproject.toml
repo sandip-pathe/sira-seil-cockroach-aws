@@ -103,6 +103,7 @@ ignore = ["S101"]
 "fixtures/**/*.py" = ["S105", "S106"]
 "services/api/alembic/versions/*.py" = ["E501", "S608"]
 "python/persistence/qualification_catalog.py" = ["S608"]
+"python/persistence/evidence_repository.py" = ["S608"]
 "services/api/sira_api/schemas.py" = ["S105"]
 "python/sira_cli/*.py" = ["S603", "T201"]
 

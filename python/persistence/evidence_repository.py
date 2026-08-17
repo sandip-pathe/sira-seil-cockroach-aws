@@ -3,14 +3,28 @@
 from __future__ import annotations
 
 import math
+import re
+from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.evidence_pipeline import ParsedEvidence
 
 from .qualification_models import EvidenceSourceVersion, EvidenceSpan
 from .repositories import PersistenceConflict
+
+_IDENTIFIER = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceSearchHit:
+    span_id: str
+    source_version_id: str
+    product_id: str
+    text: str
+    content_hash: str
+    cosine_distance: float
 
 
 def _vector_literal(vector: tuple[float, ...]) -> str:
@@ -104,3 +118,54 @@ class EvidenceRepository:
         )
         for span in spans:
             span.visibility = "BUYER_SAFE"
+
+
+async def search_published_spans(
+    session: AsyncSession,
+    *,
+    product_ids: tuple[str, ...],
+    source_version_ids: tuple[str, ...],
+    query_vector: tuple[float, ...],
+    limit: int = 5,
+) -> tuple[EvidenceSearchHit, ...]:
+    """Apply exact relational authorization gates before DVI nearest-neighbor order."""
+
+    if not product_ids or not source_version_ids:
+        return ()
+    if len(product_ids) > 50 or len(source_version_ids) > 100:
+        raise ValueError("evidence retrieval scope is too large")
+    if any(not _IDENTIFIER.fullmatch(value) for value in (*product_ids, *source_version_ids)):
+        raise ValueError("evidence retrieval scope contains an invalid identifier")
+    if limit < 1 or limit > 20:
+        raise ValueError("evidence retrieval limit must be between 1 and 20")
+    vector = _vector_literal(query_vector)
+    product_names = [f"product_{index}" for index in range(len(product_ids))]
+    source_names = [f"source_{index}" for index in range(len(source_version_ids))]
+    parameters: dict[str, object] = {"limit": limit}
+    parameters.update(dict(zip(product_names, product_ids, strict=True)))
+    parameters.update(dict(zip(source_names, source_version_ids, strict=True)))
+    products_sql = ",".join(f":{name}" for name in product_names)
+    sources_sql = ",".join(f":{name}" for name in source_names)
+    distance = f"embedding <=> '{vector}'::VECTOR"
+    rows = await session.execute(
+        text(
+            "SELECT id, source_version_id, product_id, text_content, content_hash, "
+            f"{distance} AS cosine_distance FROM evidence_spans "
+            "WHERE visibility IN ('BUYER_SAFE','PUBLIC') "
+            f"AND product_id IN ({products_sql}) "
+            f"AND source_version_id IN ({sources_sql}) "
+            f"ORDER BY {distance}, source_version_id, sequence LIMIT :limit"
+        ),
+        parameters,
+    )
+    return tuple(
+        EvidenceSearchHit(
+            span_id=str(row.id),
+            source_version_id=str(row.source_version_id),
+            product_id=str(row.product_id),
+            text=str(row.text_content),
+            content_hash=str(row.content_hash),
+            cosine_distance=float(row.cosine_distance),
+        )
+        for row in rows
+    )
