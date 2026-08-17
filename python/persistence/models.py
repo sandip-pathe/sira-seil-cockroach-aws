@@ -1755,6 +1755,169 @@ class OutboxEvent(Base, TenantOwned):
     __table_args__ = (UniqueConstraint("organization_id", "event_key", name="uq_outbox_event_key"),)
 
 
+class CognitiveRun(Base, TenantOwned, Timestamped):
+    """One idempotent user turn owned by deterministic application code."""
+
+    __tablename__ = "cognitive_runs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    principal: Mapped[str] = mapped_column(String(8), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    conversation_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    turn_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(100), nullable=False)
+    input_text: Mapped[str] = mapped_column(Text, nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    manifest_hash: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    budget: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    failure_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("principal IN ('SIRA','SEIL')", name="ck_cognitive_run_principal"),
+        CheckConstraint(
+            "status IN ('CAPTURED','DECIDING','EXECUTING','WAITING',"
+            "'COMPLETED','FAILED','CANCELLED')",
+            name="ck_cognitive_run_status",
+        ),
+        UniqueConstraint(
+            "organization_id", "actor_id", "idempotency_key", name="uq_cognitive_run_idempotency"
+        ),
+        UniqueConstraint(
+            "organization_id", "conversation_id", "turn_id", name="uq_cognitive_run_turn"
+        ),
+        Index(
+            "ix_cognitive_run_conversation",
+            "organization_id",
+            "conversation_id",
+            "created_at",
+        ),
+    )
+
+
+class CognitiveStep(Base, TenantOwned):
+    """Append-only decision or execution step for a cognitive run."""
+
+    __tablename__ = "cognitive_steps"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("cognitive_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('INPUT','DECISION','TOOL_REQUEST','TOOL_RESULT',"
+            "'CHECKPOINT','OUTPUT','FAILURE')",
+            name="ck_cognitive_step_kind",
+        ),
+        CheckConstraint(
+            "status IN ('RECORDED','AUTHORIZED','DENIED','COMPLETED','FAILED')",
+            name="ck_cognitive_step_status",
+        ),
+        UniqueConstraint(
+            "organization_id", "run_id", "sequence", name="uq_cognitive_step_sequence"
+        ),
+    )
+
+
+class CognitiveCheckpoint(Base, TenantOwned):
+    """Immutable recovery projection after a durable step."""
+
+    __tablename__ = "cognitive_checkpoints"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("cognitive_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    run_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    projection: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "run_id", "sequence", name="uq_cognitive_checkpoint_sequence"
+        ),
+    )
+
+
+class CognitiveToolInvocation(Base, TenantOwned, Timestamped):
+    """Durable request/result pair; raw exceptions never cross this boundary."""
+
+    __tablename__ = "cognitive_tool_invocations"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("cognitive_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    call_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    tool_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    contract_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    risk: Mapped[str] = mapped_column(String(24), nullable=False)
+    arguments: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    arguments_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    output: Mapped[dict[str, Any] | None] = mapped_column(JSON_DOCUMENT, nullable=True)
+    output_hash: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    safe_error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "risk IN ('read','mutation','protected_effect')", name="ck_cognitive_tool_risk"
+        ),
+        CheckConstraint(
+            "status IN ('REQUESTED','AUTHORIZED','RUNNING','COMPLETED',"
+            "'DENIED','FAILED','CANCELLED')",
+            name="ck_cognitive_tool_status",
+        ),
+        UniqueConstraint("organization_id", "run_id", "call_id", name="uq_cognitive_tool_call"),
+    )
+
+
+class CognitiveUserEvent(Base, TenantOwned):
+    """Redacted projection safe for the unchanged buyer/seller interfaces."""
+
+    __tablename__ = "cognitive_user_events"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("cognitive_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    message: Mapped[str] = mapped_column(String(800), nullable=False)
+    retryable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('message_received','work_started','clarification_needed','approval_needed',"
+            "'work_completed','waiting','could_not_complete')",
+            name="ck_cognitive_user_event_kind",
+        ),
+        UniqueConstraint(
+            "organization_id", "run_id", "sequence", name="uq_cognitive_user_event_sequence"
+        ),
+    )
+
+
 class AgentMission(Base, TenantOwned, Timestamped):
     """Canonical, resumable unit of agent work.
 
