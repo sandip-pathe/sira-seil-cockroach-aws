@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain import content_hash
 from domain.enums import ActorRole, PackAuthority, SellerEvidenceState
-from integrations.aws_services import ContentAddressedEvidenceStore, StoredEvidenceObject
+from integrations.aws_services import EvidenceStore, StoredEvidenceObject
 from persistence.database import Database
 from persistence.models import (
     Organization,
@@ -170,7 +170,7 @@ class SellerEvidenceService:
         database: Database,
         *,
         development_fixture_mode: bool,
-        evidence_store: ContentAddressedEvidenceStore | None = None,
+        evidence_store: EvidenceStore | None = None,
     ) -> None:
         self.database = database
         self.development_fixture_mode = development_fixture_mode

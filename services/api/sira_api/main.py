@@ -6,6 +6,7 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import cast
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -35,6 +36,8 @@ from starlette.responses import Response
 
 from integrations.aws_services import (
     ContentAddressedEvidenceStore,
+    EvidenceStore,
+    LocalContentAddressedEvidenceStore,
     S3Client,
     create_aws_client,
 )
@@ -108,7 +111,7 @@ def create_app(
     catalog_database: Database | None = None,
     identity_adapter: IdentityAdapter | None = None,
     seller_directory: SellerOrganizationDirectory | None = None,
-    evidence_store: ContentAddressedEvidenceStore | None = None,
+    evidence_store: EvidenceStore | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     resolved_settings.assert_safe_runtime()
@@ -215,6 +218,10 @@ def create_app(
                 ),
                 bucket=resolved_settings.s3_evidence_bucket.strip(),
                 kms_key_id=resolved_settings.s3_evidence_kms_key_id.strip() or None,
+            )
+        elif resolved_evidence_store is None and resolved_settings.is_development:
+            resolved_evidence_store = LocalContentAddressedEvidenceStore(
+                Path(".artifacts/local-evidence")
             )
         seller_evidence_service = SellerEvidenceService(
             resolved_database,

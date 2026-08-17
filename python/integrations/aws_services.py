@@ -9,6 +9,8 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from hashlib import sha256
+from pathlib import Path
+from secrets import token_urlsafe
 from typing import Any, Protocol, cast
 
 _ORGANIZATION_ID = re.compile(r"[A-Za-z0-9_-]{1,48}\Z")
@@ -26,6 +28,12 @@ class S3Client(Protocol):
 
 class SqsClient(Protocol):
     def send_message(self, **kwargs: Any) -> Mapping[str, Any]: ...
+
+
+class EvidenceStore(Protocol):
+    async def put(
+        self, *, organization_id: str, body: bytes, content_type: str
+    ) -> StoredEvidenceObject: ...
 
 
 def create_aws_client(
@@ -123,6 +131,54 @@ class ContentAddressedEvidenceStore:
             key=key,
             version_id=version_id,
             sha256="sha256:" + digest,
+            size_bytes=len(body),
+            content_type=content_type,
+        )
+
+
+@dataclass(slots=True)
+class LocalContentAddressedEvidenceStore:
+    """Credential-free local adapter with the same immutable checksum contract as S3."""
+
+    root: Path
+
+    async def put(
+        self,
+        *,
+        organization_id: str,
+        body: bytes,
+        content_type: str,
+    ) -> StoredEvidenceObject:
+        _validate_organization_id(organization_id)
+        if not body:
+            raise ValueError("evidence object must not be empty")
+        if len(body) > MAX_EVIDENCE_BYTES:
+            raise ValueError("evidence object exceeds the 25 MiB ingestion limit")
+        if not content_type.strip() or len(content_type) > 120:
+            raise ValueError("evidence content type is invalid")
+        digest = sha256(body).hexdigest()
+        root = self.root.resolve()
+        destination = (root / organization_id / "evidence" / "sha256" / digest).resolve()
+        if root not in destination.parents:
+            raise ValueError("local evidence path escaped its configured root")
+
+        def store() -> None:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if destination.exists():
+                if sha256(destination.read_bytes()).hexdigest() != digest:
+                    raise OSError("local evidence object checksum mismatch")
+                return
+            temporary = destination.with_suffix(f".{token_urlsafe(8)}.tmp")
+            temporary.write_bytes(body)
+            temporary.replace(destination)
+
+        await asyncio.to_thread(store)
+        relative_key = destination.relative_to(root).as_posix()
+        return StoredEvidenceObject(
+            bucket="local-evidence",
+            key=relative_key,
+            version_id=f"sha256-{digest}",
+            sha256=f"sha256:{digest}",
             size_bytes=len(body),
             content_type=content_type,
         )

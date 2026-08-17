@@ -123,7 +123,7 @@ async def test_private_evidence_upload_is_version_bound_and_idempotent(
 
 
 @pytest.mark.asyncio
-async def test_private_evidence_upload_fails_closed_at_input_and_provider_boundaries(
+async def test_private_evidence_upload_uses_local_store_and_fails_closed_at_boundaries(
     api_client: httpx.AsyncClient,
     api_application: FastAPI,
 ) -> None:
@@ -132,14 +132,15 @@ async def test_private_evidence_upload_fails_closed_at_input_and_provider_bounda
         "source_class": "VENDOR_DOCUMENTATION",
         "claim_fields_json": '["data_retention_days"]',
     }
-    unavailable = await api_client.post(
+    local = await api_client.post(
         endpoint,
         headers={**EDITOR, **_idem("seller-object-unavailable-0001")},
         files={"evidence_file": ("policy.txt", b"evidence", "text/plain")},
         data=base_data,
     )
-    assert unavailable.status_code == 503
-    assert unavailable.json()["error"]["code"] == "SELLER_EVIDENCE_STORE_UNAVAILABLE"
+    assert local.status_code == 201
+    assert local.json()["version_bound"] is True
+    assert local.json()["object_checksum"].startswith("sha256:")
 
     store = FakeEvidenceStore()
     api_application.state.seller_evidence_service.evidence_store = store
