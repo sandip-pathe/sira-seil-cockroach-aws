@@ -101,7 +101,7 @@ hardening remains. Current as of 2026-08-18.
   Build: `/sira`, `/sira/missions/[id]`, `/seil/products/[id]/evidence`, `/seil/opportunities/[id]`, `/matches/[id]`, `/integrity/[missionId]` over live APIs.
   Accept: each route has loading/empty/partial/error/conflict/stale/success states; controlled race is understandable without console access; keyboard/mobile/WCAG checks pass; no broad unrelated component rewrite.
   Verify: web lint/type/build, browser E2E, accessibility/responsive checks and full local Cockroach journey.
-  Progress: all six routes and versioned company-context UI are implemented; web lint/type/build pass. A repeatable Playwright/axe suite passes 14 desktop/mobile route, WCAG A/AA, overflow and keyboard/setup-state checks and caught/fixed one invalid ARIA loading-state contract. A fully authenticated browser journey and controlled race remain open.
+  Progress: all six routes and versioned company-context UI are implemented; web lint/type/build pass. A repeatable Playwright/axe suite passes 16 desktop/mobile route, WCAG A/AA, overflow and keyboard/setup-state checks and caught/fixed one invalid ARIA loading-state contract. A fully authenticated browser journey and controlled race remain open.
 
 - [ ] **10. Deploy the isolated hackathon-demo stack on AWS**
   Build: minimal CDK/ECR/ALB/ECS/SQS/S3/IAM/Secrets/CloudWatch; separate web/API/worker images; production configuration omits the demo controller module/route/permission.
