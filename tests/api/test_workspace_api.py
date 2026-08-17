@@ -58,5 +58,8 @@ async def test_seller_can_reach_seil_chat_boundary(
         json={"mode": "seil", "message": "Inspect my product", "history": []},
     )
 
-    assert response.status_code == 503
-    assert response.json()["error"]["code"] == "AGENT_PROVIDER_NOT_CONFIGURED"
+    assert response.status_code == 200
+    body = response.json()
+    assert body["conversation_id"].startswith("msn_")
+    assert body["mission"]["mode"] == "seil"
+    assert body["message"]

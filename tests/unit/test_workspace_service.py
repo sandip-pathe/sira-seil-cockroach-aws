@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+from typing import cast
+
 import pytest
-from sira_agents.commerce_tools import SEIL_TOOL_NAMES, SIRA_TOOL_NAMES
-from sira_agents.runtime import AgentRunContext, AgentRunRequest, AgentRunResult
+from sira_agents.kernel_models import Party, Principal, ToolManifest, ToolRisk
+from sira_agents.runtime import AgentRunContext
+from sira_api.cognitive_engine import RunEngine
 from sira_api.errors import ApiProblem
 from sira_api.fixtures import DemoFixtureBundle
 from sira_api.workspace_schemas import WorkspaceChatCreate
@@ -18,35 +22,23 @@ def _run_context(service: WorkspaceService) -> AgentRunContext:
     )
 
 
-class _CaptureRuntime:
-    def __init__(self) -> None:
-        self.request: AgentRunRequest | None = None
-
-    async def run(self, request: AgentRunRequest) -> AgentRunResult:
-        self.request = request
-        return AgentRunResult(
-            output={
-                "message": "ok",
-                "mission_state": "EXPLORING",
-                "plan": [],
-                "claims": [],
-                "events": [],
-                "artifacts": [],
-                "tasks": [],
-                "attention": None,
-                "continue_autonomously": False,
-                "show_product_ids": [],
-            }
-        )
-
-
-class _UnexpectedRuntime:
-    async def run(self, request: AgentRunRequest) -> AgentRunResult:
-        raise AssertionError("a greeting must not start the commerce agent")
+def _tool(name: str, principal: Principal) -> ToolManifest:
+    return ToolManifest(
+        name=name,
+        contract_version="v1",
+        description=name,
+        allowed_principals=frozenset({principal}),
+        allowed_parties=frozenset({Party.BUYER, Party.SELLER}),
+        purposes=frozenset({"commerce"}),
+        allowed_stages=frozenset({"evaluating"}),
+        risk=ToolRisk.READ,
+        input_schema={"type": "object", "additionalProperties": False},
+        output_schema={"type": "object", "additionalProperties": True},
+    )
 
 
 def test_catalog_is_derived_from_published_product_evidence() -> None:
-    service = WorkspaceService(DemoFixtureBundle.load(), api_key="unused", model="test")
+    service = WorkspaceService(DemoFixtureBundle.load())
 
     catalog = service.catalog()
 
@@ -62,8 +54,8 @@ def test_catalog_is_derived_from_published_product_evidence() -> None:
 
 
 @pytest.mark.asyncio
-async def test_chat_fails_clearly_when_provider_is_not_configured() -> None:
-    service = WorkspaceService(DemoFixtureBundle.load(), api_key="", model="test")
+async def test_chat_fails_clearly_when_cognitive_runtime_is_not_configured() -> None:
+    service = WorkspaceService(DemoFixtureBundle.load())
 
     with pytest.raises(ApiProblem) as raised:
         await service.chat(
@@ -75,123 +67,18 @@ async def test_chat_fails_clearly_when_provider_is_not_configured() -> None:
     assert raised.value.status_code == 503
 
 
-@pytest.mark.asyncio
-async def test_injected_bedrock_runtime_does_not_require_an_openai_key() -> None:
-    runtime = _CaptureRuntime()
-    service = WorkspaceService(
-        DemoFixtureBundle.load(),
-        api_key="",
-        model="test",
-        runtime=runtime,
-        runtime_provider="bedrock",
-    )
-
-    result = await service.chat(
-        WorkspaceChatCreate(message="Help me understand my options"),
-        run_context=_run_context(service),
-    )
-
-    assert result["message"] == "ok"
-    assert runtime.request is not None
-
-
-@pytest.mark.asyncio
-async def test_greeting_is_short_and_does_not_start_commerce_agent() -> None:
-    service = WorkspaceService(DemoFixtureBundle.load(), api_key="configured", model="test")
-    service.runtime = _UnexpectedRuntime()  # type: ignore[assignment]
-
-    result = await service.chat(
-        WorkspaceChatCreate(message="hi"),
-        run_context=_run_context(service),
-    )
-
-    assert result["message"] == "Hi! What would you like help buying?"
-    assert result["follow_up_required"] is False
-    assert result["products"] == []
-    assert result["tool_calls"] == []
-
-
-@pytest.mark.asyncio
-async def test_addressed_seil_greeting_is_plain_and_does_not_start_tools() -> None:
-    service = WorkspaceService(DemoFixtureBundle.load(), api_key="configured", model="test")
-    service.runtime = _UnexpectedRuntime()  # type: ignore[assignment]
-
-    result = await service.chat(
-        WorkspaceChatCreate(message="hey seil", mode="seil"),
-        run_context=AgentRunContext(
-            organization_id="org_seller_a",
-            actor_id="seller_fixture_d",
-            actor_roles=frozenset({"seller_editor"}),
-            permissions=frozenset({"can_view_context"}),
-            party="SELLER",
-            services=service.agent_services(),
-        ),
-    )
-
-    assert result["message"].startswith("Hi! I help sellers")
-    assert result["tool_calls"] == []
-
-
-@pytest.mark.asyncio
-async def test_seil_capability_question_uses_product_language_without_internal_terms() -> None:
-    service = WorkspaceService(DemoFixtureBundle.load(), api_key="configured", model="test")
-    service.runtime = _UnexpectedRuntime()  # type: ignore[assignment]
-
-    result = await service.chat(
-        WorkspaceChatCreate(
-            message="Can I know what do you do and what do you need to proceed?",
-            mode="seil",
-        ),
-        run_context=AgentRunContext(
-            organization_id="org_seller_a",
-            actor_id="seller_fixture_d",
-            actor_roles=frozenset({"seller_editor"}),
-            permissions=frozenset({"can_view_context"}),
-            party="SELLER",
-            services=service.agent_services(),
-        ),
-    )
-
-    assert "buyer-ready product evidence" in result["message"]
-    assert "tool" not in result["message"].casefold()
-    assert "authenticated" not in result["message"].casefold()
-    assert result["tool_calls"] == []
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("mode", "expected_tools"),
-    [("sira", SIRA_TOOL_NAMES), ("seil", SEIL_TOOL_NAMES)],
+    ("mode", "expected"),
+    [("sira", ("buyer_search",)), ("seil", ("seller_search",))],
 )
-async def test_chat_uses_the_role_specific_tool_allowlist(
-    mode: str, expected_tools: tuple[str, ...]
+def test_tool_visibility_is_derived_from_typed_principal_manifests(
+    mode: str, expected: tuple[str, ...]
 ) -> None:
-    service = WorkspaceService(
-        DemoFixtureBundle.load(),
-        api_key="configured",  # pragma: allowlist secret - inert test value
-        model="test",
-        workflow_service=object(),
-        seller_evidence_service=object(),
-    )
-    runtime = _CaptureRuntime()
-    service.runtime = runtime  # type: ignore[assignment]
-    context = AgentRunContext(
-        organization_id="org_consultco",
-        actor_id="actor",
-        actor_roles=frozenset({"seller_editor"}),
-        permissions=frozenset(
-            {"can_view_context", "can_submit_request", "can_select_recommendation"}
-        ),
-        party="SELLER" if mode == "seil" else "BUYER",
-        services=service.agent_services(),
-    )
+    catalog = {
+        "buyer_search": _tool("buyer_search", Principal.SIRA),
+        "seller_search": _tool("seller_search", Principal.SEIL),
+    }
+    engine = cast(RunEngine, SimpleNamespace(broker=SimpleNamespace(catalog=catalog)))
+    service = WorkspaceService(DemoFixtureBundle.load(), cognitive_engine=engine)
 
-    await service.chat(
-        WorkspaceChatCreate(message="Help", mode=mode),
-        run_context=context,
-    )
-
-    assert runtime.request is not None
-    assert runtime.request.allowed_tools == expected_tools
-    assert runtime.request.run_context is context
-    assert runtime.request.authority_mode.value == "MISSION_OPERATOR"
+    assert service._allowed_tools(mode) == expected

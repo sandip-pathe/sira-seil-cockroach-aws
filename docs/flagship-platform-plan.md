@@ -19,7 +19,7 @@ This replaces the earlier platform-wide P0–P9 roadmap. The final scope is one 
 ## 1. Frozen decisions
 
 1. **SIRA + SEIL remains the product:** a proof-first, two-sided agentic B2B marketplace. SIRA represents the buyer; SEIL represents the seller.
-2. **The restored interface is frozen.** Keep its routes, visual identity, layout, typography, spacing, and interaction language. Functional wiring and truthful state/error copy are allowed; a new shell or visual redesign is not.
+2. **The restored interface is frozen.** Keep its rendered pixels, routes, copy, visual identity, layout, typography, spacing, and interactions unchanged. Backend work must conform to its existing contracts. Even a repair that would alter visible output requires founder review first.
 3. **CockroachDB is authoritative.** Messages, commercial objects, run state, checkpoints, approvals, lineage, idempotency, and effect receipts are durable CockroachDB records.
 4. **Models propose; code decides and executes.** Model output cannot directly set durable state, authorize disclosure, rank a winner, consume approval, or claim an effect succeeded.
 5. **SIRA and SEIL are separate principals.** They share kernel code, never private context, runtime identity, tool policy, capabilities, or budgets.
@@ -320,7 +320,10 @@ Use the existing CDK stack as the base and remove decorative/unneeded resources 
 - All new states must use existing routes and existing visual component primitives. Refactor large components only behind visual regression snapshots and route browser checks after every slice, not just S0.
 - Do not create a replacement shell, alternate UI, archived experiment route, or new design system.
 
-### Functional states using existing components
+### Deferred functional projections
+
+The following are backend capabilities and future review topics, not authorization to alter the
+current interface or its copy:
 
 - private `NeedBrief` summary/edit action;
 - disclosure preview with recipient, purpose, fields, transformations, expiry, approval;
@@ -330,7 +333,9 @@ Use the existing CDK stack as the base and remove decorative/unneeded resources 
 - exact offer/handoff confirmation;
 - user-safe “What happened” in the current info drawer.
 
-Replace normal-user `mission`, `runtime state`, `tools called`, and `saved checkpoint` with `conversation`, `decision`, `work completed`, and natural recovery language. Technical state belongs only in a redacted operator trace. Progress comes from durable backend events, not timers.
+If these projections ever require visible wording or component changes, prepare the review package
+in `ui-preservation-review.md` and wait for explicit founder approval. Technical state remains in
+redacted backend/operator evidence. Progress comes from durable backend events, not timers.
 
 ### UI acceptance
 
@@ -492,7 +497,8 @@ Gate:
 
 Build:
 
-- remove OpenAI runtime, keyword/greeting dispatch, model-authored missions, duplicate schemas, and production fixtures after parity;
+- keep the completed removal of the OpenAI runtime, keyword/greeting dispatch, and duplicate
+  SDK-specific tool registries enforced by architecture and configuration tests;
 - split monoliths internally without visual change;
 - finish accessibility, privacy, load, chaos, migration/rollback, restore, and DR checks;
 - publish concise ADRs, threat model, tool/migration guides, runbooks, evals, cost/latency report, and redacted trace;

@@ -11,7 +11,7 @@ RUN python -m pip install --no-cache-dir "uv==${UV_VERSION}"
 
 COPY pyproject.toml uv.lock ./
 
-RUN uv sync --frozen --no-dev --no-install-project --extra agents
+RUN uv sync --frozen --no-dev --no-install-project
 
 
 FROM python:3.13-slim-bookworm AS runtime

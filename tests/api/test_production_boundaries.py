@@ -64,23 +64,29 @@ def production_settings() -> ApiSettings:
         development_fixture_mode=False,
         demo_reset_enabled=False,
         agent_runtime_provider="agentcore",
+        cognitive_kernel_enabled=True,
+        principal_isolation_enabled=True,
+        sira_agentcore_runtime_arn="arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/sira",
+        seil_agentcore_runtime_arn="arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/seil",
+        runtime_ticket_signing_key=SecretStr("test-runtime-ticket-signing-key-32-bytes"),
     )
 
 
 def test_configuration_requires_an_explicit_environment() -> None:
     with pytest.raises(ValidationError, match="APP_ENV must be explicitly set"):
-        ApiSettings(app_env="unset")
+        ApiSettings(app_env="unset", agent_runtime_provider="local")
 
 
 def test_production_configuration_rejects_development_modes_including_defaults() -> None:
     with pytest.raises(ValidationError, match="DEVELOPMENT_FIXTURE_MODE=false"):
-        ApiSettings(app_env="production")
+        ApiSettings(app_env="production", agent_runtime_provider="agentcore")
 
     with pytest.raises(ValidationError, match="DEVELOPMENT_FIXTURE_MODE=false"):
         ApiSettings(
             app_env="production",
             development_fixture_mode=False,
             demo_reset_enabled=True,
+            agent_runtime_provider="agentcore",
         )
 
 
@@ -91,6 +97,7 @@ def test_production_configuration_requires_cockroachdb() -> None:
             database_url="sqlite+aiosqlite:///:memory:",
             development_fixture_mode=False,
             demo_reset_enabled=False,
+            agent_runtime_provider="agentcore",
         )
 
     with pytest.raises(ValidationError, match="SIRA_CATALOG_DATABASE_URL"):
@@ -100,6 +107,7 @@ def test_production_configuration_requires_cockroachdb() -> None:
             catalog_database_url="postgresql+asyncpg://catalog@db.example:26257/sira?ssl=verify-full",
             development_fixture_mode=False,
             demo_reset_enabled=False,
+            agent_runtime_provider="agentcore",
         )
 
 
@@ -113,6 +121,18 @@ def test_production_rejects_cognitive_kernel_before_principal_isolation() -> Non
             agent_runtime_provider="agentcore",
             cognitive_kernel_enabled=True,
             principal_isolation_enabled=False,
+        )
+
+
+def test_production_cannot_disable_the_cognitive_kernel() -> None:
+    with pytest.raises(ValidationError, match="COGNITIVE_KERNEL_ENABLED=true"):
+        ApiSettings(
+            app_env="production",
+            database_url="cockroachdb+asyncpg://sira_app@db.example:26257/sira?ssl=verify-full",
+            development_fixture_mode=False,
+            demo_reset_enabled=False,
+            agent_runtime_provider="agentcore",
+            cognitive_kernel_enabled=False,
         )
 
 

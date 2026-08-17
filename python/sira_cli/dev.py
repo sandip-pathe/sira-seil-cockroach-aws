@@ -286,7 +286,7 @@ def _local_environment(database_host: str | None = None) -> dict[str, str]:
         "DEVELOPMENT_FIXTURE_MODE": "true",
         "DEMO_RESET_ENABLED": "true",
         "GUEST_SESSION_ENABLED": "true",
-        "AGENT_RUNTIME_PROVIDER": "openai",
+        "AGENT_RUNTIME_PROVIDER": "local",
         "COGNITIVE_KERNEL_ENABLED": "true",
         "PRINCIPAL_ISOLATION_ENABLED": "true",
         "NEXT_PUBLIC_GUEST_SESSION_ENABLED": "true",

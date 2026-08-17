@@ -46,8 +46,6 @@ async def test_existing_workspace_routes_both_principals_through_cognitive_kerne
     )
     service = WorkspaceService(
         DemoFixtureBundle.load(),
-        api_key="",
-        model="test",
         database=database,
         cognitive_engine=RunEngine(
             database=database,
@@ -125,8 +123,6 @@ async def test_workspace_projects_completed_kernel_tools_into_existing_run_detai
 
     service = WorkspaceService(
         DemoFixtureBundle.load(),
-        api_key="",
-        model="test",
         database=database,
         cognitive_engine=RunEngine(
             database=database,

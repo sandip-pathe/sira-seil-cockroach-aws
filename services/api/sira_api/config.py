@@ -62,30 +62,19 @@ class ApiSettings(BaseSettings):
         validation_alias="IDENTITY_STEP_UP_MAX_AGE_SECONDS",
     )
     firebase_project_id: str = Field(default="", validation_alias="FIREBASE_PROJECT_ID")
-    openai_api_key: SecretStr = Field(
-        default=SecretStr(""),
-        validation_alias=AliasChoices("SIRA_OPENAI_API_KEY", "OPENAI_API_KEY"),
-    )
-    seil_openai_api_key: SecretStr = Field(
-        default=SecretStr(""), validation_alias="SEIL_OPENAI_API_KEY"
-    )
-    extra_openai_api_keys: SecretStr = Field(
-        default=SecretStr(""), validation_alias="EXTRA_OPENAI_API_KEYS"
-    )
-    openai_model: str = Field(default="gpt-5-mini", validation_alias="OPENAI_MODEL")
     aws_region: str = Field(
         default="us-east-1",
         validation_alias=AliasChoices("AWS_REGION", "AWS_DEFAULT_REGION"),
     )
     aws_profile: str = Field(default="", validation_alias="AWS_PROFILE")
-    agent_runtime_provider: Literal["agentcore", "bedrock", "openai"] = Field(
-        default="openai", validation_alias="AGENT_RUNTIME_PROVIDER"
+    agent_runtime_provider: Literal["agentcore", "bedrock", "local"] = Field(
+        default="local", validation_alias="AGENT_RUNTIME_PROVIDER"
     )
     cognitive_kernel_enabled: bool = Field(
-        default=False, validation_alias="COGNITIVE_KERNEL_ENABLED"
+        default=True, validation_alias="COGNITIVE_KERNEL_ENABLED"
     )
     principal_isolation_enabled: bool = Field(
-        default=False, validation_alias="PRINCIPAL_ISOLATION_ENABLED"
+        default=True, validation_alias="PRINCIPAL_ISOLATION_ENABLED"
     )
     sira_agentcore_runtime_arn: str = Field(
         default="", validation_alias="SIRA_AGENTCORE_RUNTIME_ARN"
@@ -142,15 +131,16 @@ class ApiSettings(BaseSettings):
             self.guest_session_signing_secret()
         if self.agent_runtime_provider != "agentcore":
             raise ValueError("production requires AGENT_RUNTIME_PROVIDER=agentcore")
-        if self.cognitive_kernel_enabled and not self.principal_isolation_enabled:
+        if not self.cognitive_kernel_enabled:
+            raise ValueError("production requires COGNITIVE_KERNEL_ENABLED=true")
+        if not self.principal_isolation_enabled:
             raise ValueError(
-                "production COGNITIVE_KERNEL_ENABLED requires PRINCIPAL_ISOLATION_ENABLED=true"
+                "production cognitive runtime requires PRINCIPAL_ISOLATION_ENABLED=true"
             )
-        if self.cognitive_kernel_enabled:
-            if not self.sira_agentcore_runtime_arn or not self.seil_agentcore_runtime_arn:
-                raise ValueError("production cognitive runtime requires both AgentCore ARNs")
-            if len(self.runtime_ticket_signing_key.get_secret_value().encode()) < 32:
-                raise ValueError("production cognitive runtime requires a 32-byte ticket key")
+        if not self.sira_agentcore_runtime_arn or not self.seil_agentcore_runtime_arn:
+            raise ValueError("production cognitive runtime requires both AgentCore ARNs")
+        if len(self.runtime_ticket_signing_key.get_secret_value().encode()) < 32:
+            raise ValueError("production cognitive runtime requires a 32-byte ticket key")
 
     def guest_session_signing_secret(self) -> str:
         value = self.guest_session_signing_key.get_secret_value()
@@ -169,25 +159,6 @@ class ApiSettings(BaseSettings):
 
     def identity_step_up_values(self) -> frozenset[str]:
         return self._csv_set(self.identity_step_up_acr_values)
-
-    def resolved_seil_openai_api_key(self) -> str:
-        explicit = self.seil_openai_api_key.get_secret_value().strip()
-        if explicit:
-            return explicit
-        extras = self.extra_openai_api_keys.get_secret_value().strip()
-        if not extras:
-            return ""
-        if extras.startswith("["):
-            import json
-
-            try:
-                values = json.loads(extras)
-            except json.JSONDecodeError:
-                return ""
-            if isinstance(values, list):
-                return next((str(value).strip() for value in values if str(value).strip()), "")
-            return ""
-        return next((item.strip() for item in extras.split(",") if item.strip()), "")
 
     def assert_identity_configuration(self) -> None:
         required = {

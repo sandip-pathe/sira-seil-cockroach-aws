@@ -24,21 +24,12 @@ BUYER_TEST_AUTHORITIES = ",".join(
     )
 )
 
-PROVIDER_ENV_KEYS = (
-    "SIRA_OPENAI_API_KEY",
-    "OPENAI_API_KEY",
-    "SEIL_OPENAI_API_KEY",
-    "EXTRA_OPENAI_API_KEYS",
-)
-
 
 @pytest.fixture(autouse=True)
 def isolate_provider_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep private laptop `.env` values from changing deterministic API tests."""
 
-    for setting in PROVIDER_ENV_KEYS:
-        monkeypatch.setenv(setting, "")
-    monkeypatch.setenv("AGENT_RUNTIME_PROVIDER", "openai")
+    monkeypatch.setenv("AGENT_RUNTIME_PROVIDER", "local")
     monkeypatch.setenv("SIRA_CATALOG_DATABASE_URL", "")
     monkeypatch.setenv("GUEST_SESSION_ENABLED", "false")
     monkeypatch.setenv("DEVELOPMENT_FIXTURE_MODE", "true")

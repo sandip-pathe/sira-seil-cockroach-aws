@@ -19,7 +19,6 @@ from sira_agents.bedrock_runtime import (
     BedrockConverseRuntime,
     BedrockGuardrail,
     TitanEmbeddingClient,
-    bedrock_tools_from_function_tools,
     create_bedrock_client,
 )
 from sira_agents.cognitive_runtime import (
@@ -27,13 +26,11 @@ from sira_agents.cognitive_runtime import (
     CognitiveRuntime,
     DeterministicCognitiveRuntime,
 )
-from sira_agents.commerce_tools import commerce_tool_registry
 from sira_agents.context_assembler import default_context_assembler
 from sira_agents.kernel_models import Principal
 from sira_agents.kernel_tools import build_kernel_tool_set
 from sira_agents.runtime_ticket import RuntimeTicketCodec
 from sira_agents.tool_broker import ToolBroker
-from sira_agents.workspace_tools import workspace_tool_registry
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import Response
 
@@ -273,9 +270,7 @@ def create_app(
             workspace_runtime = BedrockConverseRuntime(
                 client=bedrock_client,
                 model_id=resolved_settings.bedrock_chat_model_id,
-                tools=bedrock_tools_from_function_tools(
-                    {**workspace_tool_registry(), **commerce_tool_registry()}
-                ),
+                tools={},
                 guardrail=(
                     BedrockGuardrail(
                         identifier=guardrail_id,
@@ -345,14 +340,9 @@ def create_app(
         application.state.qualification_service = qualification_service
         application.state.workspace_service = WorkspaceService(
             fixtures,
-            api_key=resolved_settings.openai_api_key.get_secret_value(),  # pragma: allowlist secret
-            seil_api_key=resolved_settings.resolved_seil_openai_api_key(),
-            model=resolved_settings.openai_model,
             workflow_service=workflow_service,
             seller_evidence_service=seller_evidence_service,
             database=resolved_database,
-            runtime=workspace_runtime,
-            runtime_provider=resolved_settings.agent_runtime_provider,
             cognitive_engine=cognitive_engine,
         )
         yield

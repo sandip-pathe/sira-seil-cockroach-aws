@@ -14,21 +14,16 @@ the CockroachDB, agent runtime, evidence, exchange, and AWS work is completed be
 - Existing responsive behavior and interaction rhythm.
 - The visual component library and design language. No replacement shell or second design
   system may be introduced.
-- The current user-facing product vocabulary unless an individual error message is inaccurate,
-  unsafe, or exposes implementation details.
+- Every current user-facing word, label, message, empty state, and error presentation.
 
 Backend integration must adapt to the UI contracts. The UI must not be redesigned to make a
 backend implementation easier.
 
 ## Work allowed without a separate design approval
 
-- Fix a broken API call, stale state, authentication error, or inaccessible control while leaving
-  its rendered appearance unchanged.
+- Fix a broken API call, stale state, or authentication path only when its rendered output remains
+  byte-for-byte and pixel-for-pixel unchanged.
 - Feed existing components with durable CockroachDB data instead of fixtures.
-- Replace a raw exception, tool name, database term, or false success claim with truthful natural
-  language in the same component and visual treatment.
-- Correct focus, labels, keyboard behavior, screen-reader announcements, reduced motion, or a
-  small-screen overflow defect without changing the visible composition.
 - Add test IDs or non-visual accessibility metadata.
 
 These are repairs, not permission to reinterpret the interface.
@@ -43,6 +38,8 @@ These are repairs, not permission to reinterpret the interface.
 - Adding visible CockroachDB, Bedrock, AgentCore, tool-call, checkpoint, or runtime branding to
   ordinary user flows.
 - Any speculative polish prompted by automated design review.
+- Any copy repair, new state, accessibility change with visible impact, or component-level bug fix,
+  however small, until it has passed the approval package below.
 
 ## Current behavioral findings (not design proposals)
 

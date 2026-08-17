@@ -35,9 +35,6 @@ sira-dev = "sira_cli.dev:main"
 sira-scenario = "sira_cli.scenario:main"
 
 [project.optional-dependencies]
-agents = [
-  "openai-agents>=0.2,<1"
-]
 dev = [
   "aiosqlite>=0.21,<1",
   "detect-secrets>=1.5,<2",

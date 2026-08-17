@@ -14,7 +14,6 @@ from sira_agents.runtime import (
     AgentRunContext,
     AgentRunRequest,
     AgentRunResult,
-    OpenAIAgentsRuntime,
 )
 
 __all__ = [
@@ -27,7 +26,6 @@ __all__ = [
     "CognitiveRuntime",
     "ContextManifest",
     "DeterministicCognitiveRuntime",
-    "OpenAIAgentsRuntime",
     "ResponseComposer",
     "SiraSeilHarness",
     "TurnDecisionEnvelope",

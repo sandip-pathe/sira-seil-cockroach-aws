@@ -103,58 +103,6 @@ def create_bedrock_client(*, region: str, profile: str | None = None) -> Bedrock
     )
 
 
-def bedrock_tools_from_function_tools(tools: Mapping[str, object]) -> dict[str, BedrockTool]:
-    """Adapt Agents SDK function tools to Bedrock without duplicating domain handlers."""
-
-    adapted: dict[str, BedrockTool] = {}
-    for registry_name, candidate in tools.items():
-        name = getattr(candidate, "name", None)
-        description = getattr(candidate, "description", None)
-        input_schema = getattr(candidate, "params_json_schema", None)
-        invoke = getattr(candidate, "on_invoke_tool", None)
-        if (
-            not isinstance(name, str)
-            or name != registry_name
-            or not isinstance(description, str)
-            or not isinstance(input_schema, Mapping)
-            or not callable(invoke)
-        ):
-            continue
-        tool_name = name
-        tool_description = description
-        tool_schema = cast(Mapping[str, Any], input_schema)
-        tool_invoke = cast(Callable[..., Awaitable[Any]], invoke)
-
-        async def handler(
-            tool_input: Mapping[str, Any],
-            context: AgentRunContext | None,
-            *,
-            _invoke: Callable[..., Awaitable[Any]] = tool_invoke,
-            _name: str = tool_name,
-        ) -> Mapping[str, Any]:
-            if context is None:
-                raise BedrockRuntimeError("Bedrock function tools require an agent run context")
-            from agents.tool_context import ToolContext
-
-            arguments = json.dumps(dict(tool_input), sort_keys=True, separators=(",", ":"))
-            tool_context = ToolContext(
-                context=context,
-                tool_name=_name,
-                tool_call_id=f"bedrock-{_name}",
-                tool_arguments=arguments,
-            )
-            result = _json_safe(await _invoke(tool_context, arguments))
-            return dict(result) if isinstance(result, Mapping) else {"result": result}
-
-        adapted[tool_name] = BedrockTool(
-            name=tool_name,
-            description=tool_description,
-            input_schema=dict(tool_schema),
-            handler=handler,
-        )
-    return adapted
-
-
 def _json_safe(value: Any) -> Any:
     dump = getattr(value, "model_dump", None)
     if callable(dump):
