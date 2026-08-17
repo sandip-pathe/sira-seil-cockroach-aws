@@ -53,6 +53,7 @@ class TurnBudget(KernelModel):
 
 class ContextReference(KernelModel):
     kind: str = Field(min_length=1, max_length=64)
+    data_class: Literal["buyer_private", "seller_private", "exchange", "public"]
     object_id: str = Field(min_length=1, max_length=128)
     version: int = Field(ge=1)
     content_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
@@ -81,6 +82,9 @@ class ContextManifest(KernelModel):
         expected_party = Party.BUYER if self.principal is Principal.SIRA else Party.SELLER
         if self.party is not expected_party:
             raise ValueError("context principal and party do not match")
+        forbidden = "seller_private" if self.principal is Principal.SIRA else "buyer_private"
+        if any(reference.data_class == forbidden for reference in self.references):
+            raise ValueError("context contains a reference from the opposing private plane")
         calculated = self.calculate_hash()
         if self.manifest_hash is not None and self.manifest_hash != calculated:
             raise ValueError("context manifest hash does not match its contents")

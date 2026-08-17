@@ -43,6 +43,17 @@ _SELLER_DENIED_KEY_PARTS = frozenset(
     }
 )
 
+_BUYER_DENIED_KEY_PARTS = frozenset(
+    {
+        "seller_private",
+        "seller_floor",
+        "seller_capacity",
+        "private_claims",
+        "private_sources",
+        "disclosure_policy",
+    }
+)
+
 _SECRET_VALUE_PATTERNS = (
     re.compile(r"\bsk-[A-Za-z0-9_-]{12,}\b"),
     re.compile(r"\b(?:\d[ -]*?){13,19}\b"),
@@ -84,6 +95,10 @@ def validate_agent_payload(payload: Mapping[str, Any], *, seller_visible: bool) 
                 raise AgentBoundaryViolation(
                     f"seller-visible payload contains buyer-private field at {'.'.join(path)}"
                 )
+            if not seller_visible and _key_is_denied(key, _BUYER_DENIED_KEY_PARTS):
+                raise AgentBoundaryViolation(
+                    f"buyer-visible payload contains seller-private field at {'.'.join(path)}"
+                )
         if isinstance(value, str) and any(
             pattern.search(value) for pattern in _SECRET_VALUE_PATTERNS
         ):
@@ -91,3 +106,9 @@ def validate_agent_payload(payload: Mapping[str, Any], *, seller_visible: bool) 
             raise AgentBoundaryViolation(
                 f"model payload contains a credential or payment-card-like value at {location}"
             )
+
+
+def validate_principal_payload(payload: Mapping[str, Any], *, principal: str) -> None:
+    if principal not in {"SIRA", "SEIL"}:
+        raise AgentBoundaryViolation("unknown agent principal")
+    validate_agent_payload(payload, seller_visible=principal == "SEIL")

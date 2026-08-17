@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from persistence.cognitive_repository import CognitiveRepository, CognitiveRunSnapshot
 from persistence.models import CognitiveRun
 from sira_agents.cognitive_runtime import CognitiveRuntime
+from sira_agents.context_assembler import ContextAssembler
 from sira_agents.kernel_models import (
     ContextManifest,
     FailSafely,
@@ -58,6 +59,7 @@ class TurnCommand:
     message: str
     available_tools: tuple[str, ...] = ()
     recent_messages: tuple[dict[str, Any], ...] = ()
+    private_context: dict[str, Any] = field(default_factory=dict)
     exchange_projection: dict[str, Any] = field(default_factory=dict)
     budget: TurnBudget = field(default_factory=TurnBudget)
 
@@ -77,26 +79,44 @@ class RunEngine:
     broker: ToolBroker
     handlers: Mapping[str, ToolHandler]
     composer: ResponseComposer = field(default_factory=ResponseComposer)
+    assembler: ContextAssembler | None = None
 
     async def process(self, command: TurnCommand) -> TurnResult:
         run, duplicate = await self._capture(command)
         if duplicate and run.status in {"COMPLETED", "FAILED", "WAITING", "CANCELLED"}:
             return await self._existing_result(command.organization_id, run.id)
 
-        manifest = ContextManifest(
-            principal=command.principal,
-            party=command.party,
-            organization_id=command.organization_id,
-            actor_id=command.actor_id,
-            purpose=command.purpose,
-            conversation_id=command.conversation_id,
-            turn_id=command.turn_id,
-            current_message=command.message,
-            recent_messages=command.recent_messages,
-            exchange_projection=command.exchange_projection,
-            available_tools=command.available_tools,
-            budget=command.budget,
-        ).sealed()
+        manifest = (
+            self.assembler.assemble(
+                principal=command.principal,
+                party=command.party,
+                organization_id=command.organization_id,
+                actor_id=command.actor_id,
+                purpose=command.purpose,
+                conversation_id=command.conversation_id,
+                turn_id=command.turn_id,
+                current_message=command.message,
+                recent_messages=command.recent_messages,
+                private_context=command.private_context,
+                exchange_projection=command.exchange_projection,
+                requested_tools=command.available_tools,
+            )
+            if self.assembler is not None
+            else ContextManifest(
+                principal=command.principal,
+                party=command.party,
+                organization_id=command.organization_id,
+                actor_id=command.actor_id,
+                purpose=command.purpose,
+                conversation_id=command.conversation_id,
+                turn_id=command.turn_id,
+                current_message=command.message,
+                recent_messages=command.recent_messages,
+                exchange_projection=command.exchange_projection,
+                available_tools=command.available_tools,
+                budget=command.budget,
+            ).sealed()
+        )
         await self._bind_manifest(command.organization_id, run.id, manifest)
 
         tool_results: list[dict[str, Any]] = []

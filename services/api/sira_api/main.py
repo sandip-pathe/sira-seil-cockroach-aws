@@ -25,7 +25,8 @@ from sira_agents.cognitive_runtime import (
     BedrockCognitiveRuntime,
     DeterministicCognitiveRuntime,
 )
-from sira_agents.commerce_tools import commerce_tool_registry
+from sira_agents.commerce_tools import SEIL_TOOL_NAMES, SIRA_TOOL_NAMES, commerce_tool_registry
+from sira_agents.context_assembler import default_context_assembler
 from sira_agents.run_engine import RunEngine
 from sira_agents.tool_broker import ToolBroker
 from sira_agents.workspace_tools import workspace_tool_registry
@@ -261,6 +262,14 @@ def create_app(
                 runtime=cognitive_runtime,
                 broker=ToolBroker({}),
                 handlers={},
+                assembler=(
+                    default_context_assembler(
+                        sira_tools=frozenset(SIRA_TOOL_NAMES),
+                        seil_tools=frozenset(SEIL_TOOL_NAMES),
+                    )
+                    if resolved_settings.principal_isolation_enabled
+                    else None
+                ),
             )
         application.state.workflow_service = workflow_service
         application.state.seller_evidence_service = seller_evidence_service
