@@ -35,6 +35,46 @@ def test_version_and_process_checks_fail_closed() -> None:
     assert dev._process_alive(-1) is False
 
 
+def test_windows_listener_discovery_is_bounded_and_parses_only_listeners(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(dev.os, "name", "nt")
+    monkeypatch.setattr(
+        dev,
+        "_run",
+        lambda *_args, **_kwargs: dev.subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=(
+                "  TCP    127.0.0.1:8000    0.0.0.0:0    LISTENING    4242\n"
+                "  TCP    127.0.0.1:3000    127.0.0.1:5000    ESTABLISHED    9999\n"
+            ),
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(dev, "_process_alive", lambda pid: pid == 4242)
+
+    assert dev._windows_listener_pid(8000) == 4242
+    assert dev._windows_listener_pid(3000) is None
+
+
+def test_windows_process_check_uses_exact_tasklist_pid(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dev.os, "name", "nt")
+    monkeypatch.setattr(
+        dev,
+        "_run",
+        lambda *_args, **_kwargs: dev.subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='"python.exe","4242","Console","1","1,000 K"\n',
+            stderr="",
+        ),
+    )
+
+    assert dev._process_alive(4242) is True
+    assert dev._process_alive(42) is False
+
+
 def test_command_parsers_match_documented_surface() -> None:
     assert dev.parser().parse_args(["doctor", "--profile", "local"]).command == "doctor"
     assert dev.parser().parse_args(["logs", "--follow"]).follow is True

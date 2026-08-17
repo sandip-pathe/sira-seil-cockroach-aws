@@ -325,11 +325,46 @@ def _load_processes() -> dict[str, int]:
 def _process_alive(pid: int) -> bool:
     if pid <= 0:
         return False
+    if os.name == "nt":
+        result = _run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+            capture=True,
+        )
+        if result.returncode != 0 or result.stdout.lstrip().startswith("INFO:"):
+            return False
+        return any(
+            len(columns := line.strip().strip('"').split('","')) >= 2 and columns[1] == str(pid)
+            for line in result.stdout.splitlines()
+        )
     try:
         os.kill(pid, 0)
     except OSError:
         return False
     return True
+
+
+def _windows_listener_pid(port: int) -> int | None:
+    """Return the process owning one local listening port without broad process scans."""
+
+    if os.name != "nt":
+        return None
+    result = _run(["netstat", "-ano", "-p", "tcp"], capture=True)
+    if result.returncode != 0:
+        return None
+    for line in result.stdout.splitlines():
+        columns = line.split()
+        if len(columns) < 5 or columns[0].upper() != "TCP":
+            continue
+        local_address, state, raw_pid = columns[1], columns[3].upper(), columns[4]
+        if state != "LISTENING" or not local_address.endswith(f":{port}"):
+            continue
+        try:
+            pid = int(raw_pid)
+        except ValueError:
+            continue
+        if _process_alive(pid):
+            return pid
+    return None
 
 
 def _probe(url: str) -> tuple[bool, str]:
@@ -346,6 +381,10 @@ def up(profile: str) -> int:
     database_host = bootstrap_database()
     processes = _load_processes()
     environment = _local_environment(database_host)
+    if not _process_alive(processes.get("api", -1)) and _probe(LOCAL_URLS["api"])[0]:
+        listener = _windows_listener_pid(8000)
+        if listener is not None:
+            processes["api"] = listener
     if not _process_alive(processes.get("api", -1)):
         processes["api"] = _spawn(
             "api",
@@ -364,6 +403,10 @@ def up(profile: str) -> int:
     pnpm = shutil.which("pnpm")
     if not pnpm:
         raise RuntimeError("pnpm is required to start the web application")
+    if not _process_alive(processes.get("web", -1)) and _probe(LOCAL_URLS["web"])[0]:
+        listener = _windows_listener_pid(3000)
+        if listener is not None:
+            processes["web"] = listener
     if not _process_alive(processes.get("web", -1)):
         processes["web"] = _spawn("web", [pnpm, "dev:web"], environment)
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
@@ -383,9 +426,12 @@ def up(profile: str) -> int:
 def status(_profile: str) -> int:
     processes = _load_processes()
     healthy = True
-    for name in ("api", "web"):
+    for name, port in (("api", 8000), ("web", 3000)):
         pid = processes.get(name)
         alive = pid is not None and _process_alive(pid)
+        if not alive and _probe(LOCAL_URLS[name])[0]:
+            pid = _windows_listener_pid(port)
+            alive = pid is not None
         print(f"{'UP' if alive else 'DOWN'}  {name} process" + (f" (pid {pid})" if pid else ""))
         healthy = healthy and alive
     for name, url in LOCAL_URLS.items():
