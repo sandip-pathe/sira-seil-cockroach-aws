@@ -109,11 +109,13 @@ async def test_engine_captures_executes_checkpoints_and_composes() -> None:
         duplicate = await engine.process(_command(available_tools=(tool.name,)))
         assert result.status == "COMPLETED"
         assert result.message == "Both options support EU-hosted recordings."
+        assert result.tool_calls == ("read_evidence",)
         assert duplicate == result.__class__(
             run_id=result.run_id,
             status="COMPLETED",
             message=result.message,
             duplicate=True,
+            tool_calls=("read_evidence",),
         )
         assert observed == [{"evidence_id": "evidence-1"}]
         assert len(runtime.calls) == 2

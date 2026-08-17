@@ -588,7 +588,7 @@ class WorkspaceService:
             "follow_up_required": result.status == "WAITING",
             "panel": None,
             "products": [],
-            "tool_calls": [],
+            "tool_calls": list(result.tool_calls),
             "proposals": [],
             "mission": snapshot["mission"],
             "events": snapshot["events"],
@@ -633,6 +633,22 @@ class WorkspaceService:
                 actor_id=f"{mission.mode.lower()}-agent",
                 payload={"message": result.message, "cognitive_run_id": result.run_id},
             )
+            for index, tool_name in enumerate(result.tool_calls):
+                await repository.append_event(
+                    mission,
+                    event_type="agent.tool.completed",
+                    event_key=f"kernel-tool-completed:{mission.id}:{turn_key}:{index}:{tool_name}",
+                    actor_type="SYSTEM",
+                    actor_id="mission-runtime",
+                    payload={
+                        "summary": f"Used {tool_name.replace('_', ' ')}",
+                        "details": {
+                            "tool": tool_name,
+                            "cognitive_run_id": result.run_id,
+                            "verified": True,
+                        },
+                    },
+                )
             await repository.checkpoint(mission)
             return self._snapshot_view(await repository.snapshot(mission))
 

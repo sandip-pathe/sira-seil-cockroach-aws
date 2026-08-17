@@ -72,6 +72,7 @@ class TurnResult:
     status: str
     message: str
     duplicate: bool = False
+    tool_calls: tuple[str, ...] = ()
 
 
 @dataclass(slots=True)
@@ -142,6 +143,7 @@ class RunEngine:
         await self._bind_manifest(command.organization_id, run.id, manifest)
 
         tool_results: list[dict[str, Any]] = []
+        completed_tool_names: list[str] = []
         mutations_used = 0
         for model_call in range(1, command.budget.max_model_calls + 1):
             decision_manifest = manifest
@@ -165,6 +167,7 @@ class RunEngine:
                     FailureCode.PROVIDER_UNAVAILABLE,
                     "I couldn't finish in time. Your confirmed work is saved; please try again.",
                     retryable=True,
+                    tool_calls=tuple(completed_tool_names),
                 )
             except (ValidationError, ValueError):
                 if model_call < command.budget.max_model_calls:
@@ -175,13 +178,20 @@ class RunEngine:
                     FailureCode.INVALID_DECISION,
                     "I couldn't complete that safely. Please try again.",
                     retryable=True,
+                    tool_calls=tuple(completed_tool_names),
                 )
 
             await self._record_decision(command.organization_id, run.id, decision)
             if not isinstance(decision, ProposeTools):
                 composed = self.composer.compose(decision)
                 await self._finish(command.organization_id, run.id, composed, decision)
-                return TurnResult(run.id, composed.terminal_status, composed.message, duplicate)
+                return TurnResult(
+                    run.id,
+                    composed.terminal_status,
+                    composed.message,
+                    duplicate,
+                    tuple(completed_tool_names),
+                )
 
             tool_results = []
             for call in decision.calls:
@@ -200,6 +210,7 @@ class RunEngine:
                     await self._complete_tool(
                         command.organization_id, run.id, invocation_id, tool, output
                     )
+                    completed_tool_names.append(tool.name)
                     tool_results.append(
                         {
                             "call_id": call.call_id,
@@ -223,6 +234,7 @@ class RunEngine:
                             "I don't have permission to do that. "
                             "I can continue with an allowed option."
                         ),
+                        tool_calls=tuple(completed_tool_names),
                     )
                 except TimeoutError:
                     if invocation_id is not None:
@@ -235,6 +247,7 @@ class RunEngine:
                         FailureCode.TOOL_TIMEOUT,
                         "That action didn't respond in time. Your confirmed work is saved.",
                         retryable=True,
+                        tool_calls=tuple(completed_tool_names),
                     )
                 except Exception:
                     if invocation_id is not None:
@@ -250,6 +263,7 @@ class RunEngine:
                         FailureCode.PROVIDER_UNAVAILABLE,
                         "I couldn't retrieve that safely. Your confirmed work is saved.",
                         retryable=True,
+                        tool_calls=tuple(completed_tool_names),
                     )
 
         return await self._fail(
@@ -258,6 +272,7 @@ class RunEngine:
             FailureCode.BUDGET_EXHAUSTED,
             "I need a fresh turn to continue. Everything confirmed so far is saved.",
             retryable=True,
+            tool_calls=tuple(completed_tool_names),
         )
 
     async def cancel(self, organization_id: str, run_id: str) -> None:
@@ -431,11 +446,12 @@ class RunEngine:
         message: str,
         *,
         retryable: bool = False,
+        tool_calls: tuple[str, ...] = (),
     ) -> TurnResult:
         decision = FailSafely(kind="fail_safely", code=code, message=message, retryable=retryable)
         composed = self.composer.compose(decision)
         await self._finish(organization_id, run_id, composed, decision)
-        return TurnResult(run_id, "FAILED", message)
+        return TurnResult(run_id, "FAILED", message, tool_calls=tool_calls)
 
     async def _existing_result(self, organization_id: str, run_id: str) -> TurnResult:
         async def work(session: AsyncSession) -> CognitiveRunSnapshot:
@@ -452,4 +468,15 @@ class RunEngine:
             ),
             "Your previous result is available.",
         )
-        return TurnResult(run_id, snapshot.run.status, str(output), duplicate=True)
+        tool_calls = tuple(
+            invocation.tool_name
+            for invocation in snapshot.tools
+            if invocation.status == "COMPLETED"
+        )
+        return TurnResult(
+            run_id,
+            snapshot.run.status,
+            str(output),
+            duplicate=True,
+            tool_calls=tool_calls,
+        )
