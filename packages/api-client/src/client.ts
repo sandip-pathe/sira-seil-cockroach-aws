@@ -3,8 +3,10 @@
 import type { OperationId, Operations } from "./types";
 
 const operations = {
+  accept_exchange_offer: { method: "POST", path: "/v1/exchange-cases/{case_id}/accept", bodyMediaType: "application/json", responseMediaType: "application/json" },
   accept_rule_proposal: { method: "POST", path: "/v1/decision-rules/{rules_id}/proposals/{proposal_id}/accept", bodyMediaType: "application/json", responseMediaType: "application/json" },
   approve: { method: "POST", path: "/v1/approval-requests/{approval_id}/approve", bodyMediaType: "application/json", responseMediaType: "application/json" },
+  approve_exchange_offer: { method: "POST", path: "/v1/exchange-cases/{case_id}/approve", bodyMediaType: "application/json", responseMediaType: "application/json" },
   create_approval_request: { method: "POST", path: "/v1/purchase-intents/{intent_id}/approval-requests", bodyMediaType: "application/json", responseMediaType: "application/json" },
   create_decision_request: { method: "POST", path: "/v1/decision-requests", bodyMediaType: "application/json", responseMediaType: "application/json" },
   create_exchange_case: { method: "POST", path: "/v1/exchange-cases", bodyMediaType: "application/json", responseMediaType: "application/json" },
@@ -25,6 +27,8 @@ const operations = {
   list_decision_requests: { method: "GET", path: "/v1/decision-requests", bodyMediaType: null, responseMediaType: "application/json" },
   lock_purchase_intent: { method: "POST", path: "/v1/decisions/{decision_id}/purchase-intents", bodyMediaType: "application/json", responseMediaType: "application/json" },
   open_payment_handoff: { method: "POST", path: "/v1/payment-handoffs/{handoff_id}/open", bodyMediaType: null, responseMediaType: "application/json" },
+  propose_exchange_offer: { method: "POST", path: "/v1/exchange-cases/{case_id}/offers", bodyMediaType: "application/json", responseMediaType: "application/json" },
+  publish_exchange_evidence: { method: "POST", path: "/v1/exchange-cases/{case_id}/evidence", bodyMediaType: "application/json", responseMediaType: "application/json" },
   purchase_status: { method: "GET", path: "/v1/purchase-intents/{intent_id}/status", bodyMediaType: null, responseMediaType: "application/json" },
   qualification_create_company_context: { method: "POST", path: "/v1/qualification/company-context", bodyMediaType: "application/json", responseMediaType: "application/json" },
   qualification_create_introduction: { method: "POST", path: "/v1/qualification/engagements/{engagement_id}/introduction", bodyMediaType: "application/json", responseMediaType: "application/json" },

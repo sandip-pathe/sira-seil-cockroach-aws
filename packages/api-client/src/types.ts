@@ -592,6 +592,41 @@ export interface ExchangeCaseCreated {
   route_capability: string;
 }
 
+export interface ExchangeEvidencePublish {
+  evidence_hash: string;
+  expected_version: number;
+  published_span_ids: string[];
+  summary: string;
+}
+
+export interface ExchangeOfferAccept {
+  expected_version: number;
+  offer_hash: string;
+}
+
+export interface ExchangeOfferApprove {
+  approval_expires_at: string;
+  expected_version: number;
+  offer_hash: string;
+}
+
+export interface ExchangeOfferCreate {
+  changed_terms?: string[];
+  currency: string;
+  expected_version: number;
+  expires_at: string;
+  lines: ExchangeOfferLineInput[];
+  rationale: string;
+  total: number | string;
+}
+
+export interface ExchangeOfferLineInput {
+  description: string;
+  item_id: string;
+  quantity: number;
+  unit_price: number | string;
+}
+
 export interface ExchangeProjectionView {
   case_id: string;
   party: "BUYER" | "SELLER";
@@ -1570,8 +1605,10 @@ export interface WorkspaceSettingsView {
 }
 
 export interface Operations {
+  accept_exchange_offer: { method: "POST"; path: "/v1/exchange-cases/{case_id}/accept"; pathParams: { case_id: string; }; queryParams: { route: string; }; body: ExchangeOfferAccept; response: ExchangeProjectionView; requiresIdempotency: true; };
   accept_rule_proposal: { method: "POST"; path: "/v1/decision-rules/{rules_id}/proposals/{proposal_id}/accept"; pathParams: { rules_id: string; proposal_id: string; }; queryParams: Record<never, never>; body: ProposalDecisionCreate; response: ProposalDecisionView; requiresIdempotency: true; };
   approve: { method: "POST"; path: "/v1/approval-requests/{approval_id}/approve"; pathParams: { approval_id: string; }; queryParams: Record<never, never>; body: ApprovalCreate; response: ApprovalRequestView; requiresIdempotency: true; };
+  approve_exchange_offer: { method: "POST"; path: "/v1/exchange-cases/{case_id}/approve"; pathParams: { case_id: string; }; queryParams: { route: string; }; body: ExchangeOfferApprove; response: ExchangeProjectionView; requiresIdempotency: true; };
   create_approval_request: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/approval-requests"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: ApprovalRequestCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   create_decision_request: { method: "POST"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: DecisionRequestCreate; response: DecisionRequestView; requiresIdempotency: true; };
   create_exchange_case: { method: "POST"; path: "/v1/exchange-cases"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: ExchangeCaseCreate; response: ExchangeCaseCreated; requiresIdempotency: true; };
@@ -1592,6 +1629,8 @@ export interface Operations {
   list_decision_requests: { method: "GET"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: DecisionIndexView; requiresIdempotency: false; };
   lock_purchase_intent: { method: "POST"; path: "/v1/decisions/{decision_id}/purchase-intents"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: PurchaseIntentCreate; response: PurchaseIntentView; requiresIdempotency: true; };
   open_payment_handoff: { method: "POST"; path: "/v1/payment-handoffs/{handoff_id}/open"; pathParams: { handoff_id: string; }; queryParams: Record<never, never>; body: never; response: PaymentHandoffView; requiresIdempotency: true; };
+  propose_exchange_offer: { method: "POST"; path: "/v1/exchange-cases/{case_id}/offers"; pathParams: { case_id: string; }; queryParams: { route: string; }; body: ExchangeOfferCreate; response: ExchangeProjectionView; requiresIdempotency: true; };
+  publish_exchange_evidence: { method: "POST"; path: "/v1/exchange-cases/{case_id}/evidence"; pathParams: { case_id: string; }; queryParams: { route: string; }; body: ExchangeEvidencePublish; response: ExchangeProjectionView; requiresIdempotency: true; };
   purchase_status: { method: "GET"; path: "/v1/purchase-intents/{intent_id}/status"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: never; response: PurchaseStatusView; requiresIdempotency: false; };
   qualification_create_company_context: { method: "POST"; path: "/v1/qualification/company-context"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: CompanyContextCreate; response: QualificationMutationView; requiresIdempotency: true; };
   qualification_create_introduction: { method: "POST"; path: "/v1/qualification/engagements/{engagement_id}/introduction"; pathParams: { engagement_id: string; }; queryParams: Record<never, never>; body: QualificationIntroductionCreate; response: QualificationMutationView; requiresIdempotency: true; };
