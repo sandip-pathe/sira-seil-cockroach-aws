@@ -19,6 +19,16 @@ from decision_engine import (
     evaluate_decision_graph,
     load_demo_decision_source,
 )
+from domain import (
+    DomainValidationError,
+    InvalidTransitionError,
+    Money,
+    PaymentHandoffStatus,
+    PaymentHandoffTransitionService,
+)
+from domain import (
+    PaymentHandoff as DomainPaymentHandoff,
+)
 from integrations.errors import ProviderError, ProviderErrorCode
 from integrations.prava.models import (
     PravaMerchantDetails,
@@ -54,6 +64,7 @@ from persistence.models import (
     OutboxEvent,
     OutcomeCheckpoint,
     PaymentAttempt,
+    PaymentHandoff,
     PaymentSession,
     PurchaseBriefVersion,
     PurchaseIntent,
@@ -3068,6 +3079,245 @@ class WorkflowService:
                 details={"required_role": approval.required_roles[next_stage]},
             )
 
+    async def create_payment_handoff(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        intent_id: str,
+        idempotency_key: str,
+    ) -> tuple[int, dict[str, Any]]:
+        """Prepare exact context for a human payment step without executing it."""
+
+        approval_expiry = await self._expire_purchase_approval_if_needed(organization_id, intent_id)
+        if approval_expiry is not None:
+            raise approval_expiry
+        request_hash = content_hash({"intent_id": intent_id, "operation": "payment_handoff"})
+        async with self.database.transaction(organization_id) as session:
+            repository = WorkflowRepository(session, organization_id)
+            claim = await repository.claim_idempotency(
+                actor_id=actor_id,
+                operation="payment_handoffs.create",
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+            )
+            if claim.replay:
+                return int(claim.record.response_status or 201), dict(
+                    claim.record.response_payload or {}
+                )
+            intent = await self._not_found(
+                repository.get_purchase_intent(intent_id, lock=True), "PURCHASE_INTENT"
+            )
+            decision = await repository.get_decision(intent.decision_id)
+            await self._require_current_decision(session, organization_id, decision)
+            approval = (
+                await session.execute(
+                    select(ApprovalRequest)
+                    .where(
+                        ApprovalRequest.organization_id == organization_id,
+                        ApprovalRequest.purchase_intent_id == intent.id,
+                        ApprovalRequest.intent_hash == intent.intent_hash,
+                        ApprovalRequest.status == "APPROVED",
+                    )
+                    .order_by(ApprovalRequest.created_at.desc())
+                    .limit(1)
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if intent.approval_status != "APPROVED" or approval is None:
+                raise ApiProblem(
+                    code="APPROVAL_REQUIRED",
+                    message="Approve the exact current purchase intent before continuing.",
+                    status_code=409,
+                    next_action="complete_approval",
+                )
+            now = self._now()
+            expiry_problem = self._approval_expiry_problem(approval, intent, now)
+            if expiry_problem is not None:
+                raise expiry_problem
+            existing = (
+                await session.execute(
+                    select(PaymentHandoff).where(
+                        PaymentHandoff.organization_id == organization_id,
+                        PaymentHandoff.purchase_intent_id == intent.id,
+                        PaymentHandoff.approval_request_id == approval.id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                response = self._payment_handoff_view(existing)
+                await repository.complete_idempotency(
+                    claim.record,
+                    response_status=201,
+                    response_payload=response,
+                    response_reference=existing.id,
+                )
+                return 201, response
+
+            expires_at = min(
+                self._as_utc(approval.expires_at),
+                now + (self._as_utc(intent.quote_expires_at) - self._quote_now()),
+                now + timedelta(minutes=15),
+            )
+            domain_handoff = DomainPaymentHandoff(
+                schema_version="1.0",
+                handoff_id=new_id("phd"),
+                organization_id=organization_id,
+                purchase_intent_id=intent.id,
+                approval_request_id=approval.id,
+                intent_hash=intent.intent_hash,
+                destination_url=intent.merchant_url,
+                recipient=intent.merchant_name,
+                amount=Money(intent.amount, intent.currency),
+                reference=f"SIRA-{intent.id}",
+                created_at=now,
+                expires_at=expires_at,
+            )
+            record = PaymentHandoff(
+                id=domain_handoff.handoff_id,
+                organization_id=domain_handoff.organization_id,
+                purchase_intent_id=domain_handoff.purchase_intent_id,
+                approval_request_id=domain_handoff.approval_request_id,
+                intent_hash=domain_handoff.intent_hash,
+                handoff_hash=domain_handoff.handoff_hash,
+                destination_url=domain_handoff.destination_url,
+                recipient=domain_handoff.recipient,
+                amount=domain_handoff.amount.amount,
+                currency=domain_handoff.amount.currency,
+                reference=domain_handoff.reference,
+                status=domain_handoff.status.value,
+                expires_at=domain_handoff.expires_at,
+                opened_at=None,
+                created_at=domain_handoff.created_at,
+                updated_at=domain_handoff.created_at,
+            )
+            session.add(record)
+            await session.flush()
+            await repository.add_outbox(
+                aggregate_type="payment_handoff",
+                aggregate_id=record.id,
+                event_type="payment_handoff.ready",
+                event_key=f"payment-handoff-ready:{record.id}",
+                payload={
+                    "payment_handoff_id": record.id,
+                    "purchase_intent_id": intent.id,
+                    "handoff_hash": record.handoff_hash,
+                },
+            )
+            response = self._payment_handoff_view(record)
+            await repository.complete_idempotency(
+                claim.record,
+                response_status=201,
+                response_payload=response,
+                response_reference=record.id,
+            )
+            return 201, response
+
+    async def open_payment_handoff(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        handoff_id: str,
+        idempotency_key: str,
+    ) -> dict[str, Any]:
+        """Record the handoff; the authenticated browser performs navigation."""
+
+        request_hash = content_hash({"handoff_id": handoff_id, "operation": "open"})
+        async with self.database.transaction(organization_id) as session:
+            repository = WorkflowRepository(session, organization_id)
+            claim = await repository.claim_idempotency(
+                actor_id=actor_id,
+                operation="payment_handoffs.open",
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+            )
+            if claim.replay:
+                return dict(claim.record.response_payload or {})
+            record = (
+                await session.execute(
+                    select(PaymentHandoff)
+                    .where(
+                        PaymentHandoff.id == handoff_id,
+                        PaymentHandoff.organization_id == organization_id,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if record is None:
+                raise self._missing("PAYMENT_HANDOFF")
+            intent = await repository.get_purchase_intent(record.purchase_intent_id, lock=True)
+            approval = (
+                await session.execute(
+                    select(ApprovalRequest).where(
+                        ApprovalRequest.id == record.approval_request_id,
+                        ApprovalRequest.organization_id == organization_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if (
+                approval is None
+                or approval.status != "APPROVED"
+                or intent.approval_status != "APPROVED"
+                or approval.intent_hash != record.intent_hash
+                or intent.intent_hash != record.intent_hash
+            ):
+                raise ApiProblem(
+                    code="HANDOFF_AUTHORITY_INVALID",
+                    message="This payment handoff is no longer authorized.",
+                    status_code=409,
+                    next_action="review_purchase_intent",
+                )
+            domain_handoff = DomainPaymentHandoff(
+                schema_version="1.0",
+                handoff_id=record.id,
+                organization_id=record.organization_id,
+                purchase_intent_id=record.purchase_intent_id,
+                approval_request_id=record.approval_request_id,
+                intent_hash=record.intent_hash,
+                destination_url=record.destination_url,
+                recipient=record.recipient,
+                amount=Money(record.amount, record.currency),
+                reference=record.reference,
+                created_at=self._as_utc(record.created_at),
+                expires_at=self._as_utc(record.expires_at),
+                status=PaymentHandoffStatus(record.status),
+                opened_at=(self._as_utc(record.opened_at) if record.opened_at else None),
+                handoff_hash=record.handoff_hash,
+            )
+            try:
+                opened = PaymentHandoffTransitionService.transition(
+                    domain_handoff, PaymentHandoffStatus.OPENED, at=self._now()
+                )
+            except (ValueError, DomainValidationError, InvalidTransitionError) as exc:
+                raise ApiProblem(
+                    code="HANDOFF_NOT_OPENABLE",
+                    message="This payment handoff cannot be opened.",
+                    status_code=409,
+                    next_action="create_payment_handoff",
+                ) from exc
+            record.status = opened.status.value
+            record.opened_at = opened.opened_at
+            await repository.add_outbox(
+                aggregate_type="payment_handoff",
+                aggregate_id=record.id,
+                event_type="payment_handoff.opened",
+                event_key=f"payment-handoff-opened:{record.id}",
+                payload={
+                    "payment_handoff_id": record.id,
+                    "purchase_intent_id": record.purchase_intent_id,
+                    "handoff_hash": record.handoff_hash,
+                },
+            )
+            response = self._payment_handoff_view(record)
+            await repository.complete_idempotency(
+                claim.record,
+                response_status=200,
+                response_payload=response,
+                response_reference=record.id,
+            )
+            return response
+
     async def create_prava_session(
         self,
         *,
@@ -4309,6 +4559,24 @@ class WorkflowService:
             "required_roles": approval.required_roles,
             "approved_roles": approval.approved_roles,
             "expires_at": approval.expires_at.isoformat(),
+        }
+
+    @staticmethod
+    def _payment_handoff_view(handoff: PaymentHandoff) -> dict[str, Any]:
+        return {
+            "id": handoff.id,
+            "purchase_intent_id": handoff.purchase_intent_id,
+            "approval_request_id": handoff.approval_request_id,
+            "intent_hash": handoff.intent_hash,
+            "handoff_hash": handoff.handoff_hash,
+            "destination_url": handoff.destination_url,
+            "recipient": handoff.recipient,
+            "amount": f"{handoff.amount:.2f}",
+            "currency": handoff.currency,
+            "reference": handoff.reference,
+            "status": handoff.status,
+            "expires_at": handoff.expires_at.isoformat(),
+            "opened_at": handoff.opened_at.isoformat() if handoff.opened_at else None,
         }
 
     @staticmethod

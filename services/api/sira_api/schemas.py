@@ -551,6 +551,22 @@ class ApprovalRevokeCreate(StrictModel):
     reason: str = Field(min_length=3, max_length=1000)
 
 
+class PaymentHandoffView(StrictModel):
+    id: Identifier
+    purchase_intent_id: Identifier
+    approval_request_id: Identifier
+    intent_hash: HashValue
+    handoff_hash: HashValue
+    destination_url: str = Field(pattern=r"^https://", max_length=2000)
+    recipient: str = Field(min_length=1, max_length=200)
+    amount: MoneyAmount
+    currency: Currency
+    reference: str = Field(min_length=1, max_length=160)
+    status: Literal["READY", "OPENED", "EXPIRED", "CANCELLED"]
+    expires_at: datetime
+    opened_at: datetime | None = None
+
+
 class PravaSessionCreate(StrictModel):
     return_url: BrowserReturnUrl
 

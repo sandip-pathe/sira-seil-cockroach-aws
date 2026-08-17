@@ -40,6 +40,7 @@ from .schemas import (
     HealthResponse,
     OutcomeCheckpointCreate,
     OutcomeCheckpointView,
+    PaymentHandoffView,
     PravaBrowserReturnCreate,
     PravaSessionCreate,
     PravaSessionView,
@@ -541,6 +542,52 @@ async def create_approval_request(
     )
     response.status_code = response_status
     return payload
+
+
+@router.post(
+    "/v1/purchase-intents/{intent_id}/payment-handoff",
+    response_model=PaymentHandoffView,
+    status_code=status.HTTP_201_CREATED,
+    tags=["commerce"],
+)
+async def create_payment_handoff(
+    intent_id: str,
+    context: ContextDependency,
+    service: ServiceDependency,
+    idempotency_key: IdempotencyDependency,
+    response: Response,
+) -> dict[str, object]:
+    require_human_identity(context)
+    require_permission(context, "can_execute_purchase", require_step_up=True)
+    response_status, payload = await service.create_payment_handoff(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        intent_id=intent_id,
+        idempotency_key=idempotency_key,
+    )
+    response.status_code = response_status
+    return payload
+
+
+@router.post(
+    "/v1/payment-handoffs/{handoff_id}/open",
+    response_model=PaymentHandoffView,
+    tags=["commerce"],
+)
+async def open_payment_handoff(
+    handoff_id: str,
+    context: ContextDependency,
+    service: ServiceDependency,
+    idempotency_key: IdempotencyDependency,
+) -> dict[str, object]:
+    require_human_identity(context)
+    require_permission(context, "can_execute_purchase", require_step_up=True)
+    return await service.open_payment_handoff(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        handoff_id=handoff_id,
+        idempotency_key=idempotency_key,
+    )
 
 
 @router.post(
