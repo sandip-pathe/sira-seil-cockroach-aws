@@ -26,6 +26,16 @@ def test_evidence_parser_is_stable_and_marks_instructions_as_untrusted_data() ->
     assert all(len(span.embedding) == 1024 for span in first.spans)
 
 
+def test_evidence_parser_accepts_one_trailing_newline() -> None:
+    parsed = parse_evidence(
+        source_version_id="source-v1",
+        body=b"signed policy\nretention_days=30\n",
+        content_type="text/plain",
+    )
+    assert len(parsed.spans) == 1
+    assert parsed.spans[0].text == "signed policy\nretention_days=30"
+
+
 def test_claim_validation_requires_exact_pinned_support() -> None:
     evidence = parse_evidence(
         source_version_id="source-v1",

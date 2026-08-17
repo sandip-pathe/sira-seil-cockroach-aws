@@ -115,7 +115,7 @@ def parse_evidence(
     checksum = f"sha256:{sha256(body).hexdigest()}"
     text_hash = f"sha256:{sha256(text.encode()).hexdigest()}"
     spans: list[StableSpan] = []
-    for match in re.finditer(r"\S(?:.*?\S)?(?=\n\s*\n|\Z)", text, flags=re.DOTALL):
+    for match in re.finditer(r"\S(?:.*?\S)?(?=\n\s*\n|\s*\Z)", text, flags=re.DOTALL):
         paragraph = match.group(0)
         paragraph_start = match.start()
         offset = 0

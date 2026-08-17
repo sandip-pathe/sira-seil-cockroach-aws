@@ -8,8 +8,10 @@ from typing import Any, cast
 import httpx
 import pytest
 from fastapi import FastAPI
+from sqlalchemy import func, select
 
 from integrations.aws_services import StoredEvidenceObject
+from persistence.qualification_models import EvidenceSourceVersion, EvidenceSpan
 
 EDITOR = {
     "X-Actor-Id": "seller_fixture_d",
@@ -90,6 +92,20 @@ async def test_private_evidence_upload_is_version_bound_and_idempotent(
     assert "private-versioned-evidence" not in created.text
     assert "version-42" not in created.text
     assert len(store.calls) == 1
+    database = api_application.state.seller_evidence_service.database
+    async with database.transaction("org_consultco") as session:
+        source = await session.scalar(
+            select(EvidenceSourceVersion).where(
+                EvidenceSourceVersion.object_checksum == payload["object_checksum"]
+            )
+        )
+        assert source is not None
+        span_count = await session.scalar(
+            select(func.count(EvidenceSpan.id)).where(
+                EvidenceSpan.source_version_id == source.id
+            )
+        )
+    assert span_count == 1
 
     replay = await api_client.post(
         "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload",

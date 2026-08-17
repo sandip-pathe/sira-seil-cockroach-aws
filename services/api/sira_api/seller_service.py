@@ -14,8 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain import content_hash
 from domain.enums import ActorRole, PackAuthority, SellerEvidenceState
+from domain.evidence_pipeline import EvidenceValidationError, ParsedEvidence, parse_evidence
 from integrations.aws_services import EvidenceStore, StoredEvidenceObject
 from persistence.database import Database
+from persistence.evidence_repository import EvidenceRepository
 from persistence.models import (
     Organization,
     SellerActivityEvent,
@@ -673,7 +675,23 @@ class SellerEvidenceService:
                 "Evidence may reference only approved Product Evidence fields.",
                 status_code=403,
             )
+        if not body:
+            raise self._problem(
+                "SELLER_EVIDENCE_OBJECT_INVALID",
+                "evidence object must not be empty",
+            )
         object_checksum = "sha256:" + sha256(body).hexdigest()
+        try:
+            parsed = parse_evidence(
+                source_version_id=f"esv_{object_checksum.removeprefix('sha256:')[:24]}",
+                body=body,
+                content_type=content_type,
+            )
+        except EvidenceValidationError as exc:
+            raise self._problem(
+                "SELLER_EVIDENCE_PARSE_FAILED",
+                str(exc),
+            ) from exc
         request_hash = content_hash(
             {
                 "draft_id": draft_id,
@@ -766,6 +784,7 @@ class SellerEvidenceService:
             claim_fields=normalized_fields,
             observed_at=observed_at,
             stored=stored,
+            parsed=parsed,
         )
 
     async def _finalize_uploaded_evidence(
@@ -782,6 +801,7 @@ class SellerEvidenceService:
         claim_fields: list[str],
         observed_at: datetime | None,
         stored: StoredEvidenceObject,
+        parsed: ParsedEvidence,
     ) -> tuple[int, dict[str, Any]]:
         async with self.database.transaction(organization_id) as session:
             repository = WorkflowRepository(session, organization_id)
@@ -842,6 +862,14 @@ class SellerEvidenceService:
                 updated_at=now,
             )
             session.add(record)
+            await EvidenceRepository(session, organization_id).store_parsed(
+                product_id=product.id,
+                object_bucket=stored.bucket,
+                object_key=stored.key,
+                object_version_id=stored.version_id,
+                size_bytes=stored.size_bytes,
+                parsed=parsed,
+            )
             response = self._evidence_view(record)
             await repository.add_outbox(
                 aggregate_type="seller_pack_draft",
