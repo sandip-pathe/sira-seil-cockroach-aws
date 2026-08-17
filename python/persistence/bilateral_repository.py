@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -261,12 +261,16 @@ class BilateralRepository:
         )
         if manifest is None:
             raise RecordNotFound("release manifest was not found")
+        manifest_expiry = manifest.expires_at
+        if manifest_expiry.tzinfo is None:
+            # SQLite drops timezone metadata in tests; CockroachDB preserves it.
+            manifest_expiry = manifest_expiry.replace(tzinfo=UTC)
         if (
             manifest.case_id != envelope.case_id
             or manifest.owner_party != envelope.sender.value
             or manifest.recipient_party != envelope.recipient.value
             or manifest.status != "ACTIVE"
-            or manifest.expires_at <= envelope.expires_at
+            or manifest_expiry <= envelope.expires_at
         ):
             raise PersistenceConflict("envelope exceeds its release authorization")
         record = BilateralExchangeEnvelope(

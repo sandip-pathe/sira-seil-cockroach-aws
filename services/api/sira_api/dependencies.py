@@ -40,6 +40,7 @@ _SELLER_ROUTE_ALLOWLIST = frozenset(
         ("GET", "/v1/workspace/missions/{mission_id}"),
         ("GET", "/v1/workspace/connectors"),
         ("GET", "/v1/capabilities"),
+        ("GET", "/v1/exchange-cases/{case_id}"),
         ("GET", "/v1/qualification/engagements/{engagement_id}"),
         ("POST", "/v1/qualification/engagements/{engagement_id}/responses"),
         ("POST", "/v1/qualification/engagements/{engagement_id}/consents"),

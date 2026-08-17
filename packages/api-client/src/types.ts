@@ -580,6 +580,27 @@ export interface ExactScoreView {
   numerator: number;
 }
 
+export interface ExchangeCaseCreate {
+  purchase_request_id: string;
+  seller_organization_id: string;
+}
+
+export interface ExchangeCaseCreated {
+  case_id: string;
+  expires_at: string;
+  projection: ExchangeProjectionView;
+  route_capability: string;
+}
+
+export interface ExchangeProjectionView {
+  case_id: string;
+  party: "BUYER" | "SELLER";
+  projection_hash: string;
+  released: { [key: string]: unknown; };
+  state: "CREATED" | "REQUIREMENT_RELEASED" | "EVIDENCE_RELEASED" | "OFFERED" | "COUNTERED" | "AGREED_PENDING_APPROVAL" | "APPROVED_FOR_HANDOFF" | "REJECTED" | "EXPIRED";
+  version: number;
+}
+
 export interface ExecutionStep {
   artifact_id?: string | null;
   available_action?: ActionDescriptor | null;
@@ -1553,6 +1574,7 @@ export interface Operations {
   approve: { method: "POST"; path: "/v1/approval-requests/{approval_id}/approve"; pathParams: { approval_id: string; }; queryParams: Record<never, never>; body: ApprovalCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   create_approval_request: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/approval-requests"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: ApprovalRequestCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   create_decision_request: { method: "POST"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: DecisionRequestCreate; response: DecisionRequestView; requiresIdempotency: true; };
+  create_exchange_case: { method: "POST"; path: "/v1/exchange-cases"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: ExchangeCaseCreate; response: ExchangeCaseCreated; requiresIdempotency: true; };
   create_payment_handoff: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/payment-handoff"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: never; response: PaymentHandoffView; requiresIdempotency: true; };
   discover_decision_request: { method: "POST"; path: "/v1/decision-requests/{request_id}/discover"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: WorkflowAccepted; requiresIdempotency: true; };
   get_action_run: { method: "GET"; path: "/v1/action-runs/{action_run_id}"; pathParams: { action_run_id: string; }; queryParams: Record<never, never>; body: never; response: ActionRunView; requiresIdempotency: false; };
@@ -1561,6 +1583,7 @@ export interface Operations {
   get_decision_request: { method: "GET"; path: "/v1/decision-requests/{request_id}"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: DecisionRequestView; requiresIdempotency: false; };
   get_decision_room: { method: "GET"; path: "/v1/decision-requests/{request_id}/decision-view"; pathParams: { request_id: string; }; queryParams: { version?: number | null; }; body: never; response: DecisionView; requiresIdempotency: false; };
   get_decision_rules: { method: "GET"; path: "/v1/decision-requests/{request_id}/decision-rules"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: DecisionRulesView; requiresIdempotency: false; };
+  get_exchange_case: { method: "GET"; path: "/v1/exchange-cases/{case_id}"; pathParams: { case_id: string; }; queryParams: { route: string; }; body: never; response: ExchangeProjectionView; requiresIdempotency: false; };
   get_requirement_brief: { method: "GET"; path: "/v1/requirement-briefs/{brief_id}"; pathParams: { brief_id: string; }; queryParams: Record<never, never>; body: never; response: RequirementBriefView; requiresIdempotency: false; };
   get_stackfile: { method: "GET"; path: "/v1/organizations/{organization_id}/stackfile"; pathParams: { organization_id: string; }; queryParams: Record<never, never>; body: never; response: StackfileView; requiresIdempotency: false; };
   get_workflow: { method: "GET"; path: "/v1/workflows/{workflow_id}"; pathParams: { workflow_id: string; }; queryParams: Record<never, never>; body: never; response: WorkflowView; requiresIdempotency: false; };

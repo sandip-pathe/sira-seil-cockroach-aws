@@ -38,6 +38,7 @@ from sira_agents.workspace_tools import workspace_tool_registry
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import Response
 
+from domain.exchange_route import ExchangeRouteCodec
 from integrations.agentcore_runtime import (
     AgentCoreCognitiveRuntime,
     create_agentcore_client,
@@ -54,6 +55,8 @@ from persistence.repositories import PersistenceConflict
 
 from .config import ApiSettings, get_settings
 from .errors import ApiProblem
+from .exchange_routes import exchange_router
+from .exchange_service import ExchangeService
 from .fixtures import DemoFixtureBundle
 from .guest_security import FixedWindowLimiter, GuestSessionSigner, RateLimitDecision
 from .identity import FirebaseIdentityAdapter, IdentityAdapter, IntrospectionIdentityAdapter
@@ -212,6 +215,13 @@ def create_app(
             ),
             seller_directory=resolved_seller_directory,
             quote_clock=fixture_quote_clock,
+        )
+        route_secret = resolved_settings.runtime_ticket_signing_key.get_secret_value()
+        if len(route_secret.encode("utf-8")) < 32:
+            route_secret = resolved_settings.guest_session_signing_secret()
+        application.state.exchange_service = ExchangeService(
+            resolved_database,
+            ExchangeRouteCodec(route_secret),
         )
         resolved_evidence_store = evidence_store
         if resolved_evidence_store is None and resolved_settings.s3_evidence_bucket.strip():
@@ -583,6 +593,7 @@ def create_app(
         )
 
     application.include_router(public_router)
+    application.include_router(exchange_router)
     application.include_router(seller_router)
     application.include_router(qualification_router)
     application.include_router(router_v2)
