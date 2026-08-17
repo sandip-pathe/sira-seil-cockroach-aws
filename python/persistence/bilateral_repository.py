@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,11 +15,24 @@ from domain.bilateral_exchange import (
     PartyProjection,
     compile_party_command,
 )
+from domain.exchange_contracts import (
+    ExchangeEnvelope,
+    ExchangeReceipt,
+    OfferApproval,
+    OfferVersion,
+    ReleaseManifest,
+    validate_counteroffer,
+)
 
 from .models import (
     BilateralExchangeCase,
+    BilateralExchangeEnvelope,
+    BilateralExchangeReceipt,
+    BilateralOfferApproval,
+    BilateralOfferVersion,
     BilateralPartyCommand,
     BilateralPartyProjection,
+    BilateralReleaseManifest,
     BilateralTransition,
 )
 from .repositories import PersistenceConflict, RecordNotFound, new_id
@@ -198,4 +213,203 @@ class BilateralRepository:
         )
         if record is None:
             raise RecordNotFound("party projection was not found")
+        return record
+
+    async def store_release_manifest(
+        self, manifest: ReleaseManifest
+    ) -> BilateralReleaseManifest:
+        existing = await self.session.get(BilateralReleaseManifest, manifest.manifest_id)
+        if existing is not None:
+            if (
+                existing.organization_id != self.organization_id
+                or existing.manifest_hash != manifest.manifest_hash
+            ):
+                raise PersistenceConflict("release manifest id was reused")
+            return existing
+        record = BilateralReleaseManifest(
+            id=manifest.manifest_id,
+            organization_id=self.organization_id,
+            case_id=manifest.case_id,
+            owner_party=manifest.owner.value,
+            recipient_party=manifest.recipient.value,
+            purpose=manifest.purpose,
+            payload=manifest.model_dump(mode="json"),
+            approved_payload_hash=manifest.approved_payload_hash,
+            approval_id=manifest.approval_id,
+            status=manifest.status.value,
+            expires_at=manifest.expires_at,
+            manifest_hash=manifest.manifest_hash,
+        )
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
+    async def store_envelope(self, envelope: ExchangeEnvelope) -> BilateralExchangeEnvelope:
+        existing = await self.session.get(BilateralExchangeEnvelope, envelope.envelope_id)
+        if existing is not None:
+            if (
+                existing.organization_id != self.organization_id
+                or existing.payload_hash != envelope.payload_hash
+            ):
+                raise PersistenceConflict("exchange envelope id was reused")
+            return existing
+        manifest = await self.session.scalar(
+            select(BilateralReleaseManifest).where(
+                BilateralReleaseManifest.organization_id == self.organization_id,
+                BilateralReleaseManifest.manifest_hash == envelope.manifest_hash,
+            )
+        )
+        if manifest is None:
+            raise RecordNotFound("release manifest was not found")
+        if (
+            manifest.case_id != envelope.case_id
+            or manifest.owner_party != envelope.sender.value
+            or manifest.recipient_party != envelope.recipient.value
+            or manifest.status != "ACTIVE"
+            or manifest.expires_at <= envelope.expires_at
+        ):
+            raise PersistenceConflict("envelope exceeds its release authorization")
+        record = BilateralExchangeEnvelope(
+            id=envelope.envelope_id,
+            organization_id=self.organization_id,
+            case_id=envelope.case_id,
+            sender_party=envelope.sender.value,
+            recipient_party=envelope.recipient.value,
+            sequence=envelope.sequence,
+            causation_id=envelope.causation_id,
+            manifest_hash=envelope.manifest_hash,
+            payload=envelope.payload,
+            payload_hash=envelope.payload_hash,
+            expires_at=envelope.expires_at,
+        )
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
+    async def acknowledge_envelope(
+        self, receipt: ExchangeReceipt
+    ) -> BilateralExchangeReceipt:
+        existing = await self.session.scalar(
+            select(BilateralExchangeReceipt).where(
+                BilateralExchangeReceipt.organization_id == self.organization_id,
+                BilateralExchangeReceipt.envelope_id == receipt.envelope_id,
+            )
+        )
+        if existing is not None:
+            if (
+                existing.envelope_hash != receipt.envelope_hash
+                or existing.recipient_party != receipt.recipient.value
+            ):
+                raise PersistenceConflict("exchange receipt conflicts with prior acknowledgement")
+            return existing
+        envelope = await self.session.get(BilateralExchangeEnvelope, receipt.envelope_id)
+        if envelope is None or envelope.organization_id != self.organization_id:
+            raise RecordNotFound("exchange envelope was not found")
+        if (
+            envelope.case_id != receipt.case_id
+            or envelope.recipient_party != receipt.recipient.value
+            or envelope.payload_hash != receipt.envelope_hash
+        ):
+            raise PersistenceConflict("receipt does not bind the received envelope")
+        record = BilateralExchangeReceipt(
+            id=receipt.receipt_id,
+            organization_id=self.organization_id,
+            envelope_id=receipt.envelope_id,
+            case_id=receipt.case_id,
+            recipient_party=receipt.recipient.value,
+            envelope_hash=receipt.envelope_hash,
+            received_at=receipt.received_at,
+        )
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
+    async def store_offer(self, offer: OfferVersion) -> BilateralOfferVersion:
+        existing = await self.session.scalar(
+            select(BilateralOfferVersion).where(
+                BilateralOfferVersion.organization_id == self.organization_id,
+                BilateralOfferVersion.offer_hash == offer.offer_hash,
+            )
+        )
+        if existing is not None:
+            return existing
+        latest = await self.session.scalar(
+            select(BilateralOfferVersion)
+            .where(
+                BilateralOfferVersion.organization_id == self.organization_id,
+                BilateralOfferVersion.case_id == offer.case_id,
+            )
+            .order_by(BilateralOfferVersion.version.desc())
+            .limit(1)
+            .with_for_update()
+        )
+        if latest is None:
+            if offer.version != 1:
+                raise PersistenceConflict("negotiation must begin with offer version 1")
+        else:
+            previous = OfferVersion.model_validate(latest.terms)
+            try:
+                validate_counteroffer(previous, offer)
+            except ValueError as error:
+                raise PersistenceConflict(str(error)) from error
+            if latest.approval_status == "APPROVED":
+                raise PersistenceConflict("an approved offer cannot be countered")
+            latest.approval_status = "SUPERSEDED"
+        record = BilateralOfferVersion(
+            id=f"{offer.offer_id}:v{offer.version}",
+            organization_id=self.organization_id,
+            case_id=offer.case_id,
+            version=offer.version,
+            proposer_party=offer.proposer.value,
+            recipient_party=offer.recipient.value,
+            predecessor_hash=offer.predecessor_hash,
+            terms=offer.model_dump(mode="json"),
+            offer_hash=offer.offer_hash,
+            approval_status=offer.approval_status.value,
+            expires_at=offer.expires_at,
+        )
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
+    async def approve_offer(
+        self, approval: OfferApproval, *, now: datetime
+    ) -> BilateralOfferApproval:
+        existing = await self.session.scalar(
+            select(BilateralOfferApproval).where(
+                BilateralOfferApproval.organization_id == self.organization_id,
+                BilateralOfferApproval.case_id == approval.case_id,
+                BilateralOfferApproval.offer_hash == approval.offer_hash,
+            )
+        )
+        if existing is not None:
+            return existing
+        offer_record = await self.session.scalar(
+            select(BilateralOfferVersion)
+            .where(
+                BilateralOfferVersion.organization_id == self.organization_id,
+                BilateralOfferVersion.case_id == approval.case_id,
+            )
+            .order_by(BilateralOfferVersion.version.desc())
+            .limit(1)
+            .with_for_update()
+        )
+        if offer_record is None:
+            raise RecordNotFound("offer was not found")
+        offer = OfferVersion.model_validate(offer_record.terms)
+        approval.authorize(offer, now=now)
+        approval_payload = approval.model_dump(mode="json")
+        record = BilateralOfferApproval(
+            id=approval.approval_id,
+            organization_id=self.organization_id,
+            case_id=approval.case_id,
+            offer_hash=approval.offer_hash,
+            approver_id=approval.approver_id,
+            approved_at=approval.approved_at,
+            expires_at=approval.expires_at,
+            approval_hash=content_hash(approval_payload),
+        )
+        self.session.add(record)
+        offer_record.approval_status = "APPROVED"
+        await self.session.flush()
         return record

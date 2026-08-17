@@ -2055,6 +2055,147 @@ class BilateralPartyProjection(Base, TenantOwned):
     )
 
 
+class BilateralReleaseManifest(Base, TenantOwned):
+    """Immutable authorization for one exact cross-party disclosure."""
+
+    __tablename__ = "bilateral_release_manifests"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    case_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    owner_party: Mapped[str] = mapped_column(String(12), nullable=False)
+    recipient_party: Mapped[str] = mapped_column(String(12), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(240), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    approved_payload_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    approval_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    manifest_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "owner_party IN ('BUYER','SELLER') AND recipient_party IN ('BUYER','SELLER') "
+            "AND owner_party <> recipient_party",
+            name="ck_release_manifest_parties",
+        ),
+        CheckConstraint("status IN ('ACTIVE','REVOKED')", name="ck_release_manifest_status"),
+        UniqueConstraint("organization_id", "manifest_hash", name="uq_release_manifest_hash"),
+        Index("ix_release_manifest_case", "organization_id", "case_id", "created_at"),
+    )
+
+
+class BilateralExchangeEnvelope(Base, TenantOwned):
+    """Content-addressed party envelope; payload contains released fields only."""
+
+    __tablename__ = "bilateral_exchange_envelopes"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    case_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    sender_party: Mapped[str] = mapped_column(String(12), nullable=False)
+    recipient_party: Mapped[str] = mapped_column(String(12), nullable=False)
+    sequence: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    causation_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    manifest_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "sender_party IN ('BUYER','SELLER') AND recipient_party IN ('BUYER','SELLER') "
+            "AND sender_party <> recipient_party",
+            name="ck_exchange_envelope_parties",
+        ),
+        UniqueConstraint(
+            "organization_id", "case_id", "sender_party", "sequence",
+            name="uq_exchange_envelope_sequence",
+        ),
+        UniqueConstraint("organization_id", "payload_hash", name="uq_exchange_envelope_hash"),
+        Index("ix_exchange_envelope_recipient", "organization_id", "case_id", "recipient_party"),
+    )
+
+
+class BilateralExchangeReceipt(Base, TenantOwned):
+    __tablename__ = "bilateral_exchange_receipts"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    envelope_id: Mapped[str] = mapped_column(
+        ForeignKey("bilateral_exchange_envelopes.id", ondelete="RESTRICT"), nullable=False
+    )
+    case_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    recipient_party: Mapped[str] = mapped_column(String(12), nullable=False)
+    envelope_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "recipient_party IN ('BUYER','SELLER')", name="ck_exchange_receipt_party"
+        ),
+        UniqueConstraint("organization_id", "envelope_id", name="uq_exchange_receipt_envelope"),
+    )
+
+
+class BilateralOfferVersion(Base, TenantOwned):
+    """Immutable exact terms; approval lifecycle cannot rewrite its offer hash."""
+
+    __tablename__ = "bilateral_offer_versions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    case_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    proposer_party: Mapped[str] = mapped_column(String(12), nullable=False)
+    recipient_party: Mapped[str] = mapped_column(String(12), nullable=False)
+    predecessor_hash: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    terms: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    offer_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    approval_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "proposer_party IN ('BUYER','SELLER') AND recipient_party IN ('BUYER','SELLER') "
+            "AND proposer_party <> recipient_party",
+            name="ck_offer_version_parties",
+        ),
+        CheckConstraint("version >= 1", name="ck_offer_version_positive"),
+        CheckConstraint(
+            "approval_status IN ('PENDING','APPROVED','REJECTED','REVOKED','SUPERSEDED')",
+            name="ck_offer_version_approval_status",
+        ),
+        UniqueConstraint("organization_id", "case_id", "version", name="uq_offer_case_version"),
+        UniqueConstraint("organization_id", "offer_hash", name="uq_offer_hash"),
+        Index("ix_offer_case_latest", "organization_id", "case_id", "version"),
+    )
+
+
+class BilateralOfferApproval(Base, TenantOwned):
+    """Append-only human authorization bound to one exact offer hash."""
+
+    __tablename__ = "bilateral_offer_approvals"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    case_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    offer_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    approver_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    approval_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "case_id", "offer_hash", name="uq_offer_approval"),
+        UniqueConstraint("organization_id", "approval_hash", name="uq_offer_approval_hash"),
+    )
+
+
 class AgentMission(Base, TenantOwned, Timestamped):
     """Canonical, resumable unit of agent work.
 
