@@ -55,3 +55,9 @@ class ToolBroker:
         if errors:
             raise ToolDenied("TOOL_INPUT_INVALID")
         return tool
+
+    @staticmethod
+    def validate_output(tool: ToolManifest, output: dict[str, object]) -> None:
+        errors = sorted(Draft202012Validator(tool.output_schema).iter_errors(output), key=str)
+        if errors:
+            raise ToolDenied("TOOL_OUTPUT_INVALID")

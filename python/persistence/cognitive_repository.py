@@ -6,7 +6,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sira_agents.kernel_models import ContextManifest, ToolRisk, TurnBudget, UserEvent
+from sira_agents.kernel_models import (
+    ContextManifest,
+    ToolRisk,
+    TurnBudget,
+    TurnDecision,
+    UserEvent,
+)
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -226,6 +232,58 @@ class CognitiveRepository:
         self.session.add(invocation)
         await self.session.flush()
         return invocation
+
+    async def record_decision(self, run: CognitiveRun, decision: TurnDecision) -> CognitiveStep:
+        payload = decision.model_dump(mode="json")
+        step = await self.append_step(run, kind="DECISION", status="RECORDED", payload=payload)
+        run.version += 1
+        return step
+
+    async def authorize_tool(self, invocation: CognitiveToolInvocation) -> None:
+        if invocation.status == "REQUESTED":
+            invocation.status = "AUTHORIZED"
+
+    async def complete_tool(
+        self, invocation: CognitiveToolInvocation, *, output: dict[str, Any]
+    ) -> None:
+        output_hash = content_hash(output)
+        if invocation.status == "COMPLETED":
+            if invocation.output_hash != output_hash:
+                raise PersistenceConflict("tool call already completed with another result")
+            return
+        if invocation.status not in {"AUTHORIZED", "RUNNING"}:
+            raise PersistenceConflict("tool call is not authorized for completion")
+        invocation.status = "COMPLETED"
+        invocation.output = output
+        invocation.output_hash = output_hash
+
+    async def fail_tool(self, invocation: CognitiveToolInvocation, *, safe_error_code: str) -> None:
+        if invocation.status == "COMPLETED":
+            raise PersistenceConflict("completed tool call cannot fail")
+        invocation.status = "FAILED"
+        invocation.safe_error_code = safe_error_code
+
+    async def finish(
+        self,
+        run: CognitiveRun,
+        *,
+        status: str,
+        message: str,
+        event: UserEvent,
+        failure_code: str | None = None,
+    ) -> None:
+        if run.status in {"COMPLETED", "FAILED", "CANCELLED"}:
+            return
+        await self.append_step(
+            run,
+            kind="FAILURE" if status == "FAILED" else "OUTPUT",
+            status="FAILED" if status == "FAILED" else "COMPLETED",
+            payload={"message": message, "failure_code": failure_code},
+        )
+        await self.append_user_event(run, event)
+        run.status = status
+        run.failure_code = failure_code
+        run.version += 1
 
     async def checkpoint(
         self, run: CognitiveRun, *, projection: dict[str, Any]
