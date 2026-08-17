@@ -61,7 +61,12 @@ hardening remains. Current as of 2026-08-18.
   Build: immutable buyer-context/brief/evidence/Product Twin/catalog/Product Bundle versions; embeddings; missions, attempts, input/dependencies, checkpoints; decisions/citations; engagements/responses/consents/introductions; idempotency, events, outbox, consumer receipts and effects.
   Accept: active Product Bundle activation is atomic; published business inputs are insert-only for application roles; all tenant FKs are scoped; unique constraints enforce one direct successor, current decision, consent/digest, consumer receipt and semantic effect.
   Verify: fresh migration, schema assertions, immutable-write negatives, RLS/grant audit and migration smoke.
-  Progress: migrations through `cdb0010`, tenant FKs/constraints, Product Bundles, embeddings, missions/attempts/decisions/engagements/receipts/effects, versioned company context/workspace settings and immutable S3 object identity are implemented and fresh-migration checked. The local 85-table RLS/grant/immutability audit passes; repeat it against CockroachDB Cloud before submission.
+  Progress: migrations through `cdb0018`, tenant FKs/constraints, Product Bundles, embeddings,
+  cognitive journals/runtime replay, bilateral commands/projections/evidence/offers/handoffs,
+  missions/attempts/decisions/engagements/receipts/effects, versioned company context/workspace
+  settings and immutable object identity are implemented and fresh-migration checked. The local
+  95-table RLS/grant/immutability audit and disposable backup/restore drill pass; repeat both
+  against CockroachDB Cloud before submission.
 
 - [ ] **5. Prove the correctness kernel on real CockroachDB**
   Build: database-time claim/lease/generation, committed snapshot, controlled barrier, checkpoint, stale finalization, one direct replacement, bounded chain, lease takeover, durable duplicate suppression and atomic qualified introduction.
