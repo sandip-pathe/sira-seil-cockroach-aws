@@ -12,6 +12,7 @@ from domain import content_hash
 from domain.bilateral_exchange import CoordinatorState, ExchangeParty, PartyCommand
 from domain.exchange_contracts import (
     ExchangeEnvelope,
+    ExchangePaymentHandoff,
     OfferApproval,
     OfferLine,
     OfferVersion,
@@ -21,6 +22,7 @@ from domain.exchange_route import ExchangeRoute, ExchangeRouteCodec, ExchangeRou
 from persistence.bilateral_repository import BilateralRepository
 from persistence.database import Database
 from persistence.models import (
+    BilateralOfferApproval,
     BilateralOfferVersion,
     BilateralReleaseManifest,
     BilateralTransition,
@@ -59,6 +61,24 @@ def _projection(record: Any) -> dict[str, Any]:
         "version": record.version,
         "released": record.released,
         "projection_hash": record.projection_hash,
+    }
+
+
+def _handoff(record: Any) -> dict[str, Any]:
+    return {
+        "id": record.id,
+        "case_id": record.case_id,
+        "offer_hash": record.offer_hash,
+        "approval_hash": record.approval_hash,
+        "handoff_hash": record.handoff_hash,
+        "destination_url": record.destination_url,
+        "recipient": record.recipient,
+        "amount": record.amount,
+        "currency": record.currency,
+        "reference": record.reference,
+        "status": record.status,
+        "expires_at": record.expires_at,
+        "opened_at": record.opened_at,
     }
 
 
@@ -363,6 +383,8 @@ class ExchangeService:
             case_id=case_id,
             candidate_id=candidate_id,
             product_id=binding.product_id,
+            merchant_name=binding.merchant_name,
+            merchant_url=binding.merchant_url,
             buyer_organization_id=organization_id,
             seller_organization_id=seller_organization_id,
             expires_at=expires_at,
@@ -740,3 +762,119 @@ class ExchangeService:
             raise self._api_conflict(error) from error
         await self._publish_compiled(route, compiled)
         return _projection(compiled.buyer_projection)
+
+    async def create_handoff(
+        self,
+        *,
+        organization_id: str,
+        party: str | None,
+        case_id: str,
+        route_capability: str,
+        expected_version: int,
+        offer_hash: str,
+    ) -> dict[str, Any]:
+        route = self._decode_route(
+            organization_id=organization_id,
+            party=party,
+            case_id=case_id,
+            route_capability=route_capability,
+        )
+        if party != "BUYER":
+            raise ApiProblem(
+                code="BUYER_HANDOFF_REQUIRED",
+                message="Only an authorized buyer may prepare the external handoff.",
+                status_code=403,
+            )
+        now = self._clock()
+        try:
+            async with self.database.transaction(route.buyer_organization_id) as session:
+                repository = BilateralRepository(session, route.buyer_organization_id)
+                exchange = await repository.get_case(case_id, lock=True)
+                if exchange.version != expected_version or exchange.state != "APPROVED_FOR_HANDOFF":
+                    raise PersistenceConflict("exchange is not approved at the expected version")
+                offer_record = await session.scalar(
+                    select(BilateralOfferVersion)
+                    .where(
+                        BilateralOfferVersion.organization_id
+                        == route.buyer_organization_id,
+                        BilateralOfferVersion.case_id == case_id,
+                        BilateralOfferVersion.offer_hash == offer_hash,
+                    )
+                    .with_for_update()
+                )
+                approval_record = await session.scalar(
+                    select(BilateralOfferApproval).where(
+                        BilateralOfferApproval.organization_id
+                        == route.buyer_organization_id,
+                        BilateralOfferApproval.case_id == case_id,
+                        BilateralOfferApproval.offer_hash == offer_hash,
+                    )
+                )
+                if (
+                    offer_record is None
+                    or approval_record is None
+                    or offer_record.approval_status != "APPROVED"
+                ):
+                    raise PersistenceConflict("the exact offer has no current approval")
+                offer_expiry = offer_record.expires_at
+                approval_expiry = approval_record.expires_at
+                if offer_expiry.tzinfo is None:
+                    offer_expiry = offer_expiry.replace(tzinfo=UTC)
+                if approval_expiry.tzinfo is None:
+                    approval_expiry = approval_expiry.replace(tzinfo=UTC)
+                expires_at = min(now + timedelta(minutes=15), offer_expiry, approval_expiry)
+                approval_hash = approval_record.approval_hash
+                handoff = ExchangePaymentHandoff(
+                    handoff_id=_stable_id("xhandoff", case_id, offer_hash),
+                    case_id=case_id,
+                    offer_hash=offer_hash,
+                    approval_hash=approval_hash,
+                    destination_url=route.merchant_url,
+                    recipient=route.merchant_name,
+                    amount=offer_record.terms["total"],
+                    currency=str(offer_record.terms["currency"]),
+                    reference=f"SIRA-{case_id}",
+                    created_at=now,
+                    expires_at=expires_at,
+                )
+                record = await repository.store_handoff(handoff)
+        except (PersistenceConflict, RecordNotFound, ValueError) as error:
+            raise self._api_conflict(error) from error
+        return _handoff(record)
+
+    async def open_handoff(
+        self,
+        *,
+        organization_id: str,
+        party: str | None,
+        case_id: str,
+        route_capability: str,
+        handoff_id: str,
+        handoff_hash: str,
+    ) -> dict[str, Any]:
+        route = self._decode_route(
+            organization_id=organization_id,
+            party=party,
+            case_id=case_id,
+            route_capability=route_capability,
+        )
+        if party != "BUYER":
+            raise ApiProblem(
+                code="BUYER_HANDOFF_REQUIRED",
+                message="Only an authorized buyer may open the external handoff.",
+                status_code=403,
+            )
+        try:
+            async with self.database.transaction(route.buyer_organization_id) as session:
+                record = await BilateralRepository(
+                    session, route.buyer_organization_id
+                ).open_handoff(
+                    handoff_id,
+                    expected_hash=handoff_hash,
+                    now=self._clock(),
+                )
+                if record.case_id != case_id:
+                    raise PersistenceConflict("handoff belongs to another exchange")
+        except (PersistenceConflict, RecordNotFound, ValueError) as error:
+            raise self._api_conflict(error) from error
+        return _handoff(record)

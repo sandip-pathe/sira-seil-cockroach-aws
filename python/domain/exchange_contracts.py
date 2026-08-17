@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -31,6 +32,13 @@ class OfferApprovalStatus(StrEnum):
     REJECTED = "REJECTED"
     REVOKED = "REVOKED"
     SUPERSEDED = "SUPERSEDED"
+
+
+class ExchangeHandoffStatus(StrEnum):
+    READY = "READY"
+    OPENED = "OPENED"
+    EXPIRED = "EXPIRED"
+    CANCELLED = "CANCELLED"
 
 
 class ContractModel(BaseModel):
@@ -316,6 +324,73 @@ class OfferApproval(ContractModel):
                 **offer.model_dump(),
                 "approval_status": OfferApprovalStatus.APPROVED,
                 "offer_hash": "",
+            }
+        )
+
+
+class ExchangePaymentHandoff(ContractModel):
+    """Provider-neutral external payment context bound to an approved offer."""
+
+    schema_version: Literal["exchange-handoff.v1"] = "exchange-handoff.v1"
+    handoff_id: str = Field(min_length=1, max_length=64)
+    case_id: str = Field(min_length=1, max_length=64)
+    offer_hash: Hash = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    approval_hash: Hash = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    destination_url: str = Field(min_length=1, max_length=2000)
+    recipient: str = Field(min_length=1, max_length=200)
+    amount: Decimal = Field(ge=Decimal("0"), max_digits=20, decimal_places=2)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    reference: str = Field(min_length=1, max_length=160)
+    created_at: datetime
+    expires_at: datetime
+    status: ExchangeHandoffStatus = ExchangeHandoffStatus.READY
+    opened_at: datetime | None = None
+    handoff_hash: Hash = ""
+
+    @model_validator(mode="after")
+    def validate_handoff(self) -> ExchangePaymentHandoff:
+        destination = urlsplit(self.destination_url)
+        if (
+            destination.scheme != "https"
+            or not destination.hostname
+            or destination.username is not None
+            or destination.password is not None
+            or destination.fragment
+        ):
+            raise ValueError(
+                "exchange handoff destination must be HTTPS without credentials or fragment"
+            )
+        _require_aware(self.created_at, "created_at")
+        _require_aware(self.expires_at, "expires_at")
+        if self.expires_at <= self.created_at:
+            raise ValueError("exchange handoff must expire after creation")
+        if self.opened_at is not None:
+            _require_aware(self.opened_at, "opened_at")
+        if self.status is ExchangeHandoffStatus.OPENED and self.opened_at is None:
+            raise ValueError("opened exchange handoff requires opened_at")
+        if self.status is not ExchangeHandoffStatus.OPENED and self.opened_at is not None:
+            raise ValueError("only an opened exchange handoff may have opened_at")
+        expected = content_hash(self.hash_payload())
+        if self.handoff_hash and self.handoff_hash != expected:
+            raise ValueError("handoff_hash does not match the canonical exchange handoff")
+        object.__setattr__(self, "handoff_hash", expected)
+        return self
+
+    def hash_payload(self) -> dict[str, Any]:
+        return self.model_dump(exclude={"status", "opened_at", "handoff_hash"})
+
+    def open(self, *, now: datetime) -> ExchangePaymentHandoff:
+        _require_aware(now, "now")
+        if self.status is ExchangeHandoffStatus.OPENED:
+            return self
+        if self.status is not ExchangeHandoffStatus.READY or now >= self.expires_at:
+            raise ContractViolation("exchange handoff is not openable")
+        return ExchangePaymentHandoff.model_validate(
+            {
+                **self.model_dump(),
+                "status": ExchangeHandoffStatus.OPENED,
+                "opened_at": now,
+                "handoff_hash": "",
             }
         )
 

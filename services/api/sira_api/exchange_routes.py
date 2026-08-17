@@ -17,6 +17,9 @@ from .exchange_schemas import (
     ExchangeCaseCreate,
     ExchangeCaseCreated,
     ExchangeEvidencePublish,
+    ExchangeHandoffCreate,
+    ExchangeHandoffOpen,
+    ExchangeHandoffView,
     ExchangeOfferAccept,
     ExchangeOfferApprove,
     ExchangeOfferCreate,
@@ -193,4 +196,56 @@ async def approve_exchange_offer(
         expected_version=body.expected_version,
         offer_hash=body.offer_hash,
         approval_expires_at=body.approval_expires_at,
+    )
+
+
+@exchange_router.post(
+    "/v1/exchange-cases/{case_id}/handoffs",
+    response_model=ExchangeHandoffView,
+    status_code=status.HTTP_201_CREATED,
+    tags=["bilateral exchange"],
+)
+async def create_exchange_handoff(
+    case_id: str,
+    body: ExchangeHandoffCreate,
+    context: ContextDependency,
+    service: ServiceDependency,
+    _idempotency_key: IdempotencyDependency,
+    route_capability: Annotated[str, Query(alias="route", min_length=64, max_length=4096)],
+) -> dict[str, object]:
+    require_human_identity(context)
+    require_permission(context, "can_execute_purchase", require_step_up=True)
+    return await service.create_handoff(
+        organization_id=context.organization_id,
+        party=context.party,
+        case_id=case_id,
+        route_capability=route_capability,
+        expected_version=body.expected_version,
+        offer_hash=body.offer_hash,
+    )
+
+
+@exchange_router.post(
+    "/v1/exchange-cases/{case_id}/handoffs/{handoff_id}/open",
+    response_model=ExchangeHandoffView,
+    tags=["bilateral exchange"],
+)
+async def open_exchange_handoff(
+    case_id: str,
+    handoff_id: str,
+    body: ExchangeHandoffOpen,
+    context: ContextDependency,
+    service: ServiceDependency,
+    _idempotency_key: IdempotencyDependency,
+    route_capability: Annotated[str, Query(alias="route", min_length=64, max_length=4096)],
+) -> dict[str, object]:
+    require_human_identity(context)
+    require_permission(context, "can_execute_purchase", require_step_up=True)
+    return await service.open_handoff(
+        organization_id=context.organization_id,
+        party=context.party,
+        case_id=case_id,
+        route_capability=route_capability,
+        handoff_id=handoff_id,
+        handoff_hash=body.handoff_hash,
     )

@@ -598,6 +598,31 @@ export interface ExchangeEvidencePublish {
   summary: string;
 }
 
+export interface ExchangeHandoffCreate {
+  expected_version: number;
+  offer_hash: string;
+}
+
+export interface ExchangeHandoffOpen {
+  handoff_hash: string;
+}
+
+export interface ExchangeHandoffView {
+  amount: string;
+  approval_hash: string;
+  case_id: string;
+  currency: string;
+  destination_url: string;
+  expires_at: string;
+  handoff_hash: string;
+  id: string;
+  offer_hash: string;
+  opened_at?: string | null;
+  recipient: string;
+  reference: string;
+  status: "READY" | "OPENED" | "EXPIRED" | "CANCELLED";
+}
+
 export interface ExchangeOfferAccept {
   expected_version: number;
   offer_hash: string;
@@ -1612,6 +1637,7 @@ export interface Operations {
   create_approval_request: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/approval-requests"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: ApprovalRequestCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   create_decision_request: { method: "POST"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: DecisionRequestCreate; response: DecisionRequestView; requiresIdempotency: true; };
   create_exchange_case: { method: "POST"; path: "/v1/exchange-cases"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: ExchangeCaseCreate; response: ExchangeCaseCreated; requiresIdempotency: true; };
+  create_exchange_handoff: { method: "POST"; path: "/v1/exchange-cases/{case_id}/handoffs"; pathParams: { case_id: string; }; queryParams: { route: string; }; body: ExchangeHandoffCreate; response: ExchangeHandoffView; requiresIdempotency: true; };
   create_payment_handoff: { method: "POST"; path: "/v1/purchase-intents/{intent_id}/payment-handoff"; pathParams: { intent_id: string; }; queryParams: Record<never, never>; body: never; response: PaymentHandoffView; requiresIdempotency: true; };
   discover_decision_request: { method: "POST"; path: "/v1/decision-requests/{request_id}/discover"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: never; response: WorkflowAccepted; requiresIdempotency: true; };
   get_action_run: { method: "GET"; path: "/v1/action-runs/{action_run_id}"; pathParams: { action_run_id: string; }; queryParams: Record<never, never>; body: never; response: ActionRunView; requiresIdempotency: false; };
@@ -1628,6 +1654,7 @@ export interface Operations {
   health: { method: "GET"; path: "/health"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: HealthResponse; requiresIdempotency: false; };
   list_decision_requests: { method: "GET"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: DecisionIndexView; requiresIdempotency: false; };
   lock_purchase_intent: { method: "POST"; path: "/v1/decisions/{decision_id}/purchase-intents"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: PurchaseIntentCreate; response: PurchaseIntentView; requiresIdempotency: true; };
+  open_exchange_handoff: { method: "POST"; path: "/v1/exchange-cases/{case_id}/handoffs/{handoff_id}/open"; pathParams: { case_id: string; handoff_id: string; }; queryParams: { route: string; }; body: ExchangeHandoffOpen; response: ExchangeHandoffView; requiresIdempotency: true; };
   open_payment_handoff: { method: "POST"; path: "/v1/payment-handoffs/{handoff_id}/open"; pathParams: { handoff_id: string; }; queryParams: Record<never, never>; body: never; response: PaymentHandoffView; requiresIdempotency: true; };
   propose_exchange_offer: { method: "POST"; path: "/v1/exchange-cases/{case_id}/offers"; pathParams: { case_id: string; }; queryParams: { route: string; }; body: ExchangeOfferCreate; response: ExchangeProjectionView; requiresIdempotency: true; };
   publish_exchange_evidence: { method: "POST"; path: "/v1/exchange-cases/{case_id}/evidence"; pathParams: { case_id: string; }; queryParams: { route: string; }; body: ExchangeEvidencePublish; response: ExchangeProjectionView; requiresIdempotency: true; };

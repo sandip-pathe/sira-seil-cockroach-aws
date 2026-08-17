@@ -21,6 +21,8 @@ class ExchangeRoute(BaseModel):
     case_id: str = Field(min_length=1, max_length=64)
     candidate_id: str = Field(min_length=1, max_length=128)
     product_id: str = Field(min_length=1, max_length=128)
+    merchant_name: str = Field(min_length=1, max_length=200)
+    merchant_url: str = Field(pattern=r"^https://", max_length=2000)
     buyer_organization_id: str = Field(min_length=1, max_length=64)
     seller_organization_id: str = Field(min_length=1, max_length=64)
     expires_at: datetime

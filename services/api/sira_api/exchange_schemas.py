@@ -74,3 +74,28 @@ class ExchangeOfferApprove(StrictModel):
     expected_version: int = Field(ge=1)
     offer_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     approval_expires_at: datetime
+
+
+class ExchangeHandoffCreate(StrictModel):
+    expected_version: int = Field(ge=1)
+    offer_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+
+class ExchangeHandoffOpen(StrictModel):
+    handoff_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+
+class ExchangeHandoffView(StrictModel):
+    id: Identifier
+    case_id: Identifier
+    offer_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    approval_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    handoff_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    destination_url: str = Field(pattern=r"^https://", max_length=2000)
+    recipient: str = Field(min_length=1, max_length=200)
+    amount: Decimal = Field(ge=0, max_digits=20, decimal_places=2)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    reference: str = Field(min_length=1, max_length=160)
+    status: Literal["READY", "OPENED", "EXPIRED", "CANCELLED"]
+    expires_at: datetime
+    opened_at: datetime | None = None

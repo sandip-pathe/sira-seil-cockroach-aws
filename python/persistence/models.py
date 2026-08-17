@@ -2196,6 +2196,40 @@ class BilateralOfferApproval(Base, TenantOwned):
     )
 
 
+class BilateralExchangeHandoff(Base, TenantOwned, Timestamped):
+    """External payment handoff bound to one approved bilateral offer."""
+
+    __tablename__ = "bilateral_exchange_handoffs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    case_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    offer_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    approval_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    handoff_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    destination_url: Mapped[str] = mapped_column(Text, nullable=False)
+    recipient: Mapped[str] = mapped_column(String(200), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    reference: Mapped[str] = mapped_column(String(160), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('READY','OPENED','EXPIRED','CANCELLED')",
+            name="ck_bilateral_handoff_status",
+        ),
+        UniqueConstraint(
+            "organization_id", "case_id", "offer_hash", name="uq_bilateral_handoff_offer"
+        ),
+        UniqueConstraint(
+            "organization_id", "handoff_hash", name="uq_bilateral_handoff_hash"
+        ),
+        Index("ix_bilateral_handoff_case", "organization_id", "case_id", "created_at"),
+    )
+
+
 class AgentMission(Base, TenantOwned, Timestamped):
     """Canonical, resumable unit of agent work.
 

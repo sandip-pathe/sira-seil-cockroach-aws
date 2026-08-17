@@ -204,6 +204,8 @@ def create_app(
                         product_id=str(pack["product_id"]),
                         seller_actor_id=str(pack["seller_id"]),
                         seller_organization_id=f"org_{pack['seller_id']}",
+                        merchant_name=str(pack["identity"]["seller_name"]),
+                        merchant_url=str(fixtures.live_quote["merchant"]["url"]),
                     )
                     for candidate_id, pack in sorted(fixtures.packs.items())
                 )

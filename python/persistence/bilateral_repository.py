@@ -17,6 +17,7 @@ from domain.bilateral_exchange import (
 )
 from domain.exchange_contracts import (
     ExchangeEnvelope,
+    ExchangePaymentHandoff,
     ExchangeReceipt,
     OfferApproval,
     OfferVersion,
@@ -27,6 +28,7 @@ from domain.exchange_contracts import (
 from .models import (
     BilateralExchangeCase,
     BilateralExchangeEnvelope,
+    BilateralExchangeHandoff,
     BilateralExchangeReceipt,
     BilateralOfferApproval,
     BilateralOfferVersion,
@@ -415,5 +417,92 @@ class BilateralRepository:
         )
         self.session.add(record)
         offer_record.approval_status = "APPROVED"
+        await self.session.flush()
+        return record
+
+    async def store_handoff(
+        self, handoff: ExchangePaymentHandoff
+    ) -> BilateralExchangeHandoff:
+        existing = await self.session.scalar(
+            select(BilateralExchangeHandoff).where(
+                BilateralExchangeHandoff.organization_id == self.organization_id,
+                BilateralExchangeHandoff.case_id == handoff.case_id,
+                BilateralExchangeHandoff.offer_hash == handoff.offer_hash,
+            )
+        )
+        if existing is not None:
+            if existing.handoff_hash != handoff.handoff_hash:
+                raise PersistenceConflict("approved offer is bound to another handoff")
+            return existing
+        record = BilateralExchangeHandoff(
+            id=handoff.handoff_id,
+            organization_id=self.organization_id,
+            case_id=handoff.case_id,
+            offer_hash=handoff.offer_hash,
+            approval_hash=handoff.approval_hash,
+            handoff_hash=handoff.handoff_hash,
+            destination_url=handoff.destination_url,
+            recipient=handoff.recipient,
+            amount=handoff.amount,
+            currency=handoff.currency,
+            reference=handoff.reference,
+            status=handoff.status.value,
+            expires_at=handoff.expires_at,
+            opened_at=handoff.opened_at,
+            created_at=handoff.created_at,
+            updated_at=handoff.created_at,
+        )
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
+    async def open_handoff(
+        self,
+        handoff_id: str,
+        *,
+        expected_hash: str,
+        now: datetime,
+    ) -> BilateralExchangeHandoff:
+        record = await self.session.scalar(
+            select(BilateralExchangeHandoff)
+            .where(
+                BilateralExchangeHandoff.organization_id == self.organization_id,
+                BilateralExchangeHandoff.id == handoff_id,
+            )
+            .with_for_update()
+        )
+        if record is None:
+            raise RecordNotFound("exchange handoff was not found")
+        if record.handoff_hash != expected_hash:
+            raise PersistenceConflict("exchange handoff hash does not match")
+        created_at = record.created_at
+        expires_at = record.expires_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=UTC)
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        current = ExchangePaymentHandoff(
+            handoff_id=record.id,
+            case_id=record.case_id,
+            offer_hash=record.offer_hash,
+            approval_hash=record.approval_hash,
+            handoff_hash=record.handoff_hash,
+            destination_url=record.destination_url,
+            recipient=record.recipient,
+            amount=record.amount,
+            currency=record.currency,
+            reference=record.reference,
+            created_at=created_at,
+            expires_at=expires_at,
+            status=record.status,
+            opened_at=(
+                record.opened_at.replace(tzinfo=UTC)
+                if record.opened_at is not None and record.opened_at.tzinfo is None
+                else record.opened_at
+            ),
+        )
+        opened = current.open(now=now)
+        record.status = opened.status.value
+        record.opened_at = opened.opened_at
         await self.session.flush()
         return record

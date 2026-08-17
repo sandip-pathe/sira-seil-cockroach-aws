@@ -1,6 +1,6 @@
 "use client";
 
-import type { ExchangeProjectionView } from "@sira/api-client";
+import type { ExchangeHandoffView, ExchangeProjectionView } from "@sira/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -53,6 +53,7 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
   const headers = isSeller ? sellerEditorDevelopmentHeaders : buyerDevelopmentHeaders;
   const [amount, setAmount] = useState("1100.00");
   const [message, setMessage] = useState("");
+  const [handoff, setHandoff] = useState<ExchangeHandoffView | null>(null);
   const queryKey = useMemo(() => ["exchange", caseId, route, mode], [caseId, route, mode]);
 
   const query = useQuery({
@@ -146,6 +147,36 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
     onError: () => setMessage("Recent buyer verification is required for exact-term approval."),
   });
 
+  const handoffMutation = useMutation({
+    mutationFn: () => getBrowserApiClient().request("create_exchange_handoff", {
+      pathParams: { case_id: caseId },
+      query: { route },
+      body: { expected_version: view?.version ?? 0, offer_hash: offer?.offer_hash ?? "" },
+      idempotencyKey: createIdempotencyKey(`handoff-${caseId}-${offer?.offer_hash}`),
+      headers,
+    }),
+    onSuccess: (result) => setHandoff(result),
+    onError: () => setMessage("The approved offer could not be prepared for payment."),
+  });
+
+  const openHandoffMutation = useMutation({
+    mutationFn: () => {
+      if (!handoff) throw new Error("Payment handoff not prepared");
+      return getBrowserApiClient().request("open_exchange_handoff", {
+        pathParams: { case_id: caseId, handoff_id: handoff.id },
+        query: { route },
+        body: { handoff_hash: handoff.handoff_hash },
+        idempotencyKey: createIdempotencyKey(`open-handoff-${handoff.id}`),
+        headers,
+      });
+    },
+    onSuccess: (opened) => {
+      setHandoff(opened);
+      window.location.assign(opened.destination_url);
+    },
+    onError: () => setMessage("The payment page could not be opened. No payment was attempted."),
+  });
+
   const copySellerLink = async () => {
     const url = new URL(window.location.href);
     url.searchParams.set("mode", "seil");
@@ -190,7 +221,7 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
             {isSeller && view.state === "OFFERED" ? <button className={styles.secondary} type="button" disabled={acceptMutation.isPending} onClick={() => acceptMutation.mutate()}><Check /> Accept exact offer</button> : null}
             {!isSeller && view.state === "COUNTERED" ? <button type="button" disabled={acceptMutation.isPending} onClick={() => acceptMutation.mutate()}><Check /> Accept exact counteroffer</button> : null}
             {!isSeller && view.state === "AGREED_PENDING_APPROVAL" ? <button type="button" disabled={approveMutation.isPending} onClick={() => approveMutation.mutate(new Date(Date.now() + 15 * 60 * 1000).toISOString())}><BadgeCheck /> Approve for external handoff</button> : null}
-            {view.state === "APPROVED_FOR_HANDOFF" ? <div className={styles.complete}><BadgeCheck /><div><strong>Exact terms approved</strong><span>The provider-neutral payment handoff can now be prepared. Approval does not claim that money moved.</span></div></div> : null}
+            {view.state === "APPROVED_FOR_HANDOFF" ? <><div className={styles.complete}><BadgeCheck /><div><strong>Exact terms approved</strong><span>The provider-neutral payment handoff can now be prepared. Approval does not claim that money moved.</span></div></div>{!isSeller && !handoff ? <button type="button" disabled={handoffMutation.isPending} onClick={() => handoffMutation.mutate()}>{handoffMutation.isPending ? "Preparing…" : "Prepare payment handoff"}</button> : null}{!isSeller && handoff ? <button type="button" disabled={openHandoffMutation.isPending} onClick={() => openHandoffMutation.mutate()}>{openHandoffMutation.isPending ? "Opening…" : `Open ${handoff.recipient} payment page`}</button> : null}</> : null}
           </section>
         </div>
         {!isSeller ? <button className={styles.share} type="button" onClick={() => void copySellerLink()}><Copy /> Copy seller link</button> : null}

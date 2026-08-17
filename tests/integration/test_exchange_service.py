@@ -92,6 +92,8 @@ async def test_buyer_release_creates_distinct_safe_party_projections() -> None:
                         product_id="product-1",
                         seller_actor_id="seller-1",
                         seller_organization_id="org-seller",
+                        merchant_name="Seller",
+                        merchant_url="https://seller.example.test/pay",
                     ),
                 )
             ),
@@ -248,5 +250,26 @@ async def test_buyer_release_creates_distinct_safe_party_projections() -> None:
         )
         assert approved_replay["state"] == "APPROVED_FOR_HANDOFF"
         assert approved_replay["version"] == 7
+
+        handoff = await service.create_handoff(
+            organization_id="org-buyer",
+            party="BUYER",
+            case_id=case_id,
+            route_capability=token,
+            expected_version=7,
+            offer_hash=counter["offer_hash"],
+        )
+        assert handoff["status"] == "READY"
+        assert handoff["destination_url"] == "https://seller.example.test/pay"
+        opened = await service.open_handoff(
+            organization_id="org-buyer",
+            party="BUYER",
+            case_id=case_id,
+            route_capability=token,
+            handoff_id=handoff["id"],
+            handoff_hash=handoff["handoff_hash"],
+        )
+        assert opened["status"] == "OPENED"
+        assert opened["handoff_hash"] == handoff["handoff_hash"]
     finally:
         await database.close()

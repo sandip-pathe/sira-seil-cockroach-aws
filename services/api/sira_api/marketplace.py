@@ -15,6 +15,8 @@ class SellerPrincipalBinding:
     product_id: str
     seller_actor_id: str
     seller_organization_id: str
+    merchant_name: str
+    merchant_url: str
 
     def __post_init__(self) -> None:
         if not all(
@@ -27,6 +29,8 @@ class SellerPrincipalBinding:
             )
         ):
             raise ValueError("seller binding requires safe identifiers")
+        if not self.merchant_name.strip() or not self.merchant_url.startswith("https://"):
+            raise ValueError("seller binding requires an HTTPS merchant destination")
 
 
 class SellerOrganizationDirectory(Protocol):
