@@ -430,6 +430,14 @@ def create_app(
                 guest, new_guest_token = guest_signer.issue()
             request.state.guest_session = guest
             credential_subject = f"guest:{guest.session_id}"
+            if (
+                new_guest_token is not None
+                and resolved_settings.is_development
+                and resolved_settings.development_fixture_mode
+            ):
+                await cast(WorkflowService, application.state.workflow_service).reset_demo(
+                    guest.organization_id
+                )
 
         if protected_request:
             origin = request.headers.get("origin")

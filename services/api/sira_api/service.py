@@ -430,10 +430,16 @@ class WorkflowService:
 
     async def reset_demo(self, organization_id: str) -> dict[str, Any]:
         fixtures = self._fixture_bundle()
-        if organization_id != DEMO_ORGANIZATION_ID:
+        isolated_development_guest = (
+            self.allow_development_tenant_bootstrap and organization_id.startswith("org_guest_")
+        )
+        if organization_id != DEMO_ORGANIZATION_ID and not isolated_development_guest:
             raise ApiProblem(
                 code="DEMO_TENANT_REQUIRED",
-                message="The deterministic reset is scoped to the fictional demo tenant.",
+                message=(
+                    "The deterministic reset is scoped to the fictional demo tenant or an "
+                    "isolated development guest workspace."
+                ),
                 status_code=403,
             )
 
@@ -502,6 +508,39 @@ class WorkflowService:
 
             brief = deepcopy(fixtures.purchase_brief)
             requirement = deepcopy(fixtures.requirement_brief)
+            if isolated_development_guest:
+                tenant_token = content_hash({"organization_id": organization_id}).removeprefix(
+                    "sha256:"
+                )[:12]
+                request_id = f"req_guest_{tenant_token}"
+                decision_id = f"dec_guest_{tenant_token}_v1"
+                purchase_brief_id = f"pb_guest_{tenant_token}_v1"
+                requirement_brief_id = f"rb_guest_{tenant_token}_v1"
+                stack_snapshot_id = f"stack_guest_{tenant_token}_v1"
+                stack_patch_id = f"patch_guest_{tenant_token}_fixture_d"
+            else:
+                request_id = "req_demo"
+                decision_id = "dec_consultco_v1"
+                purchase_brief_id = str(brief["purchase_brief_id"])
+                requirement_brief_id = str(requirement["requirement_brief_id"])
+                stack_snapshot_id = "stack_consultco_v1"
+                stack_patch_id = "patch_consultco_fixture_d"
+            brief.update(
+                {
+                    "purchase_brief_id": purchase_brief_id,
+                    "request_id": request_id,
+                    "organization_id": organization_id,
+                }
+            )
+            brief["content_hash"] = content_hash(
+                {key: value for key, value in brief.items() if key != "content_hash"}
+            )
+            requirement.update(
+                {
+                    "requirement_brief_id": requirement_brief_id,
+                    "purchase_brief_id": purchase_brief_id,
+                }
+            )
             requirement["expires_at"] = (
                 (self._now() + timedelta(days=7)).isoformat().replace("+00:00", "Z")
             )
@@ -511,19 +550,19 @@ class WorkflowService:
             graph_input, graph_decision, ledger, patch, commercial_terms = (
                 self._demo_graph_artifacts(
                     organization_id=organization_id,
-                    request_id="req_demo",
-                    decision_id="dec_consultco_v1",
+                    request_id=request_id,
+                    decision_id=decision_id,
                     decision_version=1,
                     supersedes_decision_id=None,
                     purchase_brief_id=str(brief["purchase_brief_id"]),
                     purchase_brief_version=int(brief["version"]),
                     requirement_brief_id=str(requirement["requirement_brief_id"]),
                     requirement_brief_version=int(requirement["version"]),
-                    stack_patch_id="patch_consultco_fixture_d",
+                    stack_patch_id=stack_patch_id,
                 )
             )
             request = PurchaseRequest(
-                id="req_demo",
+                id=request_id,
                 organization_id=organization_id,
                 intent="Find meeting intelligence for ten consultants",
                 status="DECISION_READY",
@@ -536,7 +575,7 @@ class WorkflowService:
                     "evaluation_mode": DEMO_FIXTURE_LABEL,
                     "fixture_label": DEMO_FIXTURE_LABEL,
                 },
-                request_hash=content_hash({"request_id": "req_demo", "version": 1}),
+                request_hash=content_hash({"request_id": request_id, "version": 1}),
                 created_at=graph_input.evaluated_at,
                 updated_at=graph_input.evaluated_at,
             )
@@ -622,7 +661,7 @@ class WorkflowService:
                 },
             }
             stack_snapshot = StackSnapshot(
-                id="stack_consultco_v1",
+                id=stack_snapshot_id,
                 organization_id=organization_id,
                 version=1,
                 manifest=fixtures.stack_manifest,
@@ -645,7 +684,7 @@ class WorkflowService:
                 StackPatch(
                     id=patch["patch_id"],
                     organization_id=organization_id,
-                    base_snapshot_id="stack_consultco_v1",
+                    base_snapshot_id=stack_snapshot_id,
                     base_version=patch["base_snapshot"],
                     state=patch["status"],
                     payload=patch,
@@ -654,7 +693,7 @@ class WorkflowService:
             )
         return {
             "organization_id": organization_id,
-            "request_id": "req_demo",
+            "request_id": request_id,
             "decision_id": ledger["decision_id"],
             "fixture_label": "DEVELOPMENT_FIXTURE_NON_PRODUCTION",
         }

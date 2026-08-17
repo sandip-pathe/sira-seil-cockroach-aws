@@ -36,6 +36,10 @@ _ORGANIZATIONS: Sequence[tuple[str, str]] = (
     ("org_consultco", "ConsultCo Demo Buyer"),
     ("org_seller_a", "Atlas Seller"),
     ("org_seller_b", "Beacon Seller"),
+    ("org_seller_fixture_a", "Northstar Notes"),
+    ("org_seller_fixture_b", "ClearCall"),
+    ("org_seller_fixture_c", "Briefly AI"),
+    ("org_seller_fixture_d", "Luma Labs"),
 )
 
 

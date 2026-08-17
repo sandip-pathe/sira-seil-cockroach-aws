@@ -26,7 +26,6 @@ from persistence.models import (
     BilateralOfferVersion,
     BilateralReleaseManifest,
     BilateralTransition,
-    Organization,
     RequirementBriefVersion,
 )
 from persistence.qualification_models import EvidenceSpan
@@ -235,22 +234,6 @@ class ExchangeService:
         )
         compiled: Any | None = None
         async with self.database.transaction(organization_id) as session:
-            seller = await session.get(Organization, seller_organization_id)
-            if seller is None:
-                if not self.allow_development_tenant_bootstrap:
-                    raise ApiProblem(
-                        code="SELLER_ORGANIZATION_BINDING_REQUIRED",
-                        message="The verified seller organization is unavailable.",
-                        status_code=409,
-                    )
-                session.add(
-                    Organization(
-                        id=seller_organization_id,
-                        name=f"{binding.seller_actor_id} (fictional fixture)",
-                        version=1,
-                    )
-                )
-                await session.flush()
             repository = BilateralRepository(session, organization_id)
             existing = await repository.create_case(
                 case_id=case_id,

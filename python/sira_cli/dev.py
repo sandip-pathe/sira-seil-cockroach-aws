@@ -190,7 +190,11 @@ def bootstrap_database(*, database_name: str = "sira", reset: bool = False) -> s
         "('org_demo', 'SIRA Demo Buyer', 1), "
         "('org_consultco', 'ConsultCo Demo Buyer', 1), "
         "('org_seller_a', 'Atlas Seller', 1), "
-        "('org_seller_b', 'Beacon Seller', 1)"
+        "('org_seller_b', 'Beacon Seller', 1), "
+        "('org_seller_fixture_a', 'Northstar Notes', 1), "
+        "('org_seller_fixture_b', 'ClearCall', 1), "
+        "('org_seller_fixture_c', 'Briefly AI', 1), "
+        "('org_seller_fixture_d', 'Luma Labs', 1)"
     )
     if use_docker:
         grant_result = _run(
