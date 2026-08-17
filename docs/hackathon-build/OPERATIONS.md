@@ -100,6 +100,19 @@ and drops the temporary database in `finally`. Its ignored artifact is
 temporary database name. This proves the local restore procedure. Cockroach Cloud managed backup
 and restore evidence remains a separate hosted gate.
 
+## Local performance gate
+
+With the local API and CockroachDB running, record sanitized same-machine latency evidence:
+
+```powershell
+uv run python scripts/local_performance_check.py --output .artifacts/preflight/local-performance.json
+```
+
+The gate samples liveness, Cockroach readiness, the guest catalogue, and a lightweight durable
+agent turn. It records only aggregate latency and pass/fail values. It never stores response
+bodies, cookies, credentials, prompts, or tenant identifiers. Local results do not replace hosted
+load, provider-latency, recovery, or cost measurements.
+
 ## Normal commands
 
 ```text
