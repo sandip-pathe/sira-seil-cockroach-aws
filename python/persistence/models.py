@@ -1918,6 +1918,27 @@ class CognitiveUserEvent(Base, TenantOwned):
     )
 
 
+class RuntimeTicketUse(Base, TenantOwned):
+    """Single-use nonce consumed before a runtime request can reach trusted tools."""
+
+    __tablename__ = "runtime_ticket_uses"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    ticket_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    nonce_hash: Mapped[str] = mapped_column(String(80), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "ticket_id", "nonce_hash", name="uq_runtime_ticket_use"
+        ),
+        Index("ix_runtime_ticket_expiry", "organization_id", "expires_at"),
+    )
+
+
 class AgentMission(Base, TenantOwned, Timestamped):
     """Canonical, resumable unit of agent work.
 

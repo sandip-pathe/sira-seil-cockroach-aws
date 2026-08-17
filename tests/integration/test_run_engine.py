@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from typing import Any, cast
 
 from sira_agents.cognitive_runtime import DeterministicCognitiveRuntime
-from sira_agents.kernel_models import Principal, ToolManifest, ToolRisk, TurnBudget
+from sira_agents.kernel_models import Party, Principal, ToolManifest, ToolRisk, TurnBudget
 from sira_agents.run_engine import RunEngine, RuntimeDatabase, TurnCommand
 from sira_agents.tool_broker import ToolBroker
 
@@ -28,6 +28,7 @@ def _command(**changes: object) -> TurnCommand:
         "organization_id": "org-buyer",
         "actor_id": "buyer-1",
         "principal": Principal.SIRA,
+        "party": Party.BUYER,
         "purpose": "software_selection",
         "conversation_id": "conversation-1",
         "turn_id": "turn-1",
@@ -44,6 +45,7 @@ def _read_tool() -> ToolManifest:
         contract_version="v1",
         description="Read a permitted evidence record.",
         allowed_principals=frozenset({Principal.SIRA}),
+        allowed_parties=frozenset({Party.BUYER}),
         purposes=frozenset({"software_selection"}),
         allowed_stages=frozenset({"evaluating"}),
         risk=ToolRisk.READ,

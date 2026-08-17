@@ -18,6 +18,7 @@ from sira_agents.kernel_models import (
     ContextManifest,
     FailSafely,
     FailureCode,
+    Party,
     Principal,
     ProposedToolCall,
     ProposeTools,
@@ -49,6 +50,7 @@ class TurnCommand:
     organization_id: str
     actor_id: str
     principal: Principal
+    party: Party
     purpose: str
     conversation_id: str
     turn_id: str
@@ -83,6 +85,7 @@ class RunEngine:
 
         manifest = ContextManifest(
             principal=command.principal,
+            party=command.party,
             organization_id=command.organization_id,
             actor_id=command.actor_id,
             purpose=command.purpose,

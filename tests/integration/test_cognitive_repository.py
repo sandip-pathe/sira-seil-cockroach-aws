@@ -46,6 +46,7 @@ async def test_cognitive_turn_is_idempotent_resumable_and_user_safe() -> None:
             assert duplicate.id == run.id
             manifest = ContextManifest(
                 principal="SIRA",
+                party="BUYER",
                 organization_id="org-buyer",
                 actor_id="buyer-1",
                 purpose="software_selection",

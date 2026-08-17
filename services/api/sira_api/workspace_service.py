@@ -16,7 +16,7 @@ from uuid import uuid4
 from openai import AuthenticationError, RateLimitError
 from pydantic import ValidationError
 from sira_agents.commerce_tools import SEIL_TOOL_NAMES, SIRA_TOOL_NAMES, commerce_tool_registry
-from sira_agents.kernel_models import Principal
+from sira_agents.kernel_models import Party, Principal
 from sira_agents.mission_models import MissionTurnOutput
 from sira_agents.run_engine import RunEngine, TurnCommand, TurnResult
 from sira_agents.runtime import (
@@ -561,6 +561,7 @@ class WorkspaceService:
                 organization_id=run_context.organization_id,
                 actor_id=run_context.actor_id,
                 principal=Principal.SIRA if body.mode == "sira" else Principal.SEIL,
+                party=Party.BUYER if body.mode == "sira" else Party.SELLER,
                 purpose="software_selection" if body.mode == "sira" else "seller_evidence",
                 conversation_id=mission_id,
                 turn_id=request_key,

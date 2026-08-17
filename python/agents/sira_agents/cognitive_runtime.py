@@ -57,6 +57,7 @@ class BedrockCognitiveRuntime:
             raise ValueError("Bedrock cognitive runtime requires a sealed context manifest")
         context = {
             "principal": manifest.principal.value,
+            "party": manifest.party.value,
             "purpose": manifest.purpose,
             "context_hash": manifest.manifest_hash,
             "recent_messages": manifest.recent_messages,

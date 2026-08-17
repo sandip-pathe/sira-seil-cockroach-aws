@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from enum import StrEnum
 from hashlib import sha256
 from typing import Annotated, Any, Literal
@@ -13,6 +14,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class Principal(StrEnum):
     SIRA = "SIRA"
     SEIL = "SEIL"
+
+
+class Party(StrEnum):
+    BUYER = "BUYER"
+    SELLER = "SELLER"
 
 
 class ToolRisk(StrEnum):
@@ -54,6 +60,7 @@ class ContextReference(KernelModel):
 
 class ContextManifest(KernelModel):
     principal: Principal
+    party: Party
     organization_id: str = Field(min_length=1, max_length=100)
     actor_id: str = Field(min_length=1, max_length=100)
     purpose: str = Field(min_length=1, max_length=100)
@@ -71,6 +78,9 @@ class ContextManifest(KernelModel):
 
     @model_validator(mode="after")
     def validate_hash(self) -> ContextManifest:
+        expected_party = Party.BUYER if self.principal is Principal.SIRA else Party.SELLER
+        if self.party is not expected_party:
+            raise ValueError("context principal and party do not match")
         calculated = self.calculate_hash()
         if self.manifest_hash is not None and self.manifest_hash != calculated:
             raise ValueError("context manifest hash does not match its contents")
@@ -146,6 +156,7 @@ class ToolManifest(KernelModel):
     contract_version: str = Field(pattern=r"^v[1-9][0-9]*$")
     description: str = Field(min_length=1, max_length=500)
     allowed_principals: frozenset[Principal]
+    allowed_parties: frozenset[Party]
     purposes: frozenset[str]
     allowed_stages: frozenset[str]
     risk: ToolRisk
@@ -162,6 +173,39 @@ class ToolManifest(KernelModel):
         if self.output_schema.get("type") != "object":
             raise ValueError("tool output schema must describe an object")
         return self
+
+
+class CapabilityGrant(KernelModel):
+    id: str = Field(min_length=1, max_length=64)
+    capability: str = Field(min_length=1, max_length=100)
+    principal: Principal
+    party: Party
+    actor_id: str = Field(min_length=1, max_length=100)
+    purpose: str = Field(min_length=1, max_length=100)
+    tool_name: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    contract_version: str = Field(pattern=r"^v[1-9][0-9]*$")
+    scope: dict[str, Any]
+    payload_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    object_versions: dict[str, int] = Field(default_factory=dict)
+    status: Literal["ACTIVE", "REVOKED", "EXPIRED", "CONSUMED"]
+    expires_at: datetime
+    max_uses: int = Field(default=1, ge=1, le=10)
+    uses: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_authority(self) -> CapabilityGrant:
+        if self.uses > self.max_uses:
+            raise ValueError("capability uses exceed its maximum")
+        expected_party = Party.BUYER if self.principal is Principal.SIRA else Party.SELLER
+        if self.party is not expected_party:
+            raise ValueError("capability principal and party do not match")
+        if self.expires_at.tzinfo is None:
+            raise ValueError("capability expiry must be timezone-aware")
+        return self
+
+    def active(self, *, now: datetime | None = None) -> bool:
+        current = now or datetime.now(UTC)
+        return self.status == "ACTIVE" and self.uses < self.max_uses and self.expires_at > current
 
 
 class ToolResult(KernelModel):

@@ -30,6 +30,7 @@ async def test_bedrock_cognitive_adapter_preserves_kernel_authority_boundary() -
     runtime = BedrockCognitiveRuntime(provider)
     manifest = ContextManifest(
         principal="SIRA",
+        party="BUYER",
         organization_id="org-private",
         actor_id="actor-private",
         purpose="software_selection",
