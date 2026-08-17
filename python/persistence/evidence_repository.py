@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
+from typing import cast
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -99,6 +100,17 @@ class EvidenceRepository:
             # Cockroach recommends individual VECTOR inserts instead of large batches.
             await self.session.flush()
         return source
+
+    async def get_source_by_checksum(self, object_checksum: str) -> EvidenceSourceVersion | None:
+        return cast(
+            EvidenceSourceVersion | None,
+            await self.session.scalar(
+                select(EvidenceSourceVersion).where(
+                    EvidenceSourceVersion.organization_id == self.organization_id,
+                    EvidenceSourceVersion.object_checksum == object_checksum,
+                )
+            )
+        )
 
     async def publish(self, source: EvidenceSourceVersion) -> None:
         if source.status not in {"PARSED", "VALIDATED", "PUBLISHED"}:

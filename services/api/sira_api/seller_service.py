@@ -1182,6 +1182,26 @@ class SellerEvidenceService:
                 previous.superseded_by_version_id = pack.id
             await session.flush()
             await self._create_exports(session, organization_id, pack)
+            referenced_evidence_ids = {
+                str(evidence_id)
+                for item in (*revision.claims, *revision.fit_rules, *revision.anti_fit_rules)
+                for evidence_id in item.get("evidence_ids", [])
+            }
+            evidence_repository = EvidenceRepository(session, organization_id)
+            for evidence_id in sorted(referenced_evidence_ids):
+                attachment = evidence.get(evidence_id)
+                if attachment is None or attachment.object_checksum is None:
+                    continue
+                source = await evidence_repository.get_source_by_checksum(
+                    attachment.object_checksum
+                )
+                if source is None:
+                    raise self._problem(
+                        "SELLER_EVIDENCE_PARSE_MISSING",
+                        "Uploaded evidence is missing its validated retrieval record.",
+                        status_code=409,
+                    )
+                await evidence_repository.publish(source)
             product.current_pack_version_id = pack.id
             product.state = SellerEvidenceState.PUBLISHED.value
             product.publisher_authority = PackAuthority.SELLER_SEALED.value
