@@ -20,6 +20,7 @@ from .bounds import (
     authoritative_ordering_key,
     evidence_age_bounds,
 )
+from .clarification import ClarificationCandidate, select_material_clarification
 from .counterfactual import build_counterfactual
 from .demo import DemoDecision, evaluate_demo
 from .evaluation import evaluate_candidate, evaluate_candidate_set
@@ -73,6 +74,7 @@ __all__ = [
     "BuyerConstraint",
     "CandidateDefinition",
     "CandidateResult",
+    "ClarificationCandidate",
     "CostBounds",
     "Counterfactual",
     "CounterfactualOutcome",
@@ -128,5 +130,6 @@ __all__ = [
     "ranking_key",
     "recall_and_deduplicate",
     "search_private_fact_counterfactuals",
+    "select_material_clarification",
     "select_winner",
 ]
