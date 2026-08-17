@@ -1,6 +1,10 @@
 """SIRA/SEIL agent orchestration kept outside deterministic domain code."""
 
-from sira_agents.cognitive_runtime import CognitiveRuntime, DeterministicCognitiveRuntime
+from sira_agents.cognitive_runtime import (
+    BedrockCognitiveRuntime,
+    CognitiveRuntime,
+    DeterministicCognitiveRuntime,
+)
 from sira_agents.guardrails import AgentBoundaryViolation
 from sira_agents.harness import SiraSeilHarness
 from sira_agents.kernel_models import ContextManifest, TurnDecisionEnvelope
@@ -20,6 +24,7 @@ __all__ = [
     "AgentRunContext",
     "AgentRunRequest",
     "AgentRunResult",
+    "BedrockCognitiveRuntime",
     "CognitiveRuntime",
     "ContextManifest",
     "DeterministicCognitiveRuntime",
