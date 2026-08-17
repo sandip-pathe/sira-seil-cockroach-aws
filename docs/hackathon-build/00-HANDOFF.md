@@ -1,12 +1,13 @@
 # SIRA + SEIL - CockroachDB x AWS build handoff
 
-Status: active implementation
+Status: R1 local core implemented; R2 live cloud verification pending
 
-Date: 2026-08-13
+Date: 2026-08-18
 
 Canonical repository: `https://github.com/sandip-pathe/sira-seil-cockroach-aws` (private during construction)
 
-Current implementation commit: `3b634bd` plus the active uncommitted implementation layer described by `git status`.
+Current implementation is the local `main` history. Use `git log -1 --oneline` rather than a
+hard-coded commit because focused local commits continue until the cloud gate.
 
 ## Product lock
 
@@ -24,9 +25,14 @@ Do not rename the product around memory. Do not build a separate proof/infrastru
 
 ## Current truth
 
-Approach B, the production qualified-agent-marketplace architecture, was approved on 2026-08-13 after three adversarial design reviews. The repository architecture is in `architecture.md`; `plan.md` and `checklist.md` now use P0/P1/P2 gates.
+Approach B was approved on 2026-08-13 and narrowed by the flagship review. The current source of
+truth is `../flagship-platform-plan.md`; this directory retains the CockroachDB x AWS evidence
+gates and submission material.
 
-Implementation starts with cloud/compatibility preflight and the Cockroach correctness kernel. Deleted side-repository work, targets and fixtures do not count as implementation evidence. `checklist.md` is authoritative.
+The local correctness kernel, typed cognitive runtime, bilateral exchange, isolated guest path,
+and two-runtime CDK topology are implemented. Cloud/compatibility evidence remains open. Deleted
+side-repository work, targets, generated assets, or deterministic fixtures do not count as live
+provider evidence.
 
 ## Required live claim
 

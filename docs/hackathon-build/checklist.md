@@ -1,6 +1,7 @@
 # Build checklist
 
-Status: Approach B approved; execution reset to the reviewed architecture on 2026-08-13.
+Status: R1 local core implemented; R2 live cloud proof blocked on credentials/resources; R3
+hardening remains. Current as of 2026-08-18.
 
 ## Working rules
 
@@ -9,15 +10,28 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
 - A checked item requires its stated evidence. Unavailable credentials leave the item open; hosted mode never substitutes fixtures.
 - P0 gates precede P1/P2. The correctness kernel cannot be cut.
 
-## Evidence snapshot (2026-08-13)
+## Evidence snapshot (2026-08-18)
 
-- Official repository gate: `377 passed`, `12 skipped` only because the default gate intentionally omits live Cockroach URLs, coverage `75.44%`; Ruff, Mypy, architecture boundaries, OpenAPI drift, deterministic agent evaluation, generated client, web lint/type checks, Prettier and current-tree credential scan pass.
-- Live local CockroachDB: `12 passed` covering readiness/FORCE RLS/pool reuse, successful and exhausted real `40001` retries, DVI/current-bundle gates, stale replacement, lease takeover/generation fencing, bilateral isolation, append-only workspace settings, tenant-safe analytics, outbox delivery and atomic introduction. The sanitized security audit passes across `85` tenant tables with zero grant/RLS/immutability violations.
-- Fresh disposable CockroachDB migration reaches `cdb0010` with `90` public tables and is removed after inspection; the local backup/restore verifier also passes matching bounded digests and cleanup.
-- AWS package: CDK build, six topology/IAM/AgentCore/Automated-Reasoning/changefeed tests and synth pass; API/web production images and read-only container smokes passed before Docker Desktop became unresponsive. The new AgentCore ARM64 image contract is committed and synthesized but its local container build remains unverified.
+- Official local gate: Ruff, format, Mypy over 120 source files, architecture boundaries,
+  OpenAPI/client drift, web lint/type checks, CDK build/test/synth, and current-tree credential
+  scan pass. The non-provider suite passes `419` tests with `13` live-Cockroach cases selected
+  separately.
+- Live local CockroachDB v26.2.3: fresh migration reaches `cdb0018`; DVI is present; `13`
+  integration cases cover readiness/FORCE RLS/pool reuse, real `40001`, DVI/current bundles,
+  stale replacement, lease/fencing, bilateral isolation and simultaneous offer races. The
+  `evidence-race` reset/run/verify scenario passes against CockroachDB, not SQLite.
+- The same-browser guest path now receives a globally unique isolated fixture tenant and can open
+  the buyer and seller projections of one opaque capability-scoped exchange. Production identities
+  cannot use this development bridge.
+- AWS package: CDK build, six topology/IAM/AgentCore/Automated-Reasoning/changefeed tests and synth
+  pass. It defines distinct SIRA and SEIL AgentCore runtimes and endpoints with zero AgentCore Memory
+  resources. Live deployment is not claimed.
 - AWS provider: live Nova Converse and Titan V2 smoke passes in `us-east-1` with a normalized 1,024-dimensional embedding. A separate five-case live Nova qualification evaluation passes typed output, inspect-every-candidate, groundedness and expected-product gates at 100%; Guardrail intervention remains deployment-gated.
 - A disposable local Cockroach backup/restore drill passes with matching schema/count digests and verified temporary-database cleanup. Cockroach Cloud managed backup/restore remains a separate external gate.
-- Not yet evidence: CockroachDB Cloud TLS/Managed MCP/managed backup, deployed AWS URL, hosted rehearsals, a complete authenticated browser journey and live Guardrail intervention. A 14-case desktop/mobile WCAG A/AA and overflow smoke now passes for all six routes, including fail-closed setup/error states; related hosted gates remain open.
+- Not yet evidence: CockroachDB Cloud TLS/Managed MCP/managed backup, deployed AWS URL, provider
+  evaluation on the current build, hosted rehearsals, hosted browser journey, distributed trace,
+  live Guardrail intervention, load/chaos, or managed restore. The AWS CLI session expired during
+  this pass and must be renewed before any live claim.
 
 ## P0
 
@@ -107,7 +121,11 @@ Status: Approach B approved; execution reset to the reviewed architecture on 202
   and exposes it beside the buyer decision. Its typed result hard-codes
   `authoritative=false` and `may_authorize=false`; non-zero policy usage and every finding
   class are tested. Live labelled-policy evaluation and fidelity evidence remain open.
-- [ ] AgentCore Runtime/evaluation experiment without AgentCore Memory. A stateless ARM64 HTTP runtime, IAM invocation adapter, committed labelled-corpus entrypoint, durable budgeted Cockroach lifecycle and sanitized failure path are implemented; CDK proves one Runtime/endpoint and zero Memory resources. Live deployment/invocation evidence remains open.
+- [ ] Two principal-locked AgentCore Runtimes without AgentCore Memory. Stateless ARM64 HTTP
+  runtimes, signed invocation tickets, SIRA/SEIL audiences, IAM invocation adapter, committed
+  labelled-corpus entrypoint, durable budgeted Cockroach lifecycle and sanitized failure path are
+  implemented; CDK proves two runtimes/endpoints and zero Memory resources. Live deployment and
+  invocation evidence remain open.
 - [ ] Measured Cockroach changefeed, multi-region and regional-survival experiments. An
   authenticated, bounded Cockroach webhook to ARM64 Lambda to SQS FIFO bridge is implemented
   with stable per-event identity, explicit at-least-once/per-key-only semantics, resolved-watermark
