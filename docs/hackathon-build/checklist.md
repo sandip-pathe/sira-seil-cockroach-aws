@@ -12,9 +12,9 @@ hardening remains. Current as of 2026-08-18.
 
 ## Evidence snapshot (2026-08-18)
 
-- Official local gate: Ruff, format, Mypy over 117 source files, architecture boundaries,
+- Official local gate: Ruff, format, Mypy over 118 source files, architecture boundaries,
   OpenAPI/client drift, web lint/type checks, CDK build/test/synth, and current-tree credential
-  scan pass. The non-provider suite passes `422` tests. The live-Cockroach suite contains `113`
+  scan pass. The non-provider suite passes `425` tests. The live-Cockroach suite contains `113`
   executions across `14` integration categories and runs separately.
 - Live local CockroachDB v26.2.3: fresh migration reaches `cdb0018`; DVI is present; `13`
   integration categories cover readiness/FORCE RLS/pool reuse, real `40001`, DVI/current bundles,
@@ -30,6 +30,15 @@ hardening remains. Current as of 2026-08-18.
 - AWS package: CDK build, six topology/IAM/AgentCore/Automated-Reasoning/changefeed tests and synth
   pass. It defines distinct SIRA and SEIL AgentCore runtimes and endpoints with zero AgentCore Memory
   resources. Live deployment is not claimed.
+- Agent-quality evidence: `conversation-turns.v1.json` contains 50 labelled greeting, capability,
+  material-question, buyer-tool, seller-tool, and authority cases. The provider-neutral evaluator
+  enforces typed decisions, exact tool sets, zero greeting tool calls, and single focused questions;
+  the Bedrock command runs two repetitions for 100 provider turns. It is implemented but not yet
+  run because the `sira-hackathon` AWS session expired.
+- Cloud tooling: official `ccloud` 0.6.12 is installed locally and added to the user PATH, but it is
+  not authenticated and no Cockroach Cloud cluster identifier or SQL URLs are configured. AWS STS
+  likewise requires a fresh `aws login --profile sira-hackathon` before any live provider/deploy
+  evidence can be claimed.
 - AWS provider: live Nova Converse and Titan V2 smoke passes in `us-east-1` with a normalized 1,024-dimensional embedding. A separate five-case live Nova qualification evaluation passes typed output, inspect-every-candidate, groundedness and expected-product gates at 100%; Guardrail intervention remains deployment-gated.
 - A disposable local Cockroach backup/restore drill passes with matching schema/count digests and verified temporary-database cleanup. Cockroach Cloud managed backup/restore remains a separate external gate.
 - A disposable forward-upgrade drill passes from `cdb0017` (`99` tables) to `cdb0018` (`100`
