@@ -206,5 +206,19 @@ async def test_buyer_release_creates_distinct_safe_party_projections() -> None:
         )
         assert approved["state"] == "APPROVED_FOR_HANDOFF"
         assert approved["released"]["approval"]["offer_hash"] == counter["offer_hash"]
+
+        approved_replay = await service.approve_offer(
+            organization_id="org-buyer",
+            actor_id="budget-owner-1",
+            party="BUYER",
+            case_id=case_id,
+            route_capability=token,
+            idempotency_key="approve-counter-1",
+            expected_version=6,
+            offer_hash=counter["offer_hash"],
+            approval_expires_at=now + timedelta(hours=4),
+        )
+        assert approved_replay["state"] == "APPROVED_FOR_HANDOFF"
+        assert approved_replay["version"] == 7
     finally:
         await database.close()

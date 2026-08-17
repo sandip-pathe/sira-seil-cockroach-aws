@@ -20,7 +20,12 @@ from domain.exchange_contracts import (
 from domain.exchange_route import ExchangeRoute, ExchangeRouteCodec, ExchangeRouteError
 from persistence.bilateral_repository import BilateralRepository
 from persistence.database import Database
-from persistence.models import BilateralOfferVersion, RequirementBriefVersion
+from persistence.models import (
+    BilateralOfferVersion,
+    BilateralReleaseManifest,
+    BilateralTransition,
+    RequirementBriefVersion,
+)
 from persistence.repositories import PersistenceConflict, RecordNotFound
 
 from .errors import ApiProblem
@@ -115,6 +120,34 @@ class ExchangeService:
                 session, route.seller_organization_id
             ).publish_projection(compiled.seller_projection)
 
+    async def _replayed_projection(
+        self,
+        *,
+        route: ExchangeRoute,
+        party: str,
+        command_id: str,
+    ) -> dict[str, Any] | None:
+        async with self.database.transaction(route.buyer_organization_id) as session:
+            applied = await session.scalar(
+                select(BilateralTransition.id).where(
+                    BilateralTransition.organization_id == route.buyer_organization_id,
+                    BilateralTransition.case_id == route.case_id,
+                    BilateralTransition.command_id == command_id,
+                )
+            )
+        if applied is None:
+            return None
+        return await self.view_case(
+            organization_id=(
+                route.buyer_organization_id
+                if party == "BUYER"
+                else route.seller_organization_id
+            ),
+            party=party,
+            case_id=route.case_id,
+            route_capability=self.route_codec.encode(route),
+        )
+
     @staticmethod
     def _api_conflict(error: Exception) -> ApiProblem:
         return ApiProblem(
@@ -160,7 +193,24 @@ class ExchangeService:
             )
             if existing.version > 1:
                 buyer_projection = await repository.latest_projection(case_id, party="BUYER")
-                expires_at = now + timedelta(hours=24)
+                stored_manifest = await session.scalar(
+                    select(BilateralReleaseManifest)
+                    .where(
+                        BilateralReleaseManifest.organization_id == organization_id,
+                        BilateralReleaseManifest.case_id == case_id,
+                    )
+                    .order_by(BilateralReleaseManifest.created_at.desc())
+                    .limit(1)
+                )
+                if stored_manifest is None:
+                    raise ApiProblem(
+                        code="EXCHANGE_RELEASE_MISSING",
+                        message="The exchange release authorization is unavailable.",
+                        status_code=409,
+                    )
+                expires_at = stored_manifest.expires_at
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=UTC)
             else:
                 requirement = await session.scalar(
                     select(RequirementBriefVersion)
@@ -347,6 +397,13 @@ class ExchangeService:
                 "published_span_ids": published_span_ids,
             },
         )
+        replayed = await self._replayed_projection(
+            route=route,
+            party="SELLER",
+            command_id=command.id,
+        )
+        if replayed is not None:
+            return replayed
         async with self.database.transaction(organization_id) as session:
             await BilateralRepository(session, organization_id).append_command(command)
         try:
@@ -388,6 +445,14 @@ class ExchangeService:
             route_capability=route_capability,
         )
         party_value = ExchangeParty(str(party))
+        command_id = _stable_id("command", case_id, idempotency_key)
+        replayed = await self._replayed_projection(
+            route=route,
+            party=party_value.value,
+            command_id=command_id,
+        )
+        if replayed is not None:
+            return replayed
         try:
             async with self.database.transaction(route.buyer_organization_id) as session:
                 repository = BilateralRepository(session, route.buyer_organization_id)
@@ -438,7 +503,7 @@ class ExchangeService:
                     evidence_hash=str(evidence.get("evidence_hash", "")),
                 )
                 command = PartyCommand(
-                    id=_stable_id("command", case_id, idempotency_key),
+                    id=command_id,
                     case_id=case_id,
                     party=party_value,
                     actor_id=actor_id,
@@ -480,6 +545,14 @@ class ExchangeService:
             route_capability=route_capability,
         )
         party_value = ExchangeParty(str(party))
+        command_id = _stable_id("command", case_id, idempotency_key)
+        replayed = await self._replayed_projection(
+            route=route,
+            party=party_value.value,
+            command_id=command_id,
+        )
+        if replayed is not None:
+            return replayed
         try:
             async with self.database.transaction(route.buyer_organization_id) as session:
                 repository = BilateralRepository(session, route.buyer_organization_id)
@@ -504,7 +577,7 @@ class ExchangeService:
                     "ACCEPT_OFFER" if state.state.value == "OFFERED" else "ACCEPT_COUNTER"
                 )
                 command = PartyCommand(
-                    id=_stable_id("command", case_id, idempotency_key),
+                    id=command_id,
                     case_id=case_id,
                     party=party_value,
                     actor_id=actor_id,
@@ -552,6 +625,14 @@ class ExchangeService:
                 status_code=403,
             )
         now = self._clock()
+        command_id = _stable_id("command", case_id, idempotency_key)
+        replayed = await self._replayed_projection(
+            route=route,
+            party="BUYER",
+            command_id=command_id,
+        )
+        if replayed is not None:
+            return replayed
         try:
             async with self.database.transaction(route.buyer_organization_id) as session:
                 repository = BilateralRepository(session, route.buyer_organization_id)
@@ -566,7 +647,7 @@ class ExchangeService:
                 )
                 await repository.approve_offer(approval, now=now)
                 command = PartyCommand(
-                    id=_stable_id("command", case_id, idempotency_key),
+                    id=command_id,
                     case_id=case_id,
                     party=ExchangeParty.SYSTEM,
                     actor_id=actor_id,
