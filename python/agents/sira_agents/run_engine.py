@@ -123,6 +123,22 @@ class RunEngine:
                 budget=command.budget,
             ).sealed()
         )
+        visible_tools = self.broker.visible_tools(manifest, stage="evaluating")
+        manifest = manifest.model_copy(
+            update={
+                "tool_contracts": tuple(
+                    {
+                        "name": tool.name,
+                        "contract_version": tool.contract_version,
+                        "description": tool.description,
+                        "risk": tool.risk.value,
+                        "input_schema": tool.input_schema,
+                    }
+                    for tool in visible_tools
+                ),
+                "manifest_hash": None,
+            }
+        ).sealed()
         await self._bind_manifest(command.organization_id, run.id, manifest)
 
         tool_results: list[dict[str, Any]] = []

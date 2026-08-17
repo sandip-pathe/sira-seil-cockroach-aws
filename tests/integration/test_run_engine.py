@@ -117,6 +117,8 @@ async def test_engine_captures_executes_checkpoints_and_composes() -> None:
         )
         assert observed == [{"evidence_id": "evidence-1"}]
         assert len(runtime.calls) == 2
+        assert runtime.calls[0].tool_contracts[0]["name"] == "read_evidence"
+        assert runtime.calls[0].tool_contracts[0]["input_schema"] == tool.input_schema
         assert runtime.calls[1].exchange_projection["authorized_tool_results"][0]["output"] == {
             "claim": "Recordings can remain in the EU."
         }

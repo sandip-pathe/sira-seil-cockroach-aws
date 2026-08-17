@@ -76,6 +76,7 @@ class ContextManifest(KernelModel):
     references: tuple[ContextReference, ...] = Field(default=(), max_length=40)
     exchange_projection: dict[str, Any] = Field(default_factory=dict)
     available_tools: tuple[str, ...] = Field(default=(), max_length=32)
+    tool_contracts: tuple[dict[str, Any], ...] = Field(default=(), max_length=32)
     budget: TurnBudget = Field(default_factory=TurnBudget)
     manifest_hash: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
 

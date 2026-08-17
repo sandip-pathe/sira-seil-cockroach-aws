@@ -66,6 +66,7 @@ class BedrockCognitiveRuntime:
             "references": [item.model_dump(mode="json") for item in manifest.references],
             "exchange_projection": manifest.exchange_projection,
             "available_tools": manifest.available_tools,
+            "tool_contracts": manifest.tool_contracts,
             "budget": manifest.budget.model_dump(mode="json"),
         }
         result = await self.runtime.run(
