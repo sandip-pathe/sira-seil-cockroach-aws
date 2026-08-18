@@ -18,6 +18,8 @@ CockroachDB is the durable authority that prevents concurrent buyer, seller, and
 
 ## How it works
 
+![SIRA and SEIL architecture: Bedrock proposes, policy code authorizes, and CockroachDB commits](docs/screenshots/00-sira-seil-architecture.png)
+
 1. The Next.js interface sends an authenticated mission to the FastAPI application.
 2. The cognitive kernel gives Amazon Bedrock a bounded set of typed tools and relevant CockroachDB-backed context.
 3. The model may answer, ask a useful follow-up, or propose tool calls. It cannot execute them directly.
