@@ -147,7 +147,7 @@ async def _cognitive_turn(request: AgentCoreInvocationRequest) -> TurnDecisionEn
     runtime = BedrockCognitiveRuntime(
         BedrockConverseRuntime(
             client=create_bedrock_client(region=os.environ.get("AWS_REGION", "us-east-1")),
-            model_id=os.environ.get("BEDROCK_CHAT_MODEL_ID", "amazon.nova-micro-v1:0"),
+            model_id=os.environ.get("BEDROCK_CHAT_MODEL_ID", "us.amazon.nova-2-lite-v1:0"),
             guardrail=_guardrail(),
             max_turns=3,
             max_tokens=manifest.budget.max_output_tokens,
@@ -165,7 +165,7 @@ async def _experiment(experiment: ExperimentSpec) -> ExperimentResult:
         raise HTTPException(status_code=422, detail="candidate is absent from fixture")
 
     region = os.environ.get("AWS_REGION", "us-east-1")
-    model_id = os.environ.get("BEDROCK_CHAT_MODEL_ID", "amazon.nova-micro-v1:0")
+    model_id = os.environ.get("BEDROCK_CHAT_MODEL_ID", "us.amazon.nova-2-lite-v1:0")
     results = await evaluate_bedrock_qualification(
         client=create_bedrock_client(region=region),
         model_id=model_id,

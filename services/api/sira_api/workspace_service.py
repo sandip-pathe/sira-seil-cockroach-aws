@@ -305,7 +305,7 @@ class WorkspaceService:
             "message": result.message,
             "follow_up_required": result.status == "WAITING",
             "panel": None,
-            "products": [],
+            "products": self._products_from_tool_results(result),
             "tool_calls": list(result.tool_calls),
             "proposals": [],
             "mission": snapshot["mission"],
@@ -314,6 +314,47 @@ class WorkspaceService:
             "attention": None,
             "advisory_only": False,
         }
+
+    @staticmethod
+    def _products_from_tool_results(result: TurnResult) -> list[dict[str, Any]]:
+        products: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for observation in result.tool_results:
+            if observation.get("tool_name") != "search_published_products":
+                continue
+            output = observation.get("output")
+            if not isinstance(output, dict):
+                continue
+            rows = output.get("results")
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                product_id = str(row.get("product_id") or "")
+                if not product_id or product_id in seen:
+                    continue
+                seen.add(product_id)
+                products.append(
+                    {
+                        **row,
+                        "id": product_id,
+                        "name": str(row.get("name") or product_id),
+                        "seller": str(row.get("seller") or "Published seller"),
+                        "edition": str(row.get("edition") or ""),
+                        "price": str(row.get("price") or "Verify with seller"),
+                        "billing_unit": str(row.get("billing_unit") or "unspecified"),
+                        "status": "published",
+                        "summary": str(row.get("summary") or "Published product evidence."),
+                        "claims": list(row.get("claims") or []),
+                        "integrations": list(row.get("integrations") or []),
+                        "source_refs": list(row.get("source_refs") or []),
+                        "listing_origin": "SELLER_PUBLISHED",
+                        "evidence_status": "PUBLISHED",
+                        "seller_attested": True,
+                    }
+                )
+        return products
 
     def _kernel_context(
         self,
@@ -354,18 +395,9 @@ class WorkspaceService:
 
         mission = model_context.get("mission")
         mission = mission if isinstance(mission, dict) else {}
-        goal = str(mission.get("goal") or "").strip()
         state = str(mission.get("state") or "").strip()
         summary = (
-            " ".join(
-                part
-                for part in (
-                    f"Mission goal: {goal}" if goal else "",
-                    f"State: {state}" if state else "",
-                )
-                if part
-            )[:8_000]
-            or None
+            " ".join(part for part in (f"State: {state}" if state else "",) if part)[:8_000] or None
         )
         world_model = mission.get("world_model")
         world_model = world_model if isinstance(world_model, dict) else {}
@@ -378,7 +410,7 @@ class WorkspaceService:
         private_context = {
             "mission": {
                 key: mission.get(key)
-                for key in ("id", "goal", "state", "version", "plan", "world_model", "stop_reason")
+                for key in ("id", "state", "version", "plan", "world_model", "stop_reason")
             },
             "open_tasks": model_context.get("open_tasks", [])[:20],
             "artifact_index": [

@@ -4,7 +4,6 @@ import asyncio
 from collections.abc import Mapping
 from typing import Any, cast
 
-from sira_agents.cognitive_runtime import DeterministicCognitiveRuntime
 from sira_agents.kernel_models import (
     ContextManifest,
     Party,
@@ -15,6 +14,7 @@ from sira_agents.kernel_models import (
 )
 from sira_agents.tool_broker import ToolBroker
 from sira_api.cognitive_engine import RunEngine, RuntimeDatabase, TurnCommand
+from tests.support.cognitive_runtime import ScriptedCognitiveRuntime
 
 from persistence.cognitive_repository import CognitiveRepository
 from persistence.database import Database, DatabaseSettings
@@ -81,7 +81,7 @@ async def test_engine_captures_executes_checkpoints_and_composes() -> None:
         observed.append(arguments)
         return {"claim": "Recordings can remain in the EU."}
 
-    runtime = DeterministicCognitiveRuntime(
+    runtime = ScriptedCognitiveRuntime(
         decisions=[
             {
                 "kind": "propose_tools",
@@ -116,6 +116,14 @@ async def test_engine_captures_executes_checkpoints_and_composes() -> None:
             message=result.message,
             duplicate=True,
             tool_calls=("read_evidence",),
+            tool_results=(
+                {
+                    "call_id": "call-1",
+                    "tool_name": "read_evidence",
+                    "contract_version": "v1",
+                    "output": {"claim": "Recordings can remain in the EU."},
+                },
+            ),
         )
         assert observed == [{"evidence_id": "evidence-1"}]
         assert len(runtime.calls) == 2
@@ -124,6 +132,8 @@ async def test_engine_captures_executes_checkpoints_and_composes() -> None:
         assert runtime.calls[1].exchange_projection["authorized_tool_results"][0]["output"] == {
             "claim": "Recordings can remain in the EU."
         }
+        assert runtime.calls[1].available_tools == ()
+        assert runtime.calls[1].tool_contracts == ()
 
         async with database.transaction("org-buyer") as session:
             repository = CognitiveRepository(session, "org-buyer")
@@ -145,7 +155,7 @@ async def test_engine_captures_executes_checkpoints_and_composes() -> None:
 
 async def test_engine_clarifies_without_calling_business_tools() -> None:
     database = await _database()
-    runtime = DeterministicCognitiveRuntime(
+    runtime = ScriptedCognitiveRuntime(
         decisions=[
             {
                 "kind": "clarify",
@@ -172,7 +182,7 @@ async def test_engine_turns_denial_timeout_and_malformed_output_into_safe_result
     for suffix, runtime, expected in (
         (
             "denied",
-            DeterministicCognitiveRuntime(
+            ScriptedCognitiveRuntime(
                 decisions=[
                     {
                         "kind": "propose_tools",
@@ -191,7 +201,7 @@ async def test_engine_turns_denial_timeout_and_malformed_output_into_safe_result
         ),
         (
             "malformed",
-            DeterministicCognitiveRuntime(
+            ScriptedCognitiveRuntime(
                 decisions=[{"kind": "respond", "message": "ok", "mission_state": "COMPLETED"}] * 3
             ),
             "complete that safely",
@@ -244,7 +254,7 @@ async def test_engine_cancel_is_durable_and_idempotent() -> None:
     database = await _database()
     engine = RunEngine(
         database=cast(RuntimeDatabase, database),
-        runtime=DeterministicCognitiveRuntime(
+        runtime=ScriptedCognitiveRuntime(
             decisions=[
                 {
                     "kind": "clarify",

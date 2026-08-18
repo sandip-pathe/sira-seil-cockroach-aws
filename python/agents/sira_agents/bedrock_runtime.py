@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import Any, Protocol, cast
 
+from pydantic import ValidationError
+
 from sira_agents.guardrails import validate_agent_payload
 from sira_agents.runtime import (
     AgentRunContext,
@@ -143,6 +145,9 @@ class BedrockConverseRuntime:
             )
 
         allowed = [self.tools[name] for name in request.allowed_tools]
+        proposal_tools = {tool.name: tool for tool in request.proposal_tools}
+        if set(proposal_tools).intersection(request.allowed_tools):
+            raise ValueError("a tool cannot be both provider-executed and proposal-only")
         messages: list[dict[str, Any]] = [
             {
                 "role": "user",
@@ -176,8 +181,18 @@ class BedrockConverseRuntime:
                         "temperature": 0,
                     },
                 }
-                if allowed or output_tool is not None:
+                if allowed or proposal_tools or output_tool is not None:
                     tool_specs = [tool.specification() for tool in allowed]
+                    tool_specs.extend(
+                        {
+                            "toolSpec": {
+                                "name": tool.name,
+                                "description": tool.description,
+                                "inputSchema": {"json": dict(tool.input_schema)},
+                            }
+                        }
+                        for tool in proposal_tools.values()
+                    )
                     if output_tool is not None:
                         tool_specs.append(output_tool)
                     call["toolConfig"] = {
@@ -219,7 +234,38 @@ class BedrockConverseRuntime:
                         final_input = final_outputs[0].get("input", {})
                         if not isinstance(final_input, Mapping):
                             raise BedrockRuntimeError("model supplied invalid final output")
-                        output = validator(final_input)
+                        try:
+                            output = validator(final_input)
+                        except (ValidationError, ValueError):
+                            messages.append(
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        {
+                                            "toolResult": {
+                                                "toolUseId": str(
+                                                    final_outputs[0].get("toolUseId", "")
+                                                ),
+                                                "content": [
+                                                    {
+                                                        "json": {
+                                                            "error": "structured_output_invalid",
+                                                            "instruction": (
+                                                                "Correct the decision to satisfy "
+                                                                "the supplied schema, plus all "
+                                                                "behavioral constraints."
+                                                            ),
+                                                        }
+                                                    }
+                                                ],
+                                                "status": "error",
+                                            }
+                                        }
+                                    ],
+                                }
+                            )
+                            force_output_tool = True
+                            continue
                         return AgentRunResult(
                             output=output,
                             tool_calls=tuple(tool_calls),
@@ -232,6 +278,88 @@ class BedrockConverseRuntime:
                                 "usage": usage,
                                 "guardrail_enabled": self.guardrail is not None,
                                 "structured_output": "tool",
+                            },
+                        )
+                    known_names = {tool.name for tool in allowed}.union(proposal_tools)
+                    unknown = [item for item in requested if item.get("name") not in known_names]
+                    if unknown:
+                        observations = request.model_context.get("exchange_projection", {})
+                        has_observations = isinstance(observations, Mapping) and bool(
+                            observations.get("authorized_tool_results")
+                        )
+                        if (
+                            len(unknown) != len(requested)
+                            or output_tool is None
+                            or not has_observations
+                        ):
+                            raise BedrockRuntimeError(
+                                "model requested a tool outside its allowlist"
+                            )
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "toolResult": {
+                                            "toolUseId": str(item.get("toolUseId", "")),
+                                            "content": [
+                                                {
+                                                    "json": {
+                                                        "error": "tool_not_available",
+                                                        "instruction": (
+                                                            "Use the authorized observations "
+                                                            "already supplied and submit the final "
+                                                            "decision."
+                                                        ),
+                                                    }
+                                                }
+                                            ],
+                                            "status": "error",
+                                        }
+                                    }
+                                    for item in unknown
+                                ],
+                            }
+                        )
+                        force_output_tool = True
+                        continue
+                    proposed = [item for item in requested if item.get("name") in proposal_tools]
+                    if proposed:
+                        if len(proposed) != len(requested) or len(proposed) > 4:
+                            raise BedrockRuntimeError(
+                                "model mixed proposal-only tools with executable tools"
+                            )
+                        validator = _output_type_validator(request.output_type)
+                        if validator is None:
+                            raise BedrockRuntimeError(
+                                "proposal-only tools require structured decision output"
+                            )
+                        calls: list[dict[str, Any]] = []
+                        for index, item in enumerate(proposed):
+                            name = str(item.get("name", ""))
+                            tool_input = item.get("input", {})
+                            if not isinstance(tool_input, Mapping):
+                                raise BedrockRuntimeError("model supplied invalid proposal input")
+                            validate_agent_payload(tool_input, seller_visible=seller_visible)
+                            calls.append(
+                                {
+                                    "call_id": str(item.get("toolUseId") or f"proposal-{index}"),
+                                    "tool_name": name,
+                                    "contract_version": proposal_tools[name].contract_version,
+                                    "arguments": dict(tool_input),
+                                }
+                            )
+                        output = validator({"decision": {"kind": "propose_tools", "calls": calls}})
+                        return AgentRunResult(
+                            output=output,
+                            runtime="aws-bedrock-converse",
+                            advisory_only=True,
+                            ranking_effect=False,
+                            metadata={
+                                "model_id": self.model_id,
+                                "usage": usage,
+                                "guardrail_enabled": self.guardrail is not None,
+                                "structured_output": "native-tool-proposal",
                             },
                         )
                     results: list[dict[str, Any]] = []

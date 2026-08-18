@@ -129,7 +129,7 @@ class KernelToolDispatcher:
         if name == "search_published_products":
             return await self.qualification.search_marketplace(
                 organization_id,
-                category=str(arguments.get("category") or "business-software"),
+                category="business-software",
                 query=str(arguments.get("query") or ""),
                 limit=int(arguments.get("limit") or 8),
             )
@@ -213,7 +213,6 @@ def build_kernel_tool_set(
             _object_schema(
                 {
                     "query": {"type": "string", "maxLength": 1000},
-                    "category": {"type": "string", "minLength": 1, "maxLength": 120},
                     "limit": {"type": "integer", "minimum": 1, "maximum": 20},
                 },
                 required=("query",),

@@ -48,10 +48,12 @@ uv run sira-dev up --profile local
 uv run sira-dev status --profile local
 ```
 
-`sira-dev up` starts the loopback-only CockroachDB database, applies migrations and
-role grants, then starts the API and restored web interface. Local mode does not
-start cloud workers or perform external effects. Use `sira-dev logs`, `sira-dev
-check`, and `sira-dev down` for the remaining lifecycle operations.
+`sira-dev up` verifies the configured Bedrock or AgentCore cognitive provider, starts
+the loopback-only CockroachDB database, applies migrations and role grants, then starts
+the API and web interface. The application and durable state run locally; agent reasoning
+uses the explicitly configured AWS provider and never substitutes a canned local response.
+Local mode does not start cloud workers or perform external effects. Use `sira-dev logs`,
+`sira-dev check`, and `sira-dev down` for the remaining lifecycle operations.
 
 The destructive scenario reset is restricted to the exact local `sira_test`
 database:

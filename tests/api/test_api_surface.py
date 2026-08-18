@@ -30,11 +30,13 @@ async def test_health_and_frozen_demo_projection(api_client: httpx.AsyncClient) 
         "service": "sira-api",
         "version": "0.1.0",
         "database": "not_checked",
+        "agent_runtime": "not_checked",
         "fixture_mode": True,
     }
     ready = await api_client.get("/ready")
     assert ready.status_code == 200
     assert ready.json()["database"] == "configured"
+    assert ready.json()["agent_runtime"] == "ready"
 
     summary = await api_client.get("/v1/purchase-requests/req_demo")
     assert summary.status_code == 200
@@ -78,12 +80,33 @@ async def test_degraded_health_returns_typed_503(
         "service": "sira-api",
         "version": "0.1.0",
         "database": "unavailable",
+        "agent_runtime": "ready",
         "fixture_mode": True,
     }
     openapi = (await api_client.get("/openapi.json")).json()
     assert openapi["paths"]["/ready"]["get"]["responses"]["503"]["content"]["application/json"][
         "schema"
     ] == {"$ref": "#/components/schemas/HealthResponse"}
+
+
+@pytest.mark.asyncio
+async def test_readiness_fails_when_the_cognitive_runtime_is_unavailable(
+    api_client: httpx.AsyncClient,
+) -> None:
+    application = application_for(api_client)
+    application.state.workspace_service.runtime_ready = False
+
+    ready = await api_client.get("/ready")
+
+    assert ready.status_code == 503
+    assert ready.json() == {
+        "status": "degraded",
+        "service": "sira-api",
+        "version": "0.1.0",
+        "database": "configured",
+        "agent_runtime": "unavailable",
+        "fixture_mode": True,
+    }
 
 
 @pytest.mark.asyncio

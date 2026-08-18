@@ -17,7 +17,8 @@ from sira_agents.bedrock_runtime import (
     BedrockTool,
     TitanEmbeddingClient,
 )
-from sira_agents.runtime import AgentRole, AgentRunContext, AgentRunRequest
+from sira_agents.kernel_models import ProposeTools, TurnDecisionEnvelope
+from sira_agents.runtime import AgentRole, AgentRunContext, AgentRunRequest, AgentToolContract
 
 
 class Answer(BaseModel):
@@ -167,6 +168,140 @@ async def test_converse_repairs_prose_with_one_forced_structured_output_tool() -
         "tool": {"name": "submit_structured_output"}
     }
     assert result.metadata["structured_output"] == "tool"
+
+
+async def test_converse_repairs_schema_invalid_structured_tool_output() -> None:
+    client = FakeBedrockClient(
+        responses=[
+            _response(
+                {
+                    "toolUse": {
+                        "toolUseId": "final-invalid",
+                        "name": "submit_structured_output",
+                        "input": {"recommendation": "review"},
+                    }
+                },
+                stop_reason="tool_use",
+            ),
+            _response(
+                {
+                    "toolUse": {
+                        "toolUseId": "final-corrected",
+                        "name": "submit_structured_output",
+                        "input": {"recommendation": "review", "evidence_ids": []},
+                    }
+                },
+                stop_reason="tool_use",
+            ),
+        ]
+    )
+    runtime = BedrockConverseRuntime(client=client, model_id="test-model")
+
+    result = await runtime.run(
+        AgentRunRequest(
+            role=AgentRole.SIRA,
+            instructions="Evaluate.",
+            prompt="Evaluate.",
+            model_context={},
+            output_type=Answer,
+        )
+    )
+
+    assert result.output == Answer(recommendation="review", evidence_ids=[])
+    repair = client.converse_calls[1]["messages"][-1]["content"][0]["toolResult"]
+    assert repair["status"] == "error"
+    assert repair["content"][0]["json"]["error"] == "structured_output_invalid"
+
+
+async def test_converse_returns_native_business_tool_use_as_typed_proposal() -> None:
+    client = FakeBedrockClient(
+        responses=[
+            _response(
+                {
+                    "toolUse": {
+                        "toolUseId": "search-1",
+                        "name": "search_published_products",
+                        "input": {"query": "meeting intelligence"},
+                    }
+                },
+                stop_reason="tool_use",
+            )
+        ]
+    )
+    runtime = BedrockConverseRuntime(client=client, model_id="test-model")
+
+    result = await runtime.run(
+        AgentRunRequest(
+            role=AgentRole.SIRA,
+            instructions="Choose the next action.",
+            prompt="Find meeting software.",
+            model_context={},
+            proposal_tools=(
+                AgentToolContract(
+                    name="search_published_products",
+                    contract_version="v1",
+                    description="Search published products.",
+                    input_schema={
+                        "type": "object",
+                        "properties": {"query": {"type": "string"}},
+                        "required": ["query"],
+                        "additionalProperties": False,
+                    },
+                ),
+            ),
+            output_type=TurnDecisionEnvelope,
+        )
+    )
+
+    envelope = TurnDecisionEnvelope.model_validate(result.output)
+    assert isinstance(envelope.decision, ProposeTools)
+    assert envelope.decision.calls[0].tool_name == "search_published_products"
+    assert envelope.decision.calls[0].arguments == {"query": "meeting intelligence"}
+    assert result.metadata["structured_output"] == "native-tool-proposal"
+
+
+async def test_converse_repairs_repeated_tool_request_after_authorized_observation() -> None:
+    client = FakeBedrockClient(
+        responses=[
+            _response(
+                {
+                    "toolUse": {
+                        "toolUseId": "repeat-1",
+                        "name": "search_published_products",
+                        "input": {"query": "meeting intelligence"},
+                    }
+                },
+                stop_reason="tool_use",
+            ),
+            _response(
+                {
+                    "toolUse": {
+                        "toolUseId": "final-1",
+                        "name": "submit_structured_output",
+                        "input": {"recommendation": "Compare the two results.", "evidence_ids": []},
+                    }
+                },
+                stop_reason="tool_use",
+            ),
+        ]
+    )
+    runtime = BedrockConverseRuntime(client=client, model_id="test-model")
+
+    result = await runtime.run(
+        AgentRunRequest(
+            role=AgentRole.SIRA,
+            instructions="Compose from observations.",
+            prompt="Find meeting software.",
+            model_context={
+                "exchange_projection": {"authorized_tool_results": [{"output": {"results": []}}]}
+            },
+            output_type=Answer,
+        )
+    )
+
+    assert result.output == Answer(recommendation="Compare the two results.", evidence_ids=[])
+    repair = client.converse_calls[1]["messages"][-1]["content"][0]["toolResult"]
+    assert repair["content"][0]["json"]["error"] == "tool_not_available"
 
 
 async def test_converse_rejects_guardrail_intervention_and_unlisted_tool() -> None:

@@ -82,6 +82,7 @@ class HealthResponse(StrictModel):
     service: Literal["sira-api"] = "sira-api"
     version: str
     database: Literal["configured", "unavailable", "not_checked"]
+    agent_runtime: Literal["ready", "unavailable", "not_checked"]
     fixture_mode: bool
 
 

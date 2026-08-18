@@ -46,7 +46,7 @@ class WorkerSettings(BaseSettings):
     aws_profile: str | None = Field(default=None, validation_alias="AWS_PROFILE")
     queue_url: str = Field(validation_alias="SIRA_SQS_QUEUE_URL")
     chat_model_id: str = Field(
-        default="amazon.nova-micro-v1:0", validation_alias="BEDROCK_CHAT_MODEL_ID"
+        default="us.amazon.nova-2-lite-v1:0", validation_alias="BEDROCK_CHAT_MODEL_ID"
     )
     embedding_model_id: str = Field(
         default="amazon.titan-embed-text-v2:0",

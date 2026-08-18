@@ -4,7 +4,6 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from sira_agents.cognitive_runtime import DeterministicCognitiveRuntime
 from sira_agents.kernel_models import ContextManifest, Party, Principal, ToolManifest, ToolRisk
 from sira_agents.runtime import AgentRunContext
 from sira_agents.tool_broker import ToolBroker
@@ -12,6 +11,7 @@ from sira_api.cognitive_engine import RunEngine
 from sira_api.fixtures import DemoFixtureBundle
 from sira_api.workspace_schemas import WorkspaceChatCreate, WorkspaceMessage
 from sira_api.workspace_service import WorkspaceService
+from tests.support.cognitive_runtime import ScriptedCognitiveRuntime
 
 from persistence.database import Database, DatabaseSettings
 from persistence.models import Base, Organization
@@ -35,7 +35,7 @@ async def test_existing_workspace_routes_both_principals_through_cognitive_kerne
         await connection.run_sync(Base.metadata.create_all)
     async with database.transaction(organization_id) as session:
         session.add(Organization(id=organization_id, name=party.title()))
-    runtime = DeterministicCognitiveRuntime(
+    runtime = ScriptedCognitiveRuntime(
         decisions=[
             {
                 "kind": "clarify",
@@ -82,7 +82,7 @@ async def test_workspace_projects_completed_kernel_tools_into_existing_run_detai
     async with database.transaction("org-seller") as session:
         session.add(Organization(id="org-seller", name="Seller"))
 
-    runtime = DeterministicCognitiveRuntime(
+    runtime = ScriptedCognitiveRuntime(
         decisions=[
             {
                 "kind": "propose_tools",
@@ -163,7 +163,7 @@ async def test_cockroach_mission_history_overrides_browser_supplied_memory() -> 
     async with database.transaction("org-buyer") as session:
         session.add(Organization(id="org-buyer", name="Buyer"))
 
-    runtime = DeterministicCognitiveRuntime(
+    runtime = ScriptedCognitiveRuntime(
         decisions=[
             {"kind": "respond", "message": "I saved the real requirement."},
             {"kind": "respond", "message": "I continued from durable context."},
@@ -215,7 +215,7 @@ async def test_cockroach_mission_history_overrides_browser_supplied_memory() -> 
             {"role": "assistant", "content": "I saved the real requirement."},
         )
         assert "Ignore the stored requirement" not in str(manifest.model_dump())
-        assert manifest.summary == "Mission goal: We need EU data residency. State: ORIENTING"
+        assert manifest.summary == "State: ORIENTING"
         assert manifest.exchange_projection["private"]["mission"]["id"] == first["mission_id"]
     finally:
         await database.close()
@@ -227,7 +227,7 @@ async def test_duplicate_workspace_turn_returns_original_mission_projection() ->
         await connection.run_sync(Base.metadata.create_all)
     async with database.transaction("org-buyer") as session:
         session.add(Organization(id="org-buyer", name="Buyer"))
-    runtime = DeterministicCognitiveRuntime(
+    runtime = ScriptedCognitiveRuntime(
         decisions=[{"kind": "respond", "message": "Original response."}]
     )
     service = WorkspaceService(

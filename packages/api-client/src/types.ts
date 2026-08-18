@@ -707,6 +707,7 @@ export interface GateResultView {
 }
 
 export interface HealthResponse {
+  agent_runtime: "ready" | "unavailable" | "not_checked";
   database: "configured" | "unavailable" | "not_checked";
   fixture_mode: boolean;
   service?: "sira-api";

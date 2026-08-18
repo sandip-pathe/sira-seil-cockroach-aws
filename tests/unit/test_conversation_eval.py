@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sira_agents.cognitive_runtime import DeterministicCognitiveRuntime
 from sira_agents.conversation_eval import ConversationEvalCorpus, evaluate_conversations
+from tests.support.cognitive_runtime import ScriptedCognitiveRuntime
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -85,9 +85,7 @@ async def test_conversation_evaluator_scores_typed_decisions_and_tool_policy() -
             * 4
         ),
     ]
-    result = await evaluate_conversations(
-        DeterministicCognitiveRuntime(decisions=decisions), _corpus()
-    )
+    result = await evaluate_conversations(ScriptedCognitiveRuntime(decisions=decisions), _corpus())
 
     assert result.total == result.passed == 50
     assert result.task_success_rate == 1.0

@@ -67,6 +67,17 @@ def test_active_agent_runtime_has_no_duplicate_openai_sdk() -> None:
     assert not any(str(item).startswith(("openai", "openai-agents")) for item in declared)
 
 
+def test_shipped_runtime_cannot_select_or_import_a_scripted_provider() -> None:
+    _assert_no_imports("python", {"tests"})
+    _assert_no_imports("services", {"tests"})
+    shipped_sources = [*_python_files("python"), *_python_files("services")]
+    assert not any(
+        "ScriptedCognitiveRuntime" in path.read_text(encoding="utf-8") for path in shipped_sources
+    )
+    configuration = (ROOT / "services/api/sira_api/config.py").read_text(encoding="utf-8")
+    assert 'Literal["agentcore", "bedrock"]' in configuration
+
+
 def test_persistence_does_not_depend_on_transport_or_worker_layers() -> None:
     _assert_no_imports(
         "python/persistence",

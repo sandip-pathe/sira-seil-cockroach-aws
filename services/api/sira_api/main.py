@@ -24,7 +24,6 @@ from sira_agents.bedrock_runtime import (
 from sira_agents.cognitive_runtime import (
     BedrockCognitiveRuntime,
     CognitiveRuntime,
-    DeterministicCognitiveRuntime,
 )
 from sira_agents.context_assembler import default_context_assembler
 from sira_agents.kernel_models import Principal
@@ -120,9 +119,12 @@ def create_app(
     identity_adapter: IdentityAdapter | None = None,
     seller_directory: SellerOrganizationDirectory | None = None,
     evidence_store: EvidenceStore | None = None,
+    cognitive_runtime: CognitiveRuntime | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     resolved_settings.assert_safe_runtime()
+    if cognitive_runtime is not None and resolved_settings.app_env.lower() != "test":
+        raise ValueError("a cognitive runtime test double may only be injected in APP_ENV=test")
     resolved_database = database or Database(
         DatabaseSettings(database_url=resolved_settings.database_url)
     )
@@ -258,12 +260,17 @@ def create_app(
                 region=resolved_settings.aws_region,
                 profile=resolved_settings.aws_profile.strip() or None,
             )
-            if resolved_settings.agent_runtime_provider == "bedrock"
-            or resolved_catalog_database is not None
+            if (
+                (
+                    cognitive_runtime is None
+                    and resolved_settings.agent_runtime_provider == "bedrock"
+                )
+                or resolved_catalog_database is not None
+            )
             else None
         )
         workspace_runtime = None
-        if resolved_settings.agent_runtime_provider == "bedrock":
+        if cognitive_runtime is None and resolved_settings.agent_runtime_provider == "bedrock":
             if bedrock_client is None:
                 raise RuntimeError("Bedrock runtime client was not initialized")
             guardrail_id = resolved_settings.bedrock_guardrail_id.strip()
@@ -302,9 +309,11 @@ def create_app(
         )
         cognitive_engine = None
         if resolved_settings.cognitive_kernel_enabled:
-            cognitive_runtime: CognitiveRuntime
-            if resolved_settings.agent_runtime_provider == "agentcore":
-                cognitive_runtime = AgentCoreCognitiveRuntime(
+            resolved_cognitive_runtime: CognitiveRuntime
+            if cognitive_runtime is not None:
+                resolved_cognitive_runtime = cognitive_runtime
+            elif resolved_settings.agent_runtime_provider == "agentcore":
+                resolved_cognitive_runtime = AgentCoreCognitiveRuntime(
                     client=create_agentcore_client(
                         region=resolved_settings.aws_region,
                         profile=resolved_settings.aws_profile.strip() or None,
@@ -318,12 +327,12 @@ def create_app(
                     },
                 )
             elif workspace_runtime is not None:
-                cognitive_runtime = BedrockCognitiveRuntime(workspace_runtime)
+                resolved_cognitive_runtime = BedrockCognitiveRuntime(workspace_runtime)
             else:
-                cognitive_runtime = DeterministicCognitiveRuntime()
+                raise RuntimeError("a real cognitive runtime was not configured")
             cognitive_engine = RunEngine(
                 database=resolved_database,
-                runtime=cognitive_runtime,
+                runtime=resolved_cognitive_runtime,
                 broker=ToolBroker(kernel_tools.catalog),
                 handlers=kernel_tools.handlers,
                 assembler=(

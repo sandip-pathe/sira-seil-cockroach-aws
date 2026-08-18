@@ -4,7 +4,6 @@ import os
 from uuid import uuid4
 
 import pytest
-from sira_agents.cognitive_runtime import DeterministicCognitiveRuntime
 from sira_agents.runtime import AgentRunContext
 from sira_agents.tool_broker import ToolBroker
 from sira_api.cognitive_engine import RunEngine
@@ -12,6 +11,7 @@ from sira_api.fixtures import DemoFixtureBundle
 from sira_api.workspace_schemas import WorkspaceChatCreate, WorkspaceMessage
 from sira_api.workspace_service import WorkspaceService
 from sqlalchemy import text
+from tests.support.cognitive_runtime import ScriptedCognitiveRuntime
 
 from persistence.database import Database, DatabaseSettings
 
@@ -32,7 +32,7 @@ async def test_durable_agent_memory_and_duplicate_turns_on_cockroach() -> None:
     suffix = uuid4().hex
     organization_id = f"org_memory_{suffix}"
     actor_id = f"actor_memory_{suffix}"
-    runtime = DeterministicCognitiveRuntime(
+    runtime = ScriptedCognitiveRuntime(
         decisions=[
             {"kind": "respond", "message": "I saved the residency requirement."},
             {"kind": "respond", "message": "I continued from durable context."},

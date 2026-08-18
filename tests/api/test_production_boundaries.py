@@ -19,6 +19,7 @@ from sira_api.dependencies import (
 from sira_api.errors import ApiProblem
 from sira_api.identity import IdentityProviderUnavailable, VerifiedPrincipal
 from sira_api.main import create_app
+from tests.support.cognitive_runtime import ScriptedCognitiveRuntime
 
 from persistence.database import Database, DatabaseSettings
 
@@ -74,7 +75,22 @@ def production_settings() -> ApiSettings:
 
 def test_configuration_requires_an_explicit_environment() -> None:
     with pytest.raises(ValidationError, match="APP_ENV must be explicitly set"):
-        ApiSettings(app_env="unset", agent_runtime_provider="local")
+        ApiSettings(app_env="unset", agent_runtime_provider="bedrock")
+
+
+def test_app_rejects_a_test_double_outside_test_environment() -> None:
+    settings = ApiSettings(
+        app_env="development",
+        database_url="sqlite+aiosqlite:///:memory:",
+        agent_runtime_provider="bedrock",
+    )
+    with pytest.raises(ValueError, match="may only be injected in APP_ENV=test"):
+        create_app(
+            settings=settings,
+            cognitive_runtime=ScriptedCognitiveRuntime(
+                decisions=[{"kind": "respond", "message": "test only"}]
+            ),
+        )
 
 
 def test_production_configuration_rejects_development_modes_including_defaults() -> None:

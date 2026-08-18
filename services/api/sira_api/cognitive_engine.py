@@ -75,6 +75,7 @@ class TurnResult:
     message: str
     duplicate: bool = False
     tool_calls: tuple[str, ...] = ()
+    tool_results: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(slots=True)
@@ -152,6 +153,7 @@ class RunEngine:
         await self._bind_manifest(command.organization_id, run.id, manifest)
 
         tool_results: list[dict[str, Any]] = []
+        all_tool_results: list[dict[str, Any]] = []
         completed_tool_names: list[str] = []
         mutations_used = 0
         for model_call in range(1, command.budget.max_model_calls + 1):
@@ -163,6 +165,12 @@ class RunEngine:
                             **manifest.exchange_projection,
                             "authorized_tool_results": tool_results,
                         },
+                        # One model-selected batch is the execution boundary for a turn.
+                        # Once observations exist, capabilities are consumed and the next
+                        # model step must compose a grounded user-facing result. A new user
+                        # turn can authorize another batch when more evidence is needed.
+                        "available_tools": (),
+                        "tool_contracts": (),
                         "manifest_hash": None,
                     }
                 ).sealed()
@@ -209,6 +217,7 @@ class RunEngine:
                     composed.message,
                     duplicate,
                     tuple(completed_tool_names),
+                    tuple(all_tool_results),
                 )
 
             tool_results = []
@@ -229,14 +238,14 @@ class RunEngine:
                         command.organization_id, run.id, invocation_id, tool, output
                     )
                     completed_tool_names.append(tool.name)
-                    tool_results.append(
-                        {
-                            "call_id": call.call_id,
-                            "tool_name": call.tool_name,
-                            "contract_version": call.contract_version,
-                            "output": output,
-                        }
-                    )
+                    observation = {
+                        "call_id": call.call_id,
+                        "tool_name": call.tool_name,
+                        "contract_version": call.contract_version,
+                        "output": output,
+                    }
+                    tool_results.append(observation)
+                    all_tool_results.append(observation)
                     if tool.risk.value == "mutation":
                         mutations_used += 1
                 except ToolDenied:
@@ -253,6 +262,7 @@ class RunEngine:
                             "I can continue with an allowed option."
                         ),
                         tool_calls=tuple(completed_tool_names),
+                        tool_results=tuple(all_tool_results),
                     )
                 except TimeoutError:
                     if invocation_id is not None:
@@ -266,6 +276,7 @@ class RunEngine:
                         "That action didn't respond in time. Your confirmed work is saved.",
                         retryable=True,
                         tool_calls=tuple(completed_tool_names),
+                        tool_results=tuple(all_tool_results),
                     )
                 except Exception:
                     if invocation_id is not None:
@@ -282,6 +293,7 @@ class RunEngine:
                         "I couldn't retrieve that safely. Your confirmed work is saved.",
                         retryable=True,
                         tool_calls=tuple(completed_tool_names),
+                        tool_results=tuple(all_tool_results),
                     )
 
         return await self._fail(
@@ -291,6 +303,7 @@ class RunEngine:
             "I need a fresh turn to continue. Everything confirmed so far is saved.",
             retryable=True,
             tool_calls=tuple(completed_tool_names),
+            tool_results=tuple(all_tool_results),
         )
 
     async def cancel(self, organization_id: str, run_id: str) -> None:
@@ -465,11 +478,18 @@ class RunEngine:
         *,
         retryable: bool = False,
         tool_calls: tuple[str, ...] = (),
+        tool_results: tuple[dict[str, Any], ...] = (),
     ) -> TurnResult:
         decision = FailSafely(kind="fail_safely", code=code, message=message, retryable=retryable)
         composed = self.composer.compose(decision)
         await self._finish(organization_id, run_id, composed, decision)
-        return TurnResult(run_id, "FAILED", message, tool_calls=tool_calls)
+        return TurnResult(
+            run_id,
+            "FAILED",
+            message,
+            tool_calls=tool_calls,
+            tool_results=tool_results,
+        )
 
     async def _existing_result(self, organization_id: str, run_id: str) -> TurnResult:
         async def work(session: AsyncSession) -> CognitiveRunSnapshot:
@@ -491,10 +511,21 @@ class RunEngine:
             for invocation in snapshot.tools
             if invocation.status == "COMPLETED"
         )
+        tool_results = tuple(
+            {
+                "call_id": invocation.call_id,
+                "tool_name": invocation.tool_name,
+                "contract_version": invocation.contract_version,
+                "output": dict(invocation.output or {}),
+            }
+            for invocation in snapshot.tools
+            if invocation.status == "COMPLETED"
+        )
         return TurnResult(
             run_id,
             snapshot.run.status,
             str(output),
             duplicate=True,
             tool_calls=tool_calls,
+            tool_results=tool_results,
         )

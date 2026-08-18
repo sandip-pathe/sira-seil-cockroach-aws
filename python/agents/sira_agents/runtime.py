@@ -19,6 +19,24 @@ class AuthorityMode(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class AgentToolContract:
+    """A model-visible tool that can only be proposed, never provider-executed."""
+
+    name: str
+    contract_version: str
+    description: str
+    input_schema: Mapping[str, Any]
+
+    def __post_init__(self) -> None:
+        if not self.name.strip() or not self.contract_version.strip():
+            raise ValueError("proposal tool identity is required")
+        if not self.description.strip():
+            raise ValueError("proposal tool description is required")
+        if self.input_schema.get("type") != "object":
+            raise ValueError("proposal tool input schema must describe an object")
+
+
+@dataclass(frozen=True, slots=True)
 class AgentRunContext:
     """Private application state available to tools, never serialized for the model."""
 
@@ -46,6 +64,7 @@ class AgentRunRequest:
     model_context: Mapping[str, Any]
     run_context: AgentRunContext | None = None
     allowed_tools: tuple[str, ...] = ()
+    proposal_tools: tuple[AgentToolContract, ...] = ()
     output_type: type[Any] | None = None
     authority_mode: AuthorityMode = AuthorityMode.ADVISORY
 

@@ -77,6 +77,7 @@ async def health(request: Request) -> HealthResponse:
         status="ok",
         version="0.1.0",
         database="not_checked",
+        agent_runtime="not_checked",
         fixture_mode=settings.development_fixture_mode,
     )
 
@@ -87,7 +88,7 @@ async def health(request: Request) -> HealthResponse:
     responses={
         status.HTTP_503_SERVICE_UNAVAILABLE: {
             "model": HealthResponse,
-            "description": "Required CockroachDB readiness checks failed",
+            "description": "Required CockroachDB or cognitive runtime readiness checks failed",
         }
     },
     tags=["runtime"],
@@ -95,12 +96,15 @@ async def health(request: Request) -> HealthResponse:
 async def ready(request: Request, response: Response, service: ServiceDependency) -> HealthResponse:
     settings: ApiSettings = request.app.state.settings
     database = await service.health()
-    if database != "configured":
+    workspace_service = request.app.state.workspace_service
+    agent_runtime = "ready" if workspace_service.runtime_ready else "unavailable"
+    if database != "configured" or agent_runtime != "ready":
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return HealthResponse(
-        status="ok" if database == "configured" else "degraded",
+        status=("ok" if database == "configured" and agent_runtime == "ready" else "degraded"),
         version="0.1.0",
         database=database,
+        agent_runtime=agent_runtime,
         fixture_mode=settings.development_fixture_mode,
     )
 

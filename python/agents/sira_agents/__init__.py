@@ -3,7 +3,6 @@
 from sira_agents.cognitive_runtime import (
     BedrockCognitiveRuntime,
     CognitiveRuntime,
-    DeterministicCognitiveRuntime,
 )
 from sira_agents.guardrails import AgentBoundaryViolation
 from sira_agents.harness import SiraSeilHarness
@@ -25,7 +24,6 @@ __all__ = [
     "BedrockCognitiveRuntime",
     "CognitiveRuntime",
     "ContextManifest",
-    "DeterministicCognitiveRuntime",
     "ResponseComposer",
     "SiraSeilHarness",
     "TurnDecisionEnvelope",

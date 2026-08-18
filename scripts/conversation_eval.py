@@ -72,7 +72,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--region", default="us-east-1")
     parser.add_argument("--profile")
-    parser.add_argument("--model", default="amazon.nova-micro-v1:0")
+    parser.add_argument("--model", default="us.amazon.nova-2-lite-v1:0")
     parser.add_argument("--repetitions", type=int, default=2, choices=range(1, 6))
     parser.add_argument(
         "--corpus", type=Path, default=ROOT / "evaluations" / "conversation-turns.v1.json"

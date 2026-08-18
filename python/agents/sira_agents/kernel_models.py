@@ -8,7 +8,7 @@ from hashlib import sha256
 from typing import Annotated, Any, Literal
 
 import rfc8785
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class Principal(StrEnum):
@@ -105,11 +105,25 @@ class Respond(KernelModel):
     kind: Literal["respond"]
     message: str = Field(min_length=1, max_length=8_000)
 
+    @field_validator("message")
+    @classmethod
+    def keep_questions_focused(cls, value: str) -> str:
+        if value.count("?") > 1:
+            raise ValueError("a user-facing response may ask at most one question")
+        return value
+
 
 class Clarify(KernelModel):
     kind: Literal["clarify"]
     question: str = Field(min_length=1, max_length=800)
     reason: str = Field(min_length=1, max_length=500)
+
+    @field_validator("question")
+    @classmethod
+    def require_one_question(cls, value: str) -> str:
+        if not value.rstrip().endswith("?") or value.count("?") != 1:
+            raise ValueError("a clarification must contain exactly one focused question")
+        return value
 
 
 class ProposedToolCall(KernelModel):
@@ -139,6 +153,13 @@ class WaitForExternal(KernelModel):
 class Complete(KernelModel):
     kind: Literal["complete"]
     message: str = Field(min_length=1, max_length=8_000)
+
+    @field_validator("message")
+    @classmethod
+    def keep_questions_focused(cls, value: str) -> str:
+        if value.count("?") > 1:
+            raise ValueError("a completed response may ask at most one question")
+        return value
 
 
 class FailSafely(KernelModel):

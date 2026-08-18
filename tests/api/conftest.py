@@ -8,6 +8,7 @@ import pytest_asyncio
 from fastapi import FastAPI
 from sira_api.config import ApiSettings
 from sira_api.main import create_app
+from tests.support.cognitive_runtime import ScriptedCognitiveRuntime
 
 from persistence.database import Database, DatabaseSettings
 from persistence.models import Base
@@ -29,7 +30,7 @@ BUYER_TEST_AUTHORITIES = ",".join(
 def isolate_provider_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep private laptop `.env` values from changing deterministic API tests."""
 
-    monkeypatch.setenv("AGENT_RUNTIME_PROVIDER", "local")
+    monkeypatch.setenv("AGENT_RUNTIME_PROVIDER", "bedrock")
     monkeypatch.setenv("SIRA_CATALOG_DATABASE_URL", "")
     monkeypatch.setenv("GUEST_SESSION_ENABLED", "false")
     monkeypatch.setenv("DEVELOPMENT_FIXTURE_MODE", "true")
@@ -47,6 +48,12 @@ async def api_application() -> AsyncIterator[FastAPI]:
     application = create_app(
         settings=ApiSettings(app_env="test", database_url=database_url),
         database=database,
+        cognitive_runtime=ScriptedCognitiveRuntime(
+            decision_factory=lambda manifest: {
+                "kind": "respond",
+                "message": f"Test response for: {manifest.current_message}",
+            }
+        ),
     )
     async with application.router.lifespan_context(application):
         yield application

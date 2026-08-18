@@ -6,7 +6,6 @@ from hashlib import sha256
 import pytest
 import rfc8785
 from pydantic import TypeAdapter, ValidationError
-from sira_agents.cognitive_runtime import DeterministicCognitiveRuntime
 from sira_agents.kernel_models import (
     CapabilityGrant,
     Clarify,
@@ -18,6 +17,7 @@ from sira_agents.kernel_models import (
     TurnDecision,
 )
 from sira_agents.tool_broker import ToolBroker, ToolDenied
+from tests.support.cognitive_runtime import ScriptedCognitiveRuntime
 
 
 def _manifest(**changes: object) -> ContextManifest:
@@ -60,7 +60,7 @@ def test_context_manifest_is_hash_bound_and_principal_specific() -> None:
 
 
 async def test_deterministic_runtime_returns_typed_clarification() -> None:
-    runtime = DeterministicCognitiveRuntime(
+    runtime = ScriptedCognitiveRuntime(
         decisions=[
             {
                 "kind": "clarify",

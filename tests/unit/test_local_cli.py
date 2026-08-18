@@ -85,12 +85,41 @@ def test_command_parsers_match_documented_surface() -> None:
     assert scenario.parser().parse_args(["verify", "--latest"]).latest is True
 
 
-def test_local_environment_forces_the_deterministic_isolated_kernel() -> None:
+def test_local_environment_preserves_the_configured_cognitive_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AGENT_RUNTIME_PROVIDER", "bedrock")
     environment = dev._local_environment("127.0.0.1")
 
-    assert environment["AGENT_RUNTIME_PROVIDER"] == "local"
+    assert environment["AGENT_RUNTIME_PROVIDER"] == "bedrock"
     assert environment["COGNITIVE_KERNEL_ENABLED"] == "true"
     assert environment["PRINCIPAL_ISOLATION_ENABLED"] == "true"
+
+
+def test_bedrock_preflight_uses_the_configured_profile_and_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    def succeed(arguments: list[str], **_kwargs: object) -> dev.subprocess.CompletedProcess[str]:
+        calls.append(arguments)
+        return dev.subprocess.CompletedProcess(arguments, 0, "", "")
+
+    monkeypatch.setattr(dev, "_run", succeed)
+    settings = dev.ApiSettings(
+        app_env="test",
+        agent_runtime_provider="bedrock",
+        aws_region="us-east-1",
+        aws_profile="sira-hackathon",
+        bedrock_chat_model_id="amazon.nova-micro-v1:0",
+    )
+
+    dev._provider_preflight(settings)
+
+    command = calls[0]
+    assert Path(command[1]).name == "aws-bedrock-smoke.py"
+    assert command[command.index("--profile") + 1] == "sira-hackathon"
+    assert command[command.index("--chat-model") + 1] == "amazon.nova-micro-v1:0"
 
 
 def test_verify_requires_a_passing_latest_record(

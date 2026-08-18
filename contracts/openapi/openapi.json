@@ -4350,6 +4350,15 @@
       "HealthResponse": {
         "additionalProperties": false,
         "properties": {
+          "agent_runtime": {
+            "enum": [
+              "ready",
+              "unavailable",
+              "not_checked"
+            ],
+            "title": "Agent Runtime",
+            "type": "string"
+          },
           "database": {
             "enum": [
               "configured",
@@ -4386,6 +4395,7 @@
           "status",
           "version",
           "database",
+          "agent_runtime",
           "fixture_mode"
         ],
         "title": "HealthResponse",
@@ -10079,7 +10089,7 @@
                 }
               }
             },
-            "description": "Required CockroachDB readiness checks failed"
+            "description": "Required CockroachDB or cognitive runtime readiness checks failed"
           }
         },
         "summary": "Ready",

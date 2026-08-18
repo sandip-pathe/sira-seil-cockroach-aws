@@ -3,6 +3,7 @@ from __future__ import annotations
 import httpx
 from sira_api.config import ApiSettings
 from sira_api.main import create_app
+from tests.support.cognitive_runtime import ScriptedCognitiveRuntime
 
 from persistence.database import Database, DatabaseSettings
 from persistence.models import Base, Organization
@@ -17,13 +18,16 @@ async def test_new_development_guest_gets_isolated_demo_and_seller_projection() 
         session.add(Organization(id="org_seller_fixture_d", name="Luma Labs", version=1))
     application = create_app(
         settings=ApiSettings(
-            app_env="development",
+            app_env="test",
             database_url=database_url,
             guest_session_enabled=True,
             development_fixture_mode=True,
             demo_reset_enabled=True,
         ),
         database=database,
+        cognitive_runtime=ScriptedCognitiveRuntime(
+            decisions=[{"kind": "respond", "message": "Unused test response."}]
+        ),
     )
     try:
         async with application.router.lifespan_context(application):

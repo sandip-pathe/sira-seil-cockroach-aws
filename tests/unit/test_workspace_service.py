@@ -6,7 +6,7 @@ from typing import cast
 import pytest
 from sira_agents.kernel_models import Party, Principal, ToolManifest, ToolRisk
 from sira_agents.runtime import AgentRunContext
-from sira_api.cognitive_engine import RunEngine
+from sira_api.cognitive_engine import RunEngine, TurnResult
 from sira_api.errors import ApiProblem
 from sira_api.fixtures import DemoFixtureBundle
 from sira_api.workspace_schemas import WorkspaceChatCreate
@@ -82,3 +82,78 @@ def test_tool_visibility_is_derived_from_typed_principal_manifests(
     service = WorkspaceService(DemoFixtureBundle.load(), cognitive_engine=engine)
 
     assert service._allowed_tools(mode) == expected
+
+
+def test_kernel_context_uses_durable_history_without_promoting_stale_mission_goal() -> None:
+    service = WorkspaceService(
+        DemoFixtureBundle.load(),
+        database=cast(object, SimpleNamespace()),
+    )
+    body = WorkspaceChatCreate(
+        message="What can you help me do?",
+        history=[],
+    )
+    recent, summary, unresolved, private = service._kernel_context(
+        body=body,
+        model_context={
+            "mission": {
+                "id": "msn_123",
+                "goal": "Hi",
+                "state": "ORIENTING",
+                "version": 2,
+                "plan": [],
+                "world_model": {"unknowns": []},
+            },
+            "recent_events": [
+                {"type": "user.message", "payload": {"message": "Hi"}},
+                {
+                    "type": "assistant.message",
+                    "payload": {"message": "Hello. How can I help?"},
+                },
+                {
+                    "type": "user.message",
+                    "payload": {"message": "What can you help me do?"},
+                },
+            ],
+        },
+    )
+
+    assert recent == (
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Hello. How can I help?"},
+    )
+    assert summary == "State: ORIENTING"
+    assert unresolved == ()
+    assert "goal" not in private["mission"]
+
+
+def test_search_observations_are_projected_into_existing_product_cards() -> None:
+    result = TurnResult(
+        run_id="run-1",
+        status="COMPLETED",
+        message="I found one published option.",
+        tool_calls=("search_published_products",),
+        tool_results=(
+            {
+                "call_id": "search-1",
+                "tool_name": "search_published_products",
+                "contract_version": "v1",
+                "output": {
+                    "results": [
+                        {
+                            "product_id": "product-1",
+                            "name": "Product One",
+                            "seller": "Seller One",
+                            "summary": "Published evidence.",
+                        }
+                    ]
+                },
+            },
+        ),
+    )
+
+    products = WorkspaceService._products_from_tool_results(result)
+
+    assert products[0]["id"] == "product-1"
+    assert products[0]["evidence_status"] == "PUBLISHED"
+    assert products[0]["seller_attested"] is True

@@ -93,7 +93,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--region", default="us-east-1")
     parser.add_argument("--profile")
-    parser.add_argument("--chat-model", default="amazon.nova-micro-v1:0")
+    parser.add_argument("--chat-model", default="us.amazon.nova-2-lite-v1:0")
     parser.add_argument("--guardrail-id")
     parser.add_argument("--guardrail-version")
     parser.add_argument(

@@ -16,6 +16,8 @@ import urllib.request
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+from sira_api.config import ApiSettings
+
 ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / ".artifacts" / "local"
 PROCESS_FILE = ARTIFACTS / "processes.json"
@@ -240,6 +242,7 @@ def _minimum_major(check: tuple[bool, str], minimum: int) -> tuple[bool, str]:
 
 
 def doctor(profile: str) -> int:
+    settings = ApiSettings()
     checks: dict[str, tuple[bool, str]] = {
         "python": (
             (3, 12) <= sys.version_info[:2] < (3, 14),
@@ -251,6 +254,10 @@ def doctor(profile: str) -> int:
         "docker_compose": _command_version("docker", "compose", "version"),
         "compose_file": ((ROOT / "compose.yaml").exists(), "compose.yaml"),
         "environment": ((ROOT / ".env").exists(), ".env"),
+        "agent_runtime": (
+            settings.agent_runtime_provider in {"bedrock", "agentcore"},
+            settings.agent_runtime_provider,
+        ),
     }
     if profile == "local":
         docker_daemon = (
@@ -266,6 +273,37 @@ def doctor(profile: str) -> int:
     for name, (passed, detail) in checks.items():
         print(f"{'PASS' if passed else 'FAIL'}  {name}: {detail}")
     return 0 if all(passed for passed, _detail in checks.values()) else 1
+
+
+def _provider_preflight(settings: ApiSettings) -> None:
+    if settings.agent_runtime_provider == "agentcore":
+        if not settings.sira_agentcore_runtime_arn or not settings.seil_agentcore_runtime_arn:
+            raise RuntimeError("AgentCore requires both principal-specific runtime ARNs")
+        if len(settings.runtime_ticket_signing_key.get_secret_value().encode()) < 32:
+            raise RuntimeError("AgentCore requires a 32-byte runtime ticket signing key")
+        return
+
+    arguments = [
+        sys.executable,
+        str(ROOT / "scripts" / "aws-bedrock-smoke.py"),
+        "--region",
+        settings.aws_region,
+        "--chat-model",
+        settings.bedrock_chat_model_id,
+    ]
+    if settings.aws_profile.strip():
+        arguments.extend(("--profile", settings.aws_profile.strip()))
+    guardrail_id = settings.bedrock_guardrail_id.strip()
+    if guardrail_id:
+        arguments.extend(
+            (
+                "--guardrail-id",
+                guardrail_id,
+                "--guardrail-version",
+                settings.bedrock_guardrail_version,
+            )
+        )
+    _require_success(_run(arguments, capture=True), "Bedrock provider preflight")
 
 
 def _local_environment(database_host: str | None = None) -> dict[str, str]:
@@ -286,7 +324,6 @@ def _local_environment(database_host: str | None = None) -> dict[str, str]:
         "DEVELOPMENT_FIXTURE_MODE": "true",
         "DEMO_RESET_ENABLED": "true",
         "GUEST_SESSION_ENABLED": "true",
-        "AGENT_RUNTIME_PROVIDER": "local",
         "COGNITIVE_KERNEL_ENABLED": "true",
         "PRINCIPAL_ISOLATION_ENABLED": "true",
         "NEXT_PUBLIC_GUEST_SESSION_ENABLED": "true",
@@ -382,9 +419,18 @@ def _probe(url: str) -> tuple[bool, str]:
 def up(profile: str) -> int:
     if profile != "local":
         raise RuntimeError("provider and hosted lifecycle use deployment tooling, not sira-dev up")
+    _provider_preflight(ApiSettings())
     database_host = bootstrap_database()
-    processes = _load_processes()
     environment = _local_environment(database_host)
+    _require_success(
+        _run(
+            [sys.executable, "-m", "sira_cli.marketplace_seed"],
+            env=environment,
+            capture=True,
+        ),
+        "local marketplace publication",
+    )
+    processes = _load_processes()
     if not _process_alive(processes.get("api", -1)) and _probe(LOCAL_URLS["api"])[0]:
         listener = _windows_listener_pid(8000)
         if listener is not None:

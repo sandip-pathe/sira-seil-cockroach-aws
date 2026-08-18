@@ -1,5 +1,6 @@
-"""FastAPI control plane for SIRA + SEIL."""
+"""FastAPI control plane for SIRA + SEIL.
 
-from .main import app, create_app
-
-__all__ = ["app", "create_app"]
+Import the application explicitly from :mod:`sira_api.main`.  Keeping package
+initialization side-effect free lets lifecycle and migration tooling load API
+configuration without constructing provider clients or the ASGI application.
+"""

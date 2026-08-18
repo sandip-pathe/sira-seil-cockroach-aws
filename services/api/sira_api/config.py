@@ -67,8 +67,8 @@ class ApiSettings(BaseSettings):
         validation_alias=AliasChoices("AWS_REGION", "AWS_DEFAULT_REGION"),
     )
     aws_profile: str = Field(default="", validation_alias="AWS_PROFILE")
-    agent_runtime_provider: Literal["agentcore", "bedrock", "local"] = Field(
-        default="local", validation_alias="AGENT_RUNTIME_PROVIDER"
+    agent_runtime_provider: Literal["agentcore", "bedrock"] = Field(
+        default="bedrock", validation_alias="AGENT_RUNTIME_PROVIDER"
     )
     cognitive_kernel_enabled: bool = Field(
         default=True, validation_alias="COGNITIVE_KERNEL_ENABLED"
@@ -86,7 +86,7 @@ class ApiSettings(BaseSettings):
         default=SecretStr(""), validation_alias="RUNTIME_TICKET_SIGNING_KEY"
     )
     bedrock_chat_model_id: str = Field(
-        default="amazon.nova-micro-v1:0",
+        default="us.amazon.nova-2-lite-v1:0",
         validation_alias="BEDROCK_CHAT_MODEL_ID",
     )
     bedrock_embedding_model_id: str = Field(

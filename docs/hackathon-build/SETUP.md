@@ -31,6 +31,11 @@ uv run sira-demo run --scenario evidence-race
 uv run sira-demo verify --latest
 ```
 
+The local lifecycle keeps the web app, API, tools, and CockroachDB on the developer
+machine while using the configured Bedrock or AgentCore runtime for cognitive turns.
+Startup fails if that real provider cannot pass preflight; there is no user-facing
+deterministic fallback.
+
 Expected final output:
 
 ```text
