@@ -1,8 +1,5 @@
 # SIRA + SEIL threat model
 
-Status: implemented-control review, 2026-08-18. Hosted network/IAM/telemetry controls require live
-deployment evidence.
-
 ## Protected assets
 
 - buyer needs, policies, budget signals, context, and conversation history;

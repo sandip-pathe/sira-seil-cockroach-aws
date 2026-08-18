@@ -1,40 +1,31 @@
-# Setup contract
-
-Status: repository setup and verification are implemented; the unified `sira-dev`/`sira-demo`
-operator interface below remains a target convenience layer.
+# Setup
 
 ## Fast path
 
-A developer with existing CockroachDB Cloud and AWS access should reach a healthy synthetic workflow in under 15 minutes.
-
-Current implemented local verification path:
+A developer with AWS Bedrock access can reach a healthy local workflow in under 15 minutes.
 
 ```powershell
+Copy-Item .env.example .env
 uv sync --frozen --all-extras
-docker compose up -d --wait cockroach
-$env:SIRA_TEST_DATABASE_URL = "cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira?ssl=disable"
-$env:SIRA_TEST_WORKER_DATABASE_URL = "cockroachdb+asyncpg://sira_worker_app@127.0.0.1:26257/sira?ssl=disable"
-$env:SIRA_TEST_CATALOG_DATABASE_URL = "cockroachdb+asyncpg://sira_catalog_app@127.0.0.1:26257/sira?ssl=disable"
-uv run pytest tests/cockroach_integration -q
-powershell -ExecutionPolicy Bypass -File scripts/check.ps1
-pnpm build:web
-```
-
-Target unified wrapper once the hosted scenario controller exists:
-
-```powershell
-uv sync --frozen --all-extras
+corepack pnpm install --frozen-lockfile
+aws login --profile sira-hackathon
 uv run sira-dev doctor --profile local
 uv run sira-dev up --profile local
-uv run sira-demo reset --scenario evidence-race
-uv run sira-demo run --scenario evidence-race
-uv run sira-demo verify --latest
+uv run sira-dev status --profile local
 ```
 
 The local lifecycle keeps the web app, API, tools, and CockroachDB on the developer
-machine while using the configured Bedrock or AgentCore runtime for cognitive turns.
+machine while using the configured Bedrock runtime for cognitive turns.
 Startup fails if that real provider cannot pass preflight; there is no user-facing
 deterministic fallback.
+
+Run the concurrency demonstration with:
+
+```powershell
+uv run sira-scenario reset --scenario evidence-race
+uv run sira-scenario run --scenario evidence-race
+uv run sira-scenario verify --latest
+```
 
 Expected final output:
 
@@ -49,23 +40,22 @@ SQL integrity     PASS
 Next              run external MCP verification
 ```
 
-Fresh cloud provisioning is a separate guide and is not included in the 15-minute target.
-
 ## Prerequisites
 
 - Python version pinned by the active repository.
 - `uv` version pinned by the active repository.
-- Node/pnpm only if the web workspace is not wrapped by the unified task interface.
+- Node.js and pnpm for the web application.
 - Docker for local services and deterministic worker-stop testing.
 - CockroachDB Cloud cluster or supported local CockroachDB image.
 - AWS account with Bedrock model access.
 - CockroachDB Cloud MCP client configuration for the operator/evaluator.
 
-`doctor` must name every missing prerequisite and print one next action. It must never print a credential value.
+`doctor` reports missing prerequisites without printing credential values.
 
 ## Judge path
 
-The public app provides an isolated guest scenario and an explicit `Start evidence-change demo` control. A judge should reach the scenario in under two minutes without configuring shared credentials.
+Use the anonymous guest sign-in for an isolated judge session. Follow the
+[demo runbook](demo-runbook.md) for the evidence-change scenario.
 
 The external MCP proof is a recorded/evaluator-operated path. Do not put shared MCP credentials in the public browser.
 

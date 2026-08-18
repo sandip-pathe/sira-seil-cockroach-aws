@@ -1,7 +1,5 @@
 # Configuration contract
 
-Status: implemented runtime configuration contract; external Cloud credentials and hosted evidence remain pending.
-
 ## Credential groups
 
 | Group | Used by | Examples | Rule |

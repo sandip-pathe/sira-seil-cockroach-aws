@@ -31,7 +31,7 @@ CockroachDB is used for more than storage: serializable retries protect concurre
 
 The runtime uses Amazon Nova through Bedrock for conversation and tool reasoning and Amazon Titan Embeddings for retrieval. AWS task-role-ready infrastructure and isolated SIRA/SEIL runtime definitions are included under [`infra/`](infra/).
 
-See the [architecture decisions](docs/architecture-decisions.md), [threat model](docs/threat-model.md), [tool authoring guide](docs/tool-authoring-guide.md), and [implementation record](docs/flagship-platform-plan.md).
+See the [architecture decisions](docs/architecture-decisions.md), [threat model](docs/threat-model.md), and [tool authoring guide](docs/tool-authoring-guide.md).
 
 ## Run locally
 

@@ -48,7 +48,6 @@ Record the scenario ID, mission ID, trace ID, exact commit, reset time, initial 
 ## Operator rules
 
 - Do not show terminal startup, raw secrets, database passwords, or long JSON.
-- Do not show DataHub, Snowflake, `/proof`, or old demo artifacts.
 - Do not narrate fictional brand names.
 - Do not say MCP is read-only; say the demo identity is configured read-only.
 - Do not say vector search chooses the winner.

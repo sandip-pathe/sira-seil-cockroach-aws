@@ -1,7 +1,5 @@
 # Operations and recovery contract
 
-Status: core runtime and safe DLQ controls are implemented; hosted drills remain pending.
-
 ## Cockroach Cloud preflight
 
 Run the credential-safe cluster, managed-backup, and restore-readiness check with:

@@ -130,7 +130,6 @@ Assertions:
 - status changes use an appropriate live region without repeated announcements;
 - 360 px, 768 px, 1440 px, and reduced-motion checks;
 - no horizontal overflow and no hidden critical status below an inaccessible pane;
-- no DataHub/Snowflake/proof copy survives in the new build.
 
 ## 7. Hosted end-to-end tests
 

@@ -1,12 +1,12 @@
 # SIRA + SEIL qualified agent marketplace architecture
 
-Status: approved on 2026-08-13. This is the repository architecture contract. The longer Office Hours record is retained outside the repository; this document contains the build-critical decisions.
+This document describes the product's runtime boundaries, data authority, and deployment topology.
 
 ## Product outcome
 
 SIRA privately represents a software buyer. SEIL privately represents each seller. They exchange versioned minimum-disclosure projections to establish mutual fit, then humans approve one qualified introduction.
 
-The P0 demo uses two meeting-intelligence products. The lower-cost product initially qualifies using seller evidence v1. SEIL publishes v2 while SIRA is evaluating it. CockroachDB must reject the stale attempt, create one direct replacement, produce one current decision citing v2, and prevent the outdated product from creating a match or introduction.
+The demo uses two meeting-intelligence products. The lower-cost product initially qualifies using seller evidence v1. SEIL publishes v2 while SIRA is evaluating it. CockroachDB rejects the stale attempt, creates one direct replacement, produces one current decision citing v2, and prevents the outdated product from creating a match or introduction.
 
 ## Deployment topology
 

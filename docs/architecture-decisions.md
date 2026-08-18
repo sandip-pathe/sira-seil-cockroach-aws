@@ -1,8 +1,5 @@
 # SIRA + SEIL architecture decisions
 
-Status: accepted for the flagship build on 2026-08-18. These decisions describe the implemented
-system. Live AWS and Cockroach Cloud claims still require hosted evidence.
-
 ## ADR-001: CockroachDB owns durable truth
 
 **Decision.** CockroachDB is the sole authority for tenant data, conversations, cognitive runs,
@@ -87,14 +84,12 @@ human approved.
 **Consequence.** V1 is deliberately 1:1. It ends at an immutable, expiring, provider-neutral
 external handoff. SIRA never holds payment credentials or reports payment success.
 
-## ADR-007: The current interface is frozen
+## ADR-007: Preserve the current interface
 
-**Decision.** No route, layout, component, type, spacing, color, motion, or interaction is changed
-without founder approval of a visual proposal. Backend wiring and nonvisual correctness fixes must
-preserve rendered output.
+**Decision.** Visual changes require explicit design review. Backend wiring and nonvisual
+correctness fixes must preserve rendered output.
 
 **Why.** The restored interface is the product baseline and previous redesign work reduced product
 quality.
 
-**Consequence.** See `ui-preservation-review.md`. Architecture work must fit behind existing
-surfaces; documentation is the venue for future UI proposals.
+**Consequence.** Architecture work must fit behind the existing product surfaces.
