@@ -551,7 +551,10 @@ export class SiraAwsStack extends cdk.Stack {
       protocol: elbv2.ApplicationProtocol.HTTP,
       targets: [apiService],
       deregistrationDelay: cdk.Duration.seconds(30),
-      healthCheck: { path: "/ready", healthyHttpCodes: "200" },
+      // Target health must prove that the API process can serve traffic without
+      // coupling ECS deployment safety to transient external dependencies.
+      // `/ready` remains the operator-facing CockroachDB/runtime diagnostic.
+      healthCheck: { path: "/health", healthyHttpCodes: "200" },
     });
 
     const distribution = new cloudfront.Distribution(this, "Distribution", {

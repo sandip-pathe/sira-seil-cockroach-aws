@@ -43,6 +43,10 @@ test("synthesizes isolated durable backend topology", () => {
   rendered.hasResourceProperties("AWS::ElasticLoadBalancingV2::LoadBalancer", {
     Scheme: "internal",
   });
+  rendered.hasResourceProperties("AWS::ElasticLoadBalancingV2::TargetGroup", {
+    HealthCheckPath: "/health",
+    Matcher: { HttpCode: "200" },
+  });
   rendered.hasResourceProperties("AWS::ECS::TaskDefinition", {
     ContainerDefinitions: Match.arrayWith([
       Match.objectLike({
