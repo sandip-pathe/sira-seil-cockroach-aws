@@ -28,10 +28,12 @@ const assetExcludes = [
   ".env",
   ".env.*",
   ".git/**",
+  ".github/**",
   ".gstack/**",
   ".next/**",
   ".venv/**",
   "htmlcov/**",
+  "infra/**",
   "node_modules/**",
   "**/.env",
   "**/.env.*",
@@ -52,11 +54,16 @@ export interface SiraAwsStackProps extends cdk.StackProps {
   githubBranch: string;
   guardrailProfilePrefix: string;
   webBaseUrl: string;
+  firebaseProjectId: string;
 }
 
 export class SiraAwsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: SiraAwsStackProps) {
     super(scope, id, props);
+
+    if (!props.firebaseProjectId.trim()) {
+      throw new Error("firebaseProjectId is required so the API can verify Firebase ID tokens");
+    }
 
     const name = `sira-${props.stage}`;
     const githubProvider = new iam.OpenIdConnectProvider(this, "GithubOidcProvider", {
@@ -455,6 +462,7 @@ export class SiraAwsStack extends cdk.Stack {
         DEVELOPMENT_FIXTURE_MODE: "false",
         DEMO_RESET_ENABLED: "false",
         GUEST_SESSION_ENABLED: "true",
+        FIREBASE_PROJECT_ID: props.firebaseProjectId,
         AWS_REGION: this.region,
         PGSSLROOTCERT: "/etc/ssl/certs/ca-certificates.crt",
         AGENT_RUNTIME_PROVIDER: "agentcore",

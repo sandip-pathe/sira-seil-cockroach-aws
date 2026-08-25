@@ -18,6 +18,7 @@ function template(): Template {
     githubBranch: "main",
     guardrailProfilePrefix: "us",
     webBaseUrl: "https://sira-seil-cockroach-aws-web.vercel.app",
+    firebaseProjectId: "sira-test-project",
   });
   return Template.fromStack(stack);
 }
@@ -41,6 +42,19 @@ test("synthesizes isolated durable backend topology", () => {
   rendered.resourceCountIs("AWS::ApiGatewayV2::Api", 1);
   rendered.hasResourceProperties("AWS::ElasticLoadBalancingV2::LoadBalancer", {
     Scheme: "internal",
+  });
+  rendered.hasResourceProperties("AWS::ECS::TaskDefinition", {
+    ContainerDefinitions: Match.arrayWith([
+      Match.objectLike({
+        Environment: Match.arrayWith([
+          { Name: "FIREBASE_PROJECT_ID", Value: "sira-test-project" },
+          {
+            Name: "WEB_BASE_URL",
+            Value: "https://sira-seil-cockroach-aws-web.vercel.app",
+          },
+        ]),
+      }),
+    ]),
   });
   rendered.hasResourceProperties("AWS::CloudFront::Distribution", {
     DistributionConfig: Match.objectLike({

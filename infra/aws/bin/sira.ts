@@ -26,4 +26,7 @@ new SiraAwsStack(app, `Sira-${stage}`, {
     app.node.tryGetContext("webBaseUrl") ??
       "https://sira-seil-cockroach-aws-web.vercel.app",
   ),
+  firebaseProjectId: String(
+    app.node.tryGetContext("firebaseProjectId") ?? process.env.FIREBASE_PROJECT_ID ?? "",
+  ),
 });

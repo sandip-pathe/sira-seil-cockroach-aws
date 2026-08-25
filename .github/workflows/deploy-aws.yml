@@ -57,6 +57,8 @@ jobs:
         run: uv run python scripts/deployment_preflight.py --stage hackathon --region "${{ vars.AWS_REGION }}"
 
       - name: Deploy exact stack
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
         run: >-
           pnpm --dir infra/aws exec cdk deploy Sira-hackathon
           --require-approval never

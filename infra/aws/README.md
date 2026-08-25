@@ -80,6 +80,26 @@ contains hashes and booleans only.
 After deployment, use the `BackendUrl` stack output as the target of the Vercel
 same-origin rewrite. The default CloudFront domain is HTTPS-capable.
 
+Configure these Vercel variables for Production and Preview, then rebuild the web app:
+
+```text
+SIRA_API_BASE_URL=<BackendUrl>
+NEXT_PUBLIC_WEB_DATA_MODE=api
+NEXT_PUBLIC_FIREBASE_API_KEY=<Firebase web config>
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=<Firebase web config>
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=<Firebase web config>
+NEXT_PUBLIC_FIREBASE_APP_ID=<Firebase web config>
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=<Firebase web config>
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=<Firebase web config>
+NEXT_PUBLIC_GUEST_SESSION_ENABLED=false
+```
+
+The browser calls relative `/v1/*` URLs and Vercel rewrites them to AWS, so no permissive
+CORS middleware is required. CDK sets `WEB_BASE_URL` on the API and rejects state-changing
+requests whose `Origin` is not the configured Vercel origin. `FIREBASE_PROJECT_ID` is also
+passed to the API so Firebase bearer tokens are verified server-side; Firebase web config
+values never grant backend authority by themselves.
+
 The first local deployment also creates `GithubDeployRoleArn`. Set these public
 repository variables before using the manual `Deploy AWS` workflow:
 
@@ -87,6 +107,7 @@ repository variables before using the manual `Deploy AWS` workflow:
 AWS_ACCOUNT_ID=<account number>
 AWS_REGION=us-east-1
 AWS_DEPLOY_ROLE_ARN=<GithubDeployRoleArn output>
+FIREBASE_PROJECT_ID=<Firebase project ID>
 ```
 
 The role trusts only `sandip-pathe/sira-seil-cockroach-aws` on `main` and can
