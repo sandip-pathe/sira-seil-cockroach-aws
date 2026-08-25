@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
+
 import pytest
-from scripts.provision_cloud import _USERS, _admin_url, _async_url
+from scripts.provision_cloud import _USERS, _admin_url, _async_url, _xray_logs_policy
 from sqlalchemy.engine import make_url
 
 
@@ -46,3 +48,19 @@ def test_runtime_users_receive_only_their_narrow_composed_roles() -> None:
         ),
         "sira_catalog_app": ("sira_catalog_reader",),
     }
+
+
+def test_xray_logs_policy_is_account_and_region_scoped() -> None:
+    policy = json.loads(_xray_logs_policy(account_id="123456789012", region="us-east-1"))
+    statement = policy["Statement"][0]
+
+    assert statement["Principal"] == {"Service": "xray.amazonaws.com"}
+    assert statement["Action"] == "logs:PutLogEvents"
+    assert statement["Condition"] == {
+        "ArnLike": {"aws:SourceArn": "arn:aws:xray:us-east-1:123456789012:*"},
+        "StringEquals": {"aws:SourceAccount": "123456789012"},
+    }
+    assert statement["Resource"] == [
+        "arn:aws:logs:us-east-1:123456789012:log-group:aws/spans:*",
+        "arn:aws:logs:us-east-1:123456789012:log-group:/aws/application-signals/data:*",
+    ]

@@ -64,4 +64,4 @@ jobs:
 
       - name: Publish sanitized deployment summary
         run: |
-          node -e "const o=require('./cdk-outputs.json'); const s=o['Sira-hackathon']; console.log(JSON.stringify({application_url:s.ApplicationUrl,commit:process.env.GITHUB_SHA},null,2))"
+          node -e "const o=require('./cdk-outputs.json'); const s=o['Sira-hackathon']; console.log(JSON.stringify({backend_url:s.BackendUrl,commit:process.env.GITHUB_SHA},null,2))"

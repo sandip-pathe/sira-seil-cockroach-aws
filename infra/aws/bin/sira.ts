@@ -22,4 +22,8 @@ new SiraAwsStack(app, `Sira-${stage}`, {
   ),
   githubBranch: String(app.node.tryGetContext("githubBranch") ?? "main"),
   guardrailProfilePrefix: String(app.node.tryGetContext("guardrailProfilePrefix") ?? "us"),
+  webBaseUrl: String(
+    app.node.tryGetContext("webBaseUrl") ??
+      "https://sira-seil-cockroach-aws-web.vercel.app",
+  ),
 });

@@ -43,11 +43,6 @@ const assetExcludes = [
   "tmp/**",
 ];
 
-export const webBuildArgs = Object.freeze({
-  NEXT_PUBLIC_WEB_DATA_MODE: "api",
-  NEXT_PUBLIC_GUEST_SESSION_ENABLED: "true",
-});
-
 export interface SiraAwsStackProps extends cdk.StackProps {
   stage: string;
   chatModelId: string;
@@ -56,6 +51,7 @@ export interface SiraAwsStackProps extends cdk.StackProps {
   githubRepository: string;
   githubBranch: string;
   guardrailProfilePrefix: string;
+  webBaseUrl: string;
 }
 
 export class SiraAwsStack extends cdk.Stack {
@@ -188,7 +184,6 @@ export class SiraAwsStack extends cdk.Stack {
       environment: {
         REEVALUATION_QUEUE_URL: changefeedHintQueue.queueUrl,
       },
-      reservedConcurrentExecutions: 5,
     });
     changefeedToken.grantRead(changefeedBridge);
     changefeedBridge.addEnvironment(
@@ -312,11 +307,11 @@ export class SiraAwsStack extends cdk.Stack {
         filtersConfig: ["HATE", "INSULTS", "SEXUAL", "VIOLENCE", "PROMPT_ATTACK"].map((type) => ({
           type,
           inputStrength: "HIGH",
-          outputStrength: "HIGH",
+          outputStrength: type === "PROMPT_ATTACK" ? "NONE" : "HIGH",
           inputAction: "BLOCK",
-          outputAction: "BLOCK",
+          outputAction: type === "PROMPT_ATTACK" ? "NONE" : "BLOCK",
           inputEnabled: true,
-          outputEnabled: true,
+          outputEnabled: type !== "PROMPT_ATTACK",
         })),
       },
       sensitiveInformationPolicyConfig: {
@@ -374,14 +369,6 @@ export class SiraAwsStack extends cdk.Stack {
       exclude: assetExcludes,
       ignoreMode: cdk.IgnoreMode.GLOB,
     });
-    const webImage = new assets.DockerImageAsset(this, "WebImage", {
-      directory: repositoryRoot,
-      file: "Dockerfile.web",
-      platform: assets.Platform.LINUX_AMD64,
-      buildArgs: webBuildArgs,
-      exclude: assetExcludes,
-      ignoreMode: cdk.IgnoreMode.GLOB,
-    });
     const agentCoreImage = new assets.DockerImageAsset(this, "AgentCoreImage", {
       directory: repositoryRoot,
       file: "Dockerfile.agentcore",
@@ -411,6 +398,7 @@ export class SiraAwsStack extends cdk.Stack {
           BEDROCK_CHAT_MODEL_ID: props.chatModelId,
           BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
           BEDROCK_GUARDRAIL_VERSION: guardrailVersion.attrVersion,
+          PGSSLROOTCERT: "/etc/ssl/certs/ca-certificates.crt",
         },
         lifecycleConfiguration: {
           idleRuntimeSessionTimeout: cdk.Duration.minutes(5),
@@ -448,7 +436,6 @@ export class SiraAwsStack extends cdk.Stack {
     const seilRuntime = createPrincipalRuntime("SeilRuntime", "SEIL");
 
     const apiLogs = this.logGroup(`${name}/api`);
-    const webLogs = this.logGroup(`${name}/web`);
     const dispatcherLogs = this.logGroup(`${name}/dispatcher`);
     const workerLogs = this.logGroup(`${name}/qualification-worker`);
     const changefeedWorkerLogs = this.logGroup(`${name}/changefeed-worker`);
@@ -469,6 +456,7 @@ export class SiraAwsStack extends cdk.Stack {
         DEMO_RESET_ENABLED: "false",
         GUEST_SESSION_ENABLED: "true",
         AWS_REGION: this.region,
+        PGSSLROOTCERT: "/etc/ssl/certs/ca-certificates.crt",
         AGENT_RUNTIME_PROVIDER: "agentcore",
         COGNITIVE_KERNEL_ENABLED: "true",
         PRINCIPAL_ISOLATION_ENABLED: "true",
@@ -533,41 +521,7 @@ export class SiraAwsStack extends cdk.Stack {
       }),
     );
 
-    const webTask = new ecs.FargateTaskDefinition(this, "WebTask", {
-      cpu: 512,
-      memoryLimitMiB: 1024,
-      runtimePlatform: { cpuArchitecture: ecs.CpuArchitecture.X86_64 },
-    });
-    const web = webTask.addContainer("web", {
-      image: ecs.ContainerImage.fromDockerImageAsset(webImage),
-      logging: ecs.LogDrivers.awsLogs({ streamPrefix: "web", logGroup: webLogs }),
-      readonlyRootFilesystem: true,
-      environment: { NODE_ENV: "production", PORT: "3000", HOSTNAME: "0.0.0.0" },
-      healthCheck: {
-        command: [
-          "CMD-SHELL",
-          "node -e \"fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\"",
-        ],
-        interval: cdk.Duration.seconds(30),
-        timeout: cdk.Duration.seconds(5),
-        retries: 3,
-        startPeriod: cdk.Duration.seconds(45),
-      },
-    });
-    webTask.addVolume({ name: "web-tmp" });
-    webTask.addVolume({ name: "web-cache" });
-    web.addMountPoints(
-      { sourceVolume: "web-tmp", containerPath: "/tmp", readOnly: false },
-      {
-        sourceVolume: "web-cache",
-        containerPath: "/app/apps/web/.next/cache",
-        readOnly: false,
-      },
-    );
-    web.addPortMappings({ containerPort: 3000, protocol: ecs.Protocol.TCP });
-
     const apiService = this.service(cluster, "ApiService", apiTask, 1);
-    const webService = this.service(cluster, "WebService", webTask, 1);
     const loadBalancer = new elbv2.ApplicationLoadBalancer(this, "LoadBalancer", {
       vpc,
       internetFacing: false,
@@ -580,16 +534,7 @@ export class SiraAwsStack extends cdk.Stack {
       port: 80,
       protocol: elbv2.ApplicationProtocol.HTTP,
     });
-    listener.addTargets("WebTargets", {
-      port: 3000,
-      protocol: elbv2.ApplicationProtocol.HTTP,
-      targets: [webService],
-      deregistrationDelay: cdk.Duration.seconds(30),
-      healthCheck: { path: "/", healthyHttpCodes: "200" },
-    });
     const apiTargetGroup = listener.addTargets("ApiTargets", {
-      priority: 10,
-      conditions: [elbv2.ListenerCondition.pathPatterns(["/v1/*", "/health", "/ready"])],
       port: 8000,
       protocol: elbv2.ApplicationProtocol.HTTP,
       targets: [apiService],
@@ -617,10 +562,9 @@ export class SiraAwsStack extends cdk.Stack {
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
       enableIpv6: true,
     });
-    const applicationOrigin = `https://${distribution.distributionDomainName}`;
-    api.addEnvironment("PUBLIC_BASE_URL", applicationOrigin);
-    api.addEnvironment("WEB_BASE_URL", applicationOrigin);
-    web.addEnvironment("SIRA_API_BASE_URL", applicationOrigin);
+    const backendOrigin = `https://${distribution.distributionDomainName}`;
+    api.addEnvironment("PUBLIC_BASE_URL", backendOrigin);
+    api.addEnvironment("WEB_BASE_URL", props.webBaseUrl);
 
     const workerEnvironment = {
       APP_ENV: "production",
@@ -716,8 +660,8 @@ export class SiraAwsStack extends cdk.Stack {
       apiTargetGroup,
     );
 
-    new cdk.CfnOutput(this, "ApplicationUrl", {
-      value: applicationOrigin,
+    new cdk.CfnOutput(this, "BackendUrl", {
+      value: backendOrigin,
     });
     new cdk.CfnOutput(this, "EvidenceBucketName", { value: evidenceBucket.bucketName });
     new cdk.CfnOutput(this, "QualificationQueueUrl", {

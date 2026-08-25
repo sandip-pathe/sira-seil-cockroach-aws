@@ -14,12 +14,17 @@ The demo uses two meeting-intelligence products. The lower-cost product initiall
 Browser
   |
   v
-CloudFront (public HTTPS edge)
+Next.js on Vercel
+  |
+  | same-origin /v1, /health and /ready rewrite
+  v
+CloudFront (AWS backend HTTPS edge)
   |
   v
 private ALB through CloudFront VPC origin
-  +-- /* ----------------------> Next.js web on ECS/Fargate
-  +-- /v1/*, /health, /ready --> FastAPI on ECS/Fargate
+  |
+  v
+FastAPI on ECS/Fargate
                        |
                        v
              CockroachDB Cloud on AWS
@@ -54,7 +59,7 @@ CloudWatch/OpenTelemetry: sanitized correlated events and P0 metrics.
 |---|---|
 | Database | One CockroachDB Cloud Standard cluster on AWS, v25.4+, co-located with the application region. |
 | Required CockroachDB tools | Distributed Vector Indexing for candidate retrieval; Cloud Managed MCP for independent integrity inspection. |
-| Web/API hosting | CloudFront is the only public HTTPS edge. A VPC origin reaches one internal ALB, which routes to separate Next.js 16 and FastAPI ECS/Fargate services. Amplify is excluded because current SSR support ends at Next.js 15. |
+| Web/API hosting | Vercel remains the only Next.js host. Its same-origin API rewrite targets the AWS CloudFront backend edge, which reaches FastAPI through a private ALB and ECS/Fargate. |
 | Agent runtime | A small typed cognitive kernel uses Bedrock Converse directly. Separate principal-locked SIRA and SEIL AgentCore Runtime deployments provide the hosted model boundary. Bedrock Agents Classic is excluded. |
 | Queue | Transactional CockroachDB outbox to SQS FIFO. SQS is delivery; CockroachDB remains authority and durable deduplication. |
 | Documents | Encrypted, versioned, checksum-addressed S3 objects with interactive seller ingestion. CockroachDB stores immutable object identity and claim bindings. |

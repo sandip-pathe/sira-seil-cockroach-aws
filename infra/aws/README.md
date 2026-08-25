@@ -6,12 +6,13 @@ evidence, attempts, decisions, consent, and introductions.
 
 ## Runtime topology
 
-- CloudFront is the public HTTPS edge. Caching is disabled for authenticated and
-  transactional routes, and viewer cookies, headers, and query strings reach the app.
-- An internal Application Load Balancer routes `/v1/*` and `/health` to FastAPI;
-  all other paths go to the standalone Next.js service.
-- API, web, outbox dispatcher, and qualification worker are separate private
-  Fargate services with read-only roots and writable ephemeral mounts only where needed.
+- Vercel remains the only frontend host. Its same-origin API rewrite points to the
+  AWS backend URL so browser cookies stay on the product domain.
+- CloudFront is the backend HTTPS edge. Caching is disabled and viewer cookies,
+  headers, and query strings reach the API.
+- An internal Application Load Balancer sends all backend traffic to FastAPI.
+- API, outbox dispatcher, qualification worker, and changefeed worker are separate
+  private Fargate services with read-only roots and writable ephemeral mounts only where needed.
 - The dispatcher publishes `QUALIFICATION_MISSION_READY` outbox rows to SQS FIFO.
   The qualification worker verifies the body digest, deduplicates in CockroachDB,
   invokes Bedrock and CockroachDB DVI, commits the fenced result, and only then
@@ -39,8 +40,7 @@ evidence, attempts, decisions, consent, and introductions.
   authoritative object identity and business relationship.
 - Secrets Manager injects separate API, worker, and catalog SQL identities. The
   task definitions and CloudFormation template contain no database passwords.
-- The hackathon web image enables the API-issued guest-session mode at build time.
-  The API issues an HttpOnly, Secure, signed session cookie and derives an isolated
+- The API issues an HttpOnly, Secure, signed guest-session cookie and derives an isolated
   CockroachDB organization per browser. Firebase remains an optional account-upgrade
   path rather than a hidden deployment prerequisite.
 
@@ -77,9 +77,8 @@ keys. All three runtime URLs must use the CockroachDB SQLAlchemy scheme; neither
 pool nor either worker mode can silently start against PostgreSQL in production. Its ignored report
 contains hashes and booleans only.
 
-After deployment, use the `ApplicationUrl` stack output. A custom domain can be
-added later with a CloudFront ACM certificate in `us-east-1`; the default
-CloudFront domain is already HTTPS-capable.
+After deployment, use the `BackendUrl` stack output as the target of the Vercel
+same-origin rewrite. The default CloudFront domain is HTTPS-capable.
 
 The first local deployment also creates `GithubDeployRoleArn`. Set these public
 repository variables before using the manual `Deploy AWS` workflow:

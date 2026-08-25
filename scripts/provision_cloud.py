@@ -120,6 +120,7 @@ def provision_database(admin_url: URL) -> ProvisionedRuntime:
             admin_url, "sira_catalog_app", passwords["sira_catalog_app"]
         ),
         "GUEST_SESSION_SIGNING_KEY": secrets.token_urlsafe(48),
+        "RUNTIME_TICKET_SIGNING_KEY": secrets.token_urlsafe(48),
     }
     return ProvisionedRuntime(str(admin_url.database), runtime_secret)
 
@@ -149,6 +150,53 @@ def put_runtime_secret(
     return str(response.get("ARN", ""))
 
 
+def _xray_logs_policy(*, account_id: str, region: str, partition: str = "aws") -> str:
+    document = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "TransactionSearchXRayAccess",
+                "Effect": "Allow",
+                "Principal": {"Service": "xray.amazonaws.com"},
+                "Action": "logs:PutLogEvents",
+                "Resource": [
+                    f"arn:{partition}:logs:{region}:{account_id}:log-group:aws/spans:*",
+                    f"arn:{partition}:logs:{region}:{account_id}:log-group:/aws/application-signals/data:*",
+                ],
+                "Condition": {
+                    "ArnLike": {
+                        "aws:SourceArn": f"arn:{partition}:xray:{region}:{account_id}:*"
+                    },
+                    "StringEquals": {"aws:SourceAccount": account_id},
+                },
+            }
+        ],
+    }
+    return json.dumps(document, sort_keys=True, separators=(",", ":"))
+
+
+def configure_trace_delivery(*, region: str, profile: str | None) -> str:
+    """Allow X-Ray to store AgentCore spans in CloudWatch Logs."""
+    import boto3  # type: ignore[import-untyped]
+
+    session = boto3.Session(profile_name=profile) if profile else boto3.Session()
+    account_id = str(session.client("sts", region_name=region).get_caller_identity()["Account"])
+    partition = "aws-us-gov" if region.startswith("us-gov-") else "aws"
+    session.client("logs", region_name=region).put_resource_policy(
+        policyName="SiraXRayToCloudWatch",
+        policyDocument=_xray_logs_policy(
+            account_id=account_id,
+            region=region,
+            partition=partition,
+        ),
+    )
+    xray = session.client("xray", region_name=region)
+    destination = xray.get_trace_segment_destination()
+    if destination.get("Destination") != "CloudWatchLogs":
+        destination = xray.update_trace_segment_destination(Destination="CloudWatchLogs")
+    return str(destination.get("Status", "UNKNOWN"))
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage", default="hackathon")
@@ -168,6 +216,7 @@ def main() -> None:
         region=args.region,
         profile=args.profile,
     )
+    trace_delivery_status = configure_trace_delivery(region=args.region, profile=args.profile)
     sys.stdout.write(
         json.dumps(
             {
@@ -175,6 +224,7 @@ def main() -> None:
                 "organizations": [item[0] for item in _ORGANIZATIONS],
                 "runtime_secret": secret_name,
                 "runtime_secret_arn_configured": bool(secret_arn),
+                "trace_delivery_status": trace_delivery_status,
             },
             sort_keys=True,
         )

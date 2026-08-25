@@ -17,6 +17,7 @@ _EXPECTED_SECRET_KEYS = frozenset(
         "SIRA_WORKER_DATABASE_URL",
         "SIRA_CATALOG_DATABASE_URL",
         "GUEST_SESSION_SIGNING_KEY",
+        "RUNTIME_TICKET_SIGNING_KEY",
     }
 )
 
@@ -72,6 +73,10 @@ def validate_runtime_secret(values: Mapping[str, object]) -> None:
         raise ValueError("runtime SQL identities must target one application database")
     if len(str(values["GUEST_SESSION_SIGNING_KEY"]).encode("utf-8")) < 32:
         raise ValueError("GUEST_SESSION_SIGNING_KEY must contain at least 32 bytes")
+    if len(str(values["RUNTIME_TICKET_SIGNING_KEY"]).encode("utf-8")) < 32:
+        raise ValueError("RUNTIME_TICKET_SIGNING_KEY must contain at least 32 bytes")
+    if values["RUNTIME_TICKET_SIGNING_KEY"] == values["GUEST_SESSION_SIGNING_KEY"]:
+        raise ValueError("runtime and guest signing keys must be distinct")
 
 
 def build_preflight_result(

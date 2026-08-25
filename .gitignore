@@ -27,6 +27,7 @@ node_modules/
 .next/
 infra/snowflake/dist/
 infra/aws/cdk.out/
+**/cdk-outputs.json
 out/
 *.tsbuildinfo
 playwright-report/

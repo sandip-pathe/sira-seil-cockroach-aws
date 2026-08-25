@@ -4,7 +4,7 @@ import test from "node:test";
 import * as cdk from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 
-import { SiraAwsStack, webBuildArgs } from "../lib/sira-aws-stack.js";
+import { SiraAwsStack } from "../lib/sira-aws-stack.js";
 
 function template(): Template {
   const app = new cdk.App();
@@ -17,15 +17,16 @@ function template(): Template {
     githubRepository: "sandip-pathe/sira-seil-cockroach-aws",
     githubBranch: "main",
     guardrailProfilePrefix: "us",
+    webBaseUrl: "https://sira-seil-cockroach-aws-web.vercel.app",
   });
   return Template.fromStack(stack);
 }
 
-test("synthesizes isolated durable application topology", () => {
+test("synthesizes isolated durable backend topology", () => {
   const rendered = template();
 
-  rendered.resourceCountIs("AWS::ECS::Service", 5);
-  rendered.resourceCountIs("AWS::ECS::TaskDefinition", 5);
+  rendered.resourceCountIs("AWS::ECS::Service", 4);
+  rendered.resourceCountIs("AWS::ECS::TaskDefinition", 4);
   rendered.resourceCountIs("AWS::SQS::Queue", 4);
   rendered.resourceCountIs("AWS::S3::Bucket", 1);
   rendered.resourceCountIs("AWS::CloudFront::Distribution", 1);
@@ -63,6 +64,7 @@ test("synthesizes isolated durable application topology", () => {
     RedrivePolicy: Match.objectLike({ maxReceiveCount: 5 }),
   });
   rendered.hasOutput("QualificationDlqUrl", {});
+  rendered.hasOutput("BackendUrl", {});
   rendered.hasOutput("GithubDeployRoleArn", {});
   rendered.hasOutput("SiraAgentCoreRuntimeArn", {});
   rendered.hasOutput("SeilAgentCoreRuntimeArn", {});
@@ -94,7 +96,6 @@ test("bridges authenticated at-least-once changefeed hints through a bounded Lam
   rendered.hasResourceProperties("AWS::Lambda::Function", {
     Architectures: ["arm64"],
     Handler: "sira_changefeed.handler.lambda_handler",
-    ReservedConcurrentExecutions: 5,
     Runtime: "python3.13",
     Timeout: 10,
   });
@@ -165,7 +166,7 @@ test("keeps tasks private and gives Bedrock only to agent-bearing roles", () => 
   const rendered = template();
 
   const services = rendered.findResources("AWS::ECS::Service");
-  assert.equal(Object.keys(services).length, 5);
+  assert.equal(Object.keys(services).length, 4);
   for (const service of Object.values(services)) {
     assert.equal(
       service.Properties.NetworkConfiguration.AwsvpcConfiguration.AssignPublicIp,
@@ -199,11 +200,4 @@ test("keeps tasks private and gives Bedrock only to agent-bearing roles", () => 
   const serialized = JSON.stringify(rendered.toJSON());
   assert.match(serialized, /foundation-model\/amazon\.nova-micro/);
   assert.match(serialized, /foundation-model\/amazon\.titan-embed-text/);
-});
-
-test("builds the web for the API-issued production guest-session mode", () => {
-  assert.deepEqual(webBuildArgs, {
-    NEXT_PUBLIC_WEB_DATA_MODE: "api",
-    NEXT_PUBLIC_GUEST_SESSION_ENABLED: "true",
-  });
 });

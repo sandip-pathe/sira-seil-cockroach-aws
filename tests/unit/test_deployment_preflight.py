@@ -19,6 +19,7 @@ def _runtime_secret() -> dict[str, str]:
             f"cockroachdb+asyncpg://sira_catalog_app:{credential}@{base}"
         ),
         "GUEST_SESSION_SIGNING_KEY": "g" * 48,
+        "RUNTIME_TICKET_SIGNING_KEY": "r" * 48,
     }
 
 
@@ -64,4 +65,9 @@ def test_runtime_secret_requires_role_separation_and_strong_guest_signing() -> N
     secret = _runtime_secret()
     secret["GUEST_SESSION_SIGNING_KEY"] = "short"
     with pytest.raises(ValueError, match="at least 32 bytes"):
+        validate_runtime_secret(secret)
+
+    secret = _runtime_secret()
+    secret["RUNTIME_TICKET_SIGNING_KEY"] = secret["GUEST_SESSION_SIGNING_KEY"]
+    with pytest.raises(ValueError, match="must be distinct"):
         validate_runtime_secret(secret)
