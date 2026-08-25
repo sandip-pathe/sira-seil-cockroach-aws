@@ -298,6 +298,10 @@ export class SiraAwsStack extends cdk.Stack {
       reasoningPolicyVersion.attrVersion,
     ]);
 
+    const guardrailProfileArn =
+      `arn:${this.partition}:bedrock:${this.region}:${this.account}:guardrail-profile/${props.guardrailProfilePrefix}.guardrail.v1:0`;
+    const guardrailProfilePolicyArn =
+      `arn:${this.partition}:bedrock:*:${this.account}:guardrail-profile/${props.guardrailProfilePrefix}.guardrail.v1:0`;
     const guardrail = new bedrock.CfnGuardrail(this, "AgentGuardrail", {
       name: `${name}-authority-boundary`,
       description: "Blocks prompt attacks, authority bypasses, and direct-contact disclosure.",
@@ -308,7 +312,7 @@ export class SiraAwsStack extends cdk.Stack {
         confidenceThreshold: 0.8,
       },
       crossRegionConfig: {
-        guardrailProfileArn: `arn:${this.partition}:bedrock:${this.region}:${this.account}:guardrail-profile/${props.guardrailProfilePrefix}.guardrail.v1:0`,
+        guardrailProfileArn,
       },
       contentPolicyConfig: {
         filtersConfig: ["HATE", "INSULTS", "SEXUAL", "VIOLENCE", "PROMPT_ATTACK"].map((type) => ({
@@ -424,7 +428,7 @@ export class SiraAwsStack extends cdk.Stack {
       runtime.addToRolePolicy(
         new iam.PolicyStatement({
           actions: ["bedrock:ApplyGuardrail"],
-          resources: [guardrail.attrGuardrailArn],
+          resources: [guardrail.attrGuardrailArn, guardrailProfilePolicyArn],
         }),
       );
       runtime.addToRolePolicy(
@@ -525,7 +529,7 @@ export class SiraAwsStack extends cdk.Stack {
     apiTask.taskRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: ["bedrock:ApplyGuardrail"],
-        resources: [guardrail.attrGuardrailArn],
+        resources: [guardrail.attrGuardrailArn, guardrailProfilePolicyArn],
       }),
     );
 
@@ -636,7 +640,7 @@ export class SiraAwsStack extends cdk.Stack {
     qualificationTask.taskRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: ["bedrock:ApplyGuardrail"],
-        resources: [guardrail.attrGuardrailArn],
+        resources: [guardrail.attrGuardrailArn, guardrailProfilePolicyArn],
       }),
     );
     siraRuntime.grantInvokeRuntime(qualificationTask.taskRole);

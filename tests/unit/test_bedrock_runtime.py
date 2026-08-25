@@ -32,6 +32,7 @@ class FakeBedrockClient:
     invoke_response: Mapping[str, Any] | None = None
     converse_calls: list[dict[str, Any]] = field(default_factory=list)
     invoke_calls: list[dict[str, Any]] = field(default_factory=list)
+    apply_calls: list[dict[str, Any]] = field(default_factory=list)
 
     def converse(self, **kwargs: Any) -> Mapping[str, Any]:
         self.converse_calls.append(deepcopy(kwargs))
@@ -41,6 +42,10 @@ class FakeBedrockClient:
         self.invoke_calls.append(kwargs)
         assert self.invoke_response is not None
         return self.invoke_response
+
+    def apply_guardrail(self, **kwargs: Any) -> Mapping[str, Any]:
+        self.apply_calls.append(deepcopy(kwargs))
+        return {"action": "NONE"}
 
 
 def _response(*blocks: dict[str, Any], stop_reason: str = "end_turn") -> dict[str, Any]:
@@ -125,7 +130,12 @@ async def test_converse_tool_loop_keeps_private_context_out_of_model_payload() -
     assert "org_private" not in serialized
     assert "actor_private" not in serialized
     assert "credential_handle" not in serialized
-    assert client.converse_calls[0]["guardrailConfig"]["guardrailIdentifier"] == "guardrail-1"
+    assert "guardrailConfig" not in client.converse_calls[0]
+    assert client.apply_calls[0]["content"] == [
+        {"text": {"text": "Which product fits?"}}
+    ]
+    assert client.apply_calls[0]["source"] == "INPUT"
+    assert client.apply_calls[-1]["source"] == "OUTPUT"
     assert client.converse_calls[0]["requestMetadata"] == {"request_id": "request-1"}
     output_tool = client.converse_calls[0]["toolConfig"]["tools"][-1]["toolSpec"]
     assert output_tool["name"] == "submit_structured_output"

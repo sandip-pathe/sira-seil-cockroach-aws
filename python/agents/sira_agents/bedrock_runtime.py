@@ -148,21 +148,18 @@ class BedrockConverseRuntime:
         proposal_tools = {tool.name: tool for tool in request.proposal_tools}
         if set(proposal_tools).intersection(request.allowed_tools):
             raise ValueError("a tool cannot be both provider-executed and proposal-only")
-        messages: list[dict[str, Any]] = [
+        await self._assess_guardrail(request.prompt, source="INPUT")
+        message_content: list[dict[str, Any]] = [
             {
-                "role": "user",
-                "content": [
-                    {
-                        "text": json.dumps(
-                            payload,
-                            sort_keys=True,
-                            separators=(",", ":"),
-                            default=str,
-                        )
-                    }
-                ],
+                "text": json.dumps(
+                    payload,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    default=str,
+                )
             }
         ]
+        messages: list[dict[str, Any]] = [{"role": "user", "content": message_content}]
         system_text = self._system_instructions(request)
         tool_calls: list[str] = []
         proposals: list[Mapping[str, Any]] = []
@@ -202,12 +199,6 @@ class BedrockConverseRuntime:
                             if force_output_tool
                             else {"auto": {}}
                         ),
-                    }
-                if self.guardrail is not None:
-                    call["guardrailConfig"] = {
-                        "guardrailIdentifier": self.guardrail.identifier,
-                        "guardrailVersion": self.guardrail.version,
-                        "trace": "enabled",
                     }
                 if request.run_context and request.run_context.request_id:
                     call["requestMetadata"] = {"request_id": request.run_context.request_id[:256]}
@@ -266,6 +257,10 @@ class BedrockConverseRuntime:
                             )
                             force_output_tool = True
                             continue
+                        await self._assess_guardrail(
+                            json.dumps(_json_safe(output), sort_keys=True),
+                            source="OUTPUT",
+                        )
                         return AgentRunResult(
                             output=output,
                             tool_calls=tuple(tool_calls),
@@ -350,6 +345,10 @@ class BedrockConverseRuntime:
                                 }
                             )
                         output = validator({"decision": {"kind": "propose_tools", "calls": calls}})
+                        await self._assess_guardrail(
+                            json.dumps(_json_safe(output), sort_keys=True),
+                            source="OUTPUT",
+                        )
                         return AgentRunResult(
                             output=output,
                             runtime="aws-bedrock-converse",
@@ -411,6 +410,10 @@ class BedrockConverseRuntime:
                     )
                     force_output_tool = True
                     continue
+                await self._assess_guardrail(
+                    json.dumps(_json_safe(output), sort_keys=True),
+                    source="OUTPUT",
+                )
                 return AgentRunResult(
                     output=output,
                     tool_calls=tuple(tool_calls),
@@ -425,6 +428,19 @@ class BedrockConverseRuntime:
                     },
                 )
         raise BedrockRuntimeError("Bedrock tool loop exceeded max_turns")
+
+    async def _assess_guardrail(self, text: str, *, source: str) -> None:
+        if self.guardrail is None:
+            return
+        assessment = await asyncio.to_thread(
+            self.client.apply_guardrail,
+            guardrailIdentifier=self.guardrail.identifier,
+            guardrailVersion=self.guardrail.version,
+            source=source,
+            content=[{"text": {"text": text}}],
+        )
+        if str(assessment.get("action", "")) != "NONE":
+            raise BedrockGuardrailBlocked(f"Bedrock Guardrail blocked the {source.lower()}")
 
     @staticmethod
     def _system_instructions(request: AgentRunRequest) -> str:

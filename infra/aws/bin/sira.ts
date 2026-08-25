@@ -24,7 +24,7 @@ new SiraAwsStack(app, `Sira-${stage}`, {
   guardrailProfilePrefix: String(app.node.tryGetContext("guardrailProfilePrefix") ?? "us"),
   webBaseUrl: String(
     app.node.tryGetContext("webBaseUrl") ??
-      "https://sira-seil-cockroach-aws-web.vercel.app",
+      "https://sira-and-seil.vercel.app",
   ),
   firebaseProjectId: String(
     app.node.tryGetContext("firebaseProjectId") ?? process.env.FIREBASE_PROJECT_ID ?? "",

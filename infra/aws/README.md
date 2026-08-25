@@ -95,7 +95,7 @@ NEXT_PUBLIC_GUEST_SESSION_ENABLED=false
 ```
 
 The browser calls relative `/v1/*` URLs and Vercel rewrites them to AWS, so no permissive
-CORS middleware is required. CDK sets `WEB_BASE_URL` on the API and rejects state-changing
+CORS middleware is required. CDK sets `WEB_BASE_URL` to the canonical Vercel production origin and rejects state-changing
 requests whose `Origin` is not the configured Vercel origin. `FIREBASE_PROJECT_ID` is also
 passed to the API so Firebase bearer tokens are verified server-side; Firebase web config
 values never grant backend authority by themselves.

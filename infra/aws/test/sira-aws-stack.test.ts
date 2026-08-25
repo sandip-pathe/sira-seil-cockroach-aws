@@ -17,7 +17,7 @@ function template(): Template {
     githubRepository: "sandip-pathe/sira-seil-cockroach-aws",
     githubBranch: "main",
     guardrailProfilePrefix: "us",
-    webBaseUrl: "https://sira-seil-cockroach-aws-web.vercel.app",
+    webBaseUrl: "https://sira-and-seil.vercel.app",
     firebaseProjectId: "sira-test-project",
   });
   return Template.fromStack(stack);
@@ -50,7 +50,7 @@ test("synthesizes isolated durable backend topology", () => {
           { Name: "FIREBASE_PROJECT_ID", Value: "sira-test-project" },
           {
             Name: "WEB_BASE_URL",
-            Value: "https://sira-seil-cockroach-aws-web.vercel.app",
+            Value: "https://sira-and-seil.vercel.app",
           },
         ]),
       }),
@@ -198,6 +198,10 @@ test("keeps tasks private and gives Bedrock only to agent-bearing roles", () => 
       ]),
     },
   });
+  const policyJson = JSON.stringify(rendered.findResources("AWS::IAM::Policy"));
+  assert.ok((policyJson.match(/bedrock:ApplyGuardrail/g) ?? []).length >= 3);
+  assert.ok((policyJson.match(/guardrail-profile\/us\.guardrail\.v1:0/g) ?? []).length >= 3);
+  assert.match(policyJson, /bedrock:\*:/);
   rendered.hasResourceProperties("AWS::ECS::TaskDefinition", {
     ContainerDefinitions: Match.arrayWith([
       Match.objectLike({
