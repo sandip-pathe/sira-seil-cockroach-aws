@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { FormField } from "@/components/ui/form-field";
 import {
   buyerDevelopmentHeaders,
   createIdempotencyKey,
@@ -51,7 +52,8 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
   const mode = search.get("mode") === "seil" ? "seil" : "sira";
   const isSeller = mode === "seil";
   const headers = isSeller ? sellerEditorDevelopmentHeaders : buyerDevelopmentHeaders;
-  const [amount, setAmount] = useState("1100.00");
+  const [amount, setAmount] = useState("");
+  const [amountTouched, setAmountTouched] = useState(false);
   const [message, setMessage] = useState("");
   const [handoff, setHandoff] = useState<ExchangeHandoffView | null>(null);
   const queryKey = useMemo(() => ["exchange", caseId, route, mode], [caseId, route, mode]);
@@ -68,6 +70,9 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
   const view = query.data;
   const data = released(view);
   const offer = data.current_offer;
+  const amountError = !/^\d+(?:\.\d{1,2})?$/.test(amount) && amountTouched
+    ? "Enter a USD amount with no more than two decimal places."
+    : undefined;
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey });
@@ -217,7 +222,12 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
           <section className={styles.cardWide}>
             <div className={styles.offerHead}><div><p>Exact terms</p><h2>{offer ? `${offer.currency} ${offer.total}` : "No offer yet"}</h2></div>{offer ? <code>{offer.offer_hash?.slice(0, 28)}…</code> : null}</div>
             {offer ? <dl><div><dt>Proposed by</dt><dd>{offer.proposer}</dd></div><div><dt>Changed terms</dt><dd>{offer.changed_terms?.join(", ") || "Initial terms"}</dd></div><div><dt>Rationale</dt><dd>{offer.rationale}</dd></div></dl> : null}
-            {(!isSeller && view.state === "EVIDENCE_RELEASED") || (isSeller && view.state === "OFFERED") ? <div className={styles.offerAction}><label>Annual total (USD)<input value={amount} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} /></label><button type="button" disabled={offerMutation.isPending} onClick={() => offerMutation.mutate(new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString())}>{view.state === "OFFERED" ? "Send one counteroffer" : "Propose exact terms"}</button></div> : null}
+            {(!isSeller && view.state === "EVIDENCE_RELEASED") || (isSeller && view.state === "OFFERED") ? <form className={styles.offerAction} onSubmit={(event) => { event.preventDefault(); offerMutation.mutate(new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()); }}>
+              <FormField id="exchange-annual-total" label="Annual total (USD)" required helpText="Enter the exact amount for this offer. USD amounts can have up to two decimal places." error={amountError}>
+                {(controlProps) => <input {...controlProps} type="text" value={amount} inputMode="decimal" autoComplete="off" pattern="[0-9]+(\.[0-9]{1,2})?" required onBlur={() => setAmountTouched(true)} onChange={(event) => setAmount(event.target.value)} />}
+              </FormField>
+              <button type="submit" disabled={offerMutation.isPending}>{view.state === "OFFERED" ? "Send one counteroffer" : "Propose exact terms"}</button>
+            </form> : null}
             {isSeller && view.state === "OFFERED" ? <button className={styles.secondary} type="button" disabled={acceptMutation.isPending} onClick={() => acceptMutation.mutate()}><Check /> Accept exact offer</button> : null}
             {!isSeller && view.state === "COUNTERED" ? <button type="button" disabled={acceptMutation.isPending} onClick={() => acceptMutation.mutate()}><Check /> Accept exact counteroffer</button> : null}
             {!isSeller && view.state === "AGREED_PENDING_APPROVAL" ? <button type="button" disabled={approveMutation.isPending} onClick={() => approveMutation.mutate(new Date(Date.now() + 15 * 60 * 1000).toISOString())}><BadgeCheck /> Approve for external handoff</button> : null}
