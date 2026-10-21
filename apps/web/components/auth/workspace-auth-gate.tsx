@@ -4,6 +4,8 @@ import { LockKeyhole } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
+import { rememberEntryIntent, workspaceForEntry } from "@/lib/entry-intent";
+
 import { useFirebaseAuth } from "./firebase-auth-provider";
 import styles from "./workspace-auth-gate.module.css";
 
@@ -16,8 +18,9 @@ export function WorkspaceAuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!configured || loading || user) return;
-    const workspace =
-      pathname.startsWith("/seil") || pathname.startsWith("/seller") ? "seil" : "sira";
+    const target = `${pathname}${window.location.search}${window.location.hash}`;
+    const workspace = workspaceForEntry(pathname, window.location.search);
+    rememberEntryIntent(workspace, target);
     router.replace(`/sign-in?workspace=${workspace}`);
   }, [configured, loading, pathname, router, user]);
 

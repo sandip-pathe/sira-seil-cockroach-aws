@@ -428,6 +428,27 @@
   color: var(--settings-accent);
 }
 
+.accountNotice,
+.accountError {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.accountError {
+  padding: 10px 12px;
+  border: 1px solid #d9a29a;
+  border-radius: 8px;
+  background: #fff0ed;
+  color: #8a2f24;
+}
+
+.accountAction:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 @media (max-width: 640px) {
   .overlay {
     padding: 0;

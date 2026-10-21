@@ -70,6 +70,40 @@ test("authentication setup state is keyboard reachable", async ({ page }) => {
   await expect(controls.first()).toBeFocused();
 });
 
+test("sign-in only advertises a recent same-workspace task continuation", async ({ page }) => {
+  await page.goto("/seil/sign-in", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Sign in and start working." })).toBeVisible();
+  await page.evaluate(() => {
+    sessionStorage.setItem("sira.entry-intent.v1", JSON.stringify({
+      workspace: "sira",
+      target: "/sira/decisions",
+      savedAt: Date.now(),
+    }));
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("status").filter({ hasText: "return you to the task" })).toHaveCount(0);
+
+  await page.evaluate(() => {
+    sessionStorage.setItem("sira.entry-intent.v1", JSON.stringify({
+      workspace: "seil",
+      target: "https://outside.example/collect",
+      savedAt: Date.now(),
+    }));
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("status").filter({ hasText: "return you to the task" })).toHaveCount(0);
+
+  await page.evaluate(() => {
+    sessionStorage.setItem("sira.entry-intent.v1", JSON.stringify({
+      workspace: "seil",
+      target: "/seil/product-evidence/demo-product?field=pricing",
+      savedAt: Date.now(),
+    }));
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("status").filter({ hasText: "After sign-in, we'll return you to the task you opened." })).toBeVisible();
+});
+
 test("Firebase-disabled workspace presents a safe private guest account", async ({ page }) => {
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
