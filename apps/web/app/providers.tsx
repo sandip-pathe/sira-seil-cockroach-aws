@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 
 import { FirebaseAuthProvider } from "@/components/auth/firebase-auth-provider";
+import { PerformanceBaseline } from "@/components/instrumentation/performance-baseline";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -17,7 +18,10 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <FirebaseAuthProvider>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <PerformanceBaseline />
+        {children}
+      </QueryClientProvider>
     </FirebaseAuthProvider>
   );
 }

@@ -164,6 +164,13 @@ test("seller evidence retry reuses one idempotency key and expected version", as
   const versions: number[] = [];
   const exchangeRequests: string[] = [];
   let publishes = 0;
+  await page.addInitScript(() => {
+    const windowWithEvents = window as typeof window & { __siraEvents?: unknown[] };
+    windowWithEvents.__siraEvents = [];
+    window.addEventListener("sira:instrumentation", (event) => {
+      windowWithEvents.__siraEvents?.push((event as CustomEvent).detail);
+    });
+  });
   page.on("request", (request) => {
     if (request.url().includes("exchange")) exchangeRequests.push(`${request.method()} ${request.url()}`);
   });
@@ -218,6 +225,15 @@ test("seller evidence retry reuses one idempotency key and expected version", as
   expect(keys[0]).not.toBe("missing");
   expect(keys[1]).toBe(keys[0]);
   expect(versions).toEqual([4, 4]);
+  const productEvents = await page.evaluate(() =>
+    ((window as typeof window & { __siraEvents?: Array<Record<string, unknown>> }).__siraEvents ?? [])
+      .filter((event) => event.layer === "ui_intent" || event.layer === "server_effect"),
+  );
+  expect(productEvents.map((event) => event.layer)).toEqual(["ui_intent", "ui_intent", "server_effect"]);
+  expect(productEvents.every((event) => Object.keys(event).every((key) =>
+    ["schema_version", "layer", "name", "surface", "confirmation", "occurred_at"].includes(key),
+  ))).toBe(true);
+  expect(productEvents.some((event) => event.layer === "external_outcome")).toBe(false);
 });
 
 test("mission skip link reaches the focused chat at narrow and 200% effective widths", async ({ page }) => {

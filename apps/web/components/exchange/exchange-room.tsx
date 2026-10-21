@@ -18,6 +18,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { FormField } from "@/components/ui/form-field";
 import { StatusNotice } from "@/components/ui/status-notice";
+import { recordServerEffect, recordUiIntent } from "@/lib/instrumentation";
 import {
   buyerDevelopmentHeaders,
   createIdempotencyKey,
@@ -82,6 +83,7 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
 
   const evidenceMutation = useMutation({
     mutationFn: () => {
+      recordUiIntent("exchange.evidence.publish");
       const version = view?.version ?? 0;
       if (evidenceIntent.current?.version !== version) {
         evidenceIntent.current = {
@@ -103,6 +105,7 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
     },
     onMutate: () => setNotice(null),
     onSuccess: async () => {
+      recordServerEffect("exchange.evidence.publish");
       evidenceIntent.current = null;
       setNotice({ tone: "success", text: "Evidence was submitted. Refreshing the exchange version." });
       await refresh();
@@ -112,6 +115,7 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
 
   const offerMutation = useMutation({
     mutationFn: (expiresAt: string) => {
+      recordUiIntent("exchange.offer.propose");
       const counter = view?.state === "OFFERED";
       return getBrowserApiClient().request("propose_exchange_offer", {
         pathParams: { case_id: caseId },
@@ -137,25 +141,36 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
       });
     },
     onMutate: () => setNotice(null),
-    onSuccess: refresh,
+    onSuccess: () => {
+      recordServerEffect("exchange.offer.propose");
+      return refresh();
+    },
     onError: () => setNotice({ tone: "error", text: "Those terms were not recorded. Refresh the current version." }),
   });
 
   const acceptMutation = useMutation({
-    mutationFn: () => getBrowserApiClient().request("accept_exchange_offer", {
+    mutationFn: () => {
+      recordUiIntent("exchange.offer.accept");
+      return getBrowserApiClient().request("accept_exchange_offer", {
       pathParams: { case_id: caseId },
       query: { route },
       body: { expected_version: view?.version ?? 0, offer_hash: offer?.offer_hash ?? "" },
       idempotencyKey: createIdempotencyKey(`accept-${caseId}-${offer?.offer_hash}`),
       headers,
-    }),
+      });
+    },
     onMutate: () => setNotice(null),
-    onSuccess: refresh,
+    onSuccess: () => {
+      recordServerEffect("exchange.offer.accept");
+      return refresh();
+    },
     onError: () => setNotice({ tone: "error", text: "The offer changed or expired. Refresh before accepting." }),
   });
 
   const approveMutation = useMutation({
-    mutationFn: (approvalExpiresAt: string) => getBrowserApiClient().request("approve_exchange_offer", {
+    mutationFn: (approvalExpiresAt: string) => {
+      recordUiIntent("exchange.offer.approve");
+      return getBrowserApiClient().request("approve_exchange_offer", {
       pathParams: { case_id: caseId },
       query: { route },
       body: {
@@ -165,27 +180,38 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
       },
       idempotencyKey: createIdempotencyKey(`approve-${caseId}-${offer?.offer_hash}`),
       headers,
-    }),
+      });
+    },
     onMutate: () => setNotice(null),
-    onSuccess: refresh,
+    onSuccess: () => {
+      recordServerEffect("exchange.offer.approve");
+      return refresh();
+    },
     onError: () => setNotice({ tone: "error", text: "Recent buyer verification is required for exact-term approval." }),
   });
 
   const handoffMutation = useMutation({
-    mutationFn: () => getBrowserApiClient().request("create_exchange_handoff", {
+    mutationFn: () => {
+      recordUiIntent("exchange.handoff.prepare");
+      return getBrowserApiClient().request("create_exchange_handoff", {
       pathParams: { case_id: caseId },
       query: { route },
       body: { expected_version: view?.version ?? 0, offer_hash: offer?.offer_hash ?? "" },
       idempotencyKey: createIdempotencyKey(`handoff-${caseId}-${offer?.offer_hash}`),
       headers,
-    }),
+      });
+    },
     onMutate: () => setNotice(null),
-    onSuccess: (result) => setHandoff(result),
+    onSuccess: (result) => {
+      recordServerEffect("exchange.handoff.prepare");
+      setHandoff(result);
+    },
     onError: () => setNotice({ tone: "error", text: "The approved offer could not be prepared for payment." }),
   });
 
   const openHandoffMutation = useMutation({
     mutationFn: () => {
+      recordUiIntent("exchange.handoff.open");
       if (!handoff) throw new Error("Payment handoff not prepared");
       return getBrowserApiClient().request("open_exchange_handoff", {
         pathParams: { case_id: caseId, handoff_id: handoff.id },
@@ -197,6 +223,7 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
     },
     onMutate: () => setNotice(null),
     onSuccess: (opened) => {
+      recordServerEffect("exchange.handoff.open");
       setHandoff(opened);
       window.location.assign(opened.destination_url);
     },
