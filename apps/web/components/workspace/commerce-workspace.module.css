@@ -157,8 +157,9 @@
 .contextHeader button,
 .composerToolbar button {
   display: inline-flex;
-  width: 36px;
-  height: 36px;
+  width: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  height: var(--touch-target-min);
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -187,7 +188,7 @@
 
 .chatSearch {
   display: flex;
-  min-height: 42px;
+  min-height: var(--touch-target-min);
   align-items: center;
   gap: 8px;
   margin-top: 10px;
@@ -224,7 +225,7 @@
 }
 
 .modeSwitcher button {
-  min-height: 32px;
+  min-height: var(--touch-target-min);
   border: 0;
   border-radius: 7px;
   background: transparent;
@@ -248,7 +249,7 @@
 .newChatButton {
   display: flex;
   width: 100%;
-  min-height: 38px;
+  min-height: var(--touch-target-min);
   align-items: center;
   gap: 8px;
   margin-top: 9px;
@@ -284,7 +285,7 @@
 .sidebarNav button,
 .sidebarNav a {
   display: flex;
-  min-height: 36px;
+  min-height: var(--touch-target-min);
   align-items: center;
   gap: 9px;
   padding: 0 9px;
@@ -358,7 +359,7 @@
 .recentList button {
   display: flex;
   width: 100%;
-  min-height: 42px;
+  min-height: var(--touch-target-min);
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -608,7 +609,7 @@
 }
 
 .promptSuggestions button {
-  min-height: 36px;
+  min-height: var(--touch-target-min);
   padding: 0 12px;
   border: 1px solid #ded9ce;
   border-radius: 999px;
@@ -1244,7 +1245,7 @@
 
 .workspace .proposalCard button {
   display: inline-flex;
-  min-height: 36px;
+  min-height: var(--touch-target-min);
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -1736,7 +1737,7 @@
 
 .composerToolbar {
   display: flex;
-  min-height: 36px;
+  min-height: var(--touch-target-min);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -2401,7 +2402,7 @@
 
 .workspace .fullViewLink {
   display: flex;
-  min-height: 42px;
+  min-height: var(--touch-target-min);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -2789,7 +2790,7 @@
 
   .promptSuggestions button {
     width: 100%;
-    min-height: 42px;
+    min-height: var(--touch-target-min);
     border-radius: 10px;
     text-align: left;
   }

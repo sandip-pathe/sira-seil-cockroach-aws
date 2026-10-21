@@ -36,7 +36,7 @@ The initial contrast calculation used WCAG relative luminance on the shared fore
 | Success / warning / danger on matching background | 5.19:1 / 5.41:1 / 5.75:1 |
 | Info on info background | 5.80:1 |
 
-These calculations cover the listed token pairs, not every component/state combination, images, browser rendering, or WCAG conformance. The global base text changed from 15 px to 16 px. The workspace now consumes shared color, font, focus and motion tokens. `pnpm check:web`, `pnpm build:web`, and 16 Playwright desktop/mobile scenarios passed after this change.
+These calculations cover the listed token pairs, not every component/state combination, images, browser rendering, or WCAG conformance. The global base text changed from 15 px to 16 px. The workspace now consumes shared color, font, focus and motion tokens. Primary workspace navigation, search, prompts, proposal actions, toolbar icon buttons and full-view links now use the 44 px minimum target token. `pnpm check:web`, `pnpm build:web`, and 16 Playwright desktop/mobile scenarios passed after these changes.
 
 ## Remaining Step 04 work
 
