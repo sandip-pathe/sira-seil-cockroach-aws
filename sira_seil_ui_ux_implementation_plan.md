@@ -1,6 +1,6 @@
 # SIRA + SEIL UI/UX implementation plan
 
-Version 1.0 · 21 October 2026 · Status: in progress; Step 00 repository audit is recorded and Step 01 product model is drafted. Customer evidence and business-owner decisions remain open dependencies. Product implementation under this plan has not started.
+Version 1.0 · 21 October 2026 · Status: in progress; Step 00 repository audit and Step 01 product model are recorded; Step 02 copy system is drafted. Customer comprehension evidence and business-owner decisions remain open dependencies. Product implementation under this plan has not started.
 
 This is the execution plan for the [SIRA + SEIL synthesis-driven design playbook](sira_seil_ui_ux_synthesis_driven_design_system.md). It covers public messaging, product copy, navigation, components, buyer and seller workflows, company context, human decisions, integrations, commercial handoffs, validation, and operations.
 
@@ -132,17 +132,17 @@ flowchart TD
 
 **Purpose:** make marketing, UI labels, explanations, and agent language describe the same product.
 
-- [ ] **02.1 Adopt a shared vocabulary.** Define mission, brief, company context, product evidence, source, fit, recommendation, introduction, offer, approval, handoff, and outcome. Keep technical enum names in engineering records and useful explanations in the UI.
-- [ ] **02.2 Establish content models and stable keys.** For each surface/state, record heading, body, primary/secondary actions, helper text, error, accessibility announcement, authority implication, and claim dependency. Use the companion copy IDs as the initial catalog.
-- [ ] **02.3 Write public positioning and narrative.** Draft hero, buyer/seller value, how it works, evidence/controls, categories, integrations, pricing explanation, trust/security, FAQ, closing CTA, navigation, and footer.
-- [ ] **02.4 Write complete product-state copy.** Include onboarding, permissions, brief corrections, comparison, evidence gaps, seller review, consent, offers, approvals, pending states, errors, return summaries, connection lifecycle, and external outcomes.
-- [ ] **02.5 Define agent response structure.** Acknowledge outcome, show verified work/result, name missing information, explain the next action, and link the artifact. Distinguish a suggested change from an applied one. Keep fixed state/authority labels deterministic.
-- [ ] **02.6 Create a claim register.** Each marketing claim has supporting behavior/evidence, owner, environment, freshness/review date, and allowed wording. Case studies, logos, integrations, security statements, savings, and ranking-neutrality claims require actual support and permission where relevant.
-- [ ] **02.7 Check copy comprehension.** Test audience identification, task understanding, uncertainty, and action consequences. Revise before implementation; revisit with real behavior in 12.
+- [x] **02.1 Adopt a shared vocabulary.** The [copy specification](docs/ui-ux-upgrade/copy-spec.md) defines mission, brief, company context, evidence, fit, recommendation, introduction, offer, approval, handoff and outcome, with distinctions from technical authority states.
+- [x] **02.2 Establish content models and stable keys.** The copy specification models content IDs, route/state, variables, dependencies, announcements and capability constraints across public, buyer, seller, decision, error, agent and notification surfaces.
+- [x] **02.3 Write public positioning and narrative.** The copy specification contains a complete conditional public narrative, CTAs, secondary pages, FAQ, navigation, metadata and footer. It remains a draft until capability and business claims are reconciled.
+- [x] **02.4 Write product-state copy.** Draft copy covers entry, permissions, briefs, evidence, seller review, consent, offers, approval, pending/error/unknown states, connection lifecycle, agent responses and notifications. Dynamic authority and delivery remain conditional on server state.
+- [x] **02.5 Define agent response structure.** Result, clarification, proposed change, waiting and failure response patterns are specified; fixed state labels remain deterministic.
+- [x] **02.6 Create a claim register.** [claim-register.md](docs/ui-ux-upgrade/claim-register.md) maps public/workspace claims to evidence, allowed wording, owner and review trigger. Unsupported integrations, outcomes, fees, ranking guarantees and quantified benefits are withheld.
+- [ ] **02.7 Check copy comprehension.** `blocked_dependency`: no representative buyer/seller participants or observed sessions were available. Test protocol and outcome measures are recorded in [baseline-tasks.md](docs/ui-ux-upgrade/baseline-tasks.md); do not call draft copy validated.
 
 **Implementation approach:** use a small typed content module or feature-level content files where repeated content benefits from one source. Avoid a CMS migration or locale framework without a current need. Separate static copy, dynamic facts, and model-generated explanations. Use complete interpolated sentences with locale-aware dates, pluralization, and money formatting.
 
-**Deliverable:** [copy specification](docs/ui-ux-upgrade/copy-spec.md), then the implementation content catalog and claim register.
+**Deliverables:** [copy specification](docs/ui-ux-upgrade/copy-spec.md) and [claim register](docs/ui-ux-upgrade/claim-register.md). Code catalog implementation remains in the later UI build steps.
 
 **Exit evidence:** every planned flow has success and failure copy; every consequential action names its effect; no draft claim silently becomes a published fact.
 
