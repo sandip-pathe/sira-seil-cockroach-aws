@@ -59,6 +59,13 @@ Set `OPENAI_API_KEY` in `.env` before starting. `sira-dev up` starts CockroachDB
 
 The detailed [setup contract](docs/hackathon-build/SETUP.md), [operations guide](docs/hackathon-build/OPERATIONS.md), and [example environment](.env.example) describe the current local workflow.
 
+## Documentation
+
+- **Product and architecture:** [Persistent marketplace](docs/product-marketplace.md), [architecture decisions](docs/architecture-decisions.md), [current architecture](docs/hackathon-build/architecture.md), and [threat model](docs/threat-model.md).
+- **Development and operations:** [setup](docs/hackathon-build/SETUP.md), [configuration](docs/hackathon-build/CONFIGURATION.md), [operations](docs/hackathon-build/OPERATIONS.md), [test plan](docs/hackathon-build/test-plan.md), and [typed tool authoring](docs/tool-authoring-guide.md).
+- **UI/UX upgrade:** [design playbook](sira_seil_ui_ux_synthesis_driven_design_system.md), [implementation plan and tracker](sira_seil_ui_ux_implementation_plan.md), [flows and human-control specification](docs/ui-ux-upgrade/flow-and-control-spec.md), and [product copy specification](docs/ui-ux-upgrade/copy-spec.md).
+- **Project history:** [source provenance](SOURCE_PROVENANCE.md), [historical replication PRD](docs/REPLICATION-PRD.md), and the [Mira UI/UX source playbook](mira_ui_ux_synthesis_driven_design_system.md).
+
 ## Verification
 
 ```powershell
