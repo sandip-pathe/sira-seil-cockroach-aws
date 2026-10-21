@@ -50,8 +50,7 @@
 .statusBar,
 .grid,
 .empty,
-.share,
-.message { max-width: 1120px; margin-left: auto; margin-right: auto; }
+.share { max-width: 1120px; margin-left: auto; margin-right: auto; }
 
 .statusBar {
   display: flex;
@@ -97,7 +96,6 @@
 .complete div { display: grid; gap: 4px; }
 .complete span { font-size: 11px; }
 .share { margin-top: 18px; }
-.message { min-height: 20px; margin-top: 12px; color: var(--muted); font-size: 11px; }
 .empty { display: grid; justify-items: center; gap: 8px; padding: 80px 20px; text-align: center; }
 .empty svg { width: 28px; color: var(--sira); }
 .empty h1,

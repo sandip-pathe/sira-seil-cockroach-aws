@@ -1,0 +1,11 @@
+.notice { display: flex; max-width: 1120px; align-items: center; justify-content: space-between; gap: 16px; margin: 0 auto 12px; padding: 14px 16px; border: 1px solid transparent; border-radius: var(--radius-panel); font-size: 14px; line-height: 1.5; }
+.copy { display: grid; gap: 3px; }
+.copy strong { font-size: 14px; }
+.notice[data-tone="info"] { border-color: #c7d7ff; background: var(--info-bg); color: var(--info); }
+.notice[data-tone="success"] { border-color: #b8ddc8; background: var(--success-bg); color: var(--success); }
+.notice[data-tone="warning"] { border-color: #e8d59c; background: var(--warning-bg); color: var(--warning); }
+.notice[data-tone="error"] { border-color: #efc2bd; background: var(--danger-bg); color: var(--danger); }
+.notice button { min-height: 44px; flex: 0 0 auto; padding: 0 14px; border: 1px solid currentColor; border-radius: var(--radius-control); background: var(--surface); color: inherit; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.notice button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.notice button:disabled { cursor: wait; opacity: .65; }
+@media (max-width: 520px) { .notice { align-items: stretch; flex-direction: column; } .notice button { width: 100%; } }

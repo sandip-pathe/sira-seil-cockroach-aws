@@ -17,6 +17,7 @@ import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { FormField } from "@/components/ui/form-field";
+import { StatusNotice } from "@/components/ui/status-notice";
 import {
   buyerDevelopmentHeaders,
   createIdempotencyKey,
@@ -54,7 +55,7 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
   const headers = isSeller ? sellerEditorDevelopmentHeaders : buyerDevelopmentHeaders;
   const [amount, setAmount] = useState("");
   const [amountTouched, setAmountTouched] = useState(false);
-  const [message, setMessage] = useState("");
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [handoff, setHandoff] = useState<ExchangeHandoffView | null>(null);
   const queryKey = useMemo(() => ["exchange", caseId, route, mode], [caseId, route, mode]);
 
@@ -90,8 +91,9 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
       idempotencyKey: createIdempotencyKey(`exchange-evidence-${caseId}`),
       headers,
     }),
+    onMutate: () => setNotice(null),
     onSuccess: refresh,
-    onError: () => setMessage("No buyer-safe published evidence is available yet."),
+    onError: () => setNotice({ tone: "error", text: "No buyer-safe published evidence is available yet." }),
   });
 
   const offerMutation = useMutation({
@@ -120,8 +122,9 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
         headers,
       });
     },
+    onMutate: () => setNotice(null),
     onSuccess: refresh,
-    onError: () => setMessage("Those terms were not recorded. Refresh the current version."),
+    onError: () => setNotice({ tone: "error", text: "Those terms were not recorded. Refresh the current version." }),
   });
 
   const acceptMutation = useMutation({
@@ -132,8 +135,9 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
       idempotencyKey: createIdempotencyKey(`accept-${caseId}-${offer?.offer_hash}`),
       headers,
     }),
+    onMutate: () => setNotice(null),
     onSuccess: refresh,
-    onError: () => setMessage("The offer changed or expired. Refresh before accepting."),
+    onError: () => setNotice({ tone: "error", text: "The offer changed or expired. Refresh before accepting." }),
   });
 
   const approveMutation = useMutation({
@@ -148,8 +152,9 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
       idempotencyKey: createIdempotencyKey(`approve-${caseId}-${offer?.offer_hash}`),
       headers,
     }),
+    onMutate: () => setNotice(null),
     onSuccess: refresh,
-    onError: () => setMessage("Recent buyer verification is required for exact-term approval."),
+    onError: () => setNotice({ tone: "error", text: "Recent buyer verification is required for exact-term approval." }),
   });
 
   const handoffMutation = useMutation({
@@ -160,8 +165,9 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
       idempotencyKey: createIdempotencyKey(`handoff-${caseId}-${offer?.offer_hash}`),
       headers,
     }),
+    onMutate: () => setNotice(null),
     onSuccess: (result) => setHandoff(result),
-    onError: () => setMessage("The approved offer could not be prepared for payment."),
+    onError: () => setNotice({ tone: "error", text: "The approved offer could not be prepared for payment." }),
   });
 
   const openHandoffMutation = useMutation({
@@ -175,22 +181,23 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
         headers,
       });
     },
+    onMutate: () => setNotice(null),
     onSuccess: (opened) => {
       setHandoff(opened);
       window.location.assign(opened.destination_url);
     },
-    onError: () => setMessage("The payment page could not be opened. No payment was attempted."),
+    onError: () => setNotice({ tone: "error", text: "The payment page could not be opened. No payment was attempted." }),
   });
 
   const copySellerLink = async () => {
     const url = new URL(window.location.href);
     url.searchParams.set("mode", "seil");
     await navigator.clipboard.writeText(url.toString());
-    setMessage("Seller link copied. It reveals no buyer tenant or private company context.");
+    setNotice({ tone: "success", text: "Seller link copied. It reveals no buyer tenant or private company context." });
   };
 
-  if (!route) {
-    return <main className={styles.shell}><section className={styles.empty}><LockKeyhole /><h1>Exchange link required</h1><p>Open this room from a selected SIRA decision.</p></section></main>;
+  if (route.length < 64) {
+    return <main className={styles.shell}><section className={styles.empty}><LockKeyhole /><h1>{route ? "Exchange link incomplete" : "Exchange link required"}</h1><p>Open this room from a selected SIRA decision.</p></section></main>;
   }
 
   return (
@@ -201,7 +208,8 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
         <button type="button" onClick={() => void refresh()}><RefreshCw /> Refresh</button>
       </header>
 
-      {query.isError ? <section className={styles.empty}><LockKeyhole /><h2>Exchange unavailable</h2><p>The link may be expired, or this account is not the intended participant.</p></section> : null}
+      {query.isPending && route.length >= 64 ? <StatusNotice tone="info" title="Loading exchange">Checking the private exchange and its current version…</StatusNotice> : null}
+      {query.isError ? <StatusNotice tone="error" title="Exchange unavailable" action={{ label: query.isFetching ? "Retrying…" : "Retry", onAction: () => void query.refetch(), disabled: query.isFetching }}>The link may be expired, or this account may not be an intended participant. No exchange action was recorded.</StatusNotice> : null}
       {view ? <>
         <section className={styles.statusBar}><span><ShieldCheck /> {view.state.replaceAll("_", " ")}</span><span>Version {view.version}</span><code>{view.projection_hash.slice(0, 24)}…</code></section>
         <div className={styles.grid}>
@@ -235,7 +243,7 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
           </section>
         </div>
         {!isSeller ? <button className={styles.share} type="button" onClick={() => void copySellerLink()}><Copy /> Copy seller link</button> : null}
-        <p className={styles.message} role="status">{message}</p>
+        {notice ? <StatusNotice tone={notice.tone} title={notice.tone === "error" ? "Action not completed" : "Done"}>{notice.text}</StatusNotice> : null}
       </> : null}
     </main>
   );
