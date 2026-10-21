@@ -37,6 +37,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { ModalDialog } from "@/components/ui/modal-dialog";
 import {
   WEB_DATA_MODE,
   createIdempotencyKey,
@@ -1213,65 +1214,55 @@ function SubmitReviewDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !pending) onCancel();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onCancel, pending]);
-
   return (
-    <div className={styles.dialogBackdrop}>
-      <section
-        className={styles.dialog}
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="submit-review-title"
-        aria-describedby="submit-review-description"
-      >
-        <div className={styles.dialogHeading}>
-          <div>
-            <p className={styles.sectionKicker}>Consequential action</p>
-            <h2 id="submit-review-title">Submit revision {draft.revision} for review?</h2>
-          </div>
-          <button
-            className={styles.iconButton}
-            type="button"
-            onClick={onCancel}
-            disabled={pending}
-            aria-label="Close"
-          >
-            <X aria-hidden="true" />
-          </button>
+    <ModalDialog
+      className={styles.dialog}
+      alert
+      busy={pending}
+      labelledBy="submit-review-title"
+      describedBy="submit-review-description"
+      onRequestClose={onCancel}
+    >
+      <div className={styles.dialogHeading}>
+        <div>
+          <p className={styles.sectionKicker}>Consequential action</p>
+          <h2 id="submit-review-title">Submit revision {draft.revision} for review?</h2>
         </div>
-        <p id="submit-review-description">
-          This freezes the exact revision for reviewer approval. It does not
-          publish the Pack and it does not verify unsupported claims.
-        </p>
-        <code className={styles.dialogHash}>{draft.revision_hash}</code>
-        <div className={styles.dialogActions}>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={onCancel}
-            disabled={pending}
-          >
-            Keep editing
-          </button>
-          <button
-            className={styles.primaryButton}
-            type="button"
-            onClick={onConfirm}
-            disabled={pending}
-            autoFocus
-          >
-            {pending ? <RefreshCw className={styles.spin} aria-hidden="true" /> : <Send aria-hidden="true" />}
-            {pending ? "Submitting" : "Submit exact revision"}
-          </button>
-        </div>
-      </section>
-    </div>
+        <button
+          className={styles.iconButton}
+          type="button"
+          onClick={onCancel}
+          disabled={pending}
+          aria-label="Close"
+        >
+          <X aria-hidden="true" />
+        </button>
+      </div>
+      <p id="submit-review-description">
+        This freezes the exact revision for reviewer approval. It does not
+        publish the Pack and it does not verify unsupported claims.
+      </p>
+      <code className={styles.dialogHash}>{draft.revision_hash}</code>
+      <div className={styles.dialogActions}>
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          onClick={onCancel}
+          disabled={pending}
+        >
+          Keep editing
+        </button>
+        <button
+          className={styles.primaryButton}
+          type="button"
+          onClick={onConfirm}
+          disabled={pending}
+        >
+          {pending ? <RefreshCw className={styles.spin} aria-hidden="true" /> : <Send aria-hidden="true" />}
+          {pending ? "Submitting" : "Submit exact revision"}
+        </button>
+      </div>
+    </ModalDialog>
   );
 }
 
