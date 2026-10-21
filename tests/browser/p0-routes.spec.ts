@@ -130,6 +130,18 @@ test("Firebase-disabled workspace presents a safe private guest account", async 
   expect(browserErrors).toEqual([]);
 });
 
+test("buying and selling routes persistently identify their party and stay route-scoped", async ({ page }) => {
+  await page.goto("/sira", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("SIRA workspace · Buying agent", { exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Direct SIRA" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Switch buying or selling workspace" })).toHaveCount(0);
+
+  await page.goto("/seil", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("SEIL workspace · Selling agent", { exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Direct SEIL" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Switch buying or selling workspace" })).toHaveCount(0);
+});
+
 test("seller product form summarizes validation errors and focuses the linked field", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   let productSearches = 0;

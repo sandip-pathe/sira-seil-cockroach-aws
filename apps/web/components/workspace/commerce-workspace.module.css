@@ -528,6 +528,7 @@
 
 .missionMeta .agentIdentity,
 .missionMeta .privacyScope,
+.missionMeta .partyScope,
 .missionMeta .missionCheckpoint {
   display: inline-flex;
   min-width: 0;
@@ -545,6 +546,22 @@
 
 .missionMeta .privacyScope {
   color: #625e56;
+}
+
+.missionMeta .partyScope {
+  color: var(--workspace-accent-dark);
+  font-weight: 650;
+}
+
+.workspaceSwitchStatus {
+  min-height: 0;
+  margin: 0;
+  color: var(--workspace-accent-dark);
+  font-size: 11px;
+}
+
+.workspaceSwitchStatus:empty {
+  display: none;
 }
 
 .missionMeta .missionCheckpoint {
@@ -1862,6 +1879,13 @@
 .composerBoundary svg {
   width: 9px;
   height: 9px;
+}
+
+.workspaceModeHelp {
+  margin: 3px 0 0;
+  color: #8c877e;
+  font-size: 9px;
+  text-align: center;
 }
 
 .hiddenFileInput {

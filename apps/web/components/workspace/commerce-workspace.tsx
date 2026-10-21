@@ -2187,6 +2187,7 @@ export function CommerceWorkspace({
     ? "G"
     : accountName.trim().slice(0, 1).toUpperCase() || "U";
   const [mode, setMode] = useState<CommerceWorkspaceMode>(initialMode);
+  const [modeSwitchStatus, setModeSwitchStatus] = useState("");
   const [conversations, setConversations] = useState(cloneSeedConversations);
   const [selectedByMode, setSelectedByMode] = useState<Record<CommerceWorkspaceMode, string>>({
     sira: SEED_CONVERSATIONS.sira[0].id,
@@ -2344,9 +2345,14 @@ export function CommerceWorkspace({
 
   function switchMode(nextMode: CommerceWorkspaceMode) {
     if (modeLocked || nextMode === mode) return;
+    const previousMode = mode;
     setMode(nextMode);
+    setModeSwitchStatus(
+      `Switched to ${MODE_COPY[nextMode].name}, the ${MODE_COPY[nextMode].accentLabel.toLowerCase()} workspace. ${MODE_COPY[previousMode].name} conversations stay in their own workspace.`,
+    );
     setComposer("");
     setRunning(false);
+    setActiveDecision(null);
     setContextTab(nextMode === "sira" ? "decisions" : "catalog");
     setContextOpen(false);
     if (compact) setSidebarOpen(false);
@@ -2765,12 +2771,18 @@ export function CommerceWorkspace({
                   <LockKeyhole aria-hidden="true" />
                   {guestAccount ? "Isolated guest workspace" : MODE_COPY[mode].privacy}
                 </span>
+                <span className={styles.partyScope}>
+                  {MODE_COPY[mode].name} workspace · {MODE_COPY[mode].accentLabel}
+                </span>
                 {activeMission ? (
                   <span className={styles.missionCheckpoint}>
                     Version {activeMission.version} · {activeMission.state.replaceAll("_", " ")}
                   </span>
                 ) : null}
               </small>
+              <p className={styles.workspaceSwitchStatus} role="status" aria-live="polite">
+                {modeSwitchStatus}
+              </p>
             </div>
           </div>
           <div className={styles.chatHeaderActions}>
@@ -3054,13 +3066,14 @@ export function CommerceWorkspace({
                   <span className={styles.lockedAgent}>{MODE_COPY[mode].name}</span>
                 ) : (
                   <label>
-                    <span className="sr-only">Choose agent</span>
+                    <span className="sr-only">Switch buying or selling workspace</span>
                     <select
                       value={mode}
+                      aria-describedby="workspace-mode-help"
                       onChange={(event) => switchMode(event.target.value as CommerceWorkspaceMode)}
                     >
-                      <option value="sira">SIRA</option>
-                      <option value="seil">SEIL</option>
+                      <option value="sira">SIRA · Buying</option>
+                      <option value="seil">SEIL · Selling</option>
                     </select>
                     <ChevronDown aria-hidden="true" />
                   </label>
@@ -3082,6 +3095,11 @@ export function CommerceWorkspace({
             {MODE_COPY[mode].privacy}. The agent can investigate and recommend; protected actions
             still require your exact authority.
           </p>
+          {!modeLocked ? (
+            <p className={styles.workspaceModeHelp} id="workspace-mode-help">
+              Buying and selling missions stay separate when you switch workspaces.
+            </p>
+          ) : null}
         </div>
       </section>
 
