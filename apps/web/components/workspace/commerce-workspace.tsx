@@ -43,6 +43,7 @@ import type {
   MissionArtifactView,
   MissionEventView,
   MissionSummaryView,
+  MissionTaskView,
 } from "@sira/api-client";
 
 import {
@@ -118,7 +119,7 @@ type ChatMessage = {
   events?: MissionEventView[];
   artifacts?: MissionArtifactView[];
   attention?: AttentionView;
-  openTasks?: { [key: string]: unknown }[];
+  openTasks?: MissionTaskView[];
   handoffs?: { [key: string]: unknown }[];
   retryText?: string;
 };
@@ -1904,6 +1905,20 @@ function productLabel(value: unknown, fallback = "No eligible product") {
   return displayValue(value, fallback);
 }
 
+function missionTaskOwner(owner: MissionTaskView["owner_type"], mode: CommerceWorkspaceMode) {
+  if (owner === "HUMAN") return "You or your team";
+  if (owner === "ROOT_AGENT") return `${MODE_COPY[mode].name} agent`;
+  if (owner === "SUBAGENT") return "Supporting agent";
+  return "System step";
+}
+
+function missionTaskStatus(status: MissionTaskView["status"]) {
+  if (status === "PENDING") return "Queued";
+  if (status === "RUNNING") return "In progress";
+  if (status === "WAITING") return "Waiting";
+  return "Needs attention";
+}
+
 function AgentRunPanel({
   message,
   onSelectArtifact,
@@ -1972,8 +1987,8 @@ function AgentRunPanel({
           </div>
           {message.openTasks?.map((task, index) => (
             <div className={styles.runDetailRow} key={String(task.id ?? index)}>
-              <strong>{String(task.title ?? task.kind ?? "Mission task")}</strong>
-              <small>{String(task.status ?? "pending").toLowerCase()}</small>
+              <strong>{task.title || task.kind || "Mission task"}</strong>
+              <small>{missionTaskOwner(task.owner_type, message.mission?.mode ?? "sira")} · {missionTaskStatus(task.status)}</small>
             </div>
           ))}
           {message.handoffs?.map((handoff, index) => {
@@ -2199,7 +2214,9 @@ export function CommerceWorkspace({
     modeConversations.find((conversation) => conversation.id === selectedByMode[mode]) ??
     modeConversations[0];
   const messages = selectedConversation?.messages ?? [];
-  const activeMission = [...messages].reverse().find((message) => message.mission)?.mission;
+  const missionMessage = [...messages].reverse().find((message) => message.mission);
+  const activeMission = missionMessage?.mission;
+  const nextTask = missionMessage?.openTasks?.[0];
   const messageVersion = `${mode}:${selectedConversation?.id ?? "new"}:${messages.map((message) => `${message.id}:${message.content.length}`).join("|")}`;
 
   usePretextMessages(messageRootRef, messageVersion);
@@ -2454,6 +2471,7 @@ export function CommerceWorkspace({
                 mission: payload.mission,
                 events: payload.events,
                 artifacts: payload.artifacts,
+                openTasks: payload.open_tasks ?? [],
                 attention: payload.attention ?? undefined,
                 retryText: undefined,
               }
@@ -2735,6 +2753,23 @@ export function CommerceWorkspace({
             </button>
           </div>
         </header>
+
+        {missionMessage && nextTask ? (
+          <button
+            className={styles.nextTaskSummary}
+            type="button"
+            onClick={() => {
+              setSelectedRunMessage(missionMessage);
+              openContext("run");
+            }}
+            aria-label={`Inspect next open task: ${nextTask.title}`}
+          >
+            <span>Next open task</span>
+            <strong>{nextTask.title}</strong>
+            <small>{missionTaskOwner(nextTask.owner_type, mode)} · {missionTaskStatus(nextTask.status)}</small>
+            <ArrowRight aria-hidden="true" />
+          </button>
+        ) : null}
 
         <div
           className={styles.messageViewport}

@@ -578,6 +578,28 @@
   flex: 0 0 auto;
 }
 
+.nextTaskSummary {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 64px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-content: center;
+  padding: 9px 16px;
+  border: 0;
+  border-bottom: 1px solid #e3e0d6;
+  background: #f3f1ea;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nextTaskSummary:hover { background: #ece9e1; }
+.nextTaskSummary > span { color: #6f6a61; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.nextTaskSummary > strong { overflow: hidden; color: #2d2c29; font-size: 13px; font-weight: 650; text-overflow: ellipsis; }
+.nextTaskSummary > small { color: #6f6a61; font-size: 11px; }
+.nextTaskSummary > svg { width: 16px; height: 16px; grid-column: 2; grid-row: 1 / 4; align-self: center; color: var(--workspace-accent-dark); }
+
 .messageViewport {
   min-height: 0;
   flex: 1 1 auto;

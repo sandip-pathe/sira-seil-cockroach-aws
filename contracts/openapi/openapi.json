@@ -4665,8 +4665,7 @@
           },
           "open_tasks": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/MissionTaskView"
             },
             "title": "Open Tasks",
             "type": "array"
@@ -4734,6 +4733,65 @@
           "version"
         ],
         "title": "MissionSummaryView",
+        "type": "object"
+      },
+      "MissionTaskView": {
+        "properties": {
+          "assigned_role": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned Role"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "maxLength": 64,
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner_type": {
+            "enum": [
+              "ROOT_AGENT",
+              "SUBAGENT",
+              "HUMAN",
+              "SYSTEM"
+            ],
+            "title": "Owner Type",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "WAITING",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 240,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "status",
+          "owner_type"
+        ],
+        "title": "MissionTaskView",
         "type": "object"
       },
       "MoneyViewV2": {
@@ -9766,6 +9824,13 @@
             "title": "Mission Id",
             "type": "string"
           },
+          "open_tasks": {
+            "items": {
+              "$ref": "#/components/schemas/MissionTaskView"
+            },
+            "title": "Open Tasks",
+            "type": "array"
+          },
           "panel": {
             "anyOf": [
               {
@@ -9854,8 +9919,7 @@
           },
           "open_tasks": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/MissionTaskView"
             },
             "title": "Open Tasks",
             "type": "array"

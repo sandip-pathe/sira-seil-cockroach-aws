@@ -114,6 +114,15 @@ class MissionSummaryView(BaseModel):
     stop_reason: str | None = None
 
 
+class MissionTaskView(BaseModel):
+    id: str
+    kind: str = Field(max_length=64)
+    title: str = Field(max_length=240)
+    status: Literal["PENDING", "RUNNING", "WAITING", "FAILED"]
+    owner_type: Literal["ROOT_AGENT", "SUBAGENT", "HUMAN", "SYSTEM"]
+    assigned_role: str | None = Field(default=None, max_length=80)
+
+
 class WorkspaceChatView(BaseModel):
     conversation_id: str
     mission_id: str
@@ -126,6 +135,7 @@ class WorkspaceChatView(BaseModel):
     mission: MissionSummaryView
     events: list[MissionEventView] = Field(default_factory=list)
     artifacts: list[MissionArtifactView] = Field(default_factory=list)
+    open_tasks: list[MissionTaskView] = Field(default_factory=list)
     attention: AttentionView | None = None
     advisory_only: bool = False
 
@@ -134,7 +144,7 @@ class MissionSnapshotView(BaseModel):
     mission: MissionSummaryView
     events: list[MissionEventView]
     artifacts: list[MissionArtifactView]
-    open_tasks: list[dict[str, Any]] = Field(default_factory=list)
+    open_tasks: list[MissionTaskView] = Field(default_factory=list)
     handoffs: list[dict[str, Any]] = Field(default_factory=list)
 
 
@@ -147,7 +157,7 @@ class WorkspaceConversationView(BaseModel):
     mission: MissionSummaryView
     events: list[MissionEventView] = Field(default_factory=list)
     artifacts: list[MissionArtifactView] = Field(default_factory=list)
-    open_tasks: list[dict[str, Any]] = Field(default_factory=list)
+    open_tasks: list[MissionTaskView] = Field(default_factory=list)
 
 
 class ConnectorView(BaseModel):

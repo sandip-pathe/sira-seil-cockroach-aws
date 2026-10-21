@@ -311,6 +311,7 @@ class WorkspaceService:
             "mission": snapshot["mission"],
             "events": snapshot["events"],
             "artifacts": snapshot["artifacts"],
+            "open_tasks": snapshot.get("open_tasks", []),
             "attention": None,
             "advisory_only": False,
         }
@@ -449,6 +450,7 @@ class WorkspaceService:
                 },
                 "events": [],
                 "artifacts": [],
+                "open_tasks": [],
             }
 
         async def work(session: AsyncSession) -> dict[str, Any]:
@@ -778,7 +780,6 @@ class WorkspaceService:
                     "status": task.status,
                     "owner_type": task.owner_type,
                     "assigned_role": task.assigned_role,
-                    "budget": task.budget,
                 }
                 for task in snapshot.tasks
                 if task.status not in {"COMPLETED", "CANCELLED"}

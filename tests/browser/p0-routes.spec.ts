@@ -95,3 +95,33 @@ test("Firebase-disabled workspace presents a safe private guest account", async 
   await expect(page.getByRole("button", { name: "Save this workspace with Google" })).toHaveCount(0);
   expect(browserErrors).toEqual([]);
 });
+
+test("mission next task comes from the saved task list and opens run details", async ({ page }) => {
+  await page.route("**/v1/workspace/conversations**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{
+        id: "msn_00000000000000000000000000000001",
+        mode: "seil",
+        title: "Prepare CRM evidence",
+        messages: [{ role: "assistant", content: "I found the evidence gap.", tool_calls: [], proposals: [] }],
+        updated_at: "2026-10-21T12:00:00Z",
+        mission: { id: "msn_00000000000000000000000000000001", mode: "seil", goal: "Prepare CRM evidence", state: "PAUSED", version: 3, plan: [], stop_reason: null },
+        events: [],
+        artifacts: [],
+        open_tasks: [{ id: "task_1", kind: "human_review", title: "Confirm CRM sync is enabled in this plan", status: "WAITING", owner_type: "HUMAN", assigned_role: "seller_editor" }],
+      }]),
+    });
+  });
+
+  await page.goto("/seil", { waitUntil: "domcontentloaded" });
+  const nextTask = page.getByRole("button", {
+    name: "Inspect next open task: Confirm CRM sync is enabled in this plan",
+  });
+  await expect(nextTask).toContainText("You or your team · Waiting");
+  await nextTask.click();
+  const inspector = page.getByLabel("Object inspector");
+  await expect(inspector.getByRole("heading", { name: "Work and authority" })).toBeVisible();
+  await expect(inspector.getByText("Confirm CRM sync is enabled in this plan", { exact: true })).toBeVisible();
+});

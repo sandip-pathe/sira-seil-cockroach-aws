@@ -63,3 +63,4 @@ async def test_seller_can_reach_seil_chat_boundary(
     assert body["conversation_id"].startswith("msn_")
     assert body["mission"]["mode"] == "seil"
     assert body["message"]
+    assert body["open_tasks"] == []

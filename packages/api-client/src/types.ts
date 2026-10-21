@@ -760,7 +760,7 @@ export interface MissionSnapshotView {
   events: MissionEventView[];
   handoffs?: { [key: string]: unknown; }[];
   mission: MissionSummaryView;
-  open_tasks?: { [key: string]: unknown; }[];
+  open_tasks?: MissionTaskView[];
 }
 
 export interface MissionSummaryView {
@@ -771,6 +771,15 @@ export interface MissionSummaryView {
   state: string;
   stop_reason?: string | null;
   version: number;
+}
+
+export interface MissionTaskView {
+  assigned_role?: string | null;
+  id: string;
+  kind: string;
+  owner_type: "ROOT_AGENT" | "SUBAGENT" | "HUMAN" | "SYSTEM";
+  status: "PENDING" | "RUNNING" | "WAITING" | "FAILED";
+  title: string;
 }
 
 export interface MoneyViewV2 {
@@ -1607,6 +1616,7 @@ export interface WorkspaceChatView {
   message: string;
   mission: MissionSummaryView;
   mission_id: string;
+  open_tasks?: MissionTaskView[];
   panel?: "catalog" | "connectors" | "decisions" | "inbox" | null;
   products?: CatalogProductView[];
   proposals?: AgentProposalView[];
@@ -1620,7 +1630,7 @@ export interface WorkspaceConversationView {
   messages: WorkspaceMessage[];
   mission: MissionSummaryView;
   mode: "sira" | "seil";
-  open_tasks?: { [key: string]: unknown; }[];
+  open_tasks?: MissionTaskView[];
   title: string;
   updated_at: string;
 }
