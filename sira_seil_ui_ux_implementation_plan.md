@@ -1,6 +1,6 @@
 # SIRA + SEIL UI/UX implementation plan
 
-Version 1.0 · 21 October 2026 · Status: in progress; Step 00 audit, Step 01 product model, Step 02 copy draft, and Step 03 structural flow blueprints are recorded. Customer comprehension evidence and business-owner decisions remain open dependencies. Product implementation under this plan has not started.
+Version 1.0 · 21 October 2026 · Status: in progress; Step 00 audit, Step 01 product model, Step 02 copy draft, Step 03 structural flow blueprints, and the first Step 04 token foundation are recorded. Customer comprehension evidence and business-owner decisions remain open dependencies.
 
 This is the execution plan for the [SIRA + SEIL synthesis-driven design playbook](sira_seil_ui_ux_synthesis_driven_design_system.md). It covers public messaging, product copy, navigation, components, buyer and seller workflows, company context, human decisions, integrations, commercial handoffs, validation, and operations.
 
@@ -164,7 +164,7 @@ flowchart TD
 
 **Purpose:** give later flows consistent interaction behavior without an unnecessary architecture rewrite.
 
-- [ ] **04.1 Consolidate semantic tokens.** Extend current canvas/surface/ink, SIRA/SEIL colors, status colors, spacing, type, radii, focus, layering, and motion. Verify contrast in actual combinations.
+- [x] **04.1 Consolidate semantic tokens.** Extended existing canvas/surface/ink and party/status colors with semantic spacing, type, radius, elevation, focus, target-size, layer and motion tokens in `apps/web/app/globals.css`; SIRA/SEIL workspace uses shared colors/focus/motion. Sample contrast and remaining audit scope are recorded in [design-tokens.md](docs/ui-ux-upgrade/design-tokens.md). `pnpm check:web`, `pnpm build:web`, and desktop/mobile browser scenarios (16/16) passed; this does not replace component-by-component visual/accessibility review.
 - [ ] **04.2 Establish shared primitives.** Buttons, links, fields, validation/error summary, labels/help, status badges, tooltips, progress, empty states, dialogs, drawers, tables, and notices. Extract only where reuse or accessibility complexity warrants it.
 - [ ] **04.3 Build the mission shell.** Organization/party identity, mission heading, privacy, state/version, next action, navigation, artifact canvas, optional conversation, and inspectable detail.
 - [ ] **04.4 Establish typed adapters.** Map actual API objects/states/capabilities to display models without inventing authority. Introduce projections only where a flow needs data the existing contract cannot supply; regenerate the client through the repository workflow.

@@ -1,23 +1,23 @@
 .workspace {
-  --workspace-accent: #0b5fff;
-  --workspace-accent-soft: #eaf0ff;
-  --workspace-accent-dark: #0847c7;
+  --workspace-accent: var(--sira);
+  --workspace-accent-soft: var(--sira-soft);
+  --workspace-accent-dark: var(--sira-hover);
   display: grid;
   grid-template-columns: clamp(190px, 18vw, 220px) minmax(0, 1fr) 50%;
   width: 100%;
   height: 100dvh;
   min-width: 320px;
   overflow: hidden;
-  background: #faf9f5;
-  color: #2d2c29;
-  font-family: var(--font-geist-sans), "Segoe UI", system-ui, sans-serif;
-  transition: grid-template-columns 180ms ease;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font-ui);
+  transition: grid-template-columns var(--motion-standard) var(--ease-standard);
 }
 
 .workspace[data-mode="seil"] {
-  --workspace-accent: #7c3aed;
-  --workspace-accent-soft: #f3e8ff;
-  --workspace-accent-dark: #5b21b6;
+  --workspace-accent: var(--seil);
+  --workspace-accent-soft: var(--seil-soft);
+  --workspace-accent-dark: var(--seil-hover);
 }
 
 .workspace.sidebarClosed {
@@ -67,8 +67,8 @@
 .workspace a:focus-visible,
 .workspace textarea:focus-visible,
 .workspace select:focus-visible {
-  outline: 2px solid #1d4ed8;
-  outline-offset: 2px;
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
 }
 
 .skipLink {
