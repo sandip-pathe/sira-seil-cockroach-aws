@@ -7,10 +7,12 @@ from typing import Any, cast
 
 import httpx
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from sqlalchemy import func, select
 
-from integrations.aws_services import StoredEvidenceObject
+from integrations.evidence_store import StoredEvidenceObject
+from persistence.models import SellerProduct
 from persistence.qualification_models import EvidenceSourceVersion, EvidenceSpan
 
 EDITOR = {
@@ -29,6 +31,32 @@ REVIEWER = {
 
 def _idem(value: str) -> dict[str, str]:
     return {"Idempotency-Key": value}
+
+
+async def _register_product(client: httpx.AsyncClient, suffix: str) -> str:
+    response = await client.post(
+        "/v1/seller/products",
+        headers={**EDITOR, **_idem(f"seller-registration-{suffix}-0001")},
+        json={
+            "name": f"Test Product {suffix}",
+            "seller_name": "Test Vendor",
+            "website": f"https://vendor.example/products/{suffix}",
+            "edition": "Test",
+            "category": "Test software",
+            "summary": "A locally registered product for an isolated API test.",
+        },
+    )
+    assert response.status_code == 201, response.text
+    return str(response.json()["results"][0]["id"])
+
+
+@pytest_asyncio.fixture
+async def seller_product(api_client: httpx.AsyncClient, api_application: FastAPI) -> dict[str, str]:
+    product_id = await _register_product(api_client, "primary")
+    async with api_application.state.database.transaction("org_consultco") as session:
+        product = await session.get(SellerProduct, product_id)
+        assert product is not None and product.current_draft_id is not None
+        return {"product_id": product.id, "draft_id": product.current_draft_id}
 
 
 @dataclass
@@ -65,7 +93,9 @@ class FakeEvidenceStore:
 async def test_private_evidence_upload_is_version_bound_and_idempotent(
     api_client: httpx.AsyncClient,
     api_application: FastAPI,
+    seller_product: dict[str, str],
 ) -> None:
+    draft_id = seller_product["draft_id"]
     store = FakeEvidenceStore()
     api_application.state.seller_evidence_service.evidence_store = store
     content = b"signed retention policy\nretention_days=30\n"
@@ -78,7 +108,7 @@ async def test_private_evidence_upload_is_version_bound_and_idempotent(
     }
 
     created = await api_client.post(
-        "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload",
+        f"/v1/seller/pack-drafts/{draft_id}/evidence/upload",
         headers=headers,
         files=files,
         data=data,
@@ -106,7 +136,7 @@ async def test_private_evidence_upload_is_version_bound_and_idempotent(
     assert span_count == 1
 
     replay = await api_client.post(
-        "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload",
+        f"/v1/seller/pack-drafts/{draft_id}/evidence/upload",
         headers=headers,
         files=files,
         data=data,
@@ -116,7 +146,7 @@ async def test_private_evidence_upload_is_version_bound_and_idempotent(
     assert len(store.calls) == 1
 
     same_object = await api_client.post(
-        "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload",
+        f"/v1/seller/pack-drafts/{draft_id}/evidence/upload",
         headers={**EDITOR, **_idem("seller-object-evidence-0002")},
         files=files,
         data=data,
@@ -126,7 +156,7 @@ async def test_private_evidence_upload_is_version_bound_and_idempotent(
     assert len(store.calls) == 1
 
     conflict = await api_client.post(
-        "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload",
+        f"/v1/seller/pack-drafts/{draft_id}/evidence/upload",
         headers={**EDITOR, **_idem("seller-object-evidence-0003")},
         files=files,
         data={**data, "claim_fields_json": '["public_summary"]'},
@@ -140,8 +170,9 @@ async def test_private_evidence_upload_is_version_bound_and_idempotent(
 async def test_private_evidence_upload_uses_local_store_and_fails_closed_at_boundaries(
     api_client: httpx.AsyncClient,
     api_application: FastAPI,
+    seller_product: dict[str, str],
 ) -> None:
-    endpoint = "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload"
+    endpoint = f"/v1/seller/pack-drafts/{seller_product['draft_id']}/evidence/upload"
     base_data = {
         "source_class": "VENDOR_DOCUMENTATION",
         "claim_fields_json": '["data_retention_days"]',
@@ -192,8 +223,9 @@ async def test_private_evidence_upload_uses_local_store_and_fails_closed_at_boun
 async def test_private_evidence_upload_rejects_metadata_and_storage_integrity_mismatches(
     api_client: httpx.AsyncClient,
     api_application: FastAPI,
+    seller_product: dict[str, str],
 ) -> None:
-    endpoint = "/v1/seller/pack-drafts/draft_fixture_d/evidence/upload"
+    endpoint = f"/v1/seller/pack-drafts/{seller_product['draft_id']}/evidence/upload"
     store = FakeEvidenceStore()
     api_application.state.seller_evidence_service.evidence_store = store
 
@@ -253,9 +285,9 @@ async def test_private_evidence_upload_rejects_metadata_and_storage_integrity_mi
     assert corrupted.json()["error"]["code"] == "SELLER_EVIDENCE_STORAGE_INTEGRITY_FAILED"
 
 
-async def _prepare_reviewable_draft(client: httpx.AsyncClient) -> dict[str, Any]:
+async def _prepare_reviewable_draft(client: httpx.AsyncClient, draft_id: str) -> dict[str, Any]:
     evidence = await client.post(
-        "/v1/seller/pack-drafts/draft_fixture_d/evidence",
+        f"/v1/seller/pack-drafts/{draft_id}/evidence",
         headers={**EDITOR, **_idem("seller-evidence-current-0001")},
         json={
             "source_reference": "https://vendor.example/evidence/current-retention",
@@ -268,10 +300,10 @@ async def _prepare_reviewable_draft(client: httpx.AsyncClient) -> dict[str, Any]
     evidence_id = evidence.json()["id"]
 
     patched = await client.patch(
-        "/v1/seller/pack-drafts/draft_fixture_d",
+        f"/v1/seller/pack-drafts/{draft_id}",
         headers={**EDITOR, **_idem("seller-draft-patch-0001")},
         json={
-            "base_revision": 2,
+            "base_revision": 1,
             "claims": [
                 {"field": "product_name", "value": "Fixture D", "evidence_ids": []},
                 {
@@ -315,6 +347,8 @@ async def _prepare_reviewable_draft(client: httpx.AsyncClient) -> dict[str, Any]
 async def test_seller_search_is_role_scoped_and_public_safe(
     api_client: httpx.AsyncClient,
 ) -> None:
+    first_product = await _register_product(api_client, "search-one")
+    second_product = await _register_product(api_client, "search-two")
     buyer = await api_client.get("/v1/seller/products/search?q=fixture")
     assert buyer.status_code == 403
     assert buyer.json()["error"]["code"] == "SELLER_IDENTITY_REQUIRED"
@@ -330,12 +364,12 @@ async def test_seller_search_is_role_scoped_and_public_safe(
     assert no_role.status_code == 403
     assert no_role.json()["error"]["code"] == "SELLER_ROLE_REQUIRED"
 
-    result = await api_client.get("/v1/seller/products/search?q=fixture", headers=EDITOR)
+    result = await api_client.get("/v1/seller/products/search?q=Test", headers=EDITOR)
     assert result.status_code == 200, result.text
     payload = result.json()
     assert {row["id"] for row in payload["results"]} == {
-        "product_fixture_d",
-        "product_fixture_unclaimed",
+        first_product,
+        second_product,
     }
     rendered = result.text.casefold()
     for prohibited in (
@@ -347,10 +381,9 @@ async def test_seller_search_is_role_scoped_and_public_safe(
         "authority_proof_reference",
     ):
         assert prohibited not in rendered
-    assert "no production seller integration is implied" in rendered
 
     other_tenant = await api_client.get(
-        "/v1/seller/products/search?q=fixture",
+        "/v1/seller/products/search?q=Test",
         headers={**EDITOR, "X-Organization-Id": "org_other"},
     )
     assert other_tenant.status_code == 200
@@ -358,53 +391,18 @@ async def test_seller_search_is_role_scoped_and_public_safe(
 
 
 @pytest.mark.asyncio
-async def test_product_claim_is_hash_bound_and_idempotent(
-    api_client: httpx.AsyncClient,
-) -> None:
-    headers = {
-        **EDITOR,
-        "X-Actor-Id": "seller_claimant",
-        **_idem("seller-product-claim-0001"),
-    }
-    body = {
-        "authority_proof_reference": "registry-proof-fixture-only",
-        "requested_role": "SELLER_EDITOR",
-    }
-    created = await api_client.post(
-        "/v1/seller/products/product_fixture_unclaimed/claim",
-        headers=headers,
-        json=body,
-    )
-    assert created.status_code == 201, created.text
-    assert created.json()["state"] == "CLAIM_PENDING"
-    assert "authority_proof" not in created.text
-
-    replay = await api_client.post(
-        "/v1/seller/products/product_fixture_unclaimed/claim",
-        headers=headers,
-        json=body,
-    )
-    assert replay.status_code == 201
-    assert replay.json() == created.json()
-
-    conflicting = await api_client.post(
-        "/v1/seller/products/product_fixture_unclaimed/claim",
-        headers=headers,
-        json={**body, "authority_proof_reference": "different-proof"},
-    )
-    assert conflicting.status_code == 409
-    assert conflicting.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
-
-
 @pytest.mark.asyncio
 async def test_seller_review_publish_suspend_and_exports_are_exact_and_separated(
     api_client: httpx.AsyncClient,
+    seller_product: dict[str, str],
 ) -> None:
-    draft = await _prepare_reviewable_draft(api_client)
+    draft_id = seller_product["draft_id"]
+    draft_path = f"/v1/seller/pack-drafts/{draft_id}"
+    draft = await _prepare_reviewable_draft(api_client, draft_id)
     revision_hash = draft["revision_hash"]
 
     submitted = await api_client.post(
-        "/v1/seller/pack-drafts/draft_fixture_d/submit-review",
+        draft_path + "/submit-review",
         headers={**EDITOR, **_idem("seller-submit-review-0001")},
         json={"revision_hash": revision_hash},
     )
@@ -412,7 +410,7 @@ async def test_seller_review_publish_suspend_and_exports_are_exact_and_separated
     assert submitted.json()["state"] == "IN_REVIEW"
 
     same_actor_reviewer = await api_client.post(
-        "/v1/seller/pack-drafts/draft_fixture_d/review-decisions",
+        draft_path + "/review-decisions",
         headers={
             **REVIEWER,
             "X-Actor-Id": "seller_fixture_d",
@@ -436,14 +434,14 @@ async def test_seller_review_publish_suspend_and_exports_are_exact_and_separated
         "reason": "Required fields and seller evidence are complete.",
     }
     approved = await api_client.post(
-        "/v1/seller/pack-drafts/draft_fixture_d/review-decisions",
+        draft_path + "/review-decisions",
         headers=review_headers,
         json=review_body,
     )
     assert approved.status_code == 201, approved.text
     assert approved.json()["decision"] == "APPROVE"
     replayed_approval = await api_client.post(
-        "/v1/seller/pack-drafts/draft_fixture_d/review-decisions",
+        draft_path + "/review-decisions",
         headers=review_headers,
         json=review_body,
     )
@@ -451,7 +449,7 @@ async def test_seller_review_publish_suspend_and_exports_are_exact_and_separated
 
     publish_headers = {**REVIEWER, **_idem("seller-publish-0001")}
     published = await api_client.post(
-        "/v1/seller/pack-drafts/draft_fixture_d/publish",
+        draft_path + "/publish",
         headers=publish_headers,
         json={"revision_hash": revision_hash},
     )
@@ -461,14 +459,14 @@ async def test_seller_review_publish_suspend_and_exports_are_exact_and_separated
     assert published.json()["proof_adapter"]["artifact_digest"] == "sha256:" + "a" * 64
     pack_id = published.json()["id"]
     replayed_publish = await api_client.post(
-        "/v1/seller/pack-drafts/draft_fixture_d/publish",
+        draft_path + "/publish",
         headers=publish_headers,
         json={"revision_hash": revision_hash},
     )
     assert replayed_publish.json() == published.json()
 
     frozen = await api_client.patch(
-        "/v1/seller/pack-drafts/draft_fixture_d",
+        draft_path,
         headers={**EDITOR, **_idem("seller-edit-published-0001")},
         json={"base_revision": draft["revision"]},
     )
@@ -505,12 +503,15 @@ async def test_seller_review_publish_suspend_and_exports_are_exact_and_separated
 @pytest.mark.asyncio
 async def test_revision_hash_and_publication_allowlist_fail_closed(
     api_client: httpx.AsyncClient,
+    seller_product: dict[str, str],
 ) -> None:
+    draft_id = seller_product["draft_id"]
+    draft_path = f"/v1/seller/pack-drafts/{draft_id}"
     forbidden = await api_client.patch(
-        "/v1/seller/pack-drafts/draft_fixture_d",
+        draft_path,
         headers={**EDITOR, **_idem("seller-private-field-0001")},
         json={
-            "base_revision": 2,
+            "base_revision": 1,
             "claims": [
                 {
                     "field": "buyer_hidden_budget",
@@ -524,7 +525,7 @@ async def test_revision_hash_and_publication_allowlist_fail_closed(
     assert forbidden.json()["error"]["code"] == "SELLER_PUBLICATION_FIELD_FORBIDDEN"
 
     wrong_hash = await api_client.post(
-        "/v1/seller/pack-drafts/draft_fixture_d/submit-review",
+        draft_path + "/submit-review",
         headers={**EDITOR, **_idem("seller-wrong-hash-0001")},
         json={"revision_hash": "sha256:" + "0" * 64},
     )
@@ -535,45 +536,15 @@ async def test_revision_hash_and_publication_allowlist_fail_closed(
 @pytest.mark.asyncio
 async def test_activity_metric_is_deduplicated_and_non_causal(
     api_client: httpx.AsyncClient,
+    seller_product: dict[str, str],
 ) -> None:
     response = await api_client.get(
-        "/v1/seller/products/product_fixture_d/activity-metrics", headers=EDITOR
+        f"/v1/seller/products/{seller_product['product_id']}/activity-metrics", headers=EDITOR
     )
     assert response.status_code == 200, response.text
     metrics = response.json()
-    assert metrics["answer_rendered_count"] == 4
-    assert metrics["seller_handoff_requested_count"] == 1
-    assert metrics["observed_self_service_count"] == 2
+    assert metrics["answer_rendered_count"] == 0
+    assert metrics["seller_handoff_requested_count"] == 0
+    assert metrics["observed_self_service_count"] == 0
     assert metrics["measurement_label"] == "OBSERVATIONAL_NOT_CAUSAL"
     assert "deflection" not in response.text.casefold()
-
-
-@pytest.mark.asyncio
-async def test_demo_reset_clears_and_reseeds_seller_state(
-    api_client: httpx.AsyncClient,
-) -> None:
-    claimed = await api_client.post(
-        "/v1/seller/products/product_fixture_unclaimed/claim",
-        headers={
-            **EDITOR,
-            "X-Actor-Id": "seller_claimant",
-            **_idem("seller-reset-claim-0001"),
-        },
-        json={
-            "authority_proof_reference": "fixture-proof-before-reset",
-            "requested_role": "SELLER_EDITOR",
-        },
-    )
-    assert claimed.status_code == 201
-
-    reset = await api_client.post("/v1/demo/reset")
-    assert reset.status_code == 200, reset.text
-
-    search = await api_client.get("/v1/seller/products/search?q=fixture", headers=EDITOR)
-    assert search.status_code == 200, search.text
-    states = {row["id"]: row["state"] for row in search.json()["results"]}
-    assert states["product_fixture_unclaimed"] == "UNCLAIMED"
-    draft = await api_client.get("/v1/seller/pack-drafts/draft_fixture_d", headers=EDITOR)
-    assert draft.status_code == 200
-    assert draft.json()["revision"] == 2
-    assert draft.json()["state"] == "SELLER_DRAFT"

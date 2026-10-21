@@ -39,8 +39,8 @@ def test_v1_evaluation_thresholds_are_frozen() -> None:
     }
     assert document["matching"]["hard_gate_accuracy"] == 1.0
     assert document["matching"]["private_value_leakage_count"] == 0
-    assert document["bedrock"]["minimum_provider_turns"] == 100
-    assert document["bedrock"]["structured_output_validity"] == 0.99
+    assert document["openai"]["minimum_provider_turns"] == 100
+    assert document["openai"]["structured_output_validity"] == 0.99
     assert document["performance"]["reference_case_max_usd"] == 0.50
     assert document["browser"] == {"critical_violations": 0, "serious_violations": 0}
     assert document["concurrency"] == {

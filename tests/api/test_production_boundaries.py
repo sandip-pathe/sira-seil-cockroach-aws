@@ -61,28 +61,23 @@ class FakeIdentityAdapter:
 def production_settings() -> ApiSettings:
     return ApiSettings(
         app_env="production",
+        openai_api_key=SecretStr("test-openai-key"),
+        exchange_route_signing_key=SecretStr("x" * 32),
         database_url="cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira?ssl=disable",
-        development_fixture_mode=False,
-        demo_reset_enabled=False,
-        agent_runtime_provider="agentcore",
         cognitive_kernel_enabled=True,
         principal_isolation_enabled=True,
-        sira_agentcore_runtime_arn="arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/sira",
-        seil_agentcore_runtime_arn="arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/seil",
-        runtime_ticket_signing_key=SecretStr("test-runtime-ticket-signing-key-32-bytes"),
     )
 
 
 def test_configuration_requires_an_explicit_environment() -> None:
     with pytest.raises(ValidationError, match="APP_ENV must be explicitly set"):
-        ApiSettings(app_env="unset", agent_runtime_provider="bedrock")
+        ApiSettings(app_env="unset")
 
 
 def test_app_rejects_a_test_double_outside_test_environment() -> None:
     settings = ApiSettings(
         app_env="development",
         database_url="sqlite+aiosqlite:///:memory:",
-        agent_runtime_provider="bedrock",
     )
     with pytest.raises(ValueError, match="may only be injected in APP_ENV=test"):
         create_app(
@@ -93,37 +88,32 @@ def test_app_rejects_a_test_double_outside_test_environment() -> None:
         )
 
 
-def test_production_configuration_rejects_development_modes_including_defaults() -> None:
-    with pytest.raises(ValidationError, match="DEVELOPMENT_FIXTURE_MODE=false"):
-        ApiSettings(app_env="production", agent_runtime_provider="agentcore")
-
-    with pytest.raises(ValidationError, match="DEVELOPMENT_FIXTURE_MODE=false"):
-        ApiSettings(
-            app_env="production",
-            development_fixture_mode=False,
-            demo_reset_enabled=True,
-            agent_runtime_provider="agentcore",
-        )
+def test_production_configuration_has_no_demo_or_fixture_switches() -> None:
+    settings = ApiSettings(
+        app_env="production",
+        openai_api_key=SecretStr("test-openai-key"),
+        exchange_route_signing_key=SecretStr("x" * 32),
+    )
+    assert not hasattr(settings, "development_fixture_mode")
+    assert not hasattr(settings, "demo_reset_enabled")
 
 
 def test_production_configuration_requires_cockroachdb() -> None:
     with pytest.raises(ValidationError, match="CockroachDB DATABASE_URL"):
         ApiSettings(
             app_env="production",
+            openai_api_key=SecretStr("test-openai-key"),
+            exchange_route_signing_key=SecretStr("x" * 32),
             database_url="sqlite+aiosqlite:///:memory:",
-            development_fixture_mode=False,
-            demo_reset_enabled=False,
-            agent_runtime_provider="agentcore",
         )
 
     with pytest.raises(ValidationError, match="SIRA_CATALOG_DATABASE_URL"):
         ApiSettings(
             app_env="production",
+            openai_api_key=SecretStr("test-openai-key"),
+            exchange_route_signing_key=SecretStr("x" * 32),
             database_url="cockroachdb+asyncpg://sira_app@db.example:26257/sira?ssl=verify-full",
             catalog_database_url="postgresql+asyncpg://catalog@db.example:26257/sira?ssl=verify-full",
-            development_fixture_mode=False,
-            demo_reset_enabled=False,
-            agent_runtime_provider="agentcore",
         )
 
 
@@ -131,10 +121,9 @@ def test_production_rejects_cognitive_kernel_before_principal_isolation() -> Non
     with pytest.raises(ValidationError, match="PRINCIPAL_ISOLATION_ENABLED=true"):
         ApiSettings(
             app_env="production",
+            openai_api_key=SecretStr("test-openai-key"),
+            exchange_route_signing_key=SecretStr("x" * 32),
             database_url="cockroachdb+asyncpg://sira_app@db.example:26257/sira?ssl=verify-full",
-            development_fixture_mode=False,
-            demo_reset_enabled=False,
-            agent_runtime_provider="agentcore",
             cognitive_kernel_enabled=True,
             principal_isolation_enabled=False,
         )
@@ -144,10 +133,9 @@ def test_production_cannot_disable_the_cognitive_kernel() -> None:
     with pytest.raises(ValidationError, match="COGNITIVE_KERNEL_ENABLED=true"):
         ApiSettings(
             app_env="production",
+            openai_api_key=SecretStr("test-openai-key"),
+            exchange_route_signing_key=SecretStr("x" * 32),
             database_url="cockroachdb+asyncpg://sira_app@db.example:26257/sira?ssl=verify-full",
-            development_fixture_mode=False,
-            demo_reset_enabled=False,
-            agent_runtime_provider="agentcore",
             cognitive_kernel_enabled=False,
         )
 
@@ -157,12 +145,8 @@ def test_production_identity_configuration_is_explicit() -> None:
         production_settings().assert_identity_configuration()
 
 
-def test_app_startup_rechecks_runtime_modes_after_settings_mutation() -> None:
-    settings = production_settings()
-    settings.development_fixture_mode = True
-
-    with pytest.raises(ValueError, match="DEVELOPMENT_FIXTURE_MODE=false"):
-        create_app(settings=settings)
+def test_production_settings_do_not_expose_demo_mode() -> None:
+    assert not hasattr(production_settings(), "development_fixture_mode")
 
 
 @pytest.mark.asyncio

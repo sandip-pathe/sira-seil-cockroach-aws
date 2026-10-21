@@ -1,1 +1,1 @@
-"""Local developer and deterministic scenario command surfaces."""
+"""Local developer command surface."""

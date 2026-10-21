@@ -15,9 +15,7 @@ import {
 import Link from "next/link";
 import { useEffect, useRef, type RefObject } from "react";
 import { layout, prepare, type PreparedText } from "@chenglou/pretext";
-
 import { CombinedBrandLogo } from "@/components/brand/combined-brand-logo";
-
 import styles from "./landing-page.module.css";
 
 type PreparedElement = {

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class WorkspaceMessage(BaseModel):
@@ -45,6 +45,27 @@ class CatalogProductView(BaseModel):
     listing_origin: Literal["SELLER_PUBLISHED", "SEIL_RESEARCHED"] | None = None
     evidence_status: Literal["PUBLISHED", "RESEARCH_ONLY"] | None = None
     seller_attested: bool | None = None
+    category: str | None = None
+    facts: list[dict[str, Any]] = Field(default_factory=list)
+    observed_at: str | None = None
+    expires_at: str | None = None
+    stale: bool = False
+    stale_fields: list[str] = Field(default_factory=list)
+    observation_id: str | None = None
+    observations: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ProductResearchCreate(BaseModel):
+    query: str = Field(min_length=2, max_length=1000)
+    limit: int = Field(default=5, ge=1, le=10)
+    refresh: bool = False
+
+    @field_validator("query")
+    @classmethod
+    def nonempty_query(cls, value: str) -> str:
+        if len(value.strip()) < 2:
+            raise ValueError("Enter a public product query")
+        return value.strip()
 
 
 class AgentProposalView(BaseModel):

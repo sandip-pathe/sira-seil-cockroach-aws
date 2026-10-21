@@ -125,7 +125,7 @@ async def test_decision_room_is_action_neutral_and_role_filtered(
 
 
 @pytest.mark.asyncio
-async def test_seller_contract_requires_seller_identity_and_returns_public_fields(
+async def test_seller_contract_requires_identity_and_does_not_seed_sample_products(
     api_client: httpx.AsyncClient,
 ) -> None:
     buyer_denied = await api_client.get("/v1/seller/products/search?q=fixture")
@@ -141,12 +141,7 @@ async def test_seller_contract_requires_seller_identity_and_returns_public_field
         },
     )
     assert seller_view.status_code == 200, seller_view.text
-    assert {row["id"] for row in seller_view.json()["results"]} == {
-        "product_fixture_d",
-        "product_fixture_unclaimed",
-    }
-    assert "no production seller integration is implied" in seller_view.text.casefold()
-    assert "buyer_passport" not in seller_view.text.casefold()
+    assert seller_view.json()["results"] == []
 
 
 @pytest.mark.asyncio

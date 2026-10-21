@@ -164,7 +164,7 @@ class QualificationRepository:
         The CDC payload is intentionally ignored. This method runs in each buyer tenant,
         relies on Cockroach's public active-pointer read policy, and leaves already-issued
         commercial effects as immutable history. Any replacement still travels through the
-        normal queue, snapshot, Bedrock and fenced-finalization path.
+        normal outbox, snapshot, OpenAI and fenced-finalization path.
         """
 
         rows = (

@@ -111,8 +111,11 @@ def _start_wsl_cockroach() -> None:
         'if [ ! -x $bin ] || ! echo "$expected  $bin" | sha256sum -c - >/dev/null 2>&1; then '
         "archive=$root/cockroach-$version.tgz; unpack=$root/unpack-$version; "
         "rm -rf $unpack; mkdir -p $unpack; "
-        "curl -fsSLo $archive "
-        "https://binaries.cockroachdb.com/cockroach-v$version.linux-amd64.tgz; "
+        'if command -v curl >/dev/null 2>&1; then curl -fsSLo "$archive" '
+        '"https://binaries.cockroachdb.com/cockroach-v$version.linux-amd64.tgz"; '
+        'elif command -v wget >/dev/null 2>&1; then wget -q -O "$archive" '
+        '"https://binaries.cockroachdb.com/cockroach-v$version.linux-amd64.tgz"; '
+        "else echo 'curl or wget is required' >&2; exit 1; fi; "
         "tar -xzf $archive -C $unpack --strip-components=1; "
         "cp $unpack/cockroach $bin; chmod 755 $bin; "
         'echo "$expected  $bin" | sha256sum -c - >/dev/null; fi; '
@@ -150,6 +153,24 @@ def bootstrap_database(*, database_name: str = "sira", reset: bool = False) -> s
         "CREATE USER IF NOT EXISTS sira_catalog_app",
     ]
     if use_docker:
+        _require_success(
+            _run(
+                [
+                    "docker",
+                    "compose",
+                    "exec",
+                    "-T",
+                    "cockroach",
+                    "cockroach",
+                    "sql",
+                    "--insecure",
+                    "--host=localhost:26257",
+                    f"--execute={setup[0]}",
+                ],
+                capture=True,
+            ),
+            "CockroachDB vector setting",
+        )
         initialize = _run(
             [
                 "docker",
@@ -161,7 +182,7 @@ def bootstrap_database(*, database_name: str = "sira", reset: bool = False) -> s
                 "sql",
                 "--insecure",
                 "--host=localhost:26257",
-                f"--execute={'; '.join(setup)};",
+                f"--execute={'; '.join(setup[1:])};",
             ],
             capture=True,
         )
@@ -254,9 +275,9 @@ def doctor(profile: str) -> int:
         "docker_compose": _command_version("docker", "compose", "version"),
         "compose_file": ((ROOT / "compose.yaml").exists(), "compose.yaml"),
         "environment": ((ROOT / ".env").exists(), ".env"),
-        "agent_runtime": (
-            settings.agent_runtime_provider in {"bedrock", "agentcore"},
-            settings.agent_runtime_provider,
+        "openai_api_key": (
+            bool(settings.openai_api_key.get_secret_value().strip()),
+            "configured" if settings.openai_api_key.get_secret_value().strip() else "missing",
         ),
     }
     if profile == "local":
@@ -275,35 +296,9 @@ def doctor(profile: str) -> int:
     return 0 if all(passed for passed, _detail in checks.values()) else 1
 
 
-def _provider_preflight(settings: ApiSettings) -> None:
-    if settings.agent_runtime_provider == "agentcore":
-        if not settings.sira_agentcore_runtime_arn or not settings.seil_agentcore_runtime_arn:
-            raise RuntimeError("AgentCore requires both principal-specific runtime ARNs")
-        if len(settings.runtime_ticket_signing_key.get_secret_value().encode()) < 32:
-            raise RuntimeError("AgentCore requires a 32-byte runtime ticket signing key")
-        return
-
-    arguments = [
-        sys.executable,
-        str(ROOT / "scripts" / "aws-bedrock-smoke.py"),
-        "--region",
-        settings.aws_region,
-        "--chat-model",
-        settings.bedrock_chat_model_id,
-    ]
-    if settings.aws_profile.strip():
-        arguments.extend(("--profile", settings.aws_profile.strip()))
-    guardrail_id = settings.bedrock_guardrail_id.strip()
-    if guardrail_id:
-        arguments.extend(
-            (
-                "--guardrail-id",
-                guardrail_id,
-                "--guardrail-version",
-                settings.bedrock_guardrail_version,
-            )
-        )
-    _require_success(_run(arguments, capture=True), "Bedrock provider preflight")
+def _openai_preflight(settings: ApiSettings) -> None:
+    if not settings.openai_api_key.get_secret_value().strip():
+        raise RuntimeError("Set OPENAI_API_KEY in .env before starting the real agent runtime")
 
 
 def _local_environment(database_host: str | None = None) -> dict[str, str]:
@@ -316,13 +311,16 @@ def _local_environment(database_host: str | None = None) -> dict[str, str]:
     existing = os.environ.get("PYTHONPATH")
     if existing:
         python_paths.append(Path(existing))
+    environment = dict(os.environ)
+    # Let the API and Python worker read the server-only key from the project's
+    # .env file. A key exported by a parent shell takes precedence in Pydantic
+    # settings and can silently override the value the developer just updated.
+    environment.pop("OPENAI_API_KEY", None)
     return {
-        **os.environ,
+        **environment,
         **local_database_urls(host=database_host or local_database_host()),
         "PYTHONPATH": os.pathsep.join(str(path) for path in python_paths),
         "APP_ENV": "development",
-        "DEVELOPMENT_FIXTURE_MODE": "true",
-        "DEMO_RESET_ENABLED": "true",
         "GUEST_SESSION_ENABLED": "true",
         "COGNITIVE_KERNEL_ENABLED": "true",
         "PRINCIPAL_ISOLATION_ENABLED": "true",
@@ -419,17 +417,9 @@ def _probe(url: str) -> tuple[bool, str]:
 def up(profile: str) -> int:
     if profile != "local":
         raise RuntimeError("provider and hosted lifecycle use deployment tooling, not sira-dev up")
-    _provider_preflight(ApiSettings())
+    _openai_preflight(ApiSettings())
     database_host = bootstrap_database()
     environment = _local_environment(database_host)
-    _require_success(
-        _run(
-            [sys.executable, "-m", "sira_cli.marketplace_seed"],
-            env=environment,
-            capture=True,
-        ),
-        "local marketplace publication",
-    )
     processes = _load_processes()
     if not _process_alive(processes.get("api", -1)) and _probe(LOCAL_URLS["api"])[0]:
         listener = _windows_listener_pid(8000)
@@ -450,6 +440,12 @@ def up(profile: str) -> int:
             ],
             environment,
         )
+    if not _process_alive(processes.get("worker", -1)):
+        processes["worker"] = _spawn(
+            "worker",
+            [sys.executable, "-m", "sira_worker.runtime"],
+            environment,
+        )
     pnpm = shutil.which("pnpm")
     if not pnpm:
         raise RuntimeError("pnpm is required to start the web application")
@@ -465,7 +461,11 @@ def up(profile: str) -> int:
     )
     deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
-        if _probe(LOCAL_URLS["api"])[0] and _probe(LOCAL_URLS["web"])[0]:
+        if (
+            _probe(LOCAL_URLS["api"])[0]
+            and _probe(LOCAL_URLS["web"])[0]
+            and _process_alive(processes.get("worker", -1))
+        ):
             print("SIRA + SEIL is ready: http://127.0.0.1:3000/sira")
             return 0
         time.sleep(1)
@@ -476,12 +476,14 @@ def up(profile: str) -> int:
 def status(_profile: str) -> int:
     processes = _load_processes()
     healthy = True
-    for name, port in (("api", 8000), ("web", 3000)):
+    for name, port in (("api", 8000), ("worker", 0), ("web", 3000)):
         pid = processes.get(name)
         alive = pid is not None and _process_alive(pid)
-        if not alive and _probe(LOCAL_URLS[name])[0]:
+        if not alive and port and _probe(LOCAL_URLS[name])[0]:
             pid = _windows_listener_pid(port)
             alive = pid is not None
+        if name == "worker" and pid is None:
+            alive = False
         print(f"{'UP' if alive else 'DOWN'}  {name} process" + (f" (pid {pid})" if pid else ""))
         healthy = healthy and alive
     for name, url in LOCAL_URLS.items():
@@ -509,7 +511,7 @@ def status(_profile: str) -> int:
 
 
 def logs(_profile: str, *, follow: bool) -> int:
-    for name in ("api", "web"):
+    for name in ("api", "worker", "web"):
         path = ARTIFACTS / f"{name}.log"
         print(f"--- {name} ({path})")
         if path.exists():

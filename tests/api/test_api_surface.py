@@ -31,7 +31,7 @@ async def test_health_and_frozen_demo_projection(api_client: httpx.AsyncClient) 
         "version": "0.1.0",
         "database": "not_checked",
         "agent_runtime": "not_checked",
-        "fixture_mode": True,
+        "fixture_mode": False,
     }
     ready = await api_client.get("/ready")
     assert ready.status_code == 200
@@ -81,7 +81,7 @@ async def test_degraded_health_returns_typed_503(
         "version": "0.1.0",
         "database": "unavailable",
         "agent_runtime": "ready",
-        "fixture_mode": True,
+        "fixture_mode": False,
     }
     openapi = (await api_client.get("/openapi.json")).json()
     assert openapi["paths"]["/ready"]["get"]["responses"]["503"]["content"]["application/json"][
@@ -105,7 +105,7 @@ async def test_readiness_fails_when_the_cognitive_runtime_is_unavailable(
         "version": "0.1.0",
         "database": "configured",
         "agent_runtime": "unavailable",
-        "fixture_mode": True,
+        "fixture_mode": False,
     }
 
 
@@ -707,8 +707,7 @@ async def test_fixture_quote_keeps_canonical_hash_while_runtime_ttl_advances(
     assert first_intent["locked_at"] == "2026-08-02T01:10:00Z"
 
     await asyncio.sleep(0.05)
-    reset = await api_client.post("/v1/demo/reset")
-    assert reset.status_code == 200, reset.text
+    await application_for(api_client).state.workflow_service.reset_demo("org_consultco")
     second_intent, second_approval = await lock_intent_and_start_approval(api_client)
     second_expiry = datetime.fromisoformat(second_approval["expires_at"].replace("Z", "+00:00"))
     assert second_expiry > first_expiry

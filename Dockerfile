@@ -33,8 +33,8 @@ WORKDIR /app
 COPY --from=builder /app/.venv ./.venv
 COPY python ./python
 COPY services ./services
-COPY scripts ./scripts
 COPY fixtures/demo ./fixtures/demo
+COPY scripts ./scripts
 COPY alembic.ini ./
 
 USER sira

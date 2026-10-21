@@ -1,5 +1,6 @@
 """CockroachDB persistence boundary for SIRA + SEIL."""
 
+from . import marketplace_models as _marketplace_models  # noqa: F401
 from .database import Database, DatabaseSettings
 from .models import (
     ActionRun,

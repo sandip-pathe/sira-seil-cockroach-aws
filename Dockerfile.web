@@ -14,8 +14,8 @@ COPY packages/api-client/package.json ./packages/api-client/package.json
 RUN pnpm install --frozen-lockfile
 
 COPY apps/web ./apps/web
-COPY packages/api-client ./packages/api-client
 COPY fixtures/demo ./fixtures/demo
+COPY packages/api-client ./packages/api-client
 
 ARG NEXT_PUBLIC_WEB_DATA_MODE=api
 ARG NEXT_PUBLIC_GUEST_SESSION_ENABLED=false

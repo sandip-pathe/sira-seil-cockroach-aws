@@ -17,7 +17,7 @@ protected effect additionally requires an exact single-use capability.
 3. Use a closed JSON input schema with `additionalProperties: false`, bounds, and required fields.
 4. Define a bounded output schema containing only data safe for that principal.
 5. Implement a handler through an application-service protocol. Do not import SQLAlchemy,
-   persistence models, HTTP transport, or AWS clients into the agent-contract package.
+   persistence models, HTTP transport, or cloud-provider clients into the agent-contract package.
 6. Derive organization, actor, roles, and party from `ContextManifest`; never accept them as model
    arguments.
 7. Repeat object ownership and permission checks in the application service.

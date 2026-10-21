@@ -8,16 +8,15 @@ const configuredDataMode = process.env.NEXT_PUBLIC_WEB_DATA_MODE;
 
 if (
   configuredDataMode !== undefined &&
-  configuredDataMode !== "fixture" &&
   configuredDataMode !== "api"
 ) {
   throw new Error(
-    "NEXT_PUBLIC_WEB_DATA_MODE must be either 'fixture' or 'api'; refusing an implicit fallback.",
+    "NEXT_PUBLIC_WEB_DATA_MODE must be 'api'; fixture data is no longer supported.",
   );
 }
 
 export const WEB_DATA_MODE: WebDataMode =
-  configuredDataMode ?? (process.env.NODE_ENV === "production" ? "api" : "fixture");
+  configuredDataMode ?? "api";
 
 function guestWorkspaceHeaders(mode: "sira" | "seil"): Readonly<Record<string, string>> {
   const developmentIdentity: Record<string, string> = mode === "sira"

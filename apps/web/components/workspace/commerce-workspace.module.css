@@ -2868,6 +2868,41 @@
   }
 }
 
+.productRegistration {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+}
+
+.productRegistration label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.productRegistration input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  padding: 10px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+}
+
+.productRegistration button {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.productRegistration button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 @media (forced-colors: active) {
   .modeSwitcher .activeMode,
   .fullViewLink,

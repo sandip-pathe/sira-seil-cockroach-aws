@@ -12,7 +12,7 @@ async def test_workspace_catalog_and_connectors_use_live_routes(
     connectors = await api_client.get("/v1/workspace/connectors")
 
     assert catalog.status_code == 200
-    assert len(catalog.json()) == 4
+    assert catalog.json() == []  # An empty database never substitutes a fixture catalog.
     assert connectors.status_code == 200
     assert {item["id"] for item in connectors.json()} == {
         "business-context",

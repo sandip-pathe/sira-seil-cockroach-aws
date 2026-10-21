@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal, cast
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sira_agents.runtime import AgentRunContext
 
 from .dependencies import (
@@ -17,6 +17,7 @@ from .workspace_schemas import (
     CatalogProductView,
     ConnectorView,
     MissionSnapshotView,
+    ProductResearchCreate,
     WorkspaceChatCreate,
     WorkspaceChatView,
     WorkspaceConversationView,
@@ -133,27 +134,48 @@ async def workspace_mission(
     "/v1/workspace/catalog", response_model=list[CatalogProductView], tags=["workspace"]
 )
 async def workspace_catalog(
-    context: ContextDependency, service: ServiceDependency
+    request: Request,
+    context: ContextDependency,
+    query: Annotated[str, Query(max_length=1000)] = "",
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> list[dict[str, object]]:
     require_permission(context, "can_view_context")
-    return service.catalog()
+    result = await request.app.state.product_marketplace.search(
+        context.organization_id, query=query, limit=limit
+    )
+    return cast(list[dict[str, object]], result["results"])
 
 
 @workspace_router.get(
     "/v1/workspace/catalog/{product_id}", response_model=CatalogProductView, tags=["workspace"]
 )
 async def workspace_product(
-    product_id: str, context: ContextDependency, service: ServiceDependency
+    product_id: str,
+    request: Request,
+    context: ContextDependency,
 ) -> dict[str, object]:
     require_permission(context, "can_view_context")
-    product = service.product(product_id)
-    if product is None:
-        raise ApiProblem(
-            code="PRODUCT_NOT_FOUND",
-            message="That catalogue product is unavailable.",
-            status_code=404,
-        )
-    return product
+    return cast(
+        dict[str, object],
+        await request.app.state.product_marketplace.product(context.organization_id, product_id),
+    )
+
+
+@workspace_router.post(
+    "/v1/marketplace/research", tags=["workspace"], name="marketplace_research_products"
+)
+async def research_marketplace_products(
+    body: ProductResearchCreate,
+    request: Request,
+    context: ContextDependency,
+) -> dict[str, object]:
+    require_permission(context, "can_view_context")
+    return cast(
+        dict[str, object],
+        await request.app.state.product_marketplace.discover(
+            context.organization_id, query=body.query, limit=body.limit, refresh=body.refresh
+        ),
+    )
 
 
 @workspace_router.get(

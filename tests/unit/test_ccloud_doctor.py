@@ -14,7 +14,7 @@ def _runner(outputs: dict[tuple[str, ...], tuple[int, str]]):
     return run
 
 
-def test_ccloud_doctor_requires_aws_created_cluster_and_enabled_backups() -> None:
+def test_ccloud_doctor_requires_created_cluster_and_enabled_backups() -> None:
     ccloud = "ccloud"
     cluster = "sira-hackathon"
     outputs = {
@@ -25,7 +25,7 @@ def test_ccloud_doctor_requires_aws_created_cluster_and_enabled_backups() -> Non
         ),
         (ccloud, "cluster", "info", cluster): (
             0,
-            "state: CLUSTER_STATE_CREATED\ncloud: CLOUD_PROVIDER_AWS\n",
+            "state: CLUSTER_STATE_CREATED\ncloud: CLOUD_PROVIDER_GCP\n",
         ),
         (ccloud, "cluster", "backup", "list", cluster): (
             0,

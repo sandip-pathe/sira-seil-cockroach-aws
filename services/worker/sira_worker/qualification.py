@@ -1,29 +1,19 @@
-"""Qualification worker orchestration across CockroachDB DVI and Bedrock."""
+"""Qualification worker orchestration across CockroachDB DVI and OpenAI."""
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from hashlib import sha256
 from typing import Any, Literal
 
+from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from sira_agents.bedrock_runtime import (
-    BedrockClient,
-    BedrockConverseRuntime,
-    BedrockGuardrail,
-    BedrockTool,
-    TitanEmbeddingClient,
-)
+from sira_agents.openai_runtime import OpenAIChatRuntime, OpenAIEmbeddingClient, OpenAITool
 from sira_agents.runtime import AgentRole, AgentRunContext, AgentRunRequest, AuthorityMode
 from sqlalchemy import select
 
-from integrations.automated_reasoning import (
-    AutomatedReasoningReview,
-    BedrockAutomatedReasoningReviewer,
-)
 from persistence.database import Database
 from persistence.models import OutboxEvent
 from persistence.qualification_catalog import VectorCandidate, search_published_candidates
@@ -116,20 +106,19 @@ class QualificationRetrievalResult:
 @dataclass(frozen=True, slots=True)
 class QualificationEvaluation:
     decision: QualificationAgentDecision
-    automated_reasoning: AutomatedReasoningReview | None
 
 
 async def retrieve_qualification_candidates(
     *,
     catalog_database: Database,
-    embedding_client: TitanEmbeddingClient,
+    embedding_client: OpenAIEmbeddingClient,
     organization_id: str,
     category: str,
     query: str,
     visibility: str = "BUYER_SAFE",
     limit: int = 10,
 ) -> QualificationRetrievalResult:
-    """Use the same Bedrock embedding and DVI/current-bundle path as the worker."""
+    """Use OpenAI embeddings and CockroachDB DVI/current-bundle retrieval."""
 
     embedding = await embedding_client.embed(query)
     async with catalog_database.transaction(organization_id) as session:
@@ -137,6 +126,7 @@ async def retrieve_qualification_candidates(
             session,
             category=category,
             visibility=visibility,
+            model_id=embedding.model_id,
             query_vector=embedding.vector,
             limit=limit,
         )
@@ -149,12 +139,10 @@ class QualificationWorker:
 
     worker_database: Database = field(repr=False)
     catalog_database: Database = field(repr=False)
-    embedding_client: TitanEmbeddingClient = field(repr=False)
-    bedrock_client: BedrockClient = field(repr=False)
+    embedding_client: OpenAIEmbeddingClient = field(repr=False)
+    openai_client: AsyncOpenAI = field(repr=False)
     model_id: str
     lease_owner: str
-    guardrail: BedrockGuardrail | None = None
-    reasoning_reviewer: BedrockAutomatedReasoningReviewer | None = field(default=None, repr=False)
     candidate_limit: int = 10
     selected_candidates: int = 2
 
@@ -335,12 +323,11 @@ class QualificationWorker:
                                 dependency_products[dependency_id] = product_id
             return result
 
-        runtime = BedrockConverseRuntime(
-            client=self.bedrock_client,
+        runtime = OpenAIChatRuntime(
+            client=self.openai_client,
             model_id=self.model_id,
-            guardrail=self.guardrail,
             tools={
-                "retrieve_product_evidence": BedrockTool(
+                "retrieve_product_evidence": OpenAITool(
                     name="retrieve_product_evidence",
                     description=("Retrieve buyer-safe facts pinned to this qualification attempt."),
                     input_schema={
@@ -379,33 +366,19 @@ class QualificationWorker:
             )
         )
         if not isinstance(result.output, QualificationAgentDecision):
-            raise PersistenceConflict("Bedrock returned an invalid qualification decision")
+            raise PersistenceConflict("OpenAI returned an invalid qualification decision")
         if (
             retrieved_products != allowed_products
             or len(result.tool_calls) != len(allowed_products)
             or set(result.tool_calls) != {"retrieve_product_evidence"}
         ):
-            raise PersistenceConflict("Bedrock did not inspect pinned product evidence")
+            raise PersistenceConflict("OpenAI did not inspect pinned product evidence")
         _validate_grounded_decision(
             result.output,
             allowed_products=allowed_products,
             dependency_products=dependency_products,
         )
-        reasoning_review = None
-        if self.reasoning_reviewer is not None:
-            reasoning_review = await self.reasoning_reviewer.review_safely(
-                query=json.dumps(
-                    {
-                        "requirement_brief": mission_input.brief,
-                        "procurement_policy": mission_input.policy,
-                    },
-                    sort_keys=True,
-                    separators=(",", ":"),
-                    default=str,
-                ),
-                claim=result.output.model_dump_json(),
-            )
-        return QualificationEvaluation(result.output, reasoning_review)
+        return QualificationEvaluation(result.output)
 
     async def _evidence_for_product(
         self, organization_id: str, attempt_id: str, product_id: str
@@ -496,8 +469,6 @@ class QualificationWorker:
     ) -> FinalizationResult:
         decision = evaluation.decision
         payload = decision.model_dump(mode="json")
-        if evaluation.automated_reasoning is not None:
-            payload["automated_reasoning"] = evaluation.automated_reasoning.model_dump(mode="json")
         async with self.worker_database.transaction(organization_id) as session:
             repository = QualificationRepository(session, organization_id)
             result = await repository.finalize_attempt(
@@ -541,18 +512,18 @@ def _validate_grounded_decision(
     """Fail closed when model conclusions exceed the pinned snapshot."""
 
     if decision.recommended_product_id not in allowed_products:
-        raise PersistenceConflict("Bedrock recommended a product outside the candidate set")
+        raise PersistenceConflict("OpenAI recommended a product outside the candidate set")
     cited = frozenset(decision.cited_dependency_ids)
     available = frozenset(dependency_products)
     if not cited.issubset(available):
-        raise PersistenceConflict("Bedrock cited evidence outside the pinned dependency set")
+        raise PersistenceConflict("OpenAI cited evidence outside the pinned dependency set")
     recommended_evidence = frozenset(
         dependency_id
         for dependency_id, product_id in dependency_products.items()
         if product_id == decision.recommended_product_id
     )
     if cited.isdisjoint(recommended_evidence):
-        raise PersistenceConflict("Bedrock recommendation lacks product-specific evidence")
+        raise PersistenceConflict("OpenAI recommendation lacks product-specific evidence")
     for criterion in decision.criteria:
         criterion_citations = frozenset(criterion.cited_dependency_ids)
         if not criterion_citations.issubset(cited):

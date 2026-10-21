@@ -35,7 +35,7 @@ import {
 import Image from "next/image";
 import { useEffect, useRef, useState, type ChangeEvent, type RefObject } from "react";
 import { prepareWithSegments, walkLineRanges } from "@chenglou/pretext";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AgentProposalView,
   AttentionView,
@@ -47,6 +47,7 @@ import type {
 
 import {
   buyerDevelopmentHeaders,
+  createIdempotencyKey,
   getBrowserApiClient,
   sellerEditorDevelopmentHeaders,
   WEB_DATA_MODE,
@@ -92,6 +93,7 @@ type CatalogProduct = {
   why_company?: string;
   admin_effort?: string;
   evidence_freshness?: string;
+  stale?: boolean;
   requirement_coverage?: string;
   limitation?: string;
   logo?: string;
@@ -390,6 +392,7 @@ function withProductBrand(product: CatalogProduct | CatalogProductView): Catalog
     ...(brand ?? {}),
     logo: brand?.logo ?? product.logo ?? PRODUCT_LOGOS[product.id],
     website: brand?.website ?? product.website ?? undefined,
+    category: product.category ?? undefined,
     evidence_freshness:
       brand?.evidence_freshness ?? product.evidence_freshness ?? undefined,
     fit: product.fit ?? undefined,
@@ -1479,6 +1482,31 @@ function SellerProductsPanel({
   researchArtifacts?: MissionArtifactView[];
   onSelectArtifact?: (artifact: MissionArtifactView) => void;
 }) {
+  const { user } = useFirebaseAuth();
+  const queryClient = useQueryClient();
+  const [adding, setAdding] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [registration, setRegistration] = useState({
+    name: "", seller_name: "", website: "", edition: "", category: "", summary: "",
+  });
+  const registrationKey = useRef<string | null>(null);
+  const registerProduct = useMutation({
+    mutationFn: () => {
+      registrationKey.current ??= createIdempotencyKey("register-product");
+      return getBrowserApiClient().request("seller_evidence_register_product", {
+        headers: sellerEditorDevelopmentHeaders,
+        idempotencyKey: registrationKey.current,
+        body: registration,
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["seil-products"] });
+      setSaved(true);
+      setAdding(false);
+      registrationKey.current = null;
+      setRegistration({ name: "", seller_name: "", website: "", edition: "", category: "", summary: "" });
+    },
+  });
   const query = useQuery({
     queryKey: ["seil-products", WEB_DATA_MODE],
     enabled: WEB_DATA_MODE === "api",
@@ -1509,7 +1537,39 @@ function SellerProductsPanel({
         <span>Seller workspace</span>
         <h2>Product Evidence</h2>
         <p>Claim, strengthen, review, and publish evidence packets without leaving the mission.</p>
+        <button type="button" className={styles.fullViewLink} onClick={() => { setAdding(!adding); setSaved(false); }}>
+          {adding ? "Cancel" : "Add product"}
+        </button>
       </section>
+      {saved ? <p role="status" className={styles.sectionCopy}>Product saved as a private draft. Open it to add evidence and submit for review.</p> : null}
+      {adding ? (
+        <form className={styles.productRegistration} onSubmit={(event) => { event.preventDefault(); registerProduct.mutate(); }}>
+          <h3>Add your product</h3>
+          <p>Save the product identity first, then prepare its evidence for publication.</p>
+          {!user || user.isAnonymous ? <p role="alert"><a href="/seil/sign-in">Sign in with your seller account</a> to save a product.</p> : null}
+          {([
+            ["name", "Product name", 150], ["seller_name", "Seller or company name", 200],
+            ["website", "Official product website", 1000], ["edition", "Edition or plan (optional)", 40],
+            ["category", "Category", 120], ["summary", "Public product summary", 1000],
+          ] as const).map(([field, label, maxLength]) => (
+            <label key={field}>
+              <span>{label}</span>
+              <input type={field === "website" ? "url" : "text"} maxLength={maxLength}
+                required={field !== "edition"} value={registration[field]}
+                disabled={registerProduct.isPending}
+                onChange={(event) => {
+                  registrationKey.current = null;
+                  registerProduct.reset();
+                  setRegistration({ ...registration, [field]: event.target.value });
+                }} />
+            </label>
+          ))}
+          {registerProduct.isError ? <p role="alert">The product could not be saved. Check your seller account and product details, then retry.</p> : null}
+          <button type="submit" disabled={!user || user.isAnonymous || registerProduct.isPending}>
+            {registerProduct.isPending ? "Saving…" : "Save private draft"}
+          </button>
+        </form>
+      ) : null}
       <section className={styles.contextSection}>
         <div className={styles.sectionHeading}>
           <div>
@@ -1696,6 +1756,15 @@ function ProductPanel({ product, onBack }: { product: CatalogProduct | null; onB
             Open current vendor evidence <ArrowRight aria-hidden="true" />
           </a>
         ) : null}
+        {product.stale ? <p role="status" className={styles.productLimitation}>Some observations have expired. Ask SIRA to refresh this product before relying on its price or requirements.</p> : null}
+        {product.source_refs?.length ? <section className={styles.contextSection}>
+          <h3>Sources</h3>
+          {product.source_refs.map((source, index) => typeof source.url === "string" ? (
+            <p key={`${source.url}-${index}`}><a href={source.url} target="_blank" rel="noreferrer">
+              {typeof source.title === "string" ? source.title : source.url}
+            </a></p>
+          ) : null)}
+        </section> : null}
       </section>
     </div>
   );
@@ -2437,7 +2506,6 @@ export function CommerceWorkspace({
           body: {
             intent: intent.trim(),
             visibility,
-            scenario_id: "consultco_meeting_intelligence_v1",
             mission_id: selectedConversation.id.startsWith("msn_")
               ? selectedConversation.id
               : undefined,

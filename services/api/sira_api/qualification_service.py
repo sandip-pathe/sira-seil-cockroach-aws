@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
-from sira_agents.bedrock_runtime import TitanEmbeddingClient
+from sira_agents.openai_runtime import OpenAIEmbeddingClient
 from sira_worker.qualification import retrieve_qualification_candidates
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -86,7 +86,7 @@ class QualificationService:
         database: Database,
         *,
         catalog_database: Database | None = None,
-        embedding_client: TitanEmbeddingClient | None = None,
+        embedding_client: OpenAIEmbeddingClient | None = None,
         allow_development_tenant_bootstrap: bool = False,
     ) -> None:
         self.database = database
@@ -249,7 +249,7 @@ class QualificationService:
                 code="MARKETPLACE_SEARCH_UNAVAILABLE",
                 message="Semantic marketplace search is not configured.",
                 status_code=503,
-                next_action="configure_catalog_and_bedrock",
+                next_action="configure_catalog_and_openai",
             )
         retrieval = await retrieve_qualification_candidates(
             catalog_database=self.catalog_database,

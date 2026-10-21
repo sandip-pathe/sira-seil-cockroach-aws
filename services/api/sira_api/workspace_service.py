@@ -320,7 +320,11 @@ class WorkspaceService:
         products: list[dict[str, Any]] = []
         seen: set[str] = set()
         for observation in result.tool_results:
-            if observation.get("tool_name") != "search_published_products":
+            if observation.get("tool_name") not in {
+                "search_published_products",
+                "discover_products",
+                "research_product",
+            }:
                 continue
             output = observation.get("output")
             if not isinstance(output, dict):
@@ -344,14 +348,14 @@ class WorkspaceService:
                         "edition": str(row.get("edition") or ""),
                         "price": str(row.get("price") or "Verify with seller"),
                         "billing_unit": str(row.get("billing_unit") or "unspecified"),
-                        "status": "published",
+                        "status": row.get("status", "published"),
                         "summary": str(row.get("summary") or "Published product evidence."),
                         "claims": list(row.get("claims") or []),
                         "integrations": list(row.get("integrations") or []),
                         "source_refs": list(row.get("source_refs") or []),
-                        "listing_origin": "SELLER_PUBLISHED",
-                        "evidence_status": "PUBLISHED",
-                        "seller_attested": True,
+                        "listing_origin": row.get("listing_origin", "SELLER_PUBLISHED"),
+                        "evidence_status": row.get("evidence_status", "PUBLISHED"),
+                        "seller_attested": row.get("seller_attested", True),
                     }
                 )
         return products

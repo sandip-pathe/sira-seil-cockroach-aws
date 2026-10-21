@@ -36,12 +36,10 @@ def test_domain_is_independent_of_adapters_and_frameworks() -> None:
     _assert_no_imports(
         "python/domain",
         {
-            "boto3",
             "fastapi",
             "integrations",
             "openai",
             "persistence",
-            "sira_agentcore",
             "sira_api",
             "sira_worker",
             "sqlalchemy",
@@ -52,22 +50,21 @@ def test_domain_is_independent_of_adapters_and_frameworks() -> None:
 def test_agents_do_not_depend_on_transport_or_worker_layers() -> None:
     _assert_no_imports(
         "python/agents",
-        {"fastapi", "persistence", "sira_agentcore", "sira_api", "sira_worker", "sqlalchemy"},
+        {"fastapi", "persistence", "sira_api", "sira_worker", "sqlalchemy"},
     )
 
 
-def test_active_agent_runtime_has_no_duplicate_openai_sdk() -> None:
-    _assert_no_imports("python/agents", {"agents", "openai"})
-    _assert_no_imports("services/api", {"agents", "openai"})
+def test_openai_runtime_and_langgraph_are_declared() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    declared = [
-        *project["project"]["dependencies"],
-        *project["project"]["optional-dependencies"]["dev"],
-    ]
-    assert not any(str(item).startswith(("openai", "openai-agents")) for item in declared)
+    dependencies = project["project"]["dependencies"]
+    assert any(str(item).startswith("openai>=") for item in dependencies)
+    assert any(str(item).startswith("langgraph>=") for item in dependencies)
+    assert "from openai import" in (ROOT / "python/agents/sira_agents/openai_runtime.py").read_text(
+        encoding="utf-8"
+    )
 
 
-def test_shipped_runtime_cannot_select_or_import_a_scripted_provider() -> None:
+def test_shipped_runtime_has_no_provider_selection_or_test_doubles() -> None:
     _assert_no_imports("python", {"tests"})
     _assert_no_imports("services", {"tests"})
     shipped_sources = [*_python_files("python"), *_python_files("services")]
@@ -75,11 +72,12 @@ def test_shipped_runtime_cannot_select_or_import_a_scripted_provider() -> None:
         "ScriptedCognitiveRuntime" in path.read_text(encoding="utf-8") for path in shipped_sources
     )
     configuration = (ROOT / "services/api/sira_api/config.py").read_text(encoding="utf-8")
-    assert 'Literal["agentcore", "bedrock"]' in configuration
+    assert "openai_api_key" in configuration
+    assert "openai_chat_model" in configuration
 
 
 def test_persistence_does_not_depend_on_transport_or_worker_layers() -> None:
     _assert_no_imports(
         "python/persistence",
-        {"fastapi", "integrations", "sira_agentcore", "sira_api", "sira_worker"},
+        {"fastapi", "integrations", "sira_api", "sira_worker"},
     )

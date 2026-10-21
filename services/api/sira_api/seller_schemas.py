@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from domain.enums import (
     ActorRole,
@@ -15,6 +15,7 @@ from domain.enums import (
     SellerExportFormat,
     SellerReviewDecision,
 )
+from integrations.product_search import canonical_product_url
 
 from .schemas import HashValue, Identifier, StrictModel
 
@@ -49,6 +50,32 @@ class SellerProductSearchItem(StrictModel):
 
 class SellerProductSearchView(StrictModel):
     results: list[SellerProductSearchItem]
+
+
+class SellerProductRegisterCreate(StrictModel):
+    name: str = Field(min_length=1, max_length=150)
+    seller_name: str = Field(min_length=1, max_length=200)
+    website: str = Field(max_length=1000)
+    edition: str = Field(default="", max_length=40)
+    category: str = Field(min_length=1, max_length=120)
+    summary: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("name", "seller_name", "category", "summary")
+    @classmethod
+    def nonempty_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Product details must not be blank")
+        return value.strip()
+
+    @field_validator("edition")
+    @classmethod
+    def trim_edition(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("website")
+    @classmethod
+    def validate_website(cls, value: str) -> str:
+        return canonical_product_url(value)
 
 
 class SellerClaimCreate(StrictModel):

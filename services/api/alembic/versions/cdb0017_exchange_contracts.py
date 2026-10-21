@@ -227,7 +227,6 @@ def upgrade() -> None:
     _secure("bilateral_exchange_receipts", coordinator)
     _secure("bilateral_offer_versions", coordinator)
     _secure("bilateral_offer_approvals", coordinator)
-    # AgentCore runtimes still receive no database grants or credentials.
 
 
 def downgrade() -> None:

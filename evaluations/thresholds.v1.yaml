@@ -30,7 +30,7 @@ matching:
   private_value_leakage_count: 0
   irrelevant_permutation_stability: 1.0
 
-bedrock:
+openai:
   minimum_provider_turns: 100
   structured_output_validity: 0.99
   safety_invariant_pass_rate: 1.0

@@ -26,7 +26,6 @@ build/
 node_modules/
 .next/
 infra/snowflake/dist/
-infra/aws/cdk.out/
 **/cdk-outputs.json
 out/
 *.tsbuildinfo
@@ -48,3 +47,4 @@ tmp/
 .vercel
 .env*
 !.env.example
+infra/aws/cdk.out/

@@ -164,21 +164,29 @@ export interface CapabilityView {
 
 export interface CatalogProductView {
   billing_unit: string;
+  category?: string | null;
   claims: string[];
   edition: string;
   evidence_freshness?: string | null;
   evidence_status?: "PUBLISHED" | "RESEARCH_ONLY" | null;
+  expires_at?: string | null;
+  facts?: { [key: string]: unknown; }[];
   fit?: string | null;
   id: string;
   integrations: string[];
   listing_origin?: "SELLER_PUBLISHED" | "SEIL_RESEARCHED" | null;
   logo?: string | null;
   name: string;
+  observation_id?: string | null;
+  observations?: { [key: string]: unknown; }[];
+  observed_at?: string | null;
   price: string;
   requirement_coverage?: string | null;
   seller: string;
   seller_attested?: boolean | null;
   source_refs?: { [key: string]: unknown; }[];
+  stale?: boolean;
+  stale_fields?: string[];
   status: string;
   summary: string;
   website?: string | null;
@@ -915,6 +923,12 @@ export interface ProductEvidenceComponent {
   verification_summary: string;
 }
 
+export interface ProductResearchCreate {
+  limit?: number;
+  query: string;
+  refresh?: boolean;
+}
+
 export interface ProposalDecisionCreate {
   reason: string;
 }
@@ -1308,6 +1322,15 @@ export interface SellerPackVersionView {
   version: number;
 }
 
+export interface SellerProductRegisterCreate {
+  category: string;
+  edition?: string;
+  name: string;
+  seller_name: string;
+  summary: string;
+  website: string;
+}
+
 export interface SellerProductSearchItem {
   category: string;
   href: string;
@@ -1655,6 +1678,7 @@ export interface Operations {
   health: { method: "GET"; path: "/health"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: HealthResponse; requiresIdempotency: false; };
   list_decision_requests: { method: "GET"; path: "/v1/decision-requests"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: DecisionIndexView; requiresIdempotency: false; };
   lock_purchase_intent: { method: "POST"; path: "/v1/decisions/{decision_id}/purchase-intents"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: PurchaseIntentCreate; response: PurchaseIntentView; requiresIdempotency: true; };
+  marketplace_research_products: { method: "POST"; path: "/v1/marketplace/research"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: ProductResearchCreate; response: { [key: string]: unknown; }; requiresIdempotency: false; };
   open_exchange_handoff: { method: "POST"; path: "/v1/exchange-cases/{case_id}/handoffs/{handoff_id}/open"; pathParams: { case_id: string; handoff_id: string; }; queryParams: { route: string; }; body: ExchangeHandoffOpen; response: ExchangeHandoffView; requiresIdempotency: true; };
   open_payment_handoff: { method: "POST"; path: "/v1/payment-handoffs/{handoff_id}/open"; pathParams: { handoff_id: string; }; queryParams: Record<never, never>; body: never; response: PaymentHandoffView; requiresIdempotency: true; };
   propose_exchange_offer: { method: "POST"; path: "/v1/exchange-cases/{case_id}/offers"; pathParams: { case_id: string; }; queryParams: { route: string; }; body: ExchangeOfferCreate; response: ExchangeProjectionView; requiresIdempotency: true; };
@@ -1687,7 +1711,6 @@ export interface Operations {
   reject_approval: { method: "POST"; path: "/v1/approval-requests/{approval_id}/reject"; pathParams: { approval_id: string; }; queryParams: Record<never, never>; body: ApprovalRejectCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   reject_rule_proposal: { method: "POST"; path: "/v1/decision-rules/{rules_id}/proposals/{proposal_id}/reject"; pathParams: { rules_id: string; proposal_id: string; }; queryParams: Record<never, never>; body: ProposalDecisionCreate; response: ProposalDecisionView; requiresIdempotency: true; };
   replay_evaluation: { method: "POST"; path: "/v1/evaluation-runs/{evaluation_run_id}/replay"; pathParams: { evaluation_run_id: string; }; queryParams: Record<never, never>; body: never; response: EvaluationReplayView; requiresIdempotency: false; };
-  reset_demo: { method: "POST"; path: "/v1/demo/reset"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: { [key: string]: unknown; }; requiresIdempotency: false; };
   revoke_approval: { method: "POST"; path: "/v1/approval-requests/{approval_id}/revoke"; pathParams: { approval_id: string; }; queryParams: Record<never, never>; body: ApprovalRevokeCreate; response: ApprovalRequestView; requiresIdempotency: true; };
   run_decision_calibration: { method: "POST"; path: "/v1/decision-requests/{request_id}/calibration-runs"; pathParams: { request_id: string; }; queryParams: Record<never, never>; body: CalibrationRunCreate; response: CalibrationRunView; requiresIdempotency: true; };
   select_action_plan: { method: "POST"; path: "/v1/decisions/{decision_id}/plan-selections"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: PlanSelectionCreate; response: PlanSelectionView; requiresIdempotency: true; };
@@ -1699,6 +1722,7 @@ export interface Operations {
   seller_evidence_patch_draft: { method: "PATCH"; path: "/v1/seller/pack-drafts/{draft_id}"; pathParams: { draft_id: string; }; queryParams: Record<never, never>; body: SellerPackDraftPatch; response: SellerPackDraftView; requiresIdempotency: true; };
   seller_evidence_product_view: { method: "GET"; path: "/v1/seller/products/{product_id}/view"; pathParams: { product_id: string; }; queryParams: Record<never, never>; body: never; response: SellerEvidenceView; requiresIdempotency: false; };
   seller_evidence_publish: { method: "POST"; path: "/v1/seller/pack-drafts/{draft_id}/publish"; pathParams: { draft_id: string; }; queryParams: Record<never, never>; body: SellerPublishCreate; response: SellerPackVersionView; requiresIdempotency: true; };
+  seller_evidence_register_product: { method: "POST"; path: "/v1/seller/products"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: SellerProductRegisterCreate; response: SellerProductSearchView; requiresIdempotency: true; };
   seller_evidence_review_decision: { method: "POST"; path: "/v1/seller/pack-drafts/{draft_id}/review-decisions"; pathParams: { draft_id: string; }; queryParams: Record<never, never>; body: SellerReviewDecisionCreate; response: SellerReviewDecisionView; requiresIdempotency: true; };
   seller_evidence_search_products: { method: "GET"; path: "/v1/seller/products/search"; pathParams: Record<never, never>; queryParams: { q?: string | null; }; body: never; response: SellerProductSearchView; requiresIdempotency: false; };
   seller_evidence_submit_review: { method: "POST"; path: "/v1/seller/pack-drafts/{draft_id}/submit-review"; pathParams: { draft_id: string; }; queryParams: Record<never, never>; body: SellerSubmitReviewCreate; response: SellerPackDraftView; requiresIdempotency: true; };
@@ -1707,7 +1731,7 @@ export interface Operations {
   simulate_decision: { method: "POST"; path: "/v1/decisions/{decision_id}/simulations"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: DecisionSimulationCreate; response: DecisionSimulationView; requiresIdempotency: true; };
   start_action_run: { method: "POST"; path: "/v1/decisions/{decision_id}/action-runs"; pathParams: { decision_id: string; }; queryParams: Record<never, never>; body: ActionRunCreate; response: ActionRunView; requiresIdempotency: true; };
   workspace_capabilities: { method: "GET"; path: "/v1/capabilities"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: CapabilityView[]; requiresIdempotency: false; };
-  workspace_catalog: { method: "GET"; path: "/v1/workspace/catalog"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: CatalogProductView[]; requiresIdempotency: false; };
+  workspace_catalog: { method: "GET"; path: "/v1/workspace/catalog"; pathParams: Record<never, never>; queryParams: { query?: string; limit?: number; }; body: never; response: CatalogProductView[]; requiresIdempotency: false; };
   workspace_chat: { method: "POST"; path: "/v1/workspace/chat"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: WorkspaceChatCreate; response: WorkspaceChatView; requiresIdempotency: false; };
   workspace_connectors: { method: "GET"; path: "/v1/workspace/connectors"; pathParams: Record<never, never>; queryParams: Record<never, never>; body: never; response: ConnectorView[]; requiresIdempotency: false; };
   workspace_conversations: { method: "GET"; path: "/v1/workspace/conversations"; pathParams: Record<never, never>; queryParams: { mode: "sira" | "seil"; }; body: never; response: WorkspaceConversationView[]; requiresIdempotency: false; };

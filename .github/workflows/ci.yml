@@ -96,18 +96,3 @@ jobs:
           SIRA_TEST_DATABASE_URL: cockroachdb+asyncpg://sira_app@127.0.0.1:26257/sira_test?ssl=disable
           SIRA_TEST_WORKER_DATABASE_URL: cockroachdb+asyncpg://sira_worker_app@127.0.0.1:26257/sira_test?ssl=disable
           SIRA_TEST_CATALOG_DATABASE_URL: cockroachdb+asyncpg://sira_catalog_app@127.0.0.1:26257/sira_test?ssl=disable
-
-  infrastructure:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: pnpm/action-setup@v6.0.9
-      - uses: actions/setup-node@v6.4.0
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --dir infra/aws build
-      - run: pnpm --dir infra/aws test
-      - run: pnpm --dir infra/aws synth
