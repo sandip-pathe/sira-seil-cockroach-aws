@@ -1,6 +1,6 @@
 # SIRA + SEIL UI/UX implementation plan
 
-Version 1.0 · 21 October 2026 · Status: in progress; Step 00 source audit artifacts started 21 October 2026. Product implementation under this plan has not started.
+Version 1.0 · 21 October 2026 · Status: in progress; Step 00 repository audit is recorded and Step 01 product model is drafted. Customer evidence and business-owner decisions remain open dependencies. Product implementation under this plan has not started.
 
 This is the execution plan for the [SIRA + SEIL synthesis-driven design playbook](sira_seil_ui_ux_synthesis_driven_design_system.md). It covers public messaging, product copy, navigation, components, buyer and seller workflows, company context, human decisions, integrations, commercial handoffs, validation, and operations.
 
@@ -116,15 +116,15 @@ flowchart TD
 
 **Purpose:** give every flow a clear business job, persistent object, owner, and policy basis.
 
-- [ ] **01.1 Define job cards.** Cover requester, evaluator, approver, admin, seller editor, seller reviewer/commercial owner, and returning user. Specify trigger, desired progress, workaround, success, and responsibility.
-- [ ] **01.2 Define positioning and value exchange.** Specify buyer value, seller value, platform role, lead qualification meaning, evidence responsibility, ranking inputs, and relationship to the external transaction. Document approved commercial policy rather than inventing prices or fee terms.
-- [ ] **01.3 Map persistent objects and links.** Company context, mission, private brief, released brief, product/edition, claim/source, decision version, engagement, consent, offer, approval, handoff, and outcome each need identity, owner, status, version, and visibility.
-- [ ] **01.4 Define the company-context field catalog.** Use the companion specification's fields and map them to current `REQUIREMENT`, `CONSTRAINT`, `STACK`, `POLICY`, `PREFERENCE`, and `NOTE` kinds. Identify new projections/validation needed; avoid a new data store without demonstrated need.
-- [ ] **01.5 Map authority by action.** Separate edit, publish, release, consent, accept/counter, approve spend, execute handoff, connect access, and deploy. Record which roles are already supported and which need server capabilities.
-- [ ] **01.6 Define information-release policy.** Establish default private fields, exact permitted public/seller-safe projections, release recipient/purpose, preview rules, revision binding, and irreversibility limits.
-- [ ] **01.7 Record business decisions and defaults.** Team membership model, approver routing, supported geographies/currencies, product fees, notification policy, service expectations, and escalation owner. Missing commercial decisions block only the dependent promise or action.
+- [x] **01.1 Define job cards.** Requester, evaluator, approver, policy/IT reviewer, procurement, admin, seller editor/reviewer, and returning-user jobs are recorded in [business-context-and-authority.md](docs/ui-ux-upgrade/business-context-and-authority.md), with modeled roles distinguished from currently enforced roles.
+- [x] **01.2 Define positioning and value exchange.** Buyer/seller value, platform role, evidence responsibility, qualification meaning, and no-unapproved-fees default are recorded in [business-context-and-authority.md](docs/ui-ux-upgrade/business-context-and-authority.md). Commercial terms remain an explicit business-owner dependency.
+- [x] **01.3 Map persistent objects and links.** Ownership, versions, visibility, status boundaries, authority evidence, and artifact lineage are mapped in [business-context-and-authority.md](docs/ui-ux-upgrade/business-context-and-authority.md).
+- [x] **01.4 Define the company-context field catalog.** Current six context kinds are mapped to field families, source/privacy metadata, and validation needs in [business-context-and-authority.md](docs/ui-ux-upgrade/business-context-and-authority.md); no new store is proposed.
+- [x] **01.5 Map authority by action.** Edit, publish, release, consent, offer, approval, handoff, connection/tool, and outcome actions are mapped to current server signals and missing capabilities in [business-context-and-authority.md](docs/ui-ux-upgrade/business-context-and-authority.md).
+- [x] **01.6 Define information-release policy.** Buyer/seller defaults, allowlisted projection, recipient/purpose, version binding and irreversibility constraints are specified as proposed defaults pending accountable policy approval in [business-context-and-authority.md](docs/ui-ux-upgrade/business-context-and-authority.md).
+- [x] **01.7 Record business decisions and defaults.** Open decisions, safe interim defaults, owners and affected product scope are recorded in the decision register in [business-context-and-authority.md](docs/ui-ux-upgrade/business-context-and-authority.md). Unapproved fees, member/approver routing, currency/geography, retention, notifications and launch cohort are not presented as settled business policy.
 
-**Deliverables:** business decision register, object/action map, field catalog, action/authority matrix, release-boundary map. Initial specifications live in the companion [flow and control document](docs/ui-ux-upgrade/flow-and-control-spec.md).
+**Deliverables:** [business decision register, object/action map, field catalog, action/authority matrix, and release-boundary map](docs/ui-ux-upgrade/business-context-and-authority.md), alongside the companion [flow and control document](docs/ui-ux-upgrade/flow-and-control-spec.md).
 
 **Exit evidence:** a business reviewer and engineer can explain what each agent knows, owns, may disclose, and may do. No screen depends on a role or commercial capability that exists only in copy.
 
