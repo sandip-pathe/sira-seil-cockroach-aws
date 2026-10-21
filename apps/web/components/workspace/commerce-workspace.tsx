@@ -56,6 +56,7 @@ import {
 import { ProfileSettingsModal } from "@/components/home/profile-preview";
 import { useFirebaseAuth } from "@/components/auth/firebase-auth-provider";
 import { DecisionWorkspacePanel } from "@/components/decisions/decision-surfaces";
+import { SkipLink } from "@/components/ui/skip-link";
 import { adaptSellerProductSearchItem } from "@/lib/workspace-adapters";
 
 import { ChatMessageBody } from "./chat-message";
@@ -2666,9 +2667,7 @@ export function CommerceWorkspace({
 
   return (
     <main className={shellClass} data-mode={mode}>
-      <a className={styles.skipLink} href="#chat-thread">
-        Skip to mission
-      </a>
+      <SkipLink href="#chat-thread">Skip to mission</SkipLink>
 
       {sidebarOpen ? (
         <Sidebar
@@ -2767,6 +2766,7 @@ export function CommerceWorkspace({
         <div
           className={styles.messageViewport}
           id="chat-thread"
+          tabIndex={-1}
           ref={messageViewportRef}
           onScroll={() => {
             const viewport = messageViewportRef.current;

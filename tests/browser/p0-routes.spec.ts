@@ -210,11 +210,105 @@ test("seller evidence retry reuses one idempotency key and expected version", as
   await page.getByRole("button", { name: "Publish current evidence" }).click();
   const retry = page.getByRole("button", { name: "Retry evidence submission" });
   await expect(retry).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "No buyer-safe published evidence is available yet." })).toBeVisible();
   await retry.click();
   await expect.poll(() => keys.length, { message: exchangeRequests.join("\n") || "No exchange requests observed" }).toBe(2);
-  await expect(page.getByText("Evidence was submitted. Refreshing the exchange version.")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Evidence was submitted. Refreshing the exchange version." })).toBeVisible();
   expect(keys).toHaveLength(2);
   expect(keys[0]).not.toBe("missing");
   expect(keys[1]).toBe(keys[0]);
   expect(versions).toEqual([4, 4]);
+});
+
+test("mission skip link reaches the focused chat at narrow and 200% effective widths", async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 900 });
+  await page.goto("/seil", { waitUntil: "domcontentloaded" });
+
+  const skipLink = page.getByRole("link", { name: "Skip to mission" });
+  await page.keyboard.press("Tab");
+  await expect(skipLink).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#chat-thread")).toBeFocused();
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const transitionDuration = await page.locator("[data-mode]").evaluate(
+    (element) => Number.parseFloat(getComputedStyle(element).transitionDuration),
+  );
+  expect(transitionDuration).toBeLessThan(0.001);
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  const hasHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  );
+  expect(hasHorizontalOverflow).toBe(false);
+
+});
+
+test("Product Evidence tabs support arrow navigation and submission dialog returns focus", async ({ page }) => {
+  await page.route("**/v1/seller/products/a11y-product/view", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activity_metrics: { answer_rendered_count: 0, measurement_label: "OBSERVATIONAL_NOT_CAUSAL", observed_self_service_count: 0, seller_handoff_requested_count: 0, window_end: "2026-10-21T00:00:00Z", window_start: "2026-10-20T00:00:00Z" },
+        actor: { capabilities: ["SUBMIT_REVIEW"], role: "SELLER_EDITOR" },
+        available_actions: [{ href: "/v1/seller/pack-drafts/a11y-draft/submit-review", id: "SUBMIT_REVIEW", label: "Submit for review", method: "POST" }],
+        pack_health: { complete_claim_count: 1, conflict_count: 0, required_claim_count: 2, stale_claim_count: 0, status: "NEEDS_ATTENTION" },
+        product: { current_version: 1, href: "/seil/product-evidence/a11y-product", id: "a11y-product", name: "Accessibility Test Product", seller_state: "SELLER_DRAFT" },
+        publisher_authority: { label: "Seller confirmed", supporting_copy: "Authority and verification are separate.", value: "SELLER_SEALED" },
+        reusable_answers: { formats: [], published_answer_count: 0 },
+        review: null,
+        validation: { gaps: [], status: "VALID" },
+        version_links: { current: "/current", previous: "/previous" },
+      }),
+    });
+  });
+  await page.route("**/v1/seller/pack-drafts/a11y-draft", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        anti_fit_rules: [],
+        claims: [],
+        fit_rules: [],
+        id: "a11y-draft",
+        product_id: "a11y-product",
+        publisher_authority: "SELLER_SEALED",
+        revision: 2,
+        revision_hash: "sha256:reviewable-revision",
+        state: "SELLER_DRAFT",
+        updated_at: "2026-10-21T00:00:00Z",
+        validation: { gaps: [], status: "VALID" },
+      }),
+    });
+  });
+
+  await page.goto("/seil/product-evidence/a11y-product", { waitUntil: "domcontentloaded" });
+  const skipLink = page.getByRole("link", { name: "Skip to main content" });
+  await page.keyboard.press("Tab");
+  await expect(skipLink).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#seller-main")).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Draft in progress" })).toBeVisible();
+  await expect(page.getByText("Needs Attention", { exact: true })).toBeVisible();
+  const packTab = page.getByRole("tab", { name: "Pack" });
+  const evidenceTab = page.getByRole("tab", { name: "Evidence" });
+  await packTab.focus();
+  await packTab.press("ArrowRight");
+  await expect(evidenceTab).toBeFocused();
+  await expect(evidenceTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel").getByRole("heading", { name: "Freshness and conflicts" })).toBeVisible();
+
+  await evidenceTab.press("ArrowRight");
+  await page.getByRole("tab", { name: "Fit" }).press("ArrowRight");
+  await page.getByRole("tab", { name: "Publish" }).press("Enter");
+  const submit = page.getByRole("button", { name: "Submit for review" });
+  await expect(submit).toBeVisible();
+  await submit.click();
+
+  const dialog = page.getByRole("alertdialog", { name: "Submit revision 2 for review?" });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(submit).toBeFocused();
 });

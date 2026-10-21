@@ -71,26 +71,6 @@
   outline-offset: var(--focus-offset);
 }
 
-.skipLink {
-  position: fixed;
-  z-index: 100;
-  top: 12px;
-  left: 12px;
-  padding: 9px 13px;
-  border: 1px solid #817b71;
-  border-radius: 7px;
-  background: #ffffff;
-  color: #20201d;
-  font-weight: 650;
-  text-decoration: none;
-  transform: translateY(-160%);
-  transition: transform 120ms ease;
-}
-
-.skipLink:focus {
-  transform: translateY(0);
-}
-
 .sidebar {
   grid-column: 1;
   z-index: 4;
@@ -2915,6 +2895,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .workspace,
   .workspace *,
   .workspace *::before,
   .workspace *::after {

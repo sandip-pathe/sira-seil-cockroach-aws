@@ -39,6 +39,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { SkipLink } from "@/components/ui/skip-link";
 import rawDecisionFixture from "../../../../fixtures/demo/expected_decision_view.json";
 import {
   WEB_DATA_MODE,
@@ -263,9 +264,10 @@ export function DecisionIndex() {
 
   return (
     <div className={styles.appShell}>
+      <SkipLink href="#decisions-main">Skip to main content</SkipLink>
       <WorkspaceRail />
       <MobileRailDialog open={mobileRail} close={() => setMobileRail(false)} />
-      <main className={styles.indexMain}>
+      <main id="decisions-main" className={styles.indexMain} tabIndex={-1}>
         {WEB_DATA_MODE === "fixture" ? <FixtureBanner /> : null}
         {query.isError ? <ApiErrorBanner retry={() => void query.refetch()} /> : null}
         <header className={styles.indexHeader}>
@@ -843,12 +845,13 @@ export function DecisionRoom({ requestId, version, stage }: { requestId: string;
 
   return (
     <div className={styles.appShell}>
+      <SkipLink href="#decision-room-main">Skip to main content</SkipLink>
       <WorkspaceRail />
       <MobileRailDialog open={mobileRail} close={() => setMobileRail(false)} />
       {view ? <LedgerDialog open={ledgerOpen} close={() => setLedgerOpen(false)} view={view} /> : null}
       <SelectPlanDialog option={selectedOption} close={() => setSelectedOption(null)} confirm={() => selectedOption && selectMutation.mutate(selectedOption)} pending={selectMutation.isPending} />
       <dialog className={styles.chatDialog} ref={mobileChatRef} onClose={() => setMobileChat(false)}><div className={styles.mobileDialogHead}><strong>Decision conversation</strong><button type="button" aria-label="Close conversation" onClick={() => setMobileChat(false)}><X aria-hidden="true" /></button></div><ConversationPanel compact onReviewSources={() => setLedgerOpen(true)} /></dialog>
-      <main className={styles.roomMain}>
+      <main id="decision-room-main" className={styles.roomMain} tabIndex={-1}>
         {WEB_DATA_MODE === "fixture" ? <FixtureBanner /> : null}
         {query.isError ? <ApiErrorBanner retry={() => void query.refetch()} error={query.error} /> : null}
         {versionMismatch ? <RouteMismatchBanner message={`The server returned v${loadedView?.request.decision_version}; it was not substituted for requested v${version}.`} /> : null}
