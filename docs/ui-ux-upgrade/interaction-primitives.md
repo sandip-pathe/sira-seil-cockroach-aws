@@ -1,6 +1,6 @@
 # Shared interaction primitives
 
-Step 04.2 remains in progress. This increment extracts reusable patterns from consequential product flows rather than creating a component catalog without consumers.
+Step 04.2 is complete for the current SIRA/SEIL product and exchange flows. This increment extracts reusable patterns from consequential product flows rather than creating a component catalog without consumers.
 
 ## Native modal dialog
 
@@ -21,23 +21,26 @@ The modal uses the shared backdrop and viewport limits in `apps/web/app/globals.
 
 The exchange offer form uses this pattern. Its annual USD amount starts empty, so the interface does not imply a suggested price. The field explains that it becomes the exact commercial term, accepts up to two decimal places, and uses native required/pattern validation plus an inline message after the field is blurred. Submission still goes through the existing versioned, idempotent offer mutation.
 
+The SEIL product registration form uses `FormField` for each of its six inputs. Required fields are checked together, and malformed website URLs are identified before sending. `ErrorSummary` receives focus after an invalid submit, links to each affected input, and each inline error is connected through `aria-describedby`. Editing a field clears only that field's error.
+
 ## Status, errors and recovery
 
 `apps/web/components/ui/status-notice.tsx` provides shared info, success, warning and error notices. It uses a polite status role for non-error updates and an alert role for errors, supports an optional action, and keeps that action at least 44 px high.
 
 The governed exchange flow now announces its initial load, offers a retry when the private projection cannot be loaded, and presents failed actions as errors rather than neutral status. Starting a server action clears the prior failure. The existing conversation/chat interface is unchanged.
 
+The seller catalogue announces loading, provides an explicit retry when its authorized product search fails, and keeps the empty state distinct from an error. A failed private draft save is surfaced as an alert with retry; success is announced as a saved private draft, not as published evidence.
+
 ## Validation and limits
 
 The modal increment passed `pnpm check:web`, `pnpm build:web`, and all 16 Playwright desktop/mobile route and accessibility scenarios. Those scenarios do not reach the authenticated submit-review action, so they do not exercise open/cancel/return-focus end to end. The local product-view probe also did not provide a review action; that interaction needs a test fixture or authorized test tenant before claiming full journey verification.
 
-The labeled-field increment passed the web check and production build. The current browser scenarios do not exercise the exchange form, so the buyer/seller offer submission journey remains unverified in browser automation.
+The labeled-field increment passed the web check and production build. Browser coverage checks the multi-field product form summary, summary focus, link-to-field focus, invalid state, and associated description. The exact offer submission itself remains unverified in browser automation.
 
-The status/recovery increment is checked with the current web lint/type suite, production build and desktop/mobile route scenarios. The browser suite still does not load an authenticated exchange case, so retry and mutation notices need a fixture-backed journey test.
+The status/recovery increment is checked with the current web lint/type suite, production build and desktop/mobile browser scenarios. Fixture-backed seller catalogue coverage verifies the failure, retry, and empty states. The browser suite still does not load an authenticated exchange case, so exact offer mutation notices need an authorized fixture-backed journey test.
 
 ## Next primitives, selected by repeated need
 
-1. A focusable linked error summary for multi-field submissions when a real multi-field flow needs one.
-2. Empty, loading and error states for additional flows, preserving retry and return context.
+1. Additional asynchronous states in other flows as they are touched, preserving retry and return context.
 
 Extract each only when a current flow uses it. Preserve accessible names and keyboard behavior in consuming components.

@@ -57,6 +57,9 @@ import { ProfileSettingsModal } from "@/components/home/profile-preview";
 import { useFirebaseAuth } from "@/components/auth/firebase-auth-provider";
 import { DecisionWorkspacePanel } from "@/components/decisions/decision-surfaces";
 import { SkipLink } from "@/components/ui/skip-link";
+import { ErrorSummary, type FieldError } from "@/components/ui/error-summary";
+import { FormField } from "@/components/ui/form-field";
+import { StatusNotice } from "@/components/ui/status-notice";
 import { adaptSellerProductSearchItem } from "@/lib/workspace-adapters";
 
 import { ChatMessageBody } from "./chat-message";
@@ -1489,6 +1492,8 @@ function SellerProductsPanel({
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [registrationErrors, setRegistrationErrors] = useState<FieldError[]>([]);
+  const errorSummaryRef = useRef<HTMLElement>(null);
   const [registration, setRegistration] = useState({
     name: "", seller_name: "", website: "", edition: "", category: "", summary: "",
   });
@@ -1528,34 +1533,67 @@ function SellerProductsPanel({
         <span>Seller workspace</span>
         <h2>Product Evidence</h2>
         <p>Claim, strengthen, review, and publish evidence packets without leaving the mission.</p>
-        <button type="button" className={styles.fullViewLink} onClick={() => { setAdding(!adding); setSaved(false); }}>
+        <button type="button" className={styles.fullViewLink} onClick={() => { setAdding(!adding); setSaved(false); setRegistrationErrors([]); }}>
           {adding ? "Cancel" : "Add product"}
         </button>
       </section>
-      {saved ? <p role="status" className={styles.sectionCopy}>Product saved as a private draft. Open it to add evidence and submit for review.</p> : null}
+      {saved ? <StatusNotice tone="success" title="Private draft saved">Open it to add evidence and submit for review.</StatusNotice> : null}
       {adding ? (
-        <form className={styles.productRegistration} onSubmit={(event) => { event.preventDefault(); registerProduct.mutate(); }}>
+        <form className={styles.productRegistration} noValidate onSubmit={(event) => {
+          event.preventDefault();
+          const requiredFields = [
+            ["name", "Product name"], ["seller_name", "Seller or company name"],
+            ["website", "Official product website"], ["category", "Category"], ["summary", "Public product summary"],
+          ] as const;
+          const errors: FieldError[] = requiredFields.flatMap(([field, label]) => {
+            if (registration[field].trim()) return [];
+            return [{ id: `register-product-${field}`, label, message: "Enter a value." }];
+          });
+          if (registration.website.trim()) {
+            try {
+              const parsed = new URL(registration.website);
+              if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("Unsupported scheme");
+            } catch {
+              errors.push({ id: "register-product-website", label: "Official product website", message: "Enter a valid website URL." });
+            }
+          }
+          setRegistrationErrors(errors);
+          if (errors.length) {
+            window.requestAnimationFrame(() => errorSummaryRef.current?.focus());
+            return;
+          }
+          registerProduct.mutate();
+        }}>
           <h3>Add your product</h3>
           <p>Save the product identity first, then prepare its evidence for publication.</p>
           {!user || user.isAnonymous ? <p role="alert"><a href="/seil/sign-in">Sign in with your seller account</a> to save a product.</p> : null}
+          <ErrorSummary errors={registrationErrors} summaryRef={errorSummaryRef} />
           {([
             ["name", "Product name", 150], ["seller_name", "Seller or company name", 200],
             ["website", "Official product website", 1000], ["edition", "Edition or plan (optional)", 40],
             ["category", "Category", 120], ["summary", "Public product summary", 1000],
           ] as const).map(([field, label, maxLength]) => (
-            <label key={field}>
-              <span>{label}</span>
-              <input type={field === "website" ? "url" : "text"} maxLength={maxLength}
-                required={field !== "edition"} value={registration[field]}
-                disabled={registerProduct.isPending}
-                onChange={(event) => {
-                  registrationKey.current = null;
-                  registerProduct.reset();
-                  setRegistration({ ...registration, [field]: event.target.value });
-                }} />
-            </label>
+            <FormField
+              key={field}
+              id={`register-product-${field}`}
+              label={label}
+              required={field !== "edition"}
+              helpText={field === "website" ? "Use the official public product URL (https://…)." : undefined}
+              error={registrationErrors.find((error) => error.id === `register-product-${field}`)?.message}
+            >
+              {(controlProps) => (
+                <input {...controlProps} type={field === "website" ? "url" : "text"} maxLength={maxLength}
+                  value={registration[field]} disabled={registerProduct.isPending}
+                  onChange={(event) => {
+                    registrationKey.current = null;
+                    registerProduct.reset();
+                    setRegistration({ ...registration, [field]: event.target.value });
+                    setRegistrationErrors((current) => current.filter((error) => error.id !== `register-product-${field}`));
+                  }} />
+              )}
+            </FormField>
           ))}
-          {registerProduct.isError ? <p role="alert">The product could not be saved. Check your seller account and product details, then retry.</p> : null}
+          {registerProduct.isError ? <StatusNotice tone="error" title="Product draft not saved" action={{ label: registerProduct.isPending ? "Retrying…" : "Retry", onAction: () => registerProduct.mutate(), disabled: registerProduct.isPending }}>Check your seller account and product details, then retry.</StatusNotice> : null}
           <button type="submit" disabled={!user || user.isAnonymous || registerProduct.isPending}>
             {registerProduct.isPending ? "Saving…" : "Save private draft"}
           </button>
@@ -1565,7 +1603,7 @@ function SellerProductsPanel({
         <div className={styles.sectionHeading}>
           <div>
             <span>{products.length || drafts.length ? "Evidence workspace" : "Cold start"}</span>
-            <h3>{query.isPending ? "Loading evidence" : `${products.length} registered · ${drafts.length} research draft${drafts.length === 1 ? "" : "s"}`}</h3>
+            <h3>{query.isLoading ? "Loading evidence" : `${products.length} registered · ${drafts.length} research draft${drafts.length === 1 ? "" : "s"}`}</h3>
           </div>
           <Package aria-hidden="true" />
         </div>
@@ -1591,11 +1629,15 @@ function SellerProductsPanel({
             ))}
           </div>
         ) : null}
-        {!products.length && !drafts.length ? (
+        {!products.length && !drafts.length && query.isLoading ? (
+          <StatusNotice tone="info" title="Loading Product Evidence">Checking seller-authorized products.</StatusNotice>
+        ) : null}
+        {!products.length && !drafts.length && query.isError ? (
+          <StatusNotice tone="error" title="Product Evidence unavailable" action={{ label: query.isFetching ? "Retrying…" : "Retry", onAction: () => void query.refetch(), disabled: query.isFetching }}>Try again to load registered products and research drafts.</StatusNotice>
+        ) : null}
+        {!products.length && !drafts.length && !query.isLoading && !query.isError ? (
           <p className={styles.sectionCopy}>
-            {query.isError
-              ? "Product Evidence is temporarily unavailable."
-              : "Tell SEIL a product name or website. It will research public sources and prepare a cited draft."}
+            Tell SEIL a product name or website. It will research public sources and prepare a cited draft.
           </p>
         ) : null}
       </section>

@@ -96,6 +96,42 @@ test("Firebase-disabled workspace presents a safe private guest account", async 
   expect(browserErrors).toEqual([]);
 });
 
+test("seller product form summarizes validation errors and focuses the linked field", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  let productSearches = 0;
+  await page.route("**/v1/seller/products/search**", async (route) => {
+    productSearches += 1;
+    if (productSearches < 3) {
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "Temporary failure" }) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ results: [] }) });
+  });
+  await page.goto("/seil", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Isolated guest workspace", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Open inspector" }).click();
+  const productError = page.getByRole("alert").filter({ hasText: "Product Evidence unavailable" });
+  await expect(productError).toBeVisible();
+  await productError.getByRole("button", { name: "Retry" }).click();
+  await expect.poll(() => productSearches).toBe(3);
+  await expect(page.getByText("Tell SEIL a product name or website.")).toBeVisible();
+  const addProduct = page.getByRole("button", { name: "Add product" });
+  await expect(addProduct).toBeVisible();
+  await addProduct.click();
+  await page.locator("form").evaluate((form) => (form as HTMLFormElement).requestSubmit());
+
+  const summary = page.getByRole("alert", { name: "Review these fields" });
+  await expect(summary).toBeFocused();
+  await expect(summary.getByRole("link", { name: "Product name: Enter a value." })).toBeVisible();
+  await summary.getByRole("link", { name: "Product name: Enter a value." }).click();
+
+  const productName = page.getByRole("textbox", { name: "Product name" });
+  await expect(productName).toBeFocused();
+  await expect(productName).toHaveAttribute("aria-invalid", "true");
+  const describedBy = await productName.getAttribute("aria-describedby");
+  expect(describedBy).toContain("register-product-name-error");
+});
+
 test("mission next task comes from the saved task list and opens run details", async ({ page }) => {
   await page.route("**/v1/workspace/conversations**", async (route) => {
     await route.fulfill({
@@ -149,6 +185,7 @@ test("seller evidence search keeps authority and missing pricing explicit", asyn
   });
 
   await page.goto("/seil", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Isolated guest workspace", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open inspector" }).click();
   const inspector = page.getByLabel("Object inspector");
   await expect(inspector.getByRole("heading", { name: /1 registered/ })).toBeVisible();
