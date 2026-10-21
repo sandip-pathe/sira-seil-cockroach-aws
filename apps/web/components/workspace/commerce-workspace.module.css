@@ -532,17 +532,50 @@
 
 .chatHeaderLeft small {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
   gap: 5px;
   color: #89847b;
   font-size: 10px;
 }
 
-.chatHeaderLeft small span {
+.chatHeaderLeft small.missionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 9px;
+  row-gap: 2px;
+}
+
+.missionMeta .agentIdentity,
+.missionMeta .privacyScope,
+.missionMeta .missionCheckpoint {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.missionMeta .agentIdentity > span {
   width: 6px;
   height: 6px;
+  flex: 0 0 auto;
   border-radius: 999px;
   background: var(--workspace-accent);
+}
+
+.missionMeta .privacyScope {
+  color: #625e56;
+}
+
+.missionMeta .missionCheckpoint {
+  color: var(--workspace-accent-dark);
+  font-weight: 650;
+}
+
+.missionMeta svg {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
 }
 
 .messageViewport {

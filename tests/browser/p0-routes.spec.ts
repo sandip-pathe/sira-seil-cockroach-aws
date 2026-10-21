@@ -78,6 +78,9 @@ test("Firebase-disabled workspace presents a safe private guest account", async 
     timeout: 15_000,
   });
   await page.waitForTimeout(250);
+  await expect(page.getByText("SEIL selling agent", { exact: true })).toBeVisible();
+  await expect(page.getByText("Isolated guest workspace", { exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Direct SEIL" })).toBeVisible();
 
   const profile = page.getByRole("button", { name: "Open SEIL profile settings" });
   if ((await profile.count()) === 0) {

@@ -2199,6 +2199,7 @@ export function CommerceWorkspace({
     modeConversations.find((conversation) => conversation.id === selectedByMode[mode]) ??
     modeConversations[0];
   const messages = selectedConversation?.messages ?? [];
+  const activeMission = [...messages].reverse().find((message) => message.mission)?.mission;
   const messageVersion = `${mode}:${selectedConversation?.id ?? "new"}:${messages.map((message) => `${message.id}:${message.content.length}`).join("|")}`;
 
   usePretextMessages(messageRootRef, messageVersion);
@@ -2701,11 +2702,22 @@ export function CommerceWorkspace({
             ) : null}
             <div>
               <strong>{selectedConversation?.title ?? "New mission"}</strong>
-              <small>
-                <span />{" "}
-                {WEB_DATA_MODE === "fixture"
-                  ? "Development preview · sample workflow"
-                  : `${MODE_COPY[mode].name} ${MODE_COPY[mode].accentLabel.toLowerCase()}`}
+              <small className={styles.missionMeta}>
+                <span className={styles.agentIdentity}>
+                  <span aria-hidden="true" />
+                  {WEB_DATA_MODE === "fixture"
+                    ? `Development preview · ${MODE_COPY[mode].name} ${MODE_COPY[mode].accentLabel.toLowerCase()}`
+                    : `${MODE_COPY[mode].name} ${MODE_COPY[mode].accentLabel.toLowerCase()}`}
+                </span>
+                <span className={styles.privacyScope}>
+                  <LockKeyhole aria-hidden="true" />
+                  {guestAccount ? "Isolated guest workspace" : MODE_COPY[mode].privacy}
+                </span>
+                {activeMission ? (
+                  <span className={styles.missionCheckpoint}>
+                    Version {activeMission.version} · {activeMission.state.replaceAll("_", " ")}
+                  </span>
+                ) : null}
               </small>
             </div>
           </div>
