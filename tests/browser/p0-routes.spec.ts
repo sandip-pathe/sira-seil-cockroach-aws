@@ -158,3 +158,63 @@ test("seller evidence search keeps authority and missing pricing explicit", asyn
   await expect(inspector.getByText("Not provided", { exact: true })).toBeVisible();
   await expect(inspector.getByText("Evidence packet", { exact: true })).toHaveCount(0);
 });
+
+test("seller evidence retry reuses one idempotency key and expected version", async ({ page }) => {
+  const keys: string[] = [];
+  const versions: number[] = [];
+  const exchangeRequests: string[] = [];
+  let publishes = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("exchange")) exchangeRequests.push(`${request.method()} ${request.url()}`);
+  });
+  await page.route("**/v1/exchange-cases/**", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          case_id: "demo-case",
+          party: "SELLER",
+          projection_hash: "a".repeat(64),
+          released: {},
+          state: publishes > 1 ? "EVIDENCE_RELEASED" : "REQUIREMENT_RELEASED",
+          version: publishes > 1 ? 5 : 4,
+        }),
+      });
+      return;
+    }
+    const headers = route.request().headers();
+    keys.push(headers["idempotency-key"] ?? "missing");
+    const body = route.request().postDataJSON() as { expected_version: number };
+    versions.push(body.expected_version);
+    publishes += 1;
+    if (publishes === 1) {
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "Unavailable" }) });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        case_id: "demo-case",
+        party: "SELLER",
+        projection_hash: "b".repeat(64),
+        released: {},
+        state: "EVIDENCE_RELEASED",
+        version: 5,
+      }),
+    });
+  });
+
+  await page.goto(`/exchange/demo-case?route=${"a".repeat(64)}&mode=seil`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Publish current evidence" }).click();
+  const retry = page.getByRole("button", { name: "Retry evidence submission" });
+  await expect(retry).toBeVisible();
+  await retry.click();
+  await expect.poll(() => keys.length, { message: exchangeRequests.join("\n") || "No exchange requests observed" }).toBe(2);
+  await expect(page.getByText("Evidence was submitted. Refreshing the exchange version.")).toBeVisible();
+  expect(keys).toHaveLength(2);
+  expect(keys[0]).not.toBe("missing");
+  expect(keys[1]).toBe(keys[0]);
+  expect(versions).toEqual([4, 4]);
+});

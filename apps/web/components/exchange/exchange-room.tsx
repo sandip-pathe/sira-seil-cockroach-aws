@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { FormField } from "@/components/ui/form-field";
 import { StatusNotice } from "@/components/ui/status-notice";
@@ -57,6 +57,7 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
   const [amountTouched, setAmountTouched] = useState(false);
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [handoff, setHandoff] = useState<ExchangeHandoffView | null>(null);
+  const evidenceIntent = useRef<{ version: number; key: string } | null>(null);
   const queryKey = useMemo(() => ["exchange", caseId, route, mode], [caseId, route, mode]);
 
   const query = useQuery({
@@ -80,19 +81,32 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
   };
 
   const evidenceMutation = useMutation({
-    mutationFn: () => getBrowserApiClient().request("publish_exchange_evidence", {
-      pathParams: { case_id: caseId },
-      query: { route },
-      body: {
-        expected_version: view?.version ?? 0,
-        summary: "Current published Product Evidence supports this requirement.",
-        published_span_ids: [],
-      },
-      idempotencyKey: createIdempotencyKey(`exchange-evidence-${caseId}`),
-      headers,
-    }),
+    mutationFn: () => {
+      const version = view?.version ?? 0;
+      if (evidenceIntent.current?.version !== version) {
+        evidenceIntent.current = {
+          version,
+          key: createIdempotencyKey(`exchange-evidence-${caseId}-${version}`),
+        };
+      }
+      return getBrowserApiClient().request("publish_exchange_evidence", {
+        pathParams: { case_id: caseId },
+        query: { route },
+        body: {
+          expected_version: version,
+          summary: "Current published Product Evidence supports this requirement.",
+          published_span_ids: [],
+        },
+        idempotencyKey: evidenceIntent.current.key,
+        headers,
+      });
+    },
     onMutate: () => setNotice(null),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      evidenceIntent.current = null;
+      setNotice({ tone: "success", text: "Evidence was submitted. Refreshing the exchange version." });
+      await refresh();
+    },
     onError: () => setNotice({ tone: "error", text: "No buyer-safe published evidence is available yet." }),
   });
 
@@ -243,7 +257,13 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
           </section>
         </div>
         {!isSeller ? <button className={styles.share} type="button" onClick={() => void copySellerLink()}><Copy /> Copy seller link</button> : null}
-        {notice ? <StatusNotice tone={notice.tone} title={notice.tone === "error" ? "Action not completed" : "Done"}>{notice.text}</StatusNotice> : null}
+        {notice ? <StatusNotice
+          tone={notice.tone}
+          title={notice.tone === "error" ? "Action not completed" : "Done"}
+          action={evidenceMutation.isError && isSeller && view.state === "REQUIREMENT_RELEASED"
+            ? { label: evidenceMutation.isPending ? "Retrying…" : "Retry evidence submission", onAction: () => evidenceMutation.mutate(), disabled: evidenceMutation.isPending }
+            : undefined}
+        >{notice.text}</StatusNotice> : null}
       </> : null}
     </main>
   );
