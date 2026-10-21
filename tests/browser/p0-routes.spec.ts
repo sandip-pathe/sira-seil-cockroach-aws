@@ -120,7 +120,10 @@ test("mission next task comes from the saved task list and opens run details", a
     name: "Inspect next open task: Confirm CRM sync is enabled in this plan",
   });
   await expect(nextTask).toContainText("You or your team · Waiting");
-  await nextTask.click();
+  await expect(page.getByText("Version 3 · PAUSED", { exact: true })).toBeVisible();
+  await nextTask.focus();
+  await expect(nextTask).toBeFocused();
+  await nextTask.press("Enter");
   const inspector = page.getByLabel("Object inspector");
   await expect(inspector.getByRole("heading", { name: "Work and authority" })).toBeVisible();
   await expect(inspector.getByText("Confirm CRM sync is enabled in this plan", { exact: true })).toBeVisible();
