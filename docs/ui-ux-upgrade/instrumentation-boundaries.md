@@ -1,6 +1,6 @@
 # Instrumentation boundaries
 
-The web app exposes a versioned, content-free event envelope through the in-page `sira:instrumentation` browser event. It does not persist events or send them to an analytics service. The envelope has separate layers for `ui_intent`, an `api_ack`-confirmed `server_effect`, and an `external_outcome` attributed to a provider webhook or human attestation. It contains no user, tenant, case, product, prompt, message, offer, price, or URL identifiers.
+The web app exposes a versioned, content-free event envelope through the in-page `sira:instrumentation` browser event. It does not persist events or send them to an analytics service. The envelope models separate layers for `ui_intent`, an `api_ack`-confirmed `server_effect`, and an `external_outcome` attributed to a provider webhook or human attestation. The browser has no external-outcome emitter; only a future trusted server-side integration may produce that layer. It contains no user, tenant, case, product, prompt, message, offer, price, or URL identifiers.
 
 The governed exchange records intent at mutation start and records a server effect only after a successful API response. Errors do not become effects. Preparing or opening a payment handoff is not evidence that procurement completed; no external outcome is emitted by the current browser flow. Canonical server event journals remain the source of truth for business state.
 

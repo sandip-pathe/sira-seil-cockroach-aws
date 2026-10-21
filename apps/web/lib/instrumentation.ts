@@ -67,15 +67,6 @@ export function recordServerEffect(name: ProductAction["name"]): void {
   publish({ schema_version: 1, layer: "server_effect", name, surface: "exchange", confirmation: "api_ack", occurred_at: new Date().toISOString() });
 }
 
-/** Provider/webhook or explicit human evidence only; a redirect is not an outcome. */
-export function recordExternalOutcome(
-  name: Extract<InstrumentationEvent, { layer: "external_outcome" }>["name"],
-  source: Extract<InstrumentationEvent, { layer: "external_outcome" }>["source"],
-  certainty: Extract<InstrumentationEvent, { layer: "external_outcome" }>["certainty"],
-): void {
-  publish({ schema_version: 1, layer: "external_outcome", name, surface: "exchange", source, certainty, occurred_at: new Date().toISOString() });
-}
-
 export function recordPerformance(metric: Extract<InstrumentationEvent, { layer: "performance" }>['metric'], value: number, unit: "ms" | "score"): void {
   if (!Number.isFinite(value) || value < 0) return;
   publish({ schema_version: 1, layer: "performance", metric, value: Math.round(value * 100) / 100, unit, occurred_at: new Date().toISOString() });
