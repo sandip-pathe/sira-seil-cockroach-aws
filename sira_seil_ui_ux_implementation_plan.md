@@ -1,6 +1,6 @@
 # SIRA + SEIL UI/UX implementation plan
 
-Version 1.0 · 21 October 2026 · Status: in progress; Step 00 repository audit and Step 01 product model are recorded; Step 02 copy system is drafted. Customer comprehension evidence and business-owner decisions remain open dependencies. Product implementation under this plan has not started.
+Version 1.0 · 21 October 2026 · Status: in progress; Step 00 audit, Step 01 product model, Step 02 copy draft, and Step 03 structural flow blueprints are recorded. Customer comprehension evidence and business-owner decisions remain open dependencies. Product implementation under this plan has not started.
 
 This is the execution plan for the [SIRA + SEIL synthesis-driven design playbook](sira_seil_ui_ux_synthesis_driven_design_system.md). It covers public messaging, product copy, navigation, components, buyer and seller workflows, company context, human decisions, integrations, commercial handoffs, validation, and operations.
 
@@ -150,13 +150,13 @@ flowchart TD
 
 **Purpose:** select the interaction structure before expanding application code.
 
-- [ ] **03.1 Specify the flow inventory.** Use flows F01–F18 in the companion document. Each includes entry/exit, artifact, actor, current/proposed capability, states, copy keys, controls, and acceptance criteria.
-- [ ] **03.2 Create service blueprints.** At minimum: research-only decision, seller evidence publication, qualified introduction, exact commercial exchange, and connected-company-context refresh. Include backstage waits and recovery.
-- [ ] **03.3 Compare two approaches for key work.** Test conversational versus artifact-led intake, comparison, evidence review, and approval. Select by comprehension, correction effort, and completion, while preserving optional conversation where useful.
-- [ ] **03.4 Define navigation and route continuity.** SIRA: Work, Decisions, Inbox, Catalog, Company. SEIL: Work, Products, Inbox, supported Opportunities, Company. Validate labels, preserve existing aliases, and identify redirects and back/return behavior.
-- [ ] **03.5 Prototype wide and narrow layouts.** Include first visit, useful work, detail inspection, correction, boundary crossing, failure, and return visit. No primary workflow should depend on a hover-only action or a side panel that disappears on narrow screens.
-- [ ] **03.6 Run role-based scenario sessions.** Include requester without authority, reviewer with current/stale version, seller anti-fit, no eligible product, and unknown external result. Record counts, actual behavior, and not-tested areas.
-- [ ] **03.7 Revise and lock a slice specification.** Record selected approach, rejected alternatives/trade-offs, component needs, copy keys, dependencies, and measurable acceptance conditions.
+- [x] **03.1 Specify the flow inventory.** F01–F18 are in the [flow and control specification](docs/ui-ux-upgrade/flow-and-control-spec.md); [flow-blueprints-and-prototype.md](docs/ui-ux-upgrade/flow-blueprints-and-prototype.md) connects five critical journeys to concrete backstage work and recovery.
+- [x] **03.2 Create service blueprints.** The research-only decision, seller evidence publication, qualified introduction, exact offer/approval/handoff, and future connected-context refresh are mapped in [flow-blueprints-and-prototype.md](docs/ui-ux-upgrade/flow-blueprints-and-prototype.md). Unsupported provider steps are explicitly future dependencies.
+- [ ] **03.3 Compare two approaches for key work.** Conversation-led and artifact-led patterns are compared in [flow-blueprints-and-prototype.md](docs/ui-ux-upgrade/flow-blueprints-and-prototype.md). Final selection is `blocked_dependency` on buyer/seller comprehension sessions; artifact-led with optional conversation is the test hypothesis, not a validated result.
+- [x] **03.4 Define navigation and route continuity.** Proposed SIRA/SEIL destinations, aliases, return-path rules and deep-link behavior are recorded in [flow-blueprints-and-prototype.md](docs/ui-ux-upgrade/flow-blueprints-and-prototype.md) and [route-inventory.md](docs/ui-ux-upgrade/route-inventory.md). Interaction validation remains for Step 13.
+- [x] **03.5 Prototype wide and narrow layouts.** Structural SIRA decision and SEIL evidence-review prototypes are recorded in [flow-blueprints-and-prototype.md](docs/ui-ux-upgrade/flow-blueprints-and-prototype.md). These are layout proposals; visual/interactive prototype validation remains open.
+- [ ] **03.6 Run role-based scenario sessions.** `blocked_dependency`: no buyer/seller participants or production scenario data were available. Session tasks are tracked in [baseline-tasks.md](docs/ui-ux-upgrade/baseline-tasks.md); report actual counts only.
+- [ ] **03.7 Revise and lock a slice specification.** Keep the first category slice provisional until 03.3/03.6 user evidence and open Step 01 business decisions are reviewed.
 
 **Exit evidence:** representative users can explain the recommendation, its main trade-off, what the agent may do next, what their action changes, and who acts next. Prototype findings and backend correctness remain separate evidence tracks.
 
