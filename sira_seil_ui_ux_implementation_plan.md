@@ -1,6 +1,6 @@
 # SIRA + SEIL UI/UX implementation plan
 
-Version 1.0 · 21 October 2026 · Status: planned; application implementation has not started under this plan.
+Version 1.0 · 21 October 2026 · Status: in progress; Step 00 source audit artifacts started 21 October 2026. Product implementation under this plan has not started.
 
 This is the execution plan for the [SIRA + SEIL synthesis-driven design playbook](sira_seil_ui_ux_synthesis_driven_design_system.md). It covers public messaging, product copy, navigation, components, buyer and seller workflows, company context, human decisions, integrations, commercial handoffs, validation, and operations.
 
@@ -98,17 +98,17 @@ flowchart TD
 
 **Purpose:** know which problems are interaction problems, which are missing capabilities, and which are incorrect product promises.
 
-- [ ] **00.1 Inventory all routes and entry paths.** Cover public pages, SIRA/SEIL sign-in, workspace aliases, decision versions/stages, seller product evidence, exchange links, settings, errors, and not-found. Record current redirects, deep-link behavior, and ownership of each screen.
-- [ ] **00.2 Trace one real supported journey for each party.** Document request, brief, research, evidence, qualification, consent, offer, approval, and handoff boundaries. Record unavailable steps instead of inventing them.
-- [ ] **00.3 Build a capability register.** For every displayed connector or action, record UI, route, server command, policy, durable state, integration readiness, verification date, and supported environment. Distinguish mock/fixture, source-implemented, locally verified, and deployed/verified.
-- [ ] **00.4 Capture the content baseline.** Inventory headings, labels, buttons, tooltips, empty states, alerts, auth text, agent templates, marketing, metadata, legal summaries, notifications, and generated messages. Attach file/route and claim dependency.
-- [ ] **00.5 Capture decision episodes and reference mechanisms.** Apply the playbook's harvesting, deconstruction, and friction prompts to current customer workarounds and documented references. No fabricated recordings, quotes, or research findings.
-- [ ] **00.6 Establish baseline tasks and measures.** Track first useful artifact, correction effort, decision comprehension, seller response usefulness, next-owner clarity, and recovery. Record actual observation counts and unknowns.
-- [ ] **00.7 Choose the first complete category and release boundary.** Verify evaluation, evidence, money, offer, and handoff contracts. Record excluded capabilities and the next supportable category.
+- [x] **00.1 Inventory all routes and entry paths.** Static route ownership, aliases, deep links, and recovery paths are recorded in [route-inventory.md](docs/ui-ux-upgrade/route-inventory.md). Browser verification of every route remains part of Step 13.
+- [x] **00.2 Trace one supported journey for each party.** Buyer and seller contracts and authority boundaries are traced in [first-category-scope.md](docs/ui-ux-upgrade/first-category-scope.md) and [capability-register.md](docs/ui-ux-upgrade/capability-register.md); a live user journey was not observed.
+- [x] **00.3 Build a capability register.** UI, route/service, durable state, policy, readiness, and environment evidence are recorded in [capability-register.md](docs/ui-ux-upgrade/capability-register.md).
+- [x] **00.4 Capture the content baseline.** Surface owners and claim dependencies are recorded in [content-inventory.md](docs/ui-ux-upgrade/content-inventory.md).
+- [ ] **00.5 Capture decision episodes and reference mechanisms.** Available product/reference mechanisms and repository-derived friction hypotheses are recorded in [research-findings.md](docs/ui-ux-upgrade/research-findings.md). Customer-workaround episodes remain `blocked_dependency`: no recordings, support data, or interviews were available; do not treat the hypotheses as findings.
+- [x] **00.6 Establish baseline tasks and measures.** Tasks, measures, privacy rules, and actual observation counts (zero observed sessions/production events available) are recorded in [baseline-tasks.md](docs/ui-ux-upgrade/baseline-tasks.md). Outcome baselines remain unknown until sessions/data are available.
+- [x] **00.7 Choose the first category and release boundary.** Meeting-intelligence SaaS is selected as a source-backed first slice; evaluation, evidence, money, offer/approval, and human handoff limits plus excluded actions are recorded in [first-category-scope.md](docs/ui-ux-upgrade/first-category-scope.md). Commercial owner and cohort validation remain launch dependencies.
 
 **Primary files:** `apps/web/app`, `apps/web/components`, `packages/api-client/src/types.ts`, `services/api/sira_api`, `python/domain`, current architecture/marketplace documents. Historical replication documentation is a reference, not current runtime authority.
 
-**Deliverables:** `route-inventory.md`, `capability-register.md`, `content-inventory.md`, research findings, baseline tasks, first-category scope under `docs/ui-ux-upgrade/` as the work is executed. These audit artifacts are future deliverables, not created research results.
+**Deliverables:** [route-inventory.md](docs/ui-ux-upgrade/route-inventory.md), [capability-register.md](docs/ui-ux-upgrade/capability-register.md), [content-inventory.md](docs/ui-ux-upgrade/content-inventory.md), [research-findings.md](docs/ui-ux-upgrade/research-findings.md), [baseline-tasks.md](docs/ui-ux-upgrade/baseline-tasks.md), and [first-category-scope.md](docs/ui-ux-upgrade/first-category-scope.md). Research artifacts distinguish observed evidence from repository-derived hypotheses.
 
 **Exit evidence:** every current primary CTA is mapped to a real destination/effect or a documented defect; the first release category has a verified supported action map.
 
