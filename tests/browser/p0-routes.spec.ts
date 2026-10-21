@@ -128,3 +128,33 @@ test("mission next task comes from the saved task list and opens run details", a
   await expect(inspector.getByRole("heading", { name: "Work and authority" })).toBeVisible();
   await expect(inspector.getByText("Confirm CRM sync is enabled in this plan", { exact: true })).toBeVisible();
 });
+
+test("seller evidence search keeps authority and missing pricing explicit", async ({ page }) => {
+  await page.route("**/v1/seller/products/search**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        results: [{
+          id: "product_evidence_1",
+          name: "Northstar Notes",
+          public_summary: "Source-linked meeting notes for distributed teams.",
+          publisher_authority: "EXTERNAL_UNSEALED",
+          state: "IN_REVIEW",
+          category: "Meeting intelligence",
+          href: "/seller/products/product_evidence_1/evidence",
+        }],
+      }),
+    });
+  });
+
+  await page.goto("/seil", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Open inspector" }).click();
+  const inspector = page.getByLabel("Object inspector");
+  await expect(inspector.getByRole("heading", { name: /1 registered/ })).toBeVisible();
+  await inspector.getByRole("button", { name: /Northstar Notes/ }).click();
+  await expect(inspector.getByText("External source · unverified", { exact: true })).toBeVisible();
+  await expect(inspector.getByText(/External source · unverified · In Review/)).toBeVisible();
+  await expect(inspector.getByText("Not provided", { exact: true })).toBeVisible();
+  await expect(inspector.getByText("Evidence packet", { exact: true })).toHaveCount(0);
+});

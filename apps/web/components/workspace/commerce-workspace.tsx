@@ -56,6 +56,7 @@ import {
 import { ProfileSettingsModal } from "@/components/home/profile-preview";
 import { useFirebaseAuth } from "@/components/auth/firebase-auth-provider";
 import { DecisionWorkspacePanel } from "@/components/decisions/decision-surfaces";
+import { adaptSellerProductSearchItem } from "@/lib/workspace-adapters";
 
 import { ChatMessageBody } from "./chat-message";
 import styles from "./commerce-workspace.module.css";
@@ -1517,19 +1518,7 @@ function SellerProductsPanel({
         query: {},
       }),
   });
-  const products: CatalogProduct[] = (query.data?.results ?? []).map((item) => ({
-    id: item.id,
-    name: item.name,
-    seller: item.publisher_authority === "SELLER_SEALED" ? "Seller confirmed" : "Platform compiled",
-    edition: item.state.replaceAll("_", " "),
-    price: "Evidence packet",
-    billing_unit: "current state",
-    status: item.state.replaceAll("_", " "),
-    summary: item.public_summary,
-    claims: [],
-    integrations: [],
-    category: item.category,
-  }));
+  const products: CatalogProduct[] = (query.data?.results ?? []).map(adaptSellerProductSearchItem);
   const drafts = researchArtifacts.filter((artifact) => artifact.kind === "seller_evidence");
 
   return (
@@ -1630,7 +1619,7 @@ function SellerProductPanel({ product, onBack }: { product: CatalogProduct | nul
     <div className={styles.contextBody}>
       <button className={styles.fullViewLink} type="button" onClick={onBack}>Back to products</button>
       <section className={styles.documentHeader}>
-        <span>{product.status}</span>
+        <span>{product.seller} · {product.status}</span>
         <h2>{product.name}</h2>
         <p>{product.summary}</p>
       </section>
@@ -1639,6 +1628,10 @@ function SellerProductPanel({ product, onBack }: { product: CatalogProduct | nul
           <div><span>Packet health</span><h3>{view?.pack_health.status.replaceAll("_", " ") ?? (query.isPending ? "Loading" : "Unavailable")}</h3></div>
           <FileCheck2 aria-hidden="true" />
         </div>
+        <dl className={styles.artifactFields}>
+          <div><dt>Publisher authority</dt><dd>{product.seller}</dd></div>
+          <div><dt>Pricing</dt><dd>{product.price}</dd></div>
+        </dl>
         {view ? (
           <dl className={styles.artifactFields}>
             <div><dt>Claims</dt><dd>{view.pack_health.complete_claim_count} of {view.pack_health.required_claim_count}</dd></div>
