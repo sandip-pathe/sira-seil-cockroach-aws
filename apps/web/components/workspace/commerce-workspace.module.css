@@ -1,23 +1,23 @@
 .workspace {
-  --workspace-accent: #0b5fff;
-  --workspace-accent-soft: #eaf0ff;
-  --workspace-accent-dark: #0847c7;
+  --workspace-accent: var(--sira);
+  --workspace-accent-soft: var(--sira-soft);
+  --workspace-accent-dark: var(--sira-hover);
   display: grid;
   grid-template-columns: clamp(190px, 18vw, 220px) minmax(0, 1fr) 50%;
   width: 100%;
   height: 100dvh;
   min-width: 320px;
   overflow: hidden;
-  background: #faf9f5;
-  color: #2d2c29;
-  font-family: var(--font-geist-sans), "Segoe UI", system-ui, sans-serif;
-  transition: grid-template-columns 180ms ease;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font-ui);
+  transition: grid-template-columns var(--motion-standard) var(--ease-standard);
 }
 
 .workspace[data-mode="seil"] {
-  --workspace-accent: #7c3aed;
-  --workspace-accent-soft: #f3e8ff;
-  --workspace-accent-dark: #5b21b6;
+  --workspace-accent: var(--seil);
+  --workspace-accent-soft: var(--seil-soft);
+  --workspace-accent-dark: var(--seil-hover);
 }
 
 .workspace.sidebarClosed {
@@ -67,28 +67,8 @@
 .workspace a:focus-visible,
 .workspace textarea:focus-visible,
 .workspace select:focus-visible {
-  outline: 2px solid #1d4ed8;
-  outline-offset: 2px;
-}
-
-.skipLink {
-  position: fixed;
-  z-index: 100;
-  top: 12px;
-  left: 12px;
-  padding: 9px 13px;
-  border: 1px solid #817b71;
-  border-radius: 7px;
-  background: #ffffff;
-  color: #20201d;
-  font-weight: 650;
-  text-decoration: none;
-  transform: translateY(-160%);
-  transition: transform 120ms ease;
-}
-
-.skipLink:focus {
-  transform: translateY(0);
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
 }
 
 .sidebar {
@@ -157,8 +137,9 @@
 .contextHeader button,
 .composerToolbar button {
   display: inline-flex;
-  width: 36px;
-  height: 36px;
+  width: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  height: var(--touch-target-min);
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -187,7 +168,7 @@
 
 .chatSearch {
   display: flex;
-  min-height: 42px;
+  min-height: var(--touch-target-min);
   align-items: center;
   gap: 8px;
   margin-top: 10px;
@@ -224,7 +205,7 @@
 }
 
 .modeSwitcher button {
-  min-height: 32px;
+  min-height: var(--touch-target-min);
   border: 0;
   border-radius: 7px;
   background: transparent;
@@ -248,7 +229,7 @@
 .newChatButton {
   display: flex;
   width: 100%;
-  min-height: 38px;
+  min-height: var(--touch-target-min);
   align-items: center;
   gap: 8px;
   margin-top: 9px;
@@ -284,7 +265,7 @@
 .sidebarNav button,
 .sidebarNav a {
   display: flex;
-  min-height: 36px;
+  min-height: var(--touch-target-min);
   align-items: center;
   gap: 9px;
   padding: 0 9px;
@@ -358,7 +339,7 @@
 .recentList button {
   display: flex;
   width: 100%;
-  min-height: 42px;
+  min-height: var(--touch-target-min);
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -531,18 +512,90 @@
 
 .chatHeaderLeft small {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
   gap: 5px;
   color: #89847b;
   font-size: 10px;
 }
 
-.chatHeaderLeft small span {
+.chatHeaderLeft small.missionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 9px;
+  row-gap: 2px;
+}
+
+.missionMeta .agentIdentity,
+.missionMeta .privacyScope,
+.missionMeta .partyScope,
+.missionMeta .missionCheckpoint {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.missionMeta .agentIdentity > span {
   width: 6px;
   height: 6px;
+  flex: 0 0 auto;
   border-radius: 999px;
   background: var(--workspace-accent);
 }
+
+.missionMeta .privacyScope {
+  color: #625e56;
+}
+
+.missionMeta .partyScope {
+  color: var(--workspace-accent-dark);
+  font-weight: 650;
+}
+
+.workspaceSwitchStatus {
+  min-height: 0;
+  margin: 0;
+  color: var(--workspace-accent-dark);
+  font-size: 11px;
+}
+
+.workspaceSwitchStatus:empty {
+  display: none;
+}
+
+.missionMeta .missionCheckpoint {
+  color: var(--workspace-accent-dark);
+  font-weight: 650;
+}
+
+.missionMeta svg {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+}
+
+.nextTaskSummary {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 64px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-content: center;
+  padding: 9px 16px;
+  border: 0;
+  border-bottom: 1px solid #e3e0d6;
+  background: #f3f1ea;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nextTaskSummary:hover { background: #ece9e1; }
+.nextTaskSummary > span { color: #6f6a61; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.nextTaskSummary > strong { overflow: hidden; color: #2d2c29; font-size: 13px; font-weight: 650; text-overflow: ellipsis; }
+.nextTaskSummary > small { color: #6f6a61; font-size: 11px; }
+.nextTaskSummary > svg { width: 16px; height: 16px; grid-column: 2; grid-row: 1 / 4; align-self: center; color: var(--workspace-accent-dark); }
 
 .messageViewport {
   min-height: 0;
@@ -608,7 +661,7 @@
 }
 
 .promptSuggestions button {
-  min-height: 36px;
+  min-height: var(--touch-target-min);
   padding: 0 12px;
   border: 1px solid #ded9ce;
   border-radius: 999px;
@@ -1244,7 +1297,7 @@
 
 .workspace .proposalCard button {
   display: inline-flex;
-  min-height: 36px;
+  min-height: var(--touch-target-min);
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -1736,7 +1789,7 @@
 
 .composerToolbar {
   display: flex;
-  min-height: 36px;
+  min-height: var(--touch-target-min);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1826,6 +1879,13 @@
 .composerBoundary svg {
   width: 9px;
   height: 9px;
+}
+
+.workspaceModeHelp {
+  margin: 3px 0 0;
+  color: #8c877e;
+  font-size: 9px;
+  text-align: center;
 }
 
 .hiddenFileInput {
@@ -2049,6 +2109,97 @@
   color: #6d675e;
   font-size: 12px;
   line-height: 1.6;
+}
+
+.companyContextForm {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #e2ded4;
+  border-radius: 10px;
+  background: #fbfaf7;
+}
+
+.certaintyFieldset {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.certaintyFieldset legend {
+  margin-bottom: 8px;
+  color: #34322d;
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.certaintyFieldset label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #625e56;
+  font-size: 12px;
+}
+
+.certaintyFieldset input {
+  accent-color: var(--workspace-accent);
+}
+
+.certaintyNote {
+  margin: -7px 0 0;
+  color: #777168;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.companyContextForm button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.contextRefresh {
+  padding: 4px 7px;
+  border: 1px solid #ded9ce;
+  border-radius: 6px;
+  background: #f7f5ef;
+  color: #625e56;
+  font-size: 10px;
+}
+
+.companyContextRecord {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid #e2ded4;
+  border-radius: 8px;
+  background: #fffefa;
+}
+
+.companyContextRecord > div {
+  display: grid;
+  gap: 3px;
+}
+
+.companyContextRecord strong {
+  color: #34322d;
+  font-size: 12px;
+}
+
+.companyContextRecord span,
+.companyContextRecord small {
+  color: #777168;
+  font-size: 10px;
+}
+
+.companyContextRecord p {
+  margin: 0;
+  color: #4f4b44;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
 }
 
 .runSteps {
@@ -2401,7 +2552,7 @@
 
 .workspace .fullViewLink {
   display: flex;
-  min-height: 42px;
+  min-height: var(--touch-target-min);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -2789,7 +2940,7 @@
 
   .promptSuggestions button {
     width: 100%;
-    min-height: 42px;
+    min-height: var(--touch-target-min);
     border-radius: 10px;
     text-align: left;
   }
@@ -2859,6 +3010,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .workspace,
   .workspace *,
   .workspace *::before,
   .workspace *::after {
@@ -2866,6 +3018,41 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.productRegistration {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+}
+
+.productRegistration label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.productRegistration input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  padding: 10px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+}
+
+.productRegistration button {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.productRegistration button:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 @media (forced-colors: active) {

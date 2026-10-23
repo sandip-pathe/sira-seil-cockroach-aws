@@ -33,20 +33,24 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState, type ChangeEvent, type RefObject } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type RefObject } from "react";
 import { prepareWithSegments, walkLineRanges } from "@chenglou/pretext";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AgentProposalView,
   AttentionView,
   CatalogProductView,
+  CompanyContextCreate,
+  CompanyContextList,
   MissionArtifactView,
   MissionEventView,
   MissionSummaryView,
+  MissionTaskView,
 } from "@sira/api-client";
 
 import {
   buyerDevelopmentHeaders,
+  createIdempotencyKey,
   getBrowserApiClient,
   sellerEditorDevelopmentHeaders,
   WEB_DATA_MODE,
@@ -54,6 +58,11 @@ import {
 import { ProfileSettingsModal } from "@/components/home/profile-preview";
 import { useFirebaseAuth } from "@/components/auth/firebase-auth-provider";
 import { DecisionWorkspacePanel } from "@/components/decisions/decision-surfaces";
+import { SkipLink } from "@/components/ui/skip-link";
+import { ErrorSummary, type FieldError } from "@/components/ui/error-summary";
+import { FormField } from "@/components/ui/form-field";
+import { StatusNotice } from "@/components/ui/status-notice";
+import { adaptSellerProductSearchItem } from "@/lib/workspace-adapters";
 
 import { ChatMessageBody } from "./chat-message";
 import styles from "./commerce-workspace.module.css";
@@ -63,6 +72,7 @@ export type CommerceContextTab =
   | "work"
   | "connectors"
   | "decisions"
+  | "company-context"
   | "inbox"
   | "catalog"
   | "product"
@@ -92,6 +102,7 @@ type CatalogProduct = {
   why_company?: string;
   admin_effort?: string;
   evidence_freshness?: string;
+  stale?: boolean;
   requirement_coverage?: string;
   limitation?: string;
   logo?: string;
@@ -116,7 +127,7 @@ type ChatMessage = {
   events?: MissionEventView[];
   artifacts?: MissionArtifactView[];
   attention?: AttentionView;
-  openTasks?: { [key: string]: unknown }[];
+  openTasks?: MissionTaskView[];
   handoffs?: { [key: string]: unknown }[];
   retryText?: string;
 };
@@ -390,6 +401,7 @@ function withProductBrand(product: CatalogProduct | CatalogProductView): Catalog
     ...(brand ?? {}),
     logo: brand?.logo ?? product.logo ?? PRODUCT_LOGOS[product.id],
     website: brand?.website ?? product.website ?? undefined,
+    category: product.category ?? undefined,
     evidence_freshness:
       brand?.evidence_freshness ?? product.evidence_freshness ?? undefined,
     fit: product.fit ?? undefined,
@@ -1212,7 +1224,7 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
   );
 }
 
-function DecisionsPanel({ onStart, onSelect }: { onStart: () => void; onSelect: (decision: ActiveDecision) => void }) {
+function DecisionsPanel({ onStart, onSelect, onOpenCompanyContext }: { onStart: () => void; onSelect: (decision: ActiveDecision) => void; onOpenCompanyContext: () => void }) {
   const query = useQuery({
     queryKey: ["decision-index"],
     enabled: WEB_DATA_MODE === "api",
@@ -1230,6 +1242,13 @@ function DecisionsPanel({ onStart, onSelect }: { onStart: () => void; onSelect: 
           Buying work starts in chat. SIRA keeps asking for material context and turns it into
           structured decision state.
         </p>
+        <button
+          className={styles.fullViewLink}
+          type="button"
+          onClick={onOpenCompanyContext}
+        >
+          Company context <ArrowRight aria-hidden="true" />
+        </button>
       </section>
       {decisions.length ? (
         <section className={styles.contextSection}>
@@ -1282,6 +1301,146 @@ function DecisionsPanel({ onStart, onSelect }: { onStart: () => void; onSelect: 
           ) : null}
         </section>
       )}
+    </div>
+  );
+}
+
+type CompanyContextCertainty = "UNKNOWN" | "INFERRED" | "USER_CONFIRMED";
+
+const COMPANY_CONTEXT_CERTAINTY: Record<CompanyContextCertainty, string> = {
+  UNKNOWN: "Not known yet",
+  INFERRED: "Inferred by me",
+  USER_CONFIRMED: "Confirmed by me",
+};
+
+function CompanyContextPanel({ actorScope, onBack }: { actorScope: string; onBack: () => void }) {
+  const queryClient = useQueryClient();
+  const [label, setLabel] = useState("");
+  const [value, setValue] = useState("");
+  const [kind, setKind] = useState<CompanyContextCreate["kind"]>("NOTE");
+  const [certainty, setCertainty] = useState<CompanyContextCertainty>("UNKNOWN");
+  const [savedMessage, setSavedMessage] = useState("");
+  const idempotencyKey = useRef<string | null>(null);
+  const query = useQuery({
+    queryKey: ["company-context", actorScope],
+    queryFn: () => getBrowserApiClient().request("qualification_list_company_context", {
+      headers: buyerDevelopmentHeaders,
+    }),
+  });
+  const createContext = useMutation({
+    mutationFn: () => {
+      idempotencyKey.current ??= createIdempotencyKey("company-context");
+      return getBrowserApiClient().request("qualification_create_company_context", {
+        headers: buyerDevelopmentHeaders,
+        idempotencyKey: idempotencyKey.current,
+        body: {
+          kind,
+          label: label.trim(),
+          payload: {
+            capture_status: certainty,
+            capture_source: "USER_ENTERED",
+            value: value.trim(),
+          },
+          change_reason: `Added through SIRA context capture. User selected: ${COMPANY_CONTEXT_CERTAINTY[certainty]}. SIRA has not independently verified this entry.`,
+        },
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["company-context", actorScope] });
+      setLabel("");
+      setValue("");
+      setKind("NOTE");
+      setCertainty("UNKNOWN");
+      idempotencyKey.current = null;
+      setSavedMessage("Saved for a future supported buying workflow. SIRA has not independently verified it.");
+    },
+  });
+  const records = (query.data?.items ?? []) as CompanyContextList["items"];
+
+  function resetSaveKey() {
+    idempotencyKey.current = null;
+    setSavedMessage("");
+    createContext.reset();
+  }
+
+  function submitContext(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!label.trim() || !value.trim() || createContext.isPending) return;
+    setSavedMessage("");
+    createContext.mutate();
+  }
+
+  return (
+    <div className={styles.contextBody}>
+      <section className={styles.documentHeader}>
+        <span>SIRA workspace · private company context</span>
+        <h2>Company context</h2>
+        <p>Save one useful company detail at a time for a future buying workflow. These records are not automatically attached to this chat yet.</p>
+        <button className={styles.fullViewLink} type="button" onClick={onBack}>Back to decisions <ArrowRight aria-hidden="true" /></button>
+      </section>
+
+      <form className={styles.companyContextForm} onSubmit={submitContext}>
+        <FormField id="company-context-label" label="Short title" helpText="For example, current CRM or data residency requirement." required>
+          {({ id, "aria-describedby": describedBy }) => <input id={id} aria-describedby={describedBy} value={label} minLength={2} maxLength={160} required disabled={createContext.isPending} onChange={(event) => { resetSaveKey(); setLabel(event.target.value); }} />}
+        </FormField>
+        <FormField id="company-context-value" label="What should future SIRA work know?" helpText="Add an outcome, current tool, requirement, policy, constraint, or preference. Avoid passwords and access tokens." required>
+          {({ id, "aria-describedby": describedBy }) => <textarea id={id} aria-describedby={describedBy} value={value} maxLength={2000} minLength={3} required rows={4} disabled={createContext.isPending} onChange={(event) => { resetSaveKey(); setValue(event.target.value); }} />}
+        </FormField>
+        <FormField id="company-context-kind" label="Record type">
+          {({ id }) => <select id={id} value={kind} disabled={createContext.isPending} onChange={(event) => { resetSaveKey(); setKind(event.target.value as CompanyContextCreate["kind"]); }}>
+            <option value="NOTE">General note</option>
+            <option value="STACK">Current stack</option>
+            <option value="REQUIREMENT">Requirement</option>
+            <option value="CONSTRAINT">Constraint</option>
+            <option value="POLICY">Policy</option>
+            <option value="PREFERENCE">Preference</option>
+          </select>}
+        </FormField>
+        <fieldset className={styles.certaintyFieldset}>
+          <legend>How certain is this?</legend>
+          {(Object.entries(COMPANY_CONTEXT_CERTAINTY) as [CompanyContextCertainty, string][]).map(([status, text]) => (
+            <label key={status}>
+              <input type="radio" name="company-context-certainty" value={status} checked={certainty === status} disabled={createContext.isPending} onChange={() => { resetSaveKey(); setCertainty(status); }} />
+              <span>{text}</span>
+            </label>
+          ))}
+        </fieldset>
+        <p className={styles.certaintyNote}>“Confirmed by me” means you confirmed it. It is not an audit, policy approval, or external verification.</p>
+        {createContext.isError ? (
+          <StatusNotice tone="error" title="Context not saved" action={{ label: createContext.isPending ? "Retrying…" : "Retry save", onAction: () => createContext.mutate(), disabled: createContext.isPending }}>
+            Your draft is still here. Check your connection or workspace access, then retry.
+          </StatusNotice>
+        ) : null}
+        {savedMessage ? <StatusNotice tone="success" title="Context saved">{savedMessage}</StatusNotice> : null}
+        <button className={styles.fullViewLink} type="submit" disabled={createContext.isPending || !label.trim() || !value.trim()}>
+          {createContext.isPending ? "Saving…" : "Save context"} <ArrowRight aria-hidden="true" />
+        </button>
+      </form>
+
+      <section className={styles.contextSection} aria-labelledby="saved-company-context-title">
+        <div className={styles.sectionHeading}>
+          <div><span>Saved records</span><h3 id="saved-company-context-title">Company context</h3></div>
+          <button type="button" className={styles.contextRefresh} onClick={() => void query.refetch()} disabled={query.isFetching} aria-label="Refresh company context">{query.isFetching ? "Loading" : "Refresh"}</button>
+        </div>
+        {query.isPending ? <p className={styles.sectionCopy}>Loading company context…</p> : null}
+        {query.isError ? <StatusNotice tone="error" title="Company context unavailable" action={{ label: query.isFetching ? "Retrying…" : "Retry", onAction: () => void query.refetch(), disabled: query.isFetching }}>Your saved entries remain unchanged. Try again to reload them.</StatusNotice> : null}
+        {query.isError && records.length ? <p className={styles.sectionCopy}>Showing the last loaded records; refresh to check for changes.</p> : null}
+        {!query.isPending && !query.isError && records.length === 0 ? <p className={styles.sectionCopy}>No company context saved yet. Start with one current tool or decision constraint.</p> : null}
+        {records.map((record, index) => {
+          const payload = record.payload && typeof record.payload === "object" ? record.payload as Record<string, unknown> : {};
+          const certaintyValue = typeof payload.capture_status === "string" && payload.capture_status in COMPANY_CONTEXT_CERTAINTY
+            ? COMPANY_CONTEXT_CERTAINTY[payload.capture_status as CompanyContextCertainty]
+            : "Provenance not recorded";
+          const recordValue = typeof payload.value === "string" ? payload.value : "Details available in the saved record.";
+          return (
+            <article className={styles.companyContextRecord} key={typeof record.id === "string" ? record.id : `${index}-${String(record.label)}`}>
+              <div><strong>{typeof record.label === "string" ? record.label : "Untitled context"}</strong><span>{typeof record.kind === "string" ? record.kind.replaceAll("_", " ") : "Context"} · {certaintyValue}</span></div>
+              <p>{recordValue}</p>
+              <small>{typeof record.current_version === "number" ? `Version ${record.current_version}` : "Saved"} · {certaintyValue === "Provenance not recorded" ? "provenance not recorded" : "user entered · not independently verified"}</small>
+            </article>
+          );
+        })}
+      </section>
     </div>
   );
 }
@@ -1479,6 +1638,33 @@ function SellerProductsPanel({
   researchArtifacts?: MissionArtifactView[];
   onSelectArtifact?: (artifact: MissionArtifactView) => void;
 }) {
+  const { user } = useFirebaseAuth();
+  const queryClient = useQueryClient();
+  const [adding, setAdding] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [registrationErrors, setRegistrationErrors] = useState<FieldError[]>([]);
+  const errorSummaryRef = useRef<HTMLElement>(null);
+  const [registration, setRegistration] = useState({
+    name: "", seller_name: "", website: "", edition: "", category: "", summary: "",
+  });
+  const registrationKey = useRef<string | null>(null);
+  const registerProduct = useMutation({
+    mutationFn: () => {
+      registrationKey.current ??= createIdempotencyKey("register-product");
+      return getBrowserApiClient().request("seller_evidence_register_product", {
+        headers: sellerEditorDevelopmentHeaders,
+        idempotencyKey: registrationKey.current,
+        body: registration,
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["seil-products"] });
+      setSaved(true);
+      setAdding(false);
+      registrationKey.current = null;
+      setRegistration({ name: "", seller_name: "", website: "", edition: "", category: "", summary: "" });
+    },
+  });
   const query = useQuery({
     queryKey: ["seil-products", WEB_DATA_MODE],
     enabled: WEB_DATA_MODE === "api",
@@ -1488,19 +1674,7 @@ function SellerProductsPanel({
         query: {},
       }),
   });
-  const products: CatalogProduct[] = (query.data?.results ?? []).map((item) => ({
-    id: item.id,
-    name: item.name,
-    seller: item.publisher_authority === "SELLER_SEALED" ? "Seller confirmed" : "Platform compiled",
-    edition: item.state.replaceAll("_", " "),
-    price: "Evidence packet",
-    billing_unit: "current state",
-    status: item.state.replaceAll("_", " "),
-    summary: item.public_summary,
-    claims: [],
-    integrations: [],
-    category: item.category,
-  }));
+  const products: CatalogProduct[] = (query.data?.results ?? []).map(adaptSellerProductSearchItem);
   const drafts = researchArtifacts.filter((artifact) => artifact.kind === "seller_evidence");
 
   return (
@@ -1509,12 +1683,77 @@ function SellerProductsPanel({
         <span>Seller workspace</span>
         <h2>Product Evidence</h2>
         <p>Claim, strengthen, review, and publish evidence packets without leaving the mission.</p>
+        <button type="button" className={styles.fullViewLink} onClick={() => { setAdding(!adding); setSaved(false); setRegistrationErrors([]); }}>
+          {adding ? "Cancel" : "Add product"}
+        </button>
       </section>
+      {saved ? <StatusNotice tone="success" title="Private draft saved">Open it to add evidence and submit for review.</StatusNotice> : null}
+      {adding ? (
+        <form className={styles.productRegistration} noValidate onSubmit={(event) => {
+          event.preventDefault();
+          const requiredFields = [
+            ["name", "Product name"], ["seller_name", "Seller or company name"],
+            ["website", "Official product website"], ["category", "Category"], ["summary", "Public product summary"],
+          ] as const;
+          const errors: FieldError[] = requiredFields.flatMap(([field, label]) => {
+            if (registration[field].trim()) return [];
+            return [{ id: `register-product-${field}`, label, message: "Enter a value." }];
+          });
+          if (registration.website.trim()) {
+            try {
+              const parsed = new URL(registration.website);
+              if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("Unsupported scheme");
+            } catch {
+              errors.push({ id: "register-product-website", label: "Official product website", message: "Enter a valid website URL." });
+            }
+          }
+          setRegistrationErrors(errors);
+          if (errors.length) {
+            window.requestAnimationFrame(() => errorSummaryRef.current?.focus());
+            return;
+          }
+          registerProduct.mutate();
+        }}>
+          <h3>Add your product</h3>
+          <p>Save the product identity first, then prepare its evidence for publication.</p>
+          {!user || user.isAnonymous ? <p role="alert"><a href="/seil/sign-in">Sign in with your seller account</a> to save a product.</p> : null}
+          <ErrorSummary errors={registrationErrors} summaryRef={errorSummaryRef} />
+          {([
+            ["name", "Product name", 150], ["seller_name", "Seller or company name", 200],
+            ["website", "Official product website", 1000], ["edition", "Edition or plan (optional)", 40],
+            ["category", "Category", 120], ["summary", "Public product summary", 1000],
+          ] as const).map(([field, label, maxLength]) => (
+            <FormField
+              key={field}
+              id={`register-product-${field}`}
+              label={label}
+              required={field !== "edition"}
+              helpText={field === "website" ? "Use the official public product URL (https://…)." : undefined}
+              error={registrationErrors.find((error) => error.id === `register-product-${field}`)?.message}
+            >
+              {(controlProps) => (
+                <input {...controlProps} type={field === "website" ? "url" : "text"} maxLength={maxLength}
+                  value={registration[field]} disabled={registerProduct.isPending}
+                  onChange={(event) => {
+                    registrationKey.current = null;
+                    registerProduct.reset();
+                    setRegistration({ ...registration, [field]: event.target.value });
+                    setRegistrationErrors((current) => current.filter((error) => error.id !== `register-product-${field}`));
+                  }} />
+              )}
+            </FormField>
+          ))}
+          {registerProduct.isError ? <StatusNotice tone="error" title="Product draft not saved" action={{ label: registerProduct.isPending ? "Retrying…" : "Retry", onAction: () => registerProduct.mutate(), disabled: registerProduct.isPending }}>Check your seller account and product details, then retry.</StatusNotice> : null}
+          <button type="submit" disabled={!user || user.isAnonymous || registerProduct.isPending}>
+            {registerProduct.isPending ? "Saving…" : "Save private draft"}
+          </button>
+        </form>
+      ) : null}
       <section className={styles.contextSection}>
         <div className={styles.sectionHeading}>
           <div>
             <span>{products.length || drafts.length ? "Evidence workspace" : "Cold start"}</span>
-            <h3>{query.isPending ? "Loading evidence" : `${products.length} registered · ${drafts.length} research draft${drafts.length === 1 ? "" : "s"}`}</h3>
+            <h3>{query.isLoading ? "Loading evidence" : `${products.length} registered · ${drafts.length} research draft${drafts.length === 1 ? "" : "s"}`}</h3>
           </div>
           <Package aria-hidden="true" />
         </div>
@@ -1540,11 +1779,15 @@ function SellerProductsPanel({
             ))}
           </div>
         ) : null}
-        {!products.length && !drafts.length ? (
+        {!products.length && !drafts.length && query.isLoading ? (
+          <StatusNotice tone="info" title="Loading Product Evidence">Checking seller-authorized products.</StatusNotice>
+        ) : null}
+        {!products.length && !drafts.length && query.isError ? (
+          <StatusNotice tone="error" title="Product Evidence unavailable" action={{ label: query.isFetching ? "Retrying…" : "Retry", onAction: () => void query.refetch(), disabled: query.isFetching }}>Try again to load registered products and research drafts.</StatusNotice>
+        ) : null}
+        {!products.length && !drafts.length && !query.isLoading && !query.isError ? (
           <p className={styles.sectionCopy}>
-            {query.isError
-              ? "Product Evidence is temporarily unavailable."
-              : "Tell SEIL a product name or website. It will research public sources and prepare a cited draft."}
+            Tell SEIL a product name or website. It will research public sources and prepare a cited draft.
           </p>
         ) : null}
       </section>
@@ -1569,7 +1812,7 @@ function SellerProductPanel({ product, onBack }: { product: CatalogProduct | nul
     <div className={styles.contextBody}>
       <button className={styles.fullViewLink} type="button" onClick={onBack}>Back to products</button>
       <section className={styles.documentHeader}>
-        <span>{product.status}</span>
+        <span>{product.seller} · {product.status}</span>
         <h2>{product.name}</h2>
         <p>{product.summary}</p>
       </section>
@@ -1578,6 +1821,10 @@ function SellerProductPanel({ product, onBack }: { product: CatalogProduct | nul
           <div><span>Packet health</span><h3>{view?.pack_health.status.replaceAll("_", " ") ?? (query.isPending ? "Loading" : "Unavailable")}</h3></div>
           <FileCheck2 aria-hidden="true" />
         </div>
+        <dl className={styles.artifactFields}>
+          <div><dt>Publisher authority</dt><dd>{product.seller}</dd></div>
+          <div><dt>Pricing</dt><dd>{product.price}</dd></div>
+        </dl>
         {view ? (
           <dl className={styles.artifactFields}>
             <div><dt>Claims</dt><dd>{view.pack_health.complete_claim_count} of {view.pack_health.required_claim_count}</dd></div>
@@ -1696,6 +1943,15 @@ function ProductPanel({ product, onBack }: { product: CatalogProduct | null; onB
             Open current vendor evidence <ArrowRight aria-hidden="true" />
           </a>
         ) : null}
+        {product.stale ? <p role="status" className={styles.productLimitation}>Some observations have expired. Ask SIRA to refresh this product before relying on its price or requirements.</p> : null}
+        {product.source_refs?.length ? <section className={styles.contextSection}>
+          <h3>Sources</h3>
+          {product.source_refs.map((source, index) => typeof source.url === "string" ? (
+            <p key={`${source.url}-${index}`}><a href={source.url} target="_blank" rel="noreferrer">
+              {typeof source.title === "string" ? source.title : source.url}
+            </a></p>
+          ) : null)}
+        </section> : null}
       </section>
     </div>
   );
@@ -1835,6 +2091,20 @@ function productLabel(value: unknown, fallback = "No eligible product") {
   return displayValue(value, fallback);
 }
 
+function missionTaskOwner(owner: MissionTaskView["owner_type"], mode: CommerceWorkspaceMode) {
+  if (owner === "HUMAN") return "You or your team";
+  if (owner === "ROOT_AGENT") return `${MODE_COPY[mode].name} agent`;
+  if (owner === "SUBAGENT") return "Supporting agent";
+  return "System step";
+}
+
+function missionTaskStatus(status: MissionTaskView["status"]) {
+  if (status === "PENDING") return "Queued";
+  if (status === "RUNNING") return "In progress";
+  if (status === "WAITING") return "Waiting";
+  return "Needs attention";
+}
+
 function AgentRunPanel({
   message,
   onSelectArtifact,
@@ -1903,8 +2173,8 @@ function AgentRunPanel({
           </div>
           {message.openTasks?.map((task, index) => (
             <div className={styles.runDetailRow} key={String(task.id ?? index)}>
-              <strong>{String(task.title ?? task.kind ?? "Mission task")}</strong>
-              <small>{String(task.status ?? "pending").toLowerCase()}</small>
+              <strong>{task.title || task.kind || "Mission task"}</strong>
+              <small>{missionTaskOwner(task.owner_type, message.mission?.mode ?? "sira")} · {missionTaskStatus(task.status)}</small>
             </div>
           ))}
           {message.handoffs?.map((handoff, index) => {
@@ -1942,6 +2212,7 @@ function AgentRunPanel({
 
 function ContextPanel({
   mode,
+  actorScope,
   tab,
   expanded,
   onTabChange,
@@ -1960,6 +2231,7 @@ function ContextPanel({
   onBackDecision,
 }: {
   mode: CommerceWorkspaceMode;
+  actorScope: string;
   tab: CommerceContextTab;
   expanded: boolean;
   onTabChange: (tab: CommerceContextTab) => void;
@@ -2001,7 +2273,9 @@ function ContextPanel({
                       ? mode === "sira"
                         ? "Buying decision"
                         : "Product evidence"
-                      : "Connectors"}
+                      : tab === "company-context"
+                        ? "Company context"
+                        : "Connectors"}
         </div>
         <div className={styles.contextHeaderActions}>
           <button
@@ -2026,7 +2300,8 @@ function ContextPanel({
         {tab === "work" && mode === "sira" ? <SiraWorkPanel /> : null}
         {tab === "work" && mode === "seil" ? <SeilWorkPanel /> : null}
         {tab === "decisions" && activeDecision ? <DecisionWorkspacePanel key={`${activeDecision.requestId}:${activeDecision.version}:${activeDecision.stage}`} requestId={activeDecision.requestId} version={activeDecision.version} initialStage={activeDecision.stage} onBack={onBackDecision} /> : null}
-        {tab === "decisions" && !activeDecision ? <DecisionsPanel onStart={onStartChat} onSelect={onSelectDecision} /> : null}
+        {tab === "decisions" && !activeDecision ? <DecisionsPanel onStart={onStartChat} onSelect={onSelectDecision} onOpenCompanyContext={() => onTabChange("company-context")} /> : null}
+        {tab === "company-context" && mode === "sira" ? <CompanyContextPanel actorScope={actorScope} onBack={() => onTabChange("decisions")} /> : null}
         {tab === "inbox" ? <InboxPanel mode={mode} /> : null}
         {tab === "catalog" ? (
           mode === "seil"
@@ -2067,6 +2342,7 @@ export function CommerceWorkspace({
     ? "G"
     : accountName.trim().slice(0, 1).toUpperCase() || "U";
   const [mode, setMode] = useState<CommerceWorkspaceMode>(initialMode);
+  const [modeSwitchStatus, setModeSwitchStatus] = useState("");
   const [conversations, setConversations] = useState(cloneSeedConversations);
   const [selectedByMode, setSelectedByMode] = useState<Record<CommerceWorkspaceMode, string>>({
     sira: SEED_CONVERSATIONS.sira[0].id,
@@ -2130,6 +2406,9 @@ export function CommerceWorkspace({
     modeConversations.find((conversation) => conversation.id === selectedByMode[mode]) ??
     modeConversations[0];
   const messages = selectedConversation?.messages ?? [];
+  const missionMessage = [...messages].reverse().find((message) => message.mission);
+  const activeMission = missionMessage?.mission;
+  const nextTask = missionMessage?.openTasks?.[0];
   const messageVersion = `${mode}:${selectedConversation?.id ?? "new"}:${messages.map((message) => `${message.id}:${message.content.length}`).join("|")}`;
 
   usePretextMessages(messageRootRef, messageVersion);
@@ -2221,9 +2500,14 @@ export function CommerceWorkspace({
 
   function switchMode(nextMode: CommerceWorkspaceMode) {
     if (modeLocked || nextMode === mode) return;
+    const previousMode = mode;
     setMode(nextMode);
+    setModeSwitchStatus(
+      `Switched to ${MODE_COPY[nextMode].name}, the ${MODE_COPY[nextMode].accentLabel.toLowerCase()} workspace. ${MODE_COPY[previousMode].name} conversations stay in their own workspace.`,
+    );
     setComposer("");
     setRunning(false);
+    setActiveDecision(null);
     setContextTab(nextMode === "sira" ? "decisions" : "catalog");
     setContextOpen(false);
     if (compact) setSidebarOpen(false);
@@ -2384,6 +2668,7 @@ export function CommerceWorkspace({
                 mission: payload.mission,
                 events: payload.events,
                 artifacts: payload.artifacts,
+                openTasks: payload.open_tasks ?? [],
                 attention: payload.attention ?? undefined,
                 retryText: undefined,
               }
@@ -2437,7 +2722,6 @@ export function CommerceWorkspace({
           body: {
             intent: intent.trim(),
             visibility,
-            scenario_id: "consultco_meeting_intelligence_v1",
             mission_id: selectedConversation.id.startsWith("msn_")
               ? selectedConversation.id
               : undefined,
@@ -2586,9 +2870,7 @@ export function CommerceWorkspace({
 
   return (
     <main className={shellClass} data-mode={mode}>
-      <a className={styles.skipLink} href="#chat-thread">
-        Skip to mission
-      </a>
+      <SkipLink href="#chat-thread">Skip to mission</SkipLink>
 
       {sidebarOpen ? (
         <Sidebar
@@ -2633,12 +2915,29 @@ export function CommerceWorkspace({
             ) : null}
             <div>
               <strong>{selectedConversation?.title ?? "New mission"}</strong>
-              <small>
-                <span />{" "}
-                {WEB_DATA_MODE === "fixture"
-                  ? "Development preview · sample workflow"
-                  : `${MODE_COPY[mode].name} ${MODE_COPY[mode].accentLabel.toLowerCase()}`}
+              <small className={styles.missionMeta}>
+                <span className={styles.agentIdentity}>
+                  <span aria-hidden="true" />
+                  {WEB_DATA_MODE === "fixture"
+                    ? `Development preview · ${MODE_COPY[mode].name} ${MODE_COPY[mode].accentLabel.toLowerCase()}`
+                    : `${MODE_COPY[mode].name} ${MODE_COPY[mode].accentLabel.toLowerCase()}`}
+                </span>
+                <span className={styles.privacyScope}>
+                  <LockKeyhole aria-hidden="true" />
+                  {guestAccount ? "Isolated guest workspace" : MODE_COPY[mode].privacy}
+                </span>
+                <span className={styles.partyScope}>
+                  {MODE_COPY[mode].name} workspace · {MODE_COPY[mode].accentLabel}
+                </span>
+                {activeMission ? (
+                  <span className={styles.missionCheckpoint}>
+                    Version {activeMission.version} · {activeMission.state.replaceAll("_", " ")}
+                  </span>
+                ) : null}
               </small>
+              <p className={styles.workspaceSwitchStatus} role="status" aria-live="polite">
+                {modeSwitchStatus}
+              </p>
             </div>
           </div>
           <div className={styles.chatHeaderActions}>
@@ -2656,9 +2955,27 @@ export function CommerceWorkspace({
           </div>
         </header>
 
+        {missionMessage && nextTask ? (
+          <button
+            className={styles.nextTaskSummary}
+            type="button"
+            onClick={() => {
+              setSelectedRunMessage(missionMessage);
+              openContext("run");
+            }}
+            aria-label={`Inspect next open task: ${nextTask.title}`}
+          >
+            <span>Next open task</span>
+            <strong>{nextTask.title}</strong>
+            <small>{missionTaskOwner(nextTask.owner_type, mode)} · {missionTaskStatus(nextTask.status)}</small>
+            <ArrowRight aria-hidden="true" />
+          </button>
+        ) : null}
+
         <div
           className={styles.messageViewport}
           id="chat-thread"
+          tabIndex={-1}
           ref={messageViewportRef}
           onScroll={() => {
             const viewport = messageViewportRef.current;
@@ -2904,13 +3221,14 @@ export function CommerceWorkspace({
                   <span className={styles.lockedAgent}>{MODE_COPY[mode].name}</span>
                 ) : (
                   <label>
-                    <span className="sr-only">Choose agent</span>
+                    <span className="sr-only">Switch buying or selling workspace</span>
                     <select
                       value={mode}
+                      aria-describedby="workspace-mode-help"
                       onChange={(event) => switchMode(event.target.value as CommerceWorkspaceMode)}
                     >
-                      <option value="sira">SIRA</option>
-                      <option value="seil">SEIL</option>
+                      <option value="sira">SIRA · Buying</option>
+                      <option value="seil">SEIL · Selling</option>
                     </select>
                     <ChevronDown aria-hidden="true" />
                   </label>
@@ -2932,12 +3250,18 @@ export function CommerceWorkspace({
             {MODE_COPY[mode].privacy}. The agent can investigate and recommend; protected actions
             still require your exact authority.
           </p>
+          {!modeLocked ? (
+            <p className={styles.workspaceModeHelp} id="workspace-mode-help">
+              Buying and selling missions stay separate when you switch workspaces.
+            </p>
+          ) : null}
         </div>
       </section>
 
       {contextOpen ? (
         <ContextPanel
           mode={mode}
+          actorScope={firebaseUser?.uid ?? "guest"}
           tab={contextTab}
           expanded={contextExpanded}
           onTabChange={setContextTab}

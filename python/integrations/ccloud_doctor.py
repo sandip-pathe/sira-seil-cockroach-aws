@@ -25,7 +25,6 @@ class CcloudDoctorReport:
     cluster_name_sha256: str
     cli_version: str | None
     cluster_created: bool
-    aws_cluster: bool
     backup_commands_supported: bool
     backups_enabled: bool
     backup_count: int
@@ -97,7 +96,6 @@ def inspect_cockroach_cloud(
     backup_config = outputs.get("backup_config", "").casefold()
     backup_count = len(_BACKUP_ID.findall(outputs.get("backup_list", "")))
     cluster_created = "cluster_state_created" in info
-    aws_cluster = "cloud_provider_aws" in info
     backups_enabled = bool(re.search(r"backups enabled:\s*(yes|true)", backup_config))
     restore_history_accessible = bool(
         backup_commands_supported
@@ -111,7 +109,6 @@ def inspect_cockroach_cloud(
         "READY"
         if required_commands
         and cluster_created
-        and aws_cluster
         and backup_commands_supported
         and backups_enabled
         and backup_count > 0
@@ -124,7 +121,6 @@ def inspect_cockroach_cloud(
         cluster_name_sha256="sha256:" + sha256(cluster_name.strip().encode("utf-8")).hexdigest(),
         cli_version=version_match.group(1) if version_match else None,
         cluster_created=cluster_created,
-        aws_cluster=aws_cluster,
         backup_commands_supported=backup_commands_supported,
         backups_enabled=backups_enabled,
         backup_count=backup_count,

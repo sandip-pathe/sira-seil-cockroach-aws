@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class WorkspaceMessage(BaseModel):
@@ -45,6 +45,27 @@ class CatalogProductView(BaseModel):
     listing_origin: Literal["SELLER_PUBLISHED", "SEIL_RESEARCHED"] | None = None
     evidence_status: Literal["PUBLISHED", "RESEARCH_ONLY"] | None = None
     seller_attested: bool | None = None
+    category: str | None = None
+    facts: list[dict[str, Any]] = Field(default_factory=list)
+    observed_at: str | None = None
+    expires_at: str | None = None
+    stale: bool = False
+    stale_fields: list[str] = Field(default_factory=list)
+    observation_id: str | None = None
+    observations: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ProductResearchCreate(BaseModel):
+    query: str = Field(min_length=2, max_length=1000)
+    limit: int = Field(default=5, ge=1, le=10)
+    refresh: bool = False
+
+    @field_validator("query")
+    @classmethod
+    def nonempty_query(cls, value: str) -> str:
+        if len(value.strip()) < 2:
+            raise ValueError("Enter a public product query")
+        return value.strip()
 
 
 class AgentProposalView(BaseModel):
@@ -93,6 +114,15 @@ class MissionSummaryView(BaseModel):
     stop_reason: str | None = None
 
 
+class MissionTaskView(BaseModel):
+    id: str
+    kind: str = Field(max_length=64)
+    title: str = Field(max_length=240)
+    status: Literal["PENDING", "RUNNING", "WAITING", "FAILED"]
+    owner_type: Literal["ROOT_AGENT", "SUBAGENT", "HUMAN", "SYSTEM"]
+    assigned_role: str | None = Field(default=None, max_length=80)
+
+
 class WorkspaceChatView(BaseModel):
     conversation_id: str
     mission_id: str
@@ -105,6 +135,7 @@ class WorkspaceChatView(BaseModel):
     mission: MissionSummaryView
     events: list[MissionEventView] = Field(default_factory=list)
     artifacts: list[MissionArtifactView] = Field(default_factory=list)
+    open_tasks: list[MissionTaskView] = Field(default_factory=list)
     attention: AttentionView | None = None
     advisory_only: bool = False
 
@@ -113,7 +144,7 @@ class MissionSnapshotView(BaseModel):
     mission: MissionSummaryView
     events: list[MissionEventView]
     artifacts: list[MissionArtifactView]
-    open_tasks: list[dict[str, Any]] = Field(default_factory=list)
+    open_tasks: list[MissionTaskView] = Field(default_factory=list)
     handoffs: list[dict[str, Any]] = Field(default_factory=list)
 
 
@@ -126,7 +157,7 @@ class WorkspaceConversationView(BaseModel):
     mission: MissionSummaryView
     events: list[MissionEventView] = Field(default_factory=list)
     artifacts: list[MissionArtifactView] = Field(default_factory=list)
-    open_tasks: list[dict[str, Any]] = Field(default_factory=list)
+    open_tasks: list[MissionTaskView] = Field(default_factory=list)
 
 
 class ConnectorView(BaseModel):

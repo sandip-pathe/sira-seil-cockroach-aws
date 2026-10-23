@@ -9,7 +9,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import StreamingResponse
 
-from .config import ApiSettings
 from .dependencies import (
     RequestContext,
     enforce_api_security,
@@ -72,13 +71,12 @@ IdempotencyDependency = Annotated[str, Depends(require_idempotency_key)]
 async def health(request: Request) -> HealthResponse:
     """Process liveness only; dependency failures must not trigger restart loops."""
 
-    settings: ApiSettings = request.app.state.settings
     return HealthResponse(
         status="ok",
         version="0.1.0",
         database="not_checked",
         agent_runtime="not_checked",
-        fixture_mode=settings.development_fixture_mode,
+        fixture_mode=False,
     )
 
 
@@ -94,7 +92,6 @@ async def health(request: Request) -> HealthResponse:
     tags=["runtime"],
 )
 async def ready(request: Request, response: Response, service: ServiceDependency) -> HealthResponse:
-    settings: ApiSettings = request.app.state.settings
     database = await service.health()
     workspace_service = request.app.state.workspace_service
     agent_runtime = "ready" if workspace_service.runtime_ready else "unavailable"
@@ -105,26 +102,8 @@ async def ready(request: Request, response: Response, service: ServiceDependency
         version="0.1.0",
         database=database,
         agent_runtime=agent_runtime,
-        fixture_mode=settings.development_fixture_mode,
+        fixture_mode=False,
     )
-
-
-@router.post("/v1/demo/reset", tags=["development"])
-async def reset_demo(
-    request: Request, context: ContextDependency, service: ServiceDependency
-) -> dict[str, object]:
-    settings: ApiSettings = request.app.state.settings
-    if (
-        not settings.is_development
-        or not settings.demo_reset_enabled
-        or not settings.development_fixture_mode
-    ):
-        raise ApiProblem(
-            code="DEMO_RESET_DISABLED",
-            message="The deterministic reset endpoint is disabled outside development and test.",
-            status_code=404,
-        )
-    return await service.reset_demo(context.organization_id)
 
 
 @router.post(

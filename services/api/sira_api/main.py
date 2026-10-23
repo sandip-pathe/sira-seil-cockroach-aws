@@ -7,7 +7,6 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import cast
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -15,36 +14,24 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from sira_agents.bedrock_runtime import (
-    BedrockConverseRuntime,
-    BedrockGuardrail,
-    TitanEmbeddingClient,
-    create_bedrock_client,
-)
 from sira_agents.cognitive_runtime import (
-    BedrockCognitiveRuntime,
     CognitiveRuntime,
+    ProviderCognitiveRuntime,
 )
 from sira_agents.context_assembler import default_context_assembler
 from sira_agents.kernel_models import Principal
 from sira_agents.kernel_tools import build_kernel_tool_set
-from sira_agents.runtime_ticket import RuntimeTicketCodec
+from sira_agents.openai_runtime import OpenAIChatRuntime, OpenAIEmbeddingClient
 from sira_agents.tool_broker import ToolBroker
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import Response
 
 from domain.exchange_route import ExchangeRouteCodec
-from integrations.agentcore_runtime import (
-    AgentCoreCognitiveRuntime,
-    create_agentcore_client,
-)
-from integrations.aws_services import (
-    ContentAddressedEvidenceStore,
+from integrations.evidence_store import (
     EvidenceStore,
     LocalContentAddressedEvidenceStore,
-    S3Client,
-    create_aws_client,
 )
+from integrations.product_search import OpenAIProductSearch
 from persistence.database import Database, DatabaseSettings
 from persistence.repositories import PersistenceConflict
 from sira_api.cognitive_engine import RunEngine
@@ -53,14 +40,10 @@ from .config import ApiSettings, get_settings
 from .errors import ApiProblem
 from .exchange_routes import exchange_router
 from .exchange_service import ExchangeService
-from .fixtures import DemoFixtureBundle
 from .guest_security import FixedWindowLimiter, GuestSessionSigner, RateLimitDecision
 from .identity import FirebaseIdentityAdapter, IdentityAdapter, IntrospectionIdentityAdapter
-from .marketplace import (
-    SellerOrganizationDirectory,
-    SellerPrincipalBinding,
-    StaticSellerOrganizationDirectory,
-)
+from .marketplace import SellerOrganizationDirectory
+from .product_marketplace import ProductMarketplace
 from .qualification_routes import qualification_router
 from .qualification_service import QualificationService
 from .routes import public_router, router
@@ -183,32 +166,8 @@ def create_app(
         application.state.identity_adapter = resolved_identity_adapter
         application.state.guest_signer = guest_signer
         application.state.guest_cookie_name = guest_cookie_name
-        fixtures = DemoFixtureBundle.load() if resolved_settings.development_fixture_mode else None
-        fixture_quote_clock: Callable[[], datetime] | None = None
-        if fixtures is not None:
-            fixture_quote_now = datetime.fromisoformat(
-                str(fixtures.expected_purchase_intent["locked_at"]).replace("Z", "+00:00")
-            )
-
-            def fixed_fixture_quote_clock() -> datetime:
-                return fixture_quote_now
-
-            fixture_quote_clock = fixed_fixture_quote_clock
+        fixtures = None
         resolved_seller_directory = seller_directory
-        if resolved_seller_directory is None and fixtures is not None:
-            resolved_seller_directory = StaticSellerOrganizationDirectory(
-                tuple(
-                    SellerPrincipalBinding(
-                        candidate_id=candidate_id,
-                        product_id=str(pack["product_id"]),
-                        seller_actor_id=str(pack["seller_id"]),
-                        seller_organization_id=f"org_{pack['seller_id']}",
-                        merchant_name=str(pack["identity"]["seller_name"]),
-                        merchant_url=str(fixtures.live_quote["merchant"]["url"]),
-                    )
-                    for candidate_id, pack in sorted(fixtures.packs.items())
-                )
-            )
         workflow_service = WorkflowService(
             resolved_database,
             fixtures,
@@ -216,11 +175,8 @@ def create_app(
                 resolved_settings.is_development or resolved_settings.guest_session_enabled
             ),
             seller_directory=resolved_seller_directory,
-            quote_clock=fixture_quote_clock,
         )
-        route_secret = resolved_settings.runtime_ticket_signing_key.get_secret_value()
-        if len(route_secret.encode("utf-8")) < 32:
-            route_secret = resolved_settings.guest_session_signing_secret()
+        route_secret = resolved_settings.exchange_route_signing_secret()
         application.state.exchange_service = ExchangeService(
             resolved_database,
             ExchangeRouteCodec(route_secret),
@@ -228,108 +184,73 @@ def create_app(
             allow_development_tenant_bootstrap=(
                 resolved_settings.is_development or resolved_settings.guest_session_enabled
             ),
-            allow_development_guest_bridge=(
-                resolved_settings.is_development and resolved_settings.development_fixture_mode
-            ),
+            allow_development_guest_bridge=(False),
         )
         resolved_evidence_store = evidence_store
-        if resolved_evidence_store is None and resolved_settings.s3_evidence_bucket.strip():
-            resolved_evidence_store = ContentAddressedEvidenceStore(
-                client=cast(
-                    S3Client,
-                    create_aws_client(
-                        "s3",
-                        region=resolved_settings.aws_region,
-                        profile=resolved_settings.aws_profile.strip() or None,
-                    ),
-                ),
-                bucket=resolved_settings.s3_evidence_bucket.strip(),
-                kms_key_id=resolved_settings.s3_evidence_kms_key_id.strip() or None,
-            )
-        elif resolved_evidence_store is None and resolved_settings.is_development:
+        if resolved_evidence_store is None:
             resolved_evidence_store = LocalContentAddressedEvidenceStore(
                 Path(".artifacts/local-evidence")
             )
         seller_evidence_service = SellerEvidenceService(
             resolved_database,
-            development_fixture_mode=resolved_settings.development_fixture_mode,
             evidence_store=resolved_evidence_store,
         )
-        bedrock_client = (
-            create_bedrock_client(
-                region=resolved_settings.aws_region,
-                profile=resolved_settings.aws_profile.strip() or None,
+        openai_client = None
+        if cognitive_runtime is None or resolved_catalog_database is not None:
+            from openai import AsyncOpenAI
+
+            api_key = resolved_settings.openai_api_key.get_secret_value().strip()
+            if api_key:
+                openai_client = AsyncOpenAI(api_key=api_key, timeout=90)
+            elif not resolved_settings.is_development:
+                raise RuntimeError("OPENAI_API_KEY is required for the hosted model runtime")
+        workspace_runtime = (
+            OpenAIChatRuntime(
+                client=openai_client,
+                model_id=resolved_settings.openai_chat_model,
             )
-            if (
-                (
-                    cognitive_runtime is None
-                    and resolved_settings.agent_runtime_provider == "bedrock"
-                )
-                or resolved_catalog_database is not None
-            )
+            if cognitive_runtime is None and openai_client is not None
             else None
         )
-        workspace_runtime = None
-        if cognitive_runtime is None and resolved_settings.agent_runtime_provider == "bedrock":
-            if bedrock_client is None:
-                raise RuntimeError("Bedrock runtime client was not initialized")
-            guardrail_id = resolved_settings.bedrock_guardrail_id.strip()
-            workspace_runtime = BedrockConverseRuntime(
-                client=bedrock_client,
-                model_id=resolved_settings.bedrock_chat_model_id,
-                tools={},
-                guardrail=(
-                    BedrockGuardrail(
-                        identifier=guardrail_id,
-                        version=resolved_settings.bedrock_guardrail_version,
-                    )
-                    if guardrail_id
-                    else None
-                ),
-            )
         qualification_service = QualificationService(
             resolved_database,
             catalog_database=resolved_catalog_database,
             embedding_client=(
-                TitanEmbeddingClient(
-                    client=bedrock_client,
-                    model_id=resolved_settings.bedrock_embedding_model_id,
+                OpenAIEmbeddingClient(
+                    client=openai_client,
+                    model_id=resolved_settings.openai_embedding_model,
                 )
-                if resolved_catalog_database is not None and bedrock_client is not None
+                if resolved_catalog_database is not None and openai_client is not None
                 else None
             ),
             allow_development_tenant_bootstrap=(
                 resolved_settings.is_development or resolved_settings.guest_session_enabled
             ),
         )
+        marketplace = ProductMarketplace(
+            resolved_database,
+            search_provider=(
+                OpenAIProductSearch(openai_client, resolved_settings.openai_search_model)
+                if openai_client is not None
+                else None
+            ),
+        )
+        application.state.product_marketplace = marketplace
         kernel_tools = build_kernel_tool_set(
             workflow=workflow_service,
             seller=seller_evidence_service,
             qualification=qualification_service,
+            marketplace=marketplace,
         )
         cognitive_engine = None
         if resolved_settings.cognitive_kernel_enabled:
             resolved_cognitive_runtime: CognitiveRuntime
             if cognitive_runtime is not None:
                 resolved_cognitive_runtime = cognitive_runtime
-            elif resolved_settings.agent_runtime_provider == "agentcore":
-                resolved_cognitive_runtime = AgentCoreCognitiveRuntime(
-                    client=create_agentcore_client(
-                        region=resolved_settings.aws_region,
-                        profile=resolved_settings.aws_profile.strip() or None,
-                    ),
-                    ticket_codec=RuntimeTicketCodec(
-                        resolved_settings.runtime_ticket_signing_key.get_secret_value().encode()
-                    ),
-                    runtime_arns={
-                        Principal.SIRA: resolved_settings.sira_agentcore_runtime_arn,
-                        Principal.SEIL: resolved_settings.seil_agentcore_runtime_arn,
-                    },
-                )
             elif workspace_runtime is not None:
-                resolved_cognitive_runtime = BedrockCognitiveRuntime(workspace_runtime)
+                resolved_cognitive_runtime = ProviderCognitiveRuntime(workspace_runtime)
             else:
-                raise RuntimeError("a real cognitive runtime was not configured")
+                raise RuntimeError("OPENAI_API_KEY is required for the cognitive runtime")
             cognitive_engine = RunEngine(
                 database=resolved_database,
                 runtime=resolved_cognitive_runtime,
@@ -361,6 +282,8 @@ def create_app(
         await resolved_database.close()
         if resolved_catalog_database is not None:
             await resolved_catalog_database.close()
+        if openai_client is not None:
+            await openai_client.close()
 
     application = FastAPI(
         title="SIRA + SEIL API",
@@ -429,14 +352,6 @@ def create_app(
                 guest, new_guest_token = guest_signer.issue()
             request.state.guest_session = guest
             credential_subject = f"guest:{guest.session_id}"
-            if (
-                new_guest_token is not None
-                and resolved_settings.is_development
-                and resolved_settings.development_fixture_mode
-            ):
-                await cast(WorkflowService, application.state.workflow_service).reset_demo(
-                    guest.organization_id
-                )
 
         if protected_request:
             origin = request.headers.get("origin")

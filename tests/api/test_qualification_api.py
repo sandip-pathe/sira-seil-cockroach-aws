@@ -494,7 +494,7 @@ async def test_qualification_bilateral_lifecycle_is_idempotent_and_private(
                 product_twin_version_id=twin_id,
                 catalog_projection_version_id=catalog_id,
                 disclosure_policy_version="buyer-safe-v1",
-                embedding_profile="titan-v2:1024:normalize",
+                embedding_profile="text-embedding-3-small:1024:normalize",
                 digest=bundle_digest,
                 state="ACTIVE",
                 activated_at=datetime.now(UTC),

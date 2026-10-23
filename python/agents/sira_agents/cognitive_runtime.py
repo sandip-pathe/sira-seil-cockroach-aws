@@ -59,19 +59,26 @@ def _decision_instructions(manifest: ContextManifest) -> str:
             "Treat requested features as requirements, not product facts. State that a result "
             "meets a requirement only when the authorized observation explicitly supports it; "
             "otherwise name the evidence gap.",
+            "For new product discovery use discover_products if available. It checks persisted "
+            "observations and searches the web when needed. For SEIL public product research use "
+            "research_product. Pass a public category, product name, features or official URL; "
+            "never put private context into a web query. Distinguish public-web research "
+            "from seller evidence. Do not claim current price or suitability from stale facts. "
+            "Cite source URLs for product claims. Seller draft registration happens through "
+            "the Product Evidence form; researching a product does not register or publish it.",
         )
     )
 
 
 @dataclass(frozen=True, slots=True)
-class BedrockCognitiveRuntime:
-    """Use Bedrock only for typed decisions; the kernel owns all tool execution."""
+class ProviderCognitiveRuntime:
+    """Use a model only for typed decisions; the kernel owns all tool execution."""
 
     runtime: StructuredRuntime
 
     async def decide(self, manifest: ContextManifest) -> TurnDecision:
         if manifest.manifest_hash != manifest.calculate_hash():
-            raise ValueError("Bedrock cognitive runtime requires a sealed context manifest")
+            raise ValueError("cognitive runtime requires a sealed context manifest")
         context = {
             "principal": manifest.principal.value,
             "party": manifest.party.value,

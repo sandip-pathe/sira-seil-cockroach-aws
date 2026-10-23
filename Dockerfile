@@ -20,19 +20,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:${PATH}" \
     PYTHONPATH="/app/python:/app/python/agents:/app/services/api:/app/services/worker" \
-    HOME=/tmp \
+    HOME=/app \
     TMPDIR=/tmp
 
 RUN groupadd --system --gid 10001 sira \
-    && useradd --system --uid 10001 --gid sira --home-dir /nonexistent --shell /usr/sbin/nologin sira
+    && useradd --system --uid 10001 --gid sira --home-dir /nonexistent --shell /usr/sbin/nologin sira \
+    && mkdir -p /app/.postgresql \
+    && ln -s /etc/ssl/certs/ca-certificates.crt /app/.postgresql/root.crt
 
 WORKDIR /app
 
 COPY --from=builder /app/.venv ./.venv
 COPY python ./python
 COPY services ./services
-COPY scripts ./scripts
 COPY fixtures/demo ./fixtures/demo
+COPY scripts ./scripts
 COPY alembic.ini ./
 
 USER sira

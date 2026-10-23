@@ -8,7 +8,7 @@ from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, Response, UploadFile, status
 
-from integrations.aws_services import MAX_EVIDENCE_BYTES
+from integrations.evidence_store import MAX_EVIDENCE_BYTES
 
 from .dependencies import (
     RequestContext,
@@ -29,6 +29,7 @@ from .seller_schemas import (
     SellerPackDraftView,
     SellerPackExportsView,
     SellerPackVersionView,
+    SellerProductRegisterCreate,
     SellerProductSearchView,
     SellerPublishCreate,
     SellerReviewDecisionCreate,
@@ -96,6 +97,32 @@ def _require_step_up(context: RequestContext) -> None:
             status_code=403,
             next_action="complete_step_up_authentication",
         )
+
+
+@seller_router.post(
+    "/v1/seller/products",
+    response_model=SellerProductSearchView,
+    status_code=status.HTTP_201_CREATED,
+    tags=["seller product evidence"],
+    name="seller_evidence_register_product",
+)
+async def register_seller_product(
+    body: SellerProductRegisterCreate,
+    context: ContextDependency,
+    service: SellerServiceDependency,
+    idempotency_key: IdempotencyDependency,
+    response: Response,
+) -> dict[str, object]:
+    _require_verified_seller(context)
+    code, payload = await service.register_product(
+        organization_id=context.organization_id,
+        actor_id=context.actor_id,
+        actor_role=_seller_role(context),
+        idempotency_key=idempotency_key,
+        body=body.model_dump(),
+    )
+    response.status_code = code
+    return payload
 
 
 @seller_router.get(

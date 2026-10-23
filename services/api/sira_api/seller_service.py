@@ -9,15 +9,16 @@ from html import escape
 from typing import Any, Literal, cast
 from urllib.parse import urlsplit, urlunsplit
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain import content_hash
 from domain.enums import ActorRole, PackAuthority, SellerEvidenceState
 from domain.evidence_pipeline import EvidenceValidationError, ParsedEvidence, parse_evidence
-from integrations.aws_services import EvidenceStore, StoredEvidenceObject
+from integrations.evidence_store import EvidenceStore, StoredEvidenceObject
 from persistence.database import Database
 from persistence.evidence_repository import EvidenceRepository
+from persistence.marketplace_models import MarketplaceObservation, MarketplaceSellerLink
 from persistence.models import (
     Organization,
     SellerActivityEvent,
@@ -35,11 +36,10 @@ from persistence.models import (
 from persistence.repositories import WorkflowRepository, new_id
 
 from .errors import ApiProblem
+from .product_marketplace import publish_seller_observation
 
 SellerActorRole = Literal["SELLER_EDITOR", "SELLER_REVIEWER", "PLATFORM_OPERATOR"]
 
-DEMO_ORGANIZATION_ID = "org_consultco"
-DEMO_FIXTURE_LABEL = "DEVELOPMENT_FIXTURE_NON_PRODUCTION"
 AUTHORITY_COPY = (
     "Publisher authority identifies who stands behind this package; it does not mean "
     "every claim was independently verified."
@@ -171,12 +171,153 @@ class SellerEvidenceService:
         self,
         database: Database,
         *,
-        development_fixture_mode: bool,
         evidence_store: EvidenceStore | None = None,
     ) -> None:
         self.database = database
-        self.development_fixture_mode = development_fixture_mode
         self.evidence_store = evidence_store
+
+    async def register_product(
+        self,
+        *,
+        organization_id: str,
+        actor_id: str,
+        actor_role: SellerActorRole,
+        idempotency_key: str,
+        body: dict[str, Any],
+    ) -> tuple[int, dict[str, Any]]:
+        if actor_role not in {"SELLER_EDITOR", "PLATFORM_OPERATOR"}:
+            raise self._forbidden("SELLER_EDIT_ROLE_REQUIRED")
+
+        async def write(session: AsyncSession) -> tuple[int, dict[str, Any]]:
+            if await session.get(Organization, organization_id) is None:
+                session.add(Organization(id=organization_id, name=body["seller_name"], version=1))
+                await session.flush()
+            repository = WorkflowRepository(session, organization_id)
+            claim = await repository.claim_idempotency(
+                actor_id=actor_id,
+                operation="seller.products.register",
+                idempotency_key=idempotency_key,
+                request_hash=content_hash(body),
+            )
+            if claim.replay:
+                return int(claim.record.response_status or 201), dict(
+                    claim.record.response_payload or {}
+                )
+            identity = content_hash(
+                {
+                    "tenant": organization_id,
+                    "website": body["website"],
+                    "edition": body["edition"].casefold(),
+                }
+            )
+            product_id = "sprod_" + identity.removeprefix("sha256:")[:40]
+            existing = await session.get(SellerProduct, product_id)
+            if existing is not None:
+                self._require_product_access(existing, actor_id, actor_role)
+                response = {"results": [self._search_item(existing)]}
+            else:
+                now = _now()
+                draft_id = new_id("draft")
+                display_name = body["name"] + (f" ({body['edition']})" if body["edition"] else "")
+                duplicate = await session.scalar(
+                    select(SellerProduct.id).where(
+                        SellerProduct.organization_id == organization_id,
+                        SellerProduct.name == display_name,
+                        SellerProduct.category == body["category"],
+                    )
+                )
+                if duplicate is not None:
+                    raise self._problem(
+                        "SELLER_PRODUCT_IDENTITY_CONFLICT",
+                        "A product with this name and category already exists in your workspace.",
+                        status_code=409,
+                    )
+                product = SellerProduct(
+                    id=product_id,
+                    organization_id=organization_id,
+                    name=display_name,
+                    category=body["category"],
+                    public_summary=body["summary"],
+                    publisher_authority=PackAuthority.SELLER_SEALED.value,
+                    state=SellerEvidenceState.SELLER_DRAFT.value,
+                    owner_actor_id=actor_id,
+                    current_draft_id=None,
+                    current_pack_version_id=None,
+                    current_version=1,
+                    fixture_label=None,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(product)
+                await session.flush()
+                claims = [
+                    {"field": "product_name", "value": body["name"], "evidence_ids": []},
+                    {"field": "public_summary", "value": body["summary"], "evidence_ids": []},
+                ]
+                digest = content_hash(
+                    _claim_payload(
+                        claims,
+                        [],
+                        [],
+                        None,
+                        product_id=product_id,
+                        publisher_authority=PackAuthority.SELLER_SEALED.value,
+                    )
+                )
+                validation = {"status": "NOT_RUN", "gaps": []}
+                session.add(
+                    SellerPackDraft(
+                        id=draft_id,
+                        organization_id=organization_id,
+                        product_id=product_id,
+                        editor_actor_id=actor_id,
+                        state=SellerEvidenceState.SELLER_DRAFT.value,
+                        publisher_authority=PackAuthority.SELLER_SEALED.value,
+                        current_revision=1,
+                        current_revision_hash=digest,
+                        validation=validation,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+                await session.flush()
+                session.add(
+                    SellerPackDraftRevision(
+                        id=new_id("sdrev"),
+                        organization_id=organization_id,
+                        draft_id=draft_id,
+                        revision=1,
+                        revision_hash=digest,
+                        claims=claims,
+                        fit_rules=[],
+                        anti_fit_rules=[],
+                        proof_adapter=None,
+                        validation=validation,
+                        created_by_actor_id=actor_id,
+                        created_at=now,
+                    )
+                )
+                session.add(
+                    MarketplaceSellerLink(
+                        id=new_id("pslink"),
+                        organization_id=organization_id,
+                        seller_product_id=product_id,
+                        website=body["website"],
+                        edition=body["edition"],
+                        seller_name=body["seller_name"],
+                    )
+                )
+                product.current_draft_id = draft_id
+                response = {"results": [self._search_item(product)]}
+            await repository.complete_idempotency(
+                claim.record,
+                response_status=201,
+                response_payload=response,
+                response_reference=product_id,
+            )
+            return 201, response
+
+        return await self.database.run_retryable(organization_id, write)
 
     async def search_products(
         self,
@@ -187,7 +328,6 @@ class SellerEvidenceService:
         query: str | None,
     ) -> dict[str, Any]:
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             statement = select(SellerProduct).where(
                 SellerProduct.organization_id == organization_id
             )
@@ -228,7 +368,6 @@ class SellerEvidenceService:
 
         request_hash = content_hash({"product_id": product_id, **body})
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             repository = WorkflowRepository(session, organization_id)
             idem = await repository.claim_idempotency(
                 actor_id=actor_id,
@@ -309,7 +448,6 @@ class SellerEvidenceService:
         product_id: str,
     ) -> dict[str, Any]:
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             product = await self._product(session, organization_id, product_id)
             self._require_product_access(product, actor_id, actor_role, allow_unclaimed=True)
             draft = await self._draft_for_product(session, organization_id, product_id)
@@ -383,7 +521,6 @@ class SellerEvidenceService:
         draft_id: str,
     ) -> dict[str, Any]:
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             draft = await self._draft(session, organization_id, draft_id)
             product = await self._product(session, organization_id, draft.product_id)
             self._require_product_access(product, actor_id, actor_role)
@@ -405,7 +542,6 @@ class SellerEvidenceService:
             raise self._forbidden("SELLER_EDIT_ROLE_REQUIRED")
         request_hash = content_hash({"draft_id": draft_id, **body})
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             repository = WorkflowRepository(session, organization_id)
             idem = await repository.claim_idempotency(
                 actor_id=actor_id,
@@ -545,7 +681,6 @@ class SellerEvidenceService:
             )
         request_hash = content_hash({"draft_id": draft_id, **body, "source_class": source_class})
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             repository = WorkflowRepository(session, organization_id)
             idem = await repository.claim_idempotency(
                 actor_id=actor_id,
@@ -646,7 +781,7 @@ class SellerEvidenceService:
         claim_fields: list[str],
         observed_at: datetime | None,
     ) -> tuple[int, dict[str, Any]]:
-        """Persist bytes outside SQL, then bind the exact S3 version in CockroachDB."""
+        """Persist bytes outside SQL, then bind the exact object version in CockroachDB."""
 
         if actor_role not in {"SELLER_EDITOR", "PLATFORM_OPERATOR"}:
             raise self._forbidden("SELLER_EVIDENCE_ROLE_REQUIRED")
@@ -705,9 +840,8 @@ class SellerEvidenceService:
         operation = f"seller.pack_drafts.{draft_id}.evidence.upload"
 
         # Reserve and validate before provider I/O. Committing the STARTED record means
-        # Cockroach transaction retries can never replay the S3 write.
+        # Cockroach transaction retries can never replay the file write.
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             repository = WorkflowRepository(session, organization_id)
             idem = await repository.claim_idempotency(
                 actor_id=actor_id,
@@ -908,7 +1042,6 @@ class SellerEvidenceService:
         failure: ApiProblem | None = None
         response: dict[str, Any] = {}
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             repository = WorkflowRepository(session, organization_id)
             idem = await repository.claim_idempotency(
                 actor_id=actor_id,
@@ -1012,7 +1145,6 @@ class SellerEvidenceService:
             raise self._forbidden("SELLER_REVIEW_ROLE_REQUIRED")
         request_hash = content_hash({"draft_id": draft_id, **body})
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             repository = WorkflowRepository(session, organization_id)
             idem = await repository.claim_idempotency(
                 actor_id=actor_id,
@@ -1114,7 +1246,6 @@ class SellerEvidenceService:
             raise self._forbidden("SELLER_PUBLISH_ROLE_REQUIRED")
         request_hash = content_hash({"draft_id": draft_id, **body})
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             repository = WorkflowRepository(session, organization_id)
             idem = await repository.claim_idempotency(
                 actor_id=actor_id,
@@ -1181,6 +1312,9 @@ class SellerEvidenceService:
             if previous is not None:
                 previous.superseded_by_version_id = pack.id
             await session.flush()
+            await publish_seller_observation(
+                session, organization_id=organization_id, product=product, pack=pack
+            )
             await self._create_exports(session, organization_id, pack)
             referenced_evidence_ids = {
                 str(evidence_id)
@@ -1246,7 +1380,6 @@ class SellerEvidenceService:
             raise self._forbidden("SELLER_SUSPEND_ROLE_REQUIRED")
         request_hash = content_hash({"version_id": version_id, **body})
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             repository = WorkflowRepository(session, organization_id)
             idem = await repository.claim_idempotency(
                 actor_id=actor_id,
@@ -1274,6 +1407,15 @@ class SellerEvidenceService:
             )
             session.add(record)
             response = self._pack_view(pack)
+            await session.execute(
+                update(MarketplaceObservation)
+                .where(
+                    MarketplaceObservation.origin == "SELLER_PUBLISHED",
+                    MarketplaceObservation.source_key == f"{organization_id}:{product.id}",
+                    MarketplaceObservation.payload["pack_version_id"].as_string() == pack.id,
+                )
+                .values(withdrawn_at=record.effective_at)
+            )
             await repository.add_outbox(
                 aggregate_type="seller_pack_version",
                 aggregate_id=pack.id,
@@ -1303,7 +1445,6 @@ class SellerEvidenceService:
         version_id: str,
     ) -> dict[str, Any]:
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             pack = await self._pack(session, organization_id, version_id)
             product = await self._product(session, organization_id, pack.product_id)
             self._require_product_access(product, actor_id, actor_role)
@@ -1347,223 +1488,9 @@ class SellerEvidenceService:
         product_id: str,
     ) -> dict[str, Any]:
         async with self.database.transaction(organization_id) as session:
-            await self._ensure_demo(session, organization_id)
             product = await self._product(session, organization_id, product_id)
             self._require_product_access(product, actor_id, actor_role)
             return await self._activity_metrics(session, organization_id, product_id)
-
-    async def _ensure_demo(self, session: AsyncSession, organization_id: str) -> None:
-        if not self.development_fixture_mode or organization_id != DEMO_ORGANIZATION_ID:
-            return
-        existing = await session.get(SellerProduct, "product_fixture_d")
-        if existing is not None:
-            return
-        organization = await session.get(Organization, organization_id)
-        if organization is None:
-            session.add(
-                Organization(id=organization_id, name="ConsultCo (fictional fixture)", version=1)
-            )
-            await session.flush()
-
-        now = _now()
-        product = SellerProduct(
-            id="product_fixture_d",
-            organization_id=organization_id,
-            name="LumaMeet",
-            category="meeting-intelligence",
-            public_summary=(
-                "Fictional development Product Evidence fixture; no production seller "
-                "integration is implied."
-            ),
-            publisher_authority=PackAuthority.SELLER_SEALED.value,
-            state=SellerEvidenceState.SELLER_DRAFT.value,
-            owner_actor_id="seller_fixture_d",
-            current_draft_id=None,
-            current_pack_version_id=None,
-            current_version=2,
-            fixture_label=DEMO_FIXTURE_LABEL,
-            created_at=now,
-            updated_at=now,
-        )
-        unclaimed = SellerProduct(
-            id="product_fixture_unclaimed",
-            organization_id=organization_id,
-            name="Fixture Research One",
-            category="meeting-intelligence",
-            public_summary=(
-                "Fictional provisional development record; not a successful production claim."
-            ),
-            publisher_authority=PackAuthority.PLATFORM_COMPILED.value,
-            state=SellerEvidenceState.UNCLAIMED.value,
-            owner_actor_id=None,
-            current_draft_id=None,
-            current_pack_version_id=None,
-            current_version=1,
-            fixture_label=DEMO_FIXTURE_LABEL,
-            created_at=now,
-            updated_at=now,
-        )
-        initial_claims: list[dict[str, Any]] = [
-            {"field": "product_name", "value": "LumaMeet", "evidence_ids": []},
-            {
-                "field": "public_summary",
-                "value": "Meeting intelligence for governed enterprise workflows.",
-                "evidence_ids": ["sevd_fixture_d_stale"],
-            },
-            {"field": "supported_regions", "value": ["US"], "evidence_ids": []},
-            {"field": "sso_supported", "value": True, "evidence_ids": []},
-        ]
-        fit_rules: list[dict[str, Any]] = [
-            {"field": "employee_count_min", "value": 25, "evidence_ids": []}
-        ]
-        anti_fit_rules: list[dict[str, Any]] = [
-            {"field": "regulated_data_prohibited", "value": True, "evidence_ids": []}
-        ]
-        revision_payload = _claim_payload(
-            initial_claims,
-            fit_rules,
-            anti_fit_rules,
-            None,
-            product_id=product.id,
-            publisher_authority=PackAuthority.SELLER_SEALED.value,
-        )
-        revision_hash = content_hash(revision_payload)
-        validation = {
-            "status": "HAS_GAPS",
-            "gaps": [
-                {
-                    "id": "gap_data_retention_days",
-                    "field": "data_retention_days",
-                    "safe_message": "Add a current retention value and supporting evidence.",
-                    "href": "/seller/product-evidence/product_fixture_d?field=data_retention_days",
-                },
-                {
-                    "id": "gap_public_summary_stale",
-                    "field": "public_summary",
-                    "safe_message": "Replace stale supporting evidence for this published field.",
-                    "href": "/seller/product-evidence/product_fixture_d?field=public_summary",
-                },
-            ],
-        }
-        draft = SellerPackDraft(
-            id="draft_fixture_d",
-            organization_id=organization_id,
-            product_id=product.id,
-            editor_actor_id="seller_fixture_d",
-            state=SellerEvidenceState.SELLER_DRAFT.value,
-            publisher_authority=PackAuthority.SELLER_SEALED.value,
-            current_revision=2,
-            current_revision_hash=revision_hash,
-            validation=validation,
-            submitted_at=None,
-            frozen_at=None,
-            based_on_pack_version_id="pack_fixture_d_v1",
-            created_at=now,
-            updated_at=now,
-        )
-        revision = SellerPackDraftRevision(
-            id="sdrev_fixture_d_2",
-            organization_id=organization_id,
-            draft_id=draft.id,
-            revision=2,
-            revision_hash=revision_hash,
-            claims=initial_claims,
-            fit_rules=fit_rules,
-            anti_fit_rules=anti_fit_rules,
-            proof_adapter=None,
-            validation=validation,
-            created_by_actor_id="seller_fixture_d",
-            created_at=now,
-            frozen_at=None,
-        )
-        stale_evidence = SellerEvidenceAttachment(
-            id="sevd_fixture_d_stale",
-            organization_id=organization_id,
-            draft_id=draft.id,
-            attached_revision=2,
-            source_reference_hash=content_hash(
-                {"source_reference": "https://example.invalid/fixture-d/overview"}
-            ),
-            public_source_url="https://example.invalid/fixture-d/overview",
-            source_class="PUBLIC_WEB",
-            claim_fields=["public_summary"],
-            observed_at=now - timedelta(days=500),
-            verification_state="UNVERIFIED",
-            verification_actor_id=None,
-            verification_method=None,
-            added_by_actor_id="seller_fixture_d",
-            created_at=now,
-            updated_at=now,
-        )
-        published_payload = {
-            "schema_version": "1.0.0",
-            "product_id": product.id,
-            "version": 1,
-            "publisher_authority": PackAuthority.SELLER_SEALED.value,
-            "claims": [
-                {"field": "product_name", "value": "LumaMeet", "evidence_ids": []},
-                {
-                    "field": "public_summary",
-                    "value": "Fictional development Product Evidence fixture.",
-                    "evidence_ids": [],
-                },
-            ],
-            "fit_rules": fit_rules,
-            "anti_fit_rules": anti_fit_rules,
-            "evidence": [],
-            "published_at": _timestamp(now - timedelta(days=60)),
-            "fixture_label": DEMO_FIXTURE_LABEL,
-        }
-        pack = SellerPackVersion(
-            id="pack_fixture_d_v1",
-            organization_id=organization_id,
-            product_id=product.id,
-            source_draft_id=draft.id,
-            source_revision=1,
-            source_revision_hash=content_hash(
-                {"fixture": "fixture_d", "revision": 1, "published": True}
-            ),
-            version=1,
-            content_hash=content_hash(published_payload),
-            publisher_authority=PackAuthority.SELLER_SEALED.value,
-            payload=published_payload,
-            published_by_actor_id="seller_reviewer_fixture_d",
-            published_at=now - timedelta(days=60),
-            superseded_by_version_id=None,
-        )
-        # PostgreSQL enforces these foreign keys during fixture bootstrap. Insert
-        # the graph in dependency order, then bind the product's current pointers.
-        session.add_all([product, unclaimed])
-        await session.flush()
-        session.add(draft)
-        await session.flush()
-        session.add_all([revision, stale_evidence, pack])
-        await session.flush()
-        product.current_draft_id = draft.id
-        product.current_pack_version_id = pack.id
-        await session.flush()
-        await self._create_exports(session, organization_id, pack)
-        events = [
-            ("sact_fixture_answer_a1", "ANSWER_RENDERED", "session_a", "sha256:q1", 5),
-            ("sact_fixture_answer_a2", "ANSWER_RENDERED", "session_a", "sha256:q1", 4),
-            ("sact_fixture_answer_b", "ANSWER_RENDERED", "session_b", "sha256:q2", 3),
-            ("sact_fixture_handoff_b", "SELLER_HANDOFF_REQUESTED", "session_b", None, 2),
-            ("sact_fixture_answer_c", "ANSWER_RENDERED", "session_c", "sha256:q3", 1),
-        ]
-        for event_id, event_type, session_id, fingerprint, days_ago in events:
-            session.add(
-                SellerActivityEvent(
-                    id=event_id,
-                    organization_id=organization_id,
-                    product_id=product.id,
-                    event_type=event_type,
-                    session_id=session_id,
-                    question_fingerprint=fingerprint,
-                    occurred_at=now - timedelta(days=days_ago),
-                    fixture_label=DEMO_FIXTURE_LABEL,
-                )
-            )
-        await session.flush()
 
     async def _product(
         self,

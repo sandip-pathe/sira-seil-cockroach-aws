@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 _SAFE_DATABASE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 _SYSTEM_DATABASES = frozenset({"defaultdb", "postgres", "system"})
 _FROM_REVISION = "cdb0017"
-_TO_REVISION = "cdb0018"
+_TO_REVISION = "cdb0020"
 
 
 def sync_url(raw: str, database: str | None = None) -> URL:

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from datetime import datetime
 
 import httpx
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from sira_api.config import ApiSettings
+from sira_api.fixtures import DemoFixtureBundle
 from sira_api.main import create_app
+from sira_api.marketplace import SellerPrincipalBinding, StaticSellerOrganizationDirectory
 from tests.support.cognitive_runtime import ScriptedCognitiveRuntime
 
 from persistence.database import Database, DatabaseSettings
@@ -30,11 +33,8 @@ BUYER_TEST_AUTHORITIES = ",".join(
 def isolate_provider_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep private laptop `.env` values from changing deterministic API tests."""
 
-    monkeypatch.setenv("AGENT_RUNTIME_PROVIDER", "bedrock")
     monkeypatch.setenv("SIRA_CATALOG_DATABASE_URL", "")
     monkeypatch.setenv("GUEST_SESSION_ENABLED", "false")
-    monkeypatch.setenv("DEVELOPMENT_FIXTURE_MODE", "true")
-    monkeypatch.setenv("DEMO_RESET_ENABLED", "true")
 
 
 @pytest_asyncio.fixture
@@ -56,6 +56,26 @@ async def api_application() -> AsyncIterator[FastAPI]:
         ),
     )
     async with application.router.lifespan_context(application):
+        fixtures = DemoFixtureBundle.load()
+        seller_directory = StaticSellerOrganizationDirectory(
+            tuple(
+                SellerPrincipalBinding(
+                    candidate_id=candidate_id,
+                    product_id=str(pack["product_id"]),
+                    seller_actor_id=str(pack["seller_id"]),
+                    seller_organization_id=f"org_{pack['seller_id']}",
+                    merchant_name=str(pack["identity"]["seller_name"]),
+                    merchant_url=str(fixtures.live_quote["merchant"]["url"]),
+                )
+                for candidate_id, pack in sorted(fixtures.packs.items())
+            )
+        )
+        application.state.workflow_service.fixtures = fixtures
+        application.state.workflow_service.seller_directory = seller_directory
+        application.state.workflow_service._quote_clock = lambda: datetime.fromisoformat(
+            str(fixtures.expected_purchase_intent["locked_at"]).replace("Z", "+00:00")
+        )
+        application.state.exchange_service.seller_directory = seller_directory
         yield application
 
 
@@ -65,11 +85,11 @@ async def api_client(api_application: FastAPI) -> AsyncIterator[httpx.AsyncClien
         transport=httpx.ASGITransport(app=api_application),
         base_url="http://test",
         headers={
+            "X-Organization-Id": "org_consultco",
             "X-Actor-Roles": BUYER_TEST_AUTHORITIES,
             "X-Actor-Party": "BUYER",
             "X-Step-Up-Verified": "true",
         },
     ) as client:
-        reset = await client.post("/v1/demo/reset")
-        assert reset.status_code == 200, reset.text
+        await api_application.state.workflow_service.reset_demo("org_consultco")
         yield client

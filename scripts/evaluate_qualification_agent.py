@@ -65,7 +65,7 @@ def _report() -> dict[str, Any]:
         ],
         "limitations": [
             "This report tests deterministic trust-boundary enforcement, not live model quality.",
-            "Live Bedrock fit and groundedness evaluation remains a separate provider gate.",
+            "Live OpenAI fit and groundedness evaluation remains a separate provider gate.",
         ],
     }
 

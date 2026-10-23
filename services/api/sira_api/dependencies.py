@@ -12,7 +12,7 @@ from .config import ApiSettings
 from .errors import ApiProblem
 from .guest_security import GuestSession
 from .identity import IdentityAdapter, IdentityKind, IdentityProviderUnavailable
-from .service import DEMO_ACTOR_ID, DEMO_ORGANIZATION_ID, WorkflowService
+from .service import WorkflowService
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +39,9 @@ _SELLER_ROUTE_ALLOWLIST = frozenset(
         ("GET", "/v1/workspace/conversations"),
         ("GET", "/v1/workspace/missions/{mission_id}"),
         ("GET", "/v1/workspace/connectors"),
+        ("GET", "/v1/workspace/catalog"),
+        ("GET", "/v1/workspace/catalog/{product_id}"),
+        ("POST", "/v1/marketplace/research"),
         ("GET", "/v1/capabilities"),
         ("GET", "/v1/exchange-cases/{case_id}"),
         ("POST", "/v1/exchange-cases/{case_id}/evidence"),
@@ -54,6 +57,7 @@ _SELLER_ROUTE_ALLOWLIST = frozenset(
         ("GET", "/v1/requirement-briefs/{brief_id}"),
         ("POST", "/v1/engagements/{engagement_id}/consent"),
         ("GET", "/v1/seller/products/search"),
+        ("POST", "/v1/seller/products"),
         ("POST", "/v1/seller/products/{product_id}/claim"),
         ("GET", "/v1/seller/products/{product_id}/view"),
         ("GET", "/v1/seller/pack-drafts/{draft_id}"),
@@ -184,7 +188,7 @@ async def get_request_context(
             step_up_verified=False,
             identity_kind="HUMAN",
             party=party,
-            fixture_identity=settings.development_fixture_mode,
+            fixture_identity=False,
             guest_identity=True,
         )
 
@@ -214,8 +218,8 @@ async def get_request_context(
     )
     verified_party = cast(Literal["BUYER", "SELLER"] | None, actor_party)
     return RequestContext(
-        organization_id=organization_header or DEMO_ORGANIZATION_ID,
-        actor_id=actor_id or DEMO_ACTOR_ID,
+        organization_id=organization_header or "org_development",
+        actor_id=actor_id or "usr_development",
         roles=roles,
         step_up_verified=step_up_verified,
         identity_kind=cast(IdentityKind, identity_kind or "HUMAN"),

@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 
-from sira_cli import dev, scenario
+from sira_cli import dev
 
 
 def test_local_database_urls_are_loopback_and_role_separated() -> None:
@@ -78,66 +75,11 @@ def test_windows_process_check_uses_exact_tasklist_pid(monkeypatch: pytest.Monke
 def test_command_parsers_match_documented_surface() -> None:
     assert dev.parser().parse_args(["doctor", "--profile", "local"]).command == "doctor"
     assert dev.parser().parse_args(["logs", "--follow"]).follow is True
-    assert (
-        scenario.parser().parse_args(["run", "--scenario", "evidence-race"]).scenario
-        == "evidence-race"
-    )
-    assert scenario.parser().parse_args(["verify", "--latest"]).latest is True
 
 
-def test_local_environment_preserves_the_configured_cognitive_provider(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("AGENT_RUNTIME_PROVIDER", "bedrock")
+def test_local_environment_enables_isolated_development_mode() -> None:
     environment = dev._local_environment("127.0.0.1")
 
-    assert environment["AGENT_RUNTIME_PROVIDER"] == "bedrock"
+    assert environment["APP_ENV"] == "development"
     assert environment["COGNITIVE_KERNEL_ENABLED"] == "true"
     assert environment["PRINCIPAL_ISOLATION_ENABLED"] == "true"
-
-
-def test_bedrock_preflight_uses_the_configured_profile_and_model(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    calls: list[list[str]] = []
-
-    def succeed(arguments: list[str], **_kwargs: object) -> dev.subprocess.CompletedProcess[str]:
-        calls.append(arguments)
-        return dev.subprocess.CompletedProcess(arguments, 0, "", "")
-
-    monkeypatch.setattr(dev, "_run", succeed)
-    settings = dev.ApiSettings(
-        app_env="test",
-        agent_runtime_provider="bedrock",
-        aws_region="us-east-1",
-        aws_profile="sira-hackathon",
-        bedrock_chat_model_id="amazon.nova-micro-v1:0",
-    )
-
-    dev._provider_preflight(settings)
-
-    command = calls[0]
-    assert Path(command[1]).name == "aws-bedrock-smoke.py"
-    assert command[command.index("--profile") + 1] == "sira-hackathon"
-    assert command[command.index("--chat-model") + 1] == "amazon.nova-micro-v1:0"
-
-
-def test_verify_requires_a_passing_latest_record(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    result_file = tmp_path / "latest.json"
-    monkeypatch.setattr(scenario, "RESULT_FILE", result_file)
-    assert scenario.verify(latest=True) == 1
-
-    result_file.write_text(
-        json.dumps(
-            {
-                "scenario": "evidence-race",
-                "passed": True,
-                "completed_at": "2026-08-18T00:00:00+00:00",
-                "tests": ["race", "replacement"],
-            }
-        ),
-        encoding="utf-8",
-    )
-    assert scenario.verify(latest=True) == 0

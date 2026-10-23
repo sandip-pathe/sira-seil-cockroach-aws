@@ -24,6 +24,40 @@
   --danger-bg: #fdecea;
   --info: #2e5aac;
   --info-bg: #eaf0ff;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-body: 16px;
+  --text-md: 18px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --text-3xl: 40px;
+  --leading-body: 1.5;
+  --radius-control: 6px;
+  --radius-panel: 10px;
+  --radius-dialog: 16px;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 3px rgb(31 31 28 / 8%);
+  --shadow-popover: 0 8px 24px rgb(31 31 28 / 12%);
+  --layer-sticky: 10;
+  --layer-menu: 20;
+  --layer-overlay: 40;
+  --layer-dialog: 50;
+  --layer-toast: 60;
+  --touch-target-min: 44px;
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  --motion-fast: 120ms;
+  --motion-standard: 180ms;
+  --motion-slow: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --overlay-shadow: 0 18px 48px rgb(19 32 28 / 18%);
   --font-ui: var(--font-geist-sans), "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), Consolas, "SFMono-Regular", monospace;
@@ -50,8 +84,8 @@ body {
   background: var(--canvas);
   color: var(--text);
   font-family: var(--font-ui);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -99,8 +133,8 @@ select {
 }
 
 :focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
 }
 
 button:disabled,
@@ -113,6 +147,16 @@ select:disabled {
 
 dialog {
   color-scheme: light;
+}
+
+dialog[data-ui-modal="true"] {
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+}
+
+dialog[data-ui-modal="true"]::backdrop {
+  background: rgb(19 32 28 / 48%);
 }
 
 .sr-only {

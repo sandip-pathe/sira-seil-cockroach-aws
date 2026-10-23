@@ -266,6 +266,13 @@
   line-height: 1.65;
 }
 
+.entryContinuation {
+  margin: 14px 0 0 !important;
+  color: var(--sira) !important;
+  font-size: 14px !important;
+  font-weight: 650;
+}
+
 .authCard {
   width: min(100%, 520px);
   padding: 28px;

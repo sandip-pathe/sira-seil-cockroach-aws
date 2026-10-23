@@ -14,6 +14,7 @@ from sira_api.workspace_service import WorkspaceService
 from tests.support.cognitive_runtime import ScriptedCognitiveRuntime
 
 from persistence.database import Database, DatabaseSettings
+from persistence.mission_repository import MissionRepository
 from persistence.models import Base, Organization
 
 
@@ -152,6 +153,77 @@ async def test_workspace_projects_completed_kernel_tools_into_existing_run_detai
         )
         assert tool_event["summary"] == "Used search seller products"
         assert tool_event["details"]["verified"] is True
+    finally:
+        await database.close()
+
+
+async def test_workspace_chat_returns_typed_open_task_projection() -> None:
+    database = Database(DatabaseSettings(database_url="sqlite+aiosqlite:///:memory:"))
+    async with database.engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    async with database.transaction("org-buyer") as session:
+        session.add(Organization(id="org-buyer", name="Buyer"))
+        repository = MissionRepository(session, "org-buyer")
+        mission = await repository.create(
+            mission_id="msn_00000000000000000000000000000002",
+            actor_id="buyer-1",
+            mode="SIRA",
+            goal="Evaluate meeting notes tools",
+            budget={},
+        )
+        await repository.add_task(
+            mission,
+            kind="human_review",
+            title="Confirm the data-retention requirement",
+            owner_type="HUMAN",
+            assigned_role="buyer_approver",
+            input_payload={},
+            budget={},
+        )
+
+    runtime = ScriptedCognitiveRuntime(
+        decisions=[
+            {
+                "kind": "clarify",
+                "question": "Who can confirm the retention window?",
+                "reason": "This changes the evidence evaluation.",
+            }
+        ]
+    )
+    service = WorkspaceService(
+        DemoFixtureBundle.load(),
+        database=database,
+        cognitive_engine=RunEngine(
+            database=database,
+            runtime=runtime,
+            broker=ToolBroker({}),
+            handlers={},
+        ),
+    )
+    try:
+        result = await service.chat(
+            WorkspaceChatCreate(
+                mission_id="msn_00000000000000000000000000000002",
+                mode="sira",
+                message="Compare the options for us.",
+            ),
+            run_context=AgentRunContext(
+                organization_id="org-buyer",
+                actor_id="buyer-1",
+                party="BUYER",
+                request_id="request-open-task",
+            ),
+        )
+
+        assert len(result["open_tasks"]) == 1
+        task = result["open_tasks"][0]
+        assert task["id"].startswith("mtask_")
+        assert task["kind"] == "human_review"
+        assert task["title"] == "Confirm the data-retention requirement"
+        assert task["status"] == "PENDING"
+        assert task["owner_type"] == "HUMAN"
+        assert task["assigned_role"] == "buyer_approver"
+        assert "budget" not in task
     finally:
         await database.close()
 

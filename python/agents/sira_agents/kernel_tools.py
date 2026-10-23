@@ -82,6 +82,16 @@ class QualificationReads(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class MarketplaceReads(Protocol):
+    async def search(
+        self, organization_id: str, *, query: str = "", limit: int = 20
+    ) -> dict[str, Any]: ...
+    async def product(self, organization_id: str, product_id: str) -> dict[str, Any]: ...
+    async def discover(
+        self, organization_id: str, *, query: str, limit: int = 5, refresh: bool = False
+    ) -> dict[str, Any]: ...
+
+
 def _object_schema(properties: dict[str, Any], *, required: tuple[str, ...] = ()) -> dict[str, Any]:
     return {
         "type": "object",
@@ -110,6 +120,7 @@ class KernelToolDispatcher:
     workflow: WorkflowReads
     seller: SellerReads
     qualification: QualificationReads
+    marketplace: MarketplaceReads | None = None
 
     @staticmethod
     def _seller_role(manifest: ContextManifest) -> SellerRole:
@@ -126,7 +137,20 @@ class KernelToolDispatcher:
         self, name: str, arguments: Mapping[str, Any], manifest: ContextManifest
     ) -> dict[str, Any]:
         organization_id = manifest.organization_id
+        if name in {"discover_products", "research_product"} and self.marketplace is not None:
+            return await self.marketplace.discover(
+                organization_id,
+                query=str(arguments["query"]),
+                limit=int(arguments.get("limit") or 5),
+                refresh=bool(arguments.get("refresh", False)),
+            )
         if name == "search_published_products":
+            if self.marketplace is not None:
+                return await self.marketplace.search(
+                    organization_id,
+                    query=str(arguments.get("query") or ""),
+                    limit=int(arguments.get("limit") or 8),
+                )
             return await self.qualification.search_marketplace(
                 organization_id,
                 category="business-software",
@@ -134,6 +158,8 @@ class KernelToolDispatcher:
                 limit=int(arguments.get("limit") or 8),
             )
         if name == "get_published_product":
+            if self.marketplace is not None:
+                return await self.marketplace.product(organization_id, str(arguments["product_id"]))
             return await self.qualification.marketplace_product(
                 organization_id, str(arguments["product_id"])
             )
@@ -199,9 +225,13 @@ class KernelToolDispatcher:
 
 
 def build_kernel_tool_set(
-    *, workflow: WorkflowReads, seller: SellerReads, qualification: QualificationReads
+    *,
+    workflow: WorkflowReads,
+    seller: SellerReads,
+    qualification: QualificationReads,
+    marketplace: MarketplaceReads | None = None,
 ) -> KernelToolSet:
-    dispatcher = KernelToolDispatcher(workflow, seller, qualification)
+    dispatcher = KernelToolDispatcher(workflow, seller, qualification, marketplace)
     string_id = {"type": "string", "minLength": 1, "maxLength": 128}
     definitions: tuple[tuple[str, str, Principal, Party, str, dict[str, Any]], ...] = (
         (
@@ -325,6 +355,37 @@ def build_kernel_tool_set(
     )
     catalog: dict[str, ToolManifest] = {}
     handlers: dict[str, KernelHandler] = {}
+    if marketplace is not None:
+        research_schema = _object_schema(
+            {
+                "query": {"type": "string", "minLength": 2, "maxLength": 1000},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 10},
+                "refresh": {"type": "boolean"},
+            },
+            required=("query",),
+        )
+        definitions += (
+            (
+                "discover_products",
+                "Discover real products using the persistent public catalog and live web search. "
+                "Use a public product query; exclude private company names, budgets and context. "
+                "Web research is not seller attestation or buyer fit. Refresh current facts.",
+                Principal.SIRA,
+                Party.BUYER,
+                "software_selection",
+                research_schema,
+            ),
+            (
+                "research_product",
+                "Research a named product or official website using public sources; "
+                "reuse saved observations or refresh live. Creates public research only; "
+                "never publishes a seller draft or claims ownership. Exclude private information.",
+                Principal.SEIL,
+                Party.SELLER,
+                "seller_evidence",
+                research_schema,
+            ),
+        )
     for name, description, principal, party, purpose, input_schema in definitions:
         catalog[name] = ToolManifest(
             name=name,
@@ -337,6 +398,7 @@ def build_kernel_tool_set(
             risk=ToolRisk.READ,
             input_schema=input_schema,
             output_schema=_OUTPUT,
+            timeout_seconds=120 if name in {"discover_products", "research_product"} else 20,
         )
 
         async def handler(

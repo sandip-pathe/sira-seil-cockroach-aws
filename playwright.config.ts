@@ -22,7 +22,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
-      NEXT_PUBLIC_WEB_DATA_MODE: "fixture",
+      NEXT_PUBLIC_WEB_DATA_MODE: "api",
       NEXT_PUBLIC_GUEST_SESSION_ENABLED: "true",
     },
   },

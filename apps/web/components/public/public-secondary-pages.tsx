@@ -22,6 +22,7 @@ import { layout, prepare, type PreparedText } from "@chenglou/pretext";
 
 import { CombinedBrandLogo } from "@/components/brand/combined-brand-logo";
 import { useFirebaseAuth } from "@/components/auth/firebase-auth-provider";
+import { consumeEntryIntent, hasEntryIntent } from "@/lib/entry-intent";
 
 import styles from "./public-secondary-pages.module.css";
 
@@ -164,9 +165,15 @@ export function SignInPreview({
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState<"google" | "email" | "guest" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hasPendingTask, setHasPendingTask] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setHasPendingTask(hasEntryIntent(workspace)));
+    return () => window.cancelAnimationFrame(frame);
+  }, [workspace]);
 
   function finish() {
-    router.replace(`/${workspace}`);
+    router.replace(consumeEntryIntent(workspace) ?? `/${workspace}`);
   }
 
   async function run(kind: "google" | "email" | "guest", action: () => Promise<unknown>) {
@@ -206,9 +213,10 @@ export function SignInPreview({
             <p className={styles.eyebrow}>Private {workspaceName} workspace</p>
             <h1 id="sign-in-title" data-pretext>Sign in and start working.</h1>
             <p data-pretext>
-              Google and email accounts restore your work on any device. Guest access is
-              instant, private to this browser, and cannot authorize purchases.
+              A verified account can be used on other devices. Guest access is private to this
+              browser and cannot authorize purchases.
             </p>
+            {hasPendingTask ? <p className={styles.entryContinuation} role="status">After sign-in, we&apos;ll return you to the task you opened.</p> : null}
           </div>
 
           <div className={styles.authCard}>
@@ -277,7 +285,7 @@ export function SignInPreview({
             <div className={styles.guestChoice}>
               <div>
                 <strong>Just exploring?</strong>
-                <span>Get an isolated Firebase guest workspace without entering details.</span>
+                <span>Open a private guest workspace in this browser. Guest access cannot authorize purchases.</span>
               </div>
               <button
                 disabled={!auth.configured || busy !== null}

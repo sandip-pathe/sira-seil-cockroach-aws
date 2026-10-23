@@ -26,7 +26,7 @@ from .models import JSON_DOCUMENT, Base, TenantOwned, Timestamped
 
 
 class Vector1024(UserDefinedType[str]):
-    """CockroachDB vector type used by Titan Text Embeddings V2."""
+    """CockroachDB vector type used by the configured embedding model."""
 
     cache_ok = True
 

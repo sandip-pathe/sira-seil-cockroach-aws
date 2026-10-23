@@ -4,7 +4,7 @@ from hashlib import sha256
 
 import pytest
 
-from integrations.aws_services import LocalContentAddressedEvidenceStore
+from integrations.evidence_store import LocalContentAddressedEvidenceStore
 
 
 async def test_local_evidence_store_is_content_addressed_idempotent_and_versioned(tmp_path) -> None:

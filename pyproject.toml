@@ -4,15 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sira-seil"
-version = "0.1.0"
+version = "0.2.0.0"
 description = "Company-aware software selection grounded in buyer context and seller evidence"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
   "alembic>=1.16,<2",
   "asyncpg>=0.30,<1",
-  "boto3>=1.43,<2",
-  "botocore[crt]>=1.43,<2",
   "cryptography>=45,<47",
   "fastapi>=0.116,<1",
   "greenlet>=3.2,<4",
@@ -28,11 +26,13 @@ dependencies = [
   "sqlalchemy[asyncio]>=2.0,<2.1",
   "sqlalchemy-cockroachdb>=2.0,<3",
   "uvicorn[standard]>=0.35,<1",
+  "openai>=3.35.1",
+  "langgraph>=1.2.16",
 ]
 
 [project.scripts]
 sira-dev = "sira_cli.dev:main"
-sira-scenario = "sira_cli.scenario:main"
+sira-worker = "sira_worker.runtime:main"
 
 [project.optional-dependencies]
 dev = [
@@ -73,9 +73,7 @@ pythonpath = [
   ".",
   "python",
   "python/agents",
-  "services/agentcore",
   "services/api",
-  "services/changefeed",
   "services/worker",
 ]
 testpaths = ["tests"]
@@ -109,7 +107,7 @@ python_version = "3.12"
 strict = true
 warn_unused_configs = true
 exclude = ["services/api/alembic/versions"]
-mypy_path = ["python", "python/agents", "services/api", "services/changefeed", "services/worker"]
+mypy_path = ["python", "python/agents", "services/api", "services/worker"]
 plugins = ["pydantic.mypy"]
 
 [tool.coverage.run]

@@ -226,7 +226,6 @@ def upgrade() -> None:
             "sira_coordinator": "SELECT, INSERT",
         },
     )
-    # AgentCore runtimes intentionally receive no database grants or credentials.
 
 
 def downgrade() -> None:

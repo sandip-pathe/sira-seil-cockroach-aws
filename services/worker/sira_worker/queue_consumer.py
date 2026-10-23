@@ -1,14 +1,11 @@
-"""Validated SQS delivery boundary for qualification work."""
+"""Validated durable outbox event processing for qualification work."""
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from hashlib import sha256
-from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
@@ -23,12 +20,6 @@ from persistence.qualification_models import (
 from sira_worker.qualification import QualificationWorker
 
 logger = logging.getLogger(__name__)
-
-
-class SqsConsumerClient(Protocol):
-    def receive_message(self, **kwargs: Any) -> Mapping[str, Any]: ...
-
-    def delete_message(self, **kwargs: Any) -> Mapping[str, Any]: ...
 
 
 class QualificationPayload(BaseModel):
@@ -67,12 +58,12 @@ class QualificationEnvelope(BaseModel):
     @model_validator(mode="after")
     def consistent_scope(self) -> QualificationEnvelope:
         if self.organization_id != self.payload.organization_id:
-            raise ValueError("queue envelope organization scope is inconsistent")
+            raise ValueError("event organization scope is inconsistent")
         if self.aggregate_id != self.payload.mission_id:
-            raise ValueError("queue envelope mission identity is inconsistent")
+            raise ValueError("event mission identity is inconsistent")
         base_key = f"qualification-mission-ready:{self.aggregate_id}"
         if self.event_key != base_key and not self.event_key.startswith(f"{base_key}:bundle:"):
-            raise ValueError("queue envelope event key is inconsistent")
+            raise ValueError("event key is inconsistent")
         return self
 
 
@@ -85,55 +76,24 @@ class ConsumedQualification:
 
 
 @dataclass(slots=True)
-class QualificationQueueConsumer:
-    """Consume at-least-once SQS work with Cockroach-backed deduplication."""
+class QualificationEventProcessor:
+    """Validate a qualification event and record Cockroach-backed deduplication."""
 
-    client: SqsConsumerClient = field(repr=False)
-    queue_url: str
     database: Database = field(repr=False)
     worker: QualificationWorker = field(repr=False)
-    wait_time_seconds: int = 20
-    visibility_timeout_seconds: int = 900
 
-    async def poll_once(self) -> int:
-        response = await asyncio.to_thread(
-            self.client.receive_message,
-            QueueUrl=self.queue_url,
-            MaxNumberOfMessages=1,
-            WaitTimeSeconds=self.wait_time_seconds,
-            VisibilityTimeout=self.visibility_timeout_seconds,
-            MessageAttributeNames=["All"],
-            AttributeNames=["All"],
-        )
-        messages = response.get("Messages", [])
-        if not isinstance(messages, list):
-            raise RuntimeError("SQS receive response contained an invalid message collection")
-        processed = 0
-        for raw_message in messages:
-            if not isinstance(raw_message, Mapping):
-                raise RuntimeError("SQS returned an invalid message")
-            receipt_handle = str(raw_message.get("ReceiptHandle", ""))
-            if not receipt_handle:
-                raise RuntimeError("SQS message omitted its receipt handle")
-            await self.process(raw_message)
-            await asyncio.to_thread(
-                self.client.delete_message,
-                QueueUrl=self.queue_url,
-                ReceiptHandle=receipt_handle,
-            )
-            processed += 1
-        return processed
+    async def process_body(
+        self, body: str, *, expected_digest: str | None = None
+    ) -> ConsumedQualification:
+        """Process a durable outbox body independently of its transport."""
 
-    async def process(self, raw_message: Mapping[str, Any]) -> ConsumedQualification:
-        body = str(raw_message.get("Body", ""))
         body_digest = sha256(body.encode("utf-8")).hexdigest()
-        expected_digest = _message_attribute(raw_message, "body_sha256")
-        if not expected_digest or expected_digest != body_digest:
-            raise ValueError("SQS message body hash does not match its declared attribute")
+        if expected_digest is not None and expected_digest != body_digest:
+            raise ValueError("qualification body digest does not match its envelope")
         try:
             parsed = json.loads(body)
         except json.JSONDecodeError as error:
-            raise ValueError("SQS message body is not valid JSON") from error
+            raise ValueError("qualification event body is not valid JSON") from error
         envelope = QualificationEnvelope.model_validate(parsed)
 
         existing = await self._receipt(envelope)
@@ -227,13 +187,3 @@ class QualificationQueueConsumer:
             )
 
         await self.database.run_retryable(envelope.organization_id, write)
-
-
-def _message_attribute(message: Mapping[str, Any], name: str) -> str:
-    attributes = message.get("MessageAttributes", {})
-    if not isinstance(attributes, Mapping):
-        return ""
-    attribute = attributes.get(name, {})
-    if not isinstance(attribute, Mapping):
-        return ""
-    return str(attribute.get("StringValue", ""))

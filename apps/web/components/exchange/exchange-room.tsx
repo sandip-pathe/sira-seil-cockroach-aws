@@ -14,8 +14,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
+import { FormField } from "@/components/ui/form-field";
+import { StatusNotice } from "@/components/ui/status-notice";
+import { recordServerEffect, recordUiIntent } from "@/lib/instrumentation";
 import {
   buyerDevelopmentHeaders,
   createIdempotencyKey,
@@ -51,9 +54,11 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
   const mode = search.get("mode") === "seil" ? "seil" : "sira";
   const isSeller = mode === "seil";
   const headers = isSeller ? sellerEditorDevelopmentHeaders : buyerDevelopmentHeaders;
-  const [amount, setAmount] = useState("1100.00");
-  const [message, setMessage] = useState("");
+  const [amount, setAmount] = useState("");
+  const [amountTouched, setAmountTouched] = useState(false);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [handoff, setHandoff] = useState<ExchangeHandoffView | null>(null);
+  const evidenceIntent = useRef<{ version: number; key: string } | null>(null);
   const queryKey = useMemo(() => ["exchange", caseId, route, mode], [caseId, route, mode]);
 
   const query = useQuery({
@@ -68,29 +73,49 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
   const view = query.data;
   const data = released(view);
   const offer = data.current_offer;
+  const amountError = !/^\d+(?:\.\d{1,2})?$/.test(amount) && amountTouched
+    ? "Enter a USD amount with no more than two decimal places."
+    : undefined;
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey });
   };
 
   const evidenceMutation = useMutation({
-    mutationFn: () => getBrowserApiClient().request("publish_exchange_evidence", {
-      pathParams: { case_id: caseId },
-      query: { route },
-      body: {
-        expected_version: view?.version ?? 0,
-        summary: "Current published Product Evidence supports this requirement.",
-        published_span_ids: [],
-      },
-      idempotencyKey: createIdempotencyKey(`exchange-evidence-${caseId}`),
-      headers,
-    }),
-    onSuccess: refresh,
-    onError: () => setMessage("No buyer-safe published evidence is available yet."),
+    mutationFn: () => {
+      recordUiIntent("exchange.evidence.publish");
+      const version = view?.version ?? 0;
+      if (evidenceIntent.current?.version !== version) {
+        evidenceIntent.current = {
+          version,
+          key: createIdempotencyKey(`exchange-evidence-${caseId}-${version}`),
+        };
+      }
+      return getBrowserApiClient().request("publish_exchange_evidence", {
+        pathParams: { case_id: caseId },
+        query: { route },
+        body: {
+          expected_version: version,
+          summary: "Current published Product Evidence supports this requirement.",
+          published_span_ids: [],
+        },
+        idempotencyKey: evidenceIntent.current.key,
+        headers,
+      });
+    },
+    onMutate: () => setNotice(null),
+    onSuccess: async () => {
+      recordServerEffect("exchange.evidence.publish");
+      evidenceIntent.current = null;
+      setNotice({ tone: "success", text: "Evidence was submitted. Refreshing the exchange version." });
+      await refresh();
+    },
+    onError: () => setNotice({ tone: "error", text: "No buyer-safe published evidence is available yet." }),
   });
 
   const offerMutation = useMutation({
     mutationFn: (expiresAt: string) => {
+      recordUiIntent("exchange.offer.propose");
       const counter = view?.state === "OFFERED";
       return getBrowserApiClient().request("propose_exchange_offer", {
         pathParams: { case_id: caseId },
@@ -115,24 +140,37 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
         headers,
       });
     },
-    onSuccess: refresh,
-    onError: () => setMessage("Those terms were not recorded. Refresh the current version."),
+    onMutate: () => setNotice(null),
+    onSuccess: () => {
+      recordServerEffect("exchange.offer.propose");
+      return refresh();
+    },
+    onError: () => setNotice({ tone: "error", text: "Those terms were not recorded. Refresh the current version." }),
   });
 
   const acceptMutation = useMutation({
-    mutationFn: () => getBrowserApiClient().request("accept_exchange_offer", {
+    mutationFn: () => {
+      recordUiIntent("exchange.offer.accept");
+      return getBrowserApiClient().request("accept_exchange_offer", {
       pathParams: { case_id: caseId },
       query: { route },
       body: { expected_version: view?.version ?? 0, offer_hash: offer?.offer_hash ?? "" },
       idempotencyKey: createIdempotencyKey(`accept-${caseId}-${offer?.offer_hash}`),
       headers,
-    }),
-    onSuccess: refresh,
-    onError: () => setMessage("The offer changed or expired. Refresh before accepting."),
+      });
+    },
+    onMutate: () => setNotice(null),
+    onSuccess: () => {
+      recordServerEffect("exchange.offer.accept");
+      return refresh();
+    },
+    onError: () => setNotice({ tone: "error", text: "The offer changed or expired. Refresh before accepting." }),
   });
 
   const approveMutation = useMutation({
-    mutationFn: (approvalExpiresAt: string) => getBrowserApiClient().request("approve_exchange_offer", {
+    mutationFn: (approvalExpiresAt: string) => {
+      recordUiIntent("exchange.offer.approve");
+      return getBrowserApiClient().request("approve_exchange_offer", {
       pathParams: { case_id: caseId },
       query: { route },
       body: {
@@ -142,25 +180,38 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
       },
       idempotencyKey: createIdempotencyKey(`approve-${caseId}-${offer?.offer_hash}`),
       headers,
-    }),
-    onSuccess: refresh,
-    onError: () => setMessage("Recent buyer verification is required for exact-term approval."),
+      });
+    },
+    onMutate: () => setNotice(null),
+    onSuccess: () => {
+      recordServerEffect("exchange.offer.approve");
+      return refresh();
+    },
+    onError: () => setNotice({ tone: "error", text: "Recent buyer verification is required for exact-term approval." }),
   });
 
   const handoffMutation = useMutation({
-    mutationFn: () => getBrowserApiClient().request("create_exchange_handoff", {
+    mutationFn: () => {
+      recordUiIntent("exchange.handoff.prepare");
+      return getBrowserApiClient().request("create_exchange_handoff", {
       pathParams: { case_id: caseId },
       query: { route },
       body: { expected_version: view?.version ?? 0, offer_hash: offer?.offer_hash ?? "" },
       idempotencyKey: createIdempotencyKey(`handoff-${caseId}-${offer?.offer_hash}`),
       headers,
-    }),
-    onSuccess: (result) => setHandoff(result),
-    onError: () => setMessage("The approved offer could not be prepared for payment."),
+      });
+    },
+    onMutate: () => setNotice(null),
+    onSuccess: (result) => {
+      recordServerEffect("exchange.handoff.prepare");
+      setHandoff(result);
+    },
+    onError: () => setNotice({ tone: "error", text: "The approved offer could not be prepared for payment." }),
   });
 
   const openHandoffMutation = useMutation({
     mutationFn: () => {
+      recordUiIntent("exchange.handoff.open");
       if (!handoff) throw new Error("Payment handoff not prepared");
       return getBrowserApiClient().request("open_exchange_handoff", {
         pathParams: { case_id: caseId, handoff_id: handoff.id },
@@ -170,22 +221,24 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
         headers,
       });
     },
+    onMutate: () => setNotice(null),
     onSuccess: (opened) => {
+      recordServerEffect("exchange.handoff.open");
       setHandoff(opened);
       window.location.assign(opened.destination_url);
     },
-    onError: () => setMessage("The payment page could not be opened. No payment was attempted."),
+    onError: () => setNotice({ tone: "error", text: "The payment page could not be opened. No payment was attempted." }),
   });
 
   const copySellerLink = async () => {
     const url = new URL(window.location.href);
     url.searchParams.set("mode", "seil");
     await navigator.clipboard.writeText(url.toString());
-    setMessage("Seller link copied. It reveals no buyer tenant or private company context.");
+    setNotice({ tone: "success", text: "Seller link copied. It reveals no buyer tenant or private company context." });
   };
 
-  if (!route) {
-    return <main className={styles.shell}><section className={styles.empty}><LockKeyhole /><h1>Exchange link required</h1><p>Open this room from a selected SIRA decision.</p></section></main>;
+  if (route.length < 64) {
+    return <main className={styles.shell}><section className={styles.empty}><LockKeyhole /><h1>{route ? "Exchange link incomplete" : "Exchange link required"}</h1><p>Open this room from a selected SIRA decision.</p></section></main>;
   }
 
   return (
@@ -196,7 +249,8 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
         <button type="button" onClick={() => void refresh()}><RefreshCw /> Refresh</button>
       </header>
 
-      {query.isError ? <section className={styles.empty}><LockKeyhole /><h2>Exchange unavailable</h2><p>The link may be expired, or this account is not the intended participant.</p></section> : null}
+      {query.isPending && route.length >= 64 ? <StatusNotice tone="info" title="Loading exchange">Checking the private exchange and its current version…</StatusNotice> : null}
+      {query.isError ? <StatusNotice tone="error" title="Exchange unavailable" action={{ label: query.isFetching ? "Retrying…" : "Retry", onAction: () => void query.refetch(), disabled: query.isFetching }}>The link may be expired, or this account may not be an intended participant. No exchange action was recorded.</StatusNotice> : null}
       {view ? <>
         <section className={styles.statusBar}><span><ShieldCheck /> {view.state.replaceAll("_", " ")}</span><span>Version {view.version}</span><code>{view.projection_hash.slice(0, 24)}…</code></section>
         <div className={styles.grid}>
@@ -217,7 +271,12 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
           <section className={styles.cardWide}>
             <div className={styles.offerHead}><div><p>Exact terms</p><h2>{offer ? `${offer.currency} ${offer.total}` : "No offer yet"}</h2></div>{offer ? <code>{offer.offer_hash?.slice(0, 28)}…</code> : null}</div>
             {offer ? <dl><div><dt>Proposed by</dt><dd>{offer.proposer}</dd></div><div><dt>Changed terms</dt><dd>{offer.changed_terms?.join(", ") || "Initial terms"}</dd></div><div><dt>Rationale</dt><dd>{offer.rationale}</dd></div></dl> : null}
-            {(!isSeller && view.state === "EVIDENCE_RELEASED") || (isSeller && view.state === "OFFERED") ? <div className={styles.offerAction}><label>Annual total (USD)<input value={amount} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} /></label><button type="button" disabled={offerMutation.isPending} onClick={() => offerMutation.mutate(new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString())}>{view.state === "OFFERED" ? "Send one counteroffer" : "Propose exact terms"}</button></div> : null}
+            {(!isSeller && view.state === "EVIDENCE_RELEASED") || (isSeller && view.state === "OFFERED") ? <form className={styles.offerAction} onSubmit={(event) => { event.preventDefault(); offerMutation.mutate(new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()); }}>
+              <FormField id="exchange-annual-total" label="Annual total (USD)" required helpText="Enter the exact amount for this offer. USD amounts can have up to two decimal places." error={amountError}>
+                {(controlProps) => <input {...controlProps} type="text" value={amount} inputMode="decimal" autoComplete="off" pattern="[0-9]+(\.[0-9]{1,2})?" required onBlur={() => setAmountTouched(true)} onChange={(event) => setAmount(event.target.value)} />}
+              </FormField>
+              <button type="submit" disabled={offerMutation.isPending}>{view.state === "OFFERED" ? "Send one counteroffer" : "Propose exact terms"}</button>
+            </form> : null}
             {isSeller && view.state === "OFFERED" ? <button className={styles.secondary} type="button" disabled={acceptMutation.isPending} onClick={() => acceptMutation.mutate()}><Check /> Accept exact offer</button> : null}
             {!isSeller && view.state === "COUNTERED" ? <button type="button" disabled={acceptMutation.isPending} onClick={() => acceptMutation.mutate()}><Check /> Accept exact counteroffer</button> : null}
             {!isSeller && view.state === "AGREED_PENDING_APPROVAL" ? <button type="button" disabled={approveMutation.isPending} onClick={() => approveMutation.mutate(new Date(Date.now() + 15 * 60 * 1000).toISOString())}><BadgeCheck /> Approve for external handoff</button> : null}
@@ -225,7 +284,13 @@ export function ExchangeRoom({ caseId }: { caseId: string }) {
           </section>
         </div>
         {!isSeller ? <button className={styles.share} type="button" onClick={() => void copySellerLink()}><Copy /> Copy seller link</button> : null}
-        <p className={styles.message} role="status">{message}</p>
+        {notice ? <StatusNotice
+          tone={notice.tone}
+          title={notice.tone === "error" ? "Action not completed" : "Done"}
+          action={evidenceMutation.isError && isSeller && view.state === "REQUIREMENT_RELEASED"
+            ? { label: evidenceMutation.isPending ? "Retrying…" : "Retry evidence submission", onAction: () => evidenceMutation.mutate(), disabled: evidenceMutation.isPending }
+            : undefined}
+        >{notice.text}</StatusNotice> : null}
       </> : null}
     </main>
   );

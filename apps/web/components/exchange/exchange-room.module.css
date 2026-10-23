@@ -50,8 +50,7 @@
 .statusBar,
 .grid,
 .empty,
-.share,
-.message { max-width: 1120px; margin-left: auto; margin-right: auto; }
+.share { max-width: 1120px; margin-left: auto; margin-right: auto; }
 
 .statusBar {
   display: flex;
@@ -89,8 +88,7 @@
 .cardWide dt { color: var(--muted); font-size: 10px; text-transform: uppercase; }
 .cardWide dd { margin: 6px 0 0; font-size: 12px; }
 .offerAction { display: flex; align-items: end; gap: 12px; margin-top: 20px; }
-.offerAction label { display: grid; gap: 6px; color: var(--muted); font-size: 10px; text-transform: uppercase; }
-.offerAction input { min-height: 40px; padding: 0 12px; border: 1px solid var(--control-border); border-radius: 7px; background: var(--background); color: var(--text); font: 13px var(--font-mono); }
+.offerAction > div { flex: 1; }
 .offerAction button { margin: 0; }
 .cardWide .secondary { margin-left: 10px; background: var(--surface); color: var(--text); }
 .complete { display: flex; gap: 12px; margin-top: 20px; padding: 16px; border-radius: 8px; background: var(--success-bg); color: var(--success); }
@@ -98,7 +96,6 @@
 .complete div { display: grid; gap: 4px; }
 .complete span { font-size: 11px; }
 .share { margin-top: 18px; }
-.message { min-height: 20px; margin-top: 12px; color: var(--muted); font-size: 11px; }
 .empty { display: grid; justify-items: center; gap: 8px; padding: 80px 20px; text-align: center; }
 .empty svg { width: 28px; color: var(--sira); }
 .empty h1,

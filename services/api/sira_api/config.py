@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal, Self
+from typing import Self
 
-from pydantic import AliasChoices, Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -15,13 +15,12 @@ class ApiSettings(BaseSettings):
 
     app_env: str = Field(default="unset", validation_alias="APP_ENV")
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
-    development_fixture_mode: bool = Field(
-        default=True, validation_alias="DEVELOPMENT_FIXTURE_MODE"
-    )
-    demo_reset_enabled: bool = Field(default=True, validation_alias="DEMO_RESET_ENABLED")
     guest_session_enabled: bool = Field(default=False, validation_alias="GUEST_SESSION_ENABLED")
     guest_session_signing_key: SecretStr = Field(
         default=SecretStr(""), validation_alias="GUEST_SESSION_SIGNING_KEY"
+    )
+    exchange_route_signing_key: SecretStr = Field(
+        default=SecretStr(""), validation_alias="EXCHANGE_ROUTE_SIGNING_KEY"
     )
     guest_session_ttl_seconds: int = Field(
         default=604_800,
@@ -62,13 +61,11 @@ class ApiSettings(BaseSettings):
         validation_alias="IDENTITY_STEP_UP_MAX_AGE_SECONDS",
     )
     firebase_project_id: str = Field(default="", validation_alias="FIREBASE_PROJECT_ID")
-    aws_region: str = Field(
-        default="us-east-1",
-        validation_alias=AliasChoices("AWS_REGION", "AWS_DEFAULT_REGION"),
-    )
-    aws_profile: str = Field(default="", validation_alias="AWS_PROFILE")
-    agent_runtime_provider: Literal["agentcore", "bedrock"] = Field(
-        default="bedrock", validation_alias="AGENT_RUNTIME_PROVIDER"
+    openai_api_key: SecretStr = Field(default=SecretStr(""), validation_alias="OPENAI_API_KEY")
+    openai_chat_model: str = Field(default="gpt-4.1-mini", validation_alias="OPENAI_CHAT_MODEL")
+    openai_search_model: str = Field(default="gpt-4.1-mini", validation_alias="OPENAI_SEARCH_MODEL")
+    openai_embedding_model: str = Field(
+        default="text-embedding-3-small", validation_alias="OPENAI_EMBEDDING_MODEL"
     )
     cognitive_kernel_enabled: bool = Field(
         default=True, validation_alias="COGNITIVE_KERNEL_ENABLED"
@@ -76,29 +73,6 @@ class ApiSettings(BaseSettings):
     principal_isolation_enabled: bool = Field(
         default=True, validation_alias="PRINCIPAL_ISOLATION_ENABLED"
     )
-    sira_agentcore_runtime_arn: str = Field(
-        default="", validation_alias="SIRA_AGENTCORE_RUNTIME_ARN"
-    )
-    seil_agentcore_runtime_arn: str = Field(
-        default="", validation_alias="SEIL_AGENTCORE_RUNTIME_ARN"
-    )
-    runtime_ticket_signing_key: SecretStr = Field(
-        default=SecretStr(""), validation_alias="RUNTIME_TICKET_SIGNING_KEY"
-    )
-    bedrock_chat_model_id: str = Field(
-        default="us.amazon.nova-2-lite-v1:0",
-        validation_alias="BEDROCK_CHAT_MODEL_ID",
-    )
-    bedrock_embedding_model_id: str = Field(
-        default="amazon.titan-embed-text-v2:0",
-        validation_alias="BEDROCK_EMBEDDING_MODEL_ID",
-    )
-    bedrock_guardrail_id: str = Field(default="", validation_alias="BEDROCK_GUARDRAIL_ID")
-    bedrock_guardrail_version: str = Field(
-        default="DRAFT", validation_alias="BEDROCK_GUARDRAIL_VERSION"
-    )
-    s3_evidence_bucket: str = Field(default="", validation_alias="SIRA_S3_EVIDENCE_BUCKET")
-    s3_evidence_kms_key_id: str = Field(default="", validation_alias="SIRA_S3_EVIDENCE_KMS_KEY_ID")
 
     @property
     def is_development(self) -> bool:
@@ -109,10 +83,6 @@ class ApiSettings(BaseSettings):
             raise ValueError("APP_ENV must be explicitly set to development, test, or production")
         if self.is_development:
             return
-        if self.development_fixture_mode or self.demo_reset_enabled:
-            raise ValueError(
-                "production requires DEVELOPMENT_FIXTURE_MODE=false and DEMO_RESET_ENABLED=false"
-            )
         try:
             backend = make_url(self.database_url).get_backend_name()
         except Exception:
@@ -129,18 +99,15 @@ class ApiSettings(BaseSettings):
                 raise ValueError("production requires a CockroachDB SIRA_CATALOG_DATABASE_URL")
         if self.guest_session_enabled:
             self.guest_session_signing_secret()
-        if self.agent_runtime_provider != "agentcore":
-            raise ValueError("production requires AGENT_RUNTIME_PROVIDER=agentcore")
+        self.exchange_route_signing_secret()
+        if not self.openai_api_key.get_secret_value().strip():
+            raise ValueError("production requires OPENAI_API_KEY")
         if not self.cognitive_kernel_enabled:
             raise ValueError("production requires COGNITIVE_KERNEL_ENABLED=true")
         if not self.principal_isolation_enabled:
             raise ValueError(
                 "production cognitive runtime requires PRINCIPAL_ISOLATION_ENABLED=true"
             )
-        if not self.sira_agentcore_runtime_arn or not self.seil_agentcore_runtime_arn:
-            raise ValueError("production cognitive runtime requires both AgentCore ARNs")
-        if len(self.runtime_ticket_signing_key.get_secret_value().encode()) < 32:
-            raise ValueError("production cognitive runtime requires a 32-byte ticket key")
 
     def guest_session_signing_secret(self) -> str:
         value = self.guest_session_signing_key.get_secret_value()
@@ -149,6 +116,14 @@ class ApiSettings(BaseSettings):
         if self.is_development:
             return "development-only-guest-session-signing-key"
         raise ValueError("production guest sessions require a 32-byte GUEST_SESSION_SIGNING_KEY")
+
+    def exchange_route_signing_secret(self) -> str:
+        value = self.exchange_route_signing_key.get_secret_value()
+        if len(value.encode("utf-8")) >= 32:
+            return value
+        if self.is_development:
+            return "development-only-exchange-route-signing-key"
+        raise ValueError("production requires a 32-byte EXCHANGE_ROUTE_SIGNING_KEY")
 
     @staticmethod
     def _csv_set(value: str) -> frozenset[str]:

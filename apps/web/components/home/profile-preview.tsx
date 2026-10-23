@@ -86,6 +86,8 @@ export function ProfileSettingsModal({
   const router = useRouter();
   const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
   const [mobilePane, setMobilePane] = useState<"menu" | "detail">("menu");
+  const [upgradePending, setUpgradePending] = useState(false);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const guest = identity?.isAnonymous ?? false;
   const fallbackAccount = WORKSPACE_ACCOUNTS[workspace];
   const verifiedName = identity?.displayName || identity?.email || "Verified account";
@@ -149,6 +151,19 @@ export function ProfileSettingsModal({
   function dismiss() {
     if (onClose) onClose();
     else router.replace(`/${workspace}`, { scroll: false });
+  }
+
+  async function upgradeGuest() {
+    if (!onUpgradeGuest || upgradePending) return;
+    setUpgradePending(true);
+    setUpgradeError(null);
+    try {
+      await onUpgradeGuest();
+    } catch {
+      setUpgradeError("Google could not be linked. Your guest session is still active in this tab; try again with another Google account.");
+    } finally {
+      setUpgradePending(false);
+    }
   }
 
   function handleDialogKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -319,9 +334,13 @@ export function ProfileSettingsModal({
             ) : null}
 
             {guest && onUpgradeGuest ? (
-              <button className={styles.accountAction} type="button" onClick={() => void onUpgradeGuest()}>
-                Save this workspace with Google
-              </button>
+              <>
+                <p className={styles.accountNotice}>Linking Google keeps this Firebase identity. Any unsaved work may not survive a refresh.</p>
+                <button className={styles.accountAction} type="button" disabled={upgradePending} onClick={() => void upgradeGuest()}>
+                  {upgradePending ? "Linking Google…" : "Link Google account"}
+                </button>
+                {upgradeError ? <p role="alert" className={styles.accountError}>{upgradeError}</p> : null}
+              </>
             ) : null}
             {onSignOut ? (
               <button className={styles.accountActionSecondary} type="button" onClick={() => void onSignOut()}>

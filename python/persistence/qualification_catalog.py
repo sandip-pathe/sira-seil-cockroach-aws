@@ -30,6 +30,7 @@ async def search_published_candidates(
     *,
     category: str,
     visibility: str,
+    model_id: str | None = None,
     query_vector: tuple[float, ...],
     limit: int = 10,
 ) -> tuple[VectorCandidate, ...]:
@@ -43,6 +44,14 @@ async def search_published_candidates(
     if limit < 1 or limit > 50:
         raise ValueError("catalog result limit must be between 1 and 50")
     distance = f"e.embedding <=> '{vector_literal}'::VECTOR"
+    model_filter = "AND e.model_id = :model_id " if model_id is not None else ""
+    parameters = {
+        "category": category,
+        "visibility": visibility,
+        "limit": limit,
+    }
+    if model_id is not None:
+        parameters["model_id"] = model_id
     result = await session.execute(
         text(
             "SELECT e.organization_id, e.product_id, e.bundle_id, "
@@ -53,13 +62,10 @@ async def search_published_candidates(
             "ON a.organization_id = e.organization_id "
             "AND a.product_id = e.product_id AND a.bundle_id = e.bundle_id "
             "WHERE e.category = :category AND e.visibility = :visibility "
+            f"{model_filter}"
             f"ORDER BY {distance} LIMIT :limit"
         ),
-        {
-            "category": category,
-            "visibility": visibility,
-            "limit": limit,
-        },
+        parameters,
     )
     return tuple(
         VectorCandidate(
