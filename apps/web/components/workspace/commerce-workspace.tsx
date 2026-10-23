@@ -33,13 +33,15 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState, type ChangeEvent, type RefObject } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type RefObject } from "react";
 import { prepareWithSegments, walkLineRanges } from "@chenglou/pretext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AgentProposalView,
   AttentionView,
   CatalogProductView,
+  CompanyContextCreate,
+  CompanyContextList,
   MissionArtifactView,
   MissionEventView,
   MissionSummaryView,
@@ -70,6 +72,7 @@ export type CommerceContextTab =
   | "work"
   | "connectors"
   | "decisions"
+  | "company-context"
   | "inbox"
   | "catalog"
   | "product"
@@ -1221,7 +1224,7 @@ function ConnectorsPanel({ mode }: { mode: CommerceWorkspaceMode }) {
   );
 }
 
-function DecisionsPanel({ onStart, onSelect }: { onStart: () => void; onSelect: (decision: ActiveDecision) => void }) {
+function DecisionsPanel({ onStart, onSelect, onOpenCompanyContext }: { onStart: () => void; onSelect: (decision: ActiveDecision) => void; onOpenCompanyContext: () => void }) {
   const query = useQuery({
     queryKey: ["decision-index"],
     enabled: WEB_DATA_MODE === "api",
@@ -1239,6 +1242,13 @@ function DecisionsPanel({ onStart, onSelect }: { onStart: () => void; onSelect: 
           Buying work starts in chat. SIRA keeps asking for material context and turns it into
           structured decision state.
         </p>
+        <button
+          className={styles.fullViewLink}
+          type="button"
+          onClick={onOpenCompanyContext}
+        >
+          Company context <ArrowRight aria-hidden="true" />
+        </button>
       </section>
       {decisions.length ? (
         <section className={styles.contextSection}>
@@ -1291,6 +1301,146 @@ function DecisionsPanel({ onStart, onSelect }: { onStart: () => void; onSelect: 
           ) : null}
         </section>
       )}
+    </div>
+  );
+}
+
+type CompanyContextCertainty = "UNKNOWN" | "INFERRED" | "USER_CONFIRMED";
+
+const COMPANY_CONTEXT_CERTAINTY: Record<CompanyContextCertainty, string> = {
+  UNKNOWN: "Not known yet",
+  INFERRED: "Inferred by me",
+  USER_CONFIRMED: "Confirmed by me",
+};
+
+function CompanyContextPanel({ actorScope, onBack }: { actorScope: string; onBack: () => void }) {
+  const queryClient = useQueryClient();
+  const [label, setLabel] = useState("");
+  const [value, setValue] = useState("");
+  const [kind, setKind] = useState<CompanyContextCreate["kind"]>("NOTE");
+  const [certainty, setCertainty] = useState<CompanyContextCertainty>("UNKNOWN");
+  const [savedMessage, setSavedMessage] = useState("");
+  const idempotencyKey = useRef<string | null>(null);
+  const query = useQuery({
+    queryKey: ["company-context", actorScope],
+    queryFn: () => getBrowserApiClient().request("qualification_list_company_context", {
+      headers: buyerDevelopmentHeaders,
+    }),
+  });
+  const createContext = useMutation({
+    mutationFn: () => {
+      idempotencyKey.current ??= createIdempotencyKey("company-context");
+      return getBrowserApiClient().request("qualification_create_company_context", {
+        headers: buyerDevelopmentHeaders,
+        idempotencyKey: idempotencyKey.current,
+        body: {
+          kind,
+          label: label.trim(),
+          payload: {
+            capture_status: certainty,
+            capture_source: "USER_ENTERED",
+            value: value.trim(),
+          },
+          change_reason: `Added through SIRA context capture. User selected: ${COMPANY_CONTEXT_CERTAINTY[certainty]}. SIRA has not independently verified this entry.`,
+        },
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["company-context", actorScope] });
+      setLabel("");
+      setValue("");
+      setKind("NOTE");
+      setCertainty("UNKNOWN");
+      idempotencyKey.current = null;
+      setSavedMessage("Saved for a future supported buying workflow. SIRA has not independently verified it.");
+    },
+  });
+  const records = (query.data?.items ?? []) as CompanyContextList["items"];
+
+  function resetSaveKey() {
+    idempotencyKey.current = null;
+    setSavedMessage("");
+    createContext.reset();
+  }
+
+  function submitContext(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!label.trim() || !value.trim() || createContext.isPending) return;
+    setSavedMessage("");
+    createContext.mutate();
+  }
+
+  return (
+    <div className={styles.contextBody}>
+      <section className={styles.documentHeader}>
+        <span>SIRA workspace · private company context</span>
+        <h2>Company context</h2>
+        <p>Save one useful company detail at a time for a future buying workflow. These records are not automatically attached to this chat yet.</p>
+        <button className={styles.fullViewLink} type="button" onClick={onBack}>Back to decisions <ArrowRight aria-hidden="true" /></button>
+      </section>
+
+      <form className={styles.companyContextForm} onSubmit={submitContext}>
+        <FormField id="company-context-label" label="Short title" helpText="For example, current CRM or data residency requirement." required>
+          {({ id, "aria-describedby": describedBy }) => <input id={id} aria-describedby={describedBy} value={label} minLength={2} maxLength={160} required disabled={createContext.isPending} onChange={(event) => { resetSaveKey(); setLabel(event.target.value); }} />}
+        </FormField>
+        <FormField id="company-context-value" label="What should future SIRA work know?" helpText="Add an outcome, current tool, requirement, policy, constraint, or preference. Avoid passwords and access tokens." required>
+          {({ id, "aria-describedby": describedBy }) => <textarea id={id} aria-describedby={describedBy} value={value} maxLength={2000} minLength={3} required rows={4} disabled={createContext.isPending} onChange={(event) => { resetSaveKey(); setValue(event.target.value); }} />}
+        </FormField>
+        <FormField id="company-context-kind" label="Record type">
+          {({ id }) => <select id={id} value={kind} disabled={createContext.isPending} onChange={(event) => { resetSaveKey(); setKind(event.target.value as CompanyContextCreate["kind"]); }}>
+            <option value="NOTE">General note</option>
+            <option value="STACK">Current stack</option>
+            <option value="REQUIREMENT">Requirement</option>
+            <option value="CONSTRAINT">Constraint</option>
+            <option value="POLICY">Policy</option>
+            <option value="PREFERENCE">Preference</option>
+          </select>}
+        </FormField>
+        <fieldset className={styles.certaintyFieldset}>
+          <legend>How certain is this?</legend>
+          {(Object.entries(COMPANY_CONTEXT_CERTAINTY) as [CompanyContextCertainty, string][]).map(([status, text]) => (
+            <label key={status}>
+              <input type="radio" name="company-context-certainty" value={status} checked={certainty === status} disabled={createContext.isPending} onChange={() => { resetSaveKey(); setCertainty(status); }} />
+              <span>{text}</span>
+            </label>
+          ))}
+        </fieldset>
+        <p className={styles.certaintyNote}>“Confirmed by me” means you confirmed it. It is not an audit, policy approval, or external verification.</p>
+        {createContext.isError ? (
+          <StatusNotice tone="error" title="Context not saved" action={{ label: createContext.isPending ? "Retrying…" : "Retry save", onAction: () => createContext.mutate(), disabled: createContext.isPending }}>
+            Your draft is still here. Check your connection or workspace access, then retry.
+          </StatusNotice>
+        ) : null}
+        {savedMessage ? <StatusNotice tone="success" title="Context saved">{savedMessage}</StatusNotice> : null}
+        <button className={styles.fullViewLink} type="submit" disabled={createContext.isPending || !label.trim() || !value.trim()}>
+          {createContext.isPending ? "Saving…" : "Save context"} <ArrowRight aria-hidden="true" />
+        </button>
+      </form>
+
+      <section className={styles.contextSection} aria-labelledby="saved-company-context-title">
+        <div className={styles.sectionHeading}>
+          <div><span>Saved records</span><h3 id="saved-company-context-title">Company context</h3></div>
+          <button type="button" className={styles.contextRefresh} onClick={() => void query.refetch()} disabled={query.isFetching} aria-label="Refresh company context">{query.isFetching ? "Loading" : "Refresh"}</button>
+        </div>
+        {query.isPending ? <p className={styles.sectionCopy}>Loading company context…</p> : null}
+        {query.isError ? <StatusNotice tone="error" title="Company context unavailable" action={{ label: query.isFetching ? "Retrying…" : "Retry", onAction: () => void query.refetch(), disabled: query.isFetching }}>Your saved entries remain unchanged. Try again to reload them.</StatusNotice> : null}
+        {query.isError && records.length ? <p className={styles.sectionCopy}>Showing the last loaded records; refresh to check for changes.</p> : null}
+        {!query.isPending && !query.isError && records.length === 0 ? <p className={styles.sectionCopy}>No company context saved yet. Start with one current tool or decision constraint.</p> : null}
+        {records.map((record, index) => {
+          const payload = record.payload && typeof record.payload === "object" ? record.payload as Record<string, unknown> : {};
+          const certaintyValue = typeof payload.capture_status === "string" && payload.capture_status in COMPANY_CONTEXT_CERTAINTY
+            ? COMPANY_CONTEXT_CERTAINTY[payload.capture_status as CompanyContextCertainty]
+            : "Provenance not recorded";
+          const recordValue = typeof payload.value === "string" ? payload.value : "Details available in the saved record.";
+          return (
+            <article className={styles.companyContextRecord} key={typeof record.id === "string" ? record.id : `${index}-${String(record.label)}`}>
+              <div><strong>{typeof record.label === "string" ? record.label : "Untitled context"}</strong><span>{typeof record.kind === "string" ? record.kind.replaceAll("_", " ") : "Context"} · {certaintyValue}</span></div>
+              <p>{recordValue}</p>
+              <small>{typeof record.current_version === "number" ? `Version ${record.current_version}` : "Saved"} · {certaintyValue === "Provenance not recorded" ? "provenance not recorded" : "user entered · not independently verified"}</small>
+            </article>
+          );
+        })}
+      </section>
     </div>
   );
 }
@@ -2062,6 +2212,7 @@ function AgentRunPanel({
 
 function ContextPanel({
   mode,
+  actorScope,
   tab,
   expanded,
   onTabChange,
@@ -2080,6 +2231,7 @@ function ContextPanel({
   onBackDecision,
 }: {
   mode: CommerceWorkspaceMode;
+  actorScope: string;
   tab: CommerceContextTab;
   expanded: boolean;
   onTabChange: (tab: CommerceContextTab) => void;
@@ -2121,7 +2273,9 @@ function ContextPanel({
                       ? mode === "sira"
                         ? "Buying decision"
                         : "Product evidence"
-                      : "Connectors"}
+                      : tab === "company-context"
+                        ? "Company context"
+                        : "Connectors"}
         </div>
         <div className={styles.contextHeaderActions}>
           <button
@@ -2146,7 +2300,8 @@ function ContextPanel({
         {tab === "work" && mode === "sira" ? <SiraWorkPanel /> : null}
         {tab === "work" && mode === "seil" ? <SeilWorkPanel /> : null}
         {tab === "decisions" && activeDecision ? <DecisionWorkspacePanel key={`${activeDecision.requestId}:${activeDecision.version}:${activeDecision.stage}`} requestId={activeDecision.requestId} version={activeDecision.version} initialStage={activeDecision.stage} onBack={onBackDecision} /> : null}
-        {tab === "decisions" && !activeDecision ? <DecisionsPanel onStart={onStartChat} onSelect={onSelectDecision} /> : null}
+        {tab === "decisions" && !activeDecision ? <DecisionsPanel onStart={onStartChat} onSelect={onSelectDecision} onOpenCompanyContext={() => onTabChange("company-context")} /> : null}
+        {tab === "company-context" && mode === "sira" ? <CompanyContextPanel actorScope={actorScope} onBack={() => onTabChange("decisions")} /> : null}
         {tab === "inbox" ? <InboxPanel mode={mode} /> : null}
         {tab === "catalog" ? (
           mode === "seil"
@@ -3106,6 +3261,7 @@ export function CommerceWorkspace({
       {contextOpen ? (
         <ContextPanel
           mode={mode}
+          actorScope={firebaseUser?.uid ?? "guest"}
           tab={contextTab}
           expanded={contextExpanded}
           onTabChange={setContextTab}

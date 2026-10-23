@@ -142,6 +142,59 @@ test("buying and selling routes persistently identify their party and stay route
   await expect(page.getByRole("combobox", { name: "Switch buying or selling workspace" })).toHaveCount(0);
 });
 
+test("company context capture keeps certainty, draft, and retry identity with the API record", async ({ page }) => {
+  const idempotencyKeys: string[] = [];
+  let createAttempts = 0;
+  const records: Record<string, unknown>[] = [];
+  await page.route("**/v1/qualification/company-context**", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: records }) });
+      return;
+    }
+    createAttempts += 1;
+    idempotencyKeys.push(route.request().headers()["idempotency-key"] ?? "");
+    const body = route.request().postDataJSON() as { kind: string; label: string; payload: Record<string, unknown> };
+    if (createAttempts === 1) {
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "Temporary failure" }) });
+      return;
+    }
+    records.push({
+      id: "ctxitem_manual_001",
+      kind: body.kind,
+      label: body.label,
+      state: "ACTIVE",
+      current_version: 1,
+      payload: body.payload,
+    });
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({ resource_type: "company_context_item", resource_id: "ctxitem_manual_001", state: "ACTIVE", input_digest: "sha256:test", replayed: false }),
+    });
+  });
+
+  await page.goto("/sira", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Open inspector" }).click();
+  await page.getByRole("button", { name: "Company context" }).click();
+  await expect(page.getByRole("heading", { name: "Company context" }).first()).toBeVisible();
+  await page.getByRole("textbox", { name: "Short title" }).fill("Current CRM");
+  await page.getByRole("textbox", { name: "What should future SIRA work know?" }).fill("The sales team currently uses Acme CRM.");
+  await page.getByRole("combobox", { name: "Record type" }).selectOption("STACK");
+  await page.getByRole("radio", { name: "Inferred by me" }).check();
+  await page.getByRole("button", { name: "Save context" }).click();
+
+  await expect(page.getByRole("alert").filter({ hasText: "Context not saved" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Short title" })).toHaveValue("Current CRM");
+  await page.getByRole("button", { name: "Retry save" }).click();
+  await expect(page.getByText("Current CRM", { exact: true })).toBeVisible();
+  await expect(page.getByText("STACK · Inferred by me", { exact: true })).toBeVisible();
+  await expect(page.getByText("The sales team currently uses Acme CRM.", { exact: true })).toBeVisible();
+  expect(createAttempts).toBe(2);
+  expect(idempotencyKeys[0]).not.toBe("");
+  expect(idempotencyKeys[1]).toBe(idempotencyKeys[0]);
+  expect(records[0].payload).toMatchObject({ capture_status: "INFERRED", capture_source: "USER_ENTERED" });
+});
+
 test("seller product form summarizes validation errors and focuses the linked field", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   let productSearches = 0;
